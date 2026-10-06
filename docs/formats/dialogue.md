@@ -29,7 +29,7 @@ action  x actionCount   (10 bytes each)
 u8[textLength]          text
 ```
 
-Header is 8 bytes. Text follows the actions and is not NUL-terminated by the length; BaKGL reads exactly `textLength` bytes. Our parser decodes them as Latin-1 up to the first NUL. Control/escape bytes in the text *(unverified)* are not interpreted yet.
+Header is 8 bytes. Text follows the actions and is not NUL-terminated by the length; BaKGL reads exactly `textLength` bytes. Our parser decodes them as Latin-1 up to the first NUL. Control bytes in the text are described in section 6 and handled by `src/formats/textCodes.ts`.
 
 ### displayStyle *(per BaKGL comments, unverified)*
 0x00/0x06 centre of full screen; 0x02 action area; 0x03 non-bold at bottom; 0x04 bold at bottom; 0x05 large action area.
@@ -107,3 +107,24 @@ The parser decodes the common fields above into `fields` and always keeps `raw` 
 3. With no choices a snippet ends the dialogue, or follows an earlier PushNextDialog.
 
 Keyword strings (`KEYWORD.DAT`) and NPC names are separate files and are not handled by `ddx.ts`.
+
+## 6. Text control codes
+
+Derived from BaKGL's text box (`gui/textBox.cpp`) for understanding only; tokenizer is `src/formats/textCodes.ts`, used by `src/ui/dialogBox.ts`. Real DDX text confirms control bytes occur (e.g. a leading `0xF3`), so none may reach the glyph renderer.
+
+| Byte | Effect |
+| --- | --- |
+| `\n` | new line (we treat it as a paragraph break with a blank row; empty paragraphs are dropped) |
+| `\t` | four spaces, clears bold |
+| space, `0xE1`-`0xE3` | space (`0xE1`-`0xE3` are half-width book decoration; we draw a normal space); a space clears emphasis and italic |
+| `#` | toggles bold (it is **not** a paragraph break) |
+| `0xF0`, `0xF1` | emphasis (yellow highlight) until the next space |
+| `0xF3` | italic (lowlight colour) until the next space |
+| `0xF4` | toggles "unbold" (muted) |
+| `0xF5` | toggles red |
+| `0xF6` | toggles white |
+| `0xF7` | toggles Moredhel script (BaKGL draws three offset layers; we only tint it) |
+| `0xF8` | half-line advance; we use a forced line break within the paragraph |
+| `0xF9` | toggles inactive (greyed) |
+
+At a paragraph end emphasis, italic, unbold, inactive, red, white and Moredhel reset; bold carries over. Other bytes below 0x20, `0x7F`, `0xF2` and `0xFA`-`0xFF` are unknown and silently dropped. Printable Latin-1 above 0x7F is left alone. Centring and the bold-text bottom box come from the snippet's `displayStyle`, not from in-text codes. The word-wrapper measures glyph widths only, so styles never change line breaking (faux-bold is drawn with a 1px offset).

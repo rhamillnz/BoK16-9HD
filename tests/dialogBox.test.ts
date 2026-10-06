@@ -26,8 +26,8 @@ const font = testFont();
 const opts: BoxLayoutOptions = { scale: 2, box: { x: 10, y: 20, width: 200, height: 100 }, padding: 4 };
 
 describe('wrapping', () => {
-  it('splits paragraphs on # and newlines', () => {
-    expect(splitParagraphs('One#Two\nThree##')).toEqual(['One', 'Two', 'Three']);
+  it('splits paragraphs on newlines', () => {
+    expect(splitParagraphs('One\nTwo\nThree\n\n')).toEqual(['One', 'Two', 'Three']);
   });
   it('wraps greedily at word boundaries', () => {
     // 4px glyphs: 20px = 5 chars per line.
@@ -37,10 +37,19 @@ describe('wrapping', () => {
     expect(wrapParagraph(font, 'abcdefghij', 20)).toEqual(['abcde', 'fghij']);
   });
   it('marks paragraph starts', () => {
-    const lines = wrapText(font, 'ab#cd', 100);
-    expect(lines).toEqual([
-      { text: 'ab', blankBefore: false },
-      { text: 'cd', blankBefore: true },
+    const lines = wrapText(font, 'ab\ncd', 100);
+    expect(lines.map((l) => [l.text, l.blankBefore])).toEqual([
+      ['ab', false],
+      ['cd', true],
+    ]);
+  });
+  it('never wraps control codes into line text', () => {
+    const lines = wrapText(font, '\xf3ab \xf0cd #ef#', 100);
+    expect(lines.map((l) => l.text)).toEqual(['ab cd ef']);
+    expect(lines[0]!.runs!.map((r) => [r.text, r.style.italic, r.style.emphasis, r.style.bold])).toEqual([
+      ['ab', true, false, false],
+      [' cd', false, true, false],
+      [' ef', false, false, true],
     ]);
   });
 });

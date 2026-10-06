@@ -1,12 +1,10 @@
 import type { DialogSnippet } from '../formats/ddx';
 import { glyphFor, measureString, type Font } from '../formats/fnt';
+import { PLAIN_STYLE, sameStyle, tokenizeText, type StyledParagraph, type StyledRun, type TextStyle } from '../formats/textCodes';
 
 /** HUD canvas size (16:9). */
 export const HUD_WIDTH = 2560;
 export const HUD_HEIGHT = 1440;
-
-/** Characters in DDX text that start a new paragraph (BaKGL uses '#'; '\n' is accepted too). */
-const PARAGRAPH_BREAK = /[#\n]/;
 
 export interface Rect {
   x: number;
@@ -52,46 +50,98 @@ export function defaultBoxOptions(canvasWidth = HUD_WIDTH, canvasHeight = HUD_HE
   };
 }
 
+/** Paragraph texts with control codes removed. */
 export function splitParagraphs(text: string): string[] {
-  return text.split(PARAGRAPH_BREAK).map((p) => p.trim()).filter((p) => p.length > 0);
+  return tokenizeText(text).map((p) => p.map((r) => r.text).join(''));
 }
 
-/** Greedy word-wrap of one paragraph to `maxWidth` font pixels. Over-long words are broken per character. */
-export function wrapParagraph(font: Font, text: string, maxWidth: number, spacing = 0): string[] {
-  const lines: string[] = [];
-  let line = '';
-  for (const word of text.split(/\s+/).filter((w) => w.length > 0)) {
-    const candidate = line === '' ? word : `${line} ${word}`;
-    if (measureString(font, candidate, spacing) <= maxWidth) {
+interface Cell {
+  ch: string;
+  style: TextStyle;
+}
+
+function toCells(paragraph: StyledParagraph): Cell[] {
+  const cells: Cell[] = [];
+  for (const run of paragraph) for (const ch of run.text) cells.push({ ch, style: run.style });
+  return cells;
+}
+
+function cellsToRuns(cells: Cell[]): StyledRun[] {
+  const runs: StyledRun[] = [];
+  for (const c of cells) {
+    const last = runs[runs.length - 1];
+    if (last && sameStyle(last.style, c.style)) last.text += c.ch;
+    else runs.push({ text: c.ch, style: c.style });
+  }
+  return runs;
+}
+
+const text = (cells: Cell[]) => cells.map((c) => c.ch).join('');
+
+/** Greedy word-wrap of one styled paragraph. '\n' inside a run forces a line break. Over-long words are broken per character. */
+export function wrapStyled(font: Font, paragraph: StyledParagraph, maxWidth: number, spacing = 0): StyledRun[][] {
+  const lines: Cell[][] = [];
+  let line: Cell[] = [];
+  const fits = (cells: Cell[]) => measureString(font, text(cells), spacing) <= maxWidth;
+  const words: Cell[][] = [];
+  let word: Cell[] = [];
+  const endWord = () => {
+    if (word.length > 0) words.push(word);
+    word = [];
+  };
+  for (const c of toCells(paragraph)) {
+    if (c.ch === '\n') {
+      endWord();
+      words.push([]); // forced break marker
+    } else if (/\s/.test(c.ch)) endWord();
+    else word.push(c);
+  }
+  endWord();
+
+  const space = (w: Cell[]): Cell => ({ ch: ' ', style: w[0]!.style });
+  for (const w of words) {
+    if (w.length === 0) {
+      lines.push(line);
+      line = [];
+      continue;
+    }
+    const candidate = line.length === 0 ? w : [...line, space(w), ...w];
+    if (fits(candidate)) {
       line = candidate;
       continue;
     }
-    if (line !== '') lines.push(line);
-    line = '';
-    let rest = word;
-    while (measureString(font, rest, spacing) > maxWidth && rest.length > 1) {
+    if (line.length > 0) lines.push(line);
+    let rest = w;
+    while (!fits(rest) && rest.length > 1) {
       let n = 1;
-      while (n < rest.length && measureString(font, rest.slice(0, n + 1), spacing) <= maxWidth) n++;
+      while (n < rest.length && fits(rest.slice(0, n + 1))) n++;
       lines.push(rest.slice(0, n));
       rest = rest.slice(n);
     }
     line = rest;
   }
-  if (line !== '') lines.push(line);
-  return lines;
+  if (line.length > 0) lines.push(line);
+  return lines.map(cellsToRuns);
+}
+
+/** Greedy word-wrap of one plain paragraph to `maxWidth` font pixels. */
+export function wrapParagraph(font: Font, text: string, maxWidth: number, spacing = 0): string[] {
+  return wrapStyled(font, [{ text, style: { ...PLAIN_STYLE } }], maxWidth, spacing).map((l) => l.map((r) => r.text).join(''));
 }
 
 /** A wrapped text line; `blankBefore` marks the first line of a paragraph other than the first. */
 export interface TextLine {
   text: string;
   blankBefore: boolean;
+  /** Styled runs making up `text`; absent means one plain run. */
+  runs?: StyledRun[];
 }
 
-export function wrapText(font: Font, text: string, maxWidth: number, spacing = 0): TextLine[] {
+export function wrapText(font: Font, rawText: string, maxWidth: number, spacing = 0): TextLine[] {
   const out: TextLine[] = [];
-  splitParagraphs(text).forEach((para, i) => {
-    wrapParagraph(font, para, maxWidth, spacing).forEach((line, j) => {
-      out.push({ text: line, blankBefore: i > 0 && j === 0 });
+  tokenizeText(rawText).forEach((para, i) => {
+    wrapStyled(font, para, maxWidth, spacing).forEach((runs, j) => {
+      out.push({ text: runs.map((r) => r.text).join(''), runs, blankBefore: i > 0 && j === 0 });
     });
   });
   return out;
@@ -110,7 +160,7 @@ export function paginate(lines: TextLine[], rows: number): TextLine[][] {
       pages.push(page);
       page = [];
       used = 0;
-      line = { text: line.text, blankBefore: false };
+      line = { ...line, blankBefore: false };
       cost = 1;
     }
     page.push(line);
@@ -282,6 +332,12 @@ export interface DialogColors {
   choice: string;
   selected: string;
   more: string;
+  emphasis: string;
+  italic: string;
+  red: string;
+  white: string;
+  inactive: string;
+  moredhel: string;
 }
 
 export const DEFAULT_COLORS: DialogColors = {
@@ -291,7 +347,24 @@ export const DEFAULT_COLORS: DialogColors = {
   choice: '#d8c090',
   selected: '#ffffff',
   more: '#c8a050',
+  emphasis: '#ffe060',
+  italic: '#a08860',
+  red: '#e05040',
+  white: '#ffffff',
+  inactive: '#706850',
+  moredhel: '#80c0a0',
 };
+
+/** Pick the draw colour for a run; later flags win (inactive > moredhel > red > white > emphasis > italic). */
+export function runColor(style: TextStyle, colors: DialogColors): string {
+  if (style.inactive) return colors.inactive;
+  if (style.moredhel) return colors.moredhel;
+  if (style.red) return colors.red;
+  if (style.white) return colors.white;
+  if (style.emphasis) return colors.emphasis;
+  if (style.italic || style.unbold) return colors.italic;
+  return colors.text;
+}
 
 /**
  * Rasterise `text` into an RGBA buffer at an integer `scale` (nearest-neighbour). Pure: returns
@@ -364,7 +437,13 @@ export function drawDialog(
   let y = textArea.y;
   for (const line of layout.pages[state.page] ?? []) {
     if (line.blankBefore) y += rowH;
-    drawText(ctx, font, line.text, textArea.x, y, scale, colors.text, spacing);
+    let x = textArea.x;
+    for (const run of line.runs ?? [{ text: line.text, style: PLAIN_STYLE }]) {
+      const color = runColor(run.style, colors);
+      drawText(ctx, font, run.text, x, y, scale, color, spacing);
+      if (run.style.bold && !run.style.unbold) drawText(ctx, font, run.text, x + scale, y, scale, color, spacing);
+      x += (measureString(font, run.text, spacing) + spacing) * scale;
+    }
     y += rowH;
   }
 
