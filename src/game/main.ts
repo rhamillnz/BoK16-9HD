@@ -2,10 +2,14 @@ import * as THREE from 'three/webgpu';
 import { createStage } from '../render/stage';
 import { FlyCamera } from '../render/flyCamera';
 import { createSky, DOME_RADIUS } from '../render/sky';
-import { PartyController, PartyKeyboard } from '../world/partyController';
+import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
 import { formatClock, shiftMinutes } from '../render/skyMath';
 import { buildZoneScene } from '../render/zoneScene';
 import { ResourceArchive } from '../formats/archive';
+import { parseFNT } from '../formats/fnt';
+import { parseGam } from '../formats/gam';
+import { parseObjInfo } from '../formats/objinfo';
+import { mountHud } from '../ui/hud';
 import { loadChapterStart, loadZone } from '../world/zone';
 
 const stageEl = document.getElementById('stage')!;
@@ -62,6 +66,14 @@ window.addEventListener('keydown', (e) => {
   partyKeys.clear();
 });
 
+// HUD screens: I inventory, C character sheet, Esc closes; movement is ignored while one is open.
+const startup = await fetch('/bak/STARTUP.GAM');
+const screens = mountHud(document.body, {
+  font: parseFNT(archive.get('GAME.FNT')),
+  save: parseGam(new Uint8Array(await startup.arrayBuffer())),
+  items: parseObjInfo(archive.get('OBJINFO.DAT')).items,
+});
+
 let last = performance.now();
 let frames = 0;
 let fpsTime = 0;
@@ -73,7 +85,7 @@ renderer.setAnimationLoop(() => {
   if (flyMode) {
     fly.update(dt);
   } else {
-    party.update(dt, partyKeys.read());
+    party.update(dt, screens.blocking ? NO_INPUT : partyKeys.read());
     party.applyToCamera(camera);
   }
   renderer.render(scene, camera);
