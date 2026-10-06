@@ -10,6 +10,8 @@ import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
+import { createWorldState } from './state';
+import { EncounterDriver, encounterResourceNames, loadEncounterRunner, prefetchResources } from './encounterDriver';
 import { mountHud } from '../ui/hud';
 import { loadChapterStart, loadZone } from '../world/zone';
 
@@ -71,11 +73,36 @@ window.addEventListener('keydown', (e) => {
 
 // HUD screens: I inventory, C character sheet, Esc closes; movement is ignored while one is open.
 const startup = await fetch('/bak/STARTUP.GAM');
+const save = parseGam(new Uint8Array(await startup.arrayBuffer()));
 const screens = mountHud(document.body, {
   font: parseFNT(archive.get('GAME.FNT')),
-  save: parseGam(new Uint8Array(await startup.arrayBuffer())),
+  save,
   items: parseObjInfo(archive.get('OBJINFO.DAT')).items,
 });
+
+let prevX = party.x;
+let prevY = party.y;
+
+// Encounters: dialogue and other triggers fire as the party walks into their rectangles.
+const encounters = new EncounterDriver(
+  loadEncounterRunner({
+    read: await prefetchResources(archive, encounterResourceNames(start.zone, zoneData.tiles)),
+    zone: start.zone,
+    tiles: zoneData.tiles,
+    chapter: start.chapter,
+    world: createWorldState(save),
+  }),
+  (view, done) => screens.showDialog(view.snippet, view.options.map((o) => o.label), (r) => r.kind !== 'none' && done(r)),
+  {
+    other: (e) => console.log('encounter (not run yet):', e.encounter.record.action, e.encounter.record),
+    blocked: () => party.setPosition(prevX, prevY),
+    finished: ({ session }) => {
+      if (session.teleport !== undefined) console.log('dialogue teleport (not run yet):', session.teleport);
+      if (session.pendingActions.length) console.log('dialogue actions (not applied yet):', session.pendingActions.map((a) => a.name ?? a.type));
+      if (session.warnings.length) console.warn(session.warnings);
+    },
+  },
+);
 
 let last = performance.now();
 let frames = 0;
@@ -88,8 +115,11 @@ renderer.setAnimationLoop(() => {
   if (flyMode) {
     fly.update(dt);
   } else {
+    prevX = party.x;
+    prevY = party.y;
     party.update(dt, screens.blocking ? NO_INPUT : partyKeys.read());
     party.applyToCamera(camera);
+    if (!screens.blocking) encounters.update(party.x, party.y);
   }
   renderer.render(scene, camera);
 

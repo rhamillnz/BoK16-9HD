@@ -63,12 +63,12 @@ describe('HudScreens', () => {
     expect(h.screen).toBe('none');
   });
 
-  it('finishes a dialogue when Escape closes it', () => {
+  it('cancels a dialogue when Escape closes it', () => {
     const h = hud();
     const results: string[] = [];
     h.showDialog({ text: 'Hi', displayStyle3: 0 }, [], (r) => results.push(r.kind));
     h.keyDown('Escape', 'Escape');
-    expect(results).toEqual(['finish']);
+    expect(results).toEqual(['cancel']);
     expect(h.blocking).toBe(false);
   });
 });
