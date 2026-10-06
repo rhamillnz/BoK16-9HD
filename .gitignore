@@ -14,3 +14,7 @@ shots/
 
 # Reference geometry exported from the original game data - never commit
 art/reference/
+
+# Local upscaler environment and model weights
+tools/upscale/.venv/
+tools/upscale/models/
