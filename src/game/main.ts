@@ -10,6 +10,7 @@ import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
+import { loadItemIcons } from '../data/itemIcons';
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
@@ -77,6 +78,7 @@ const screens = mountHud(document.body, {
   font: parseFNT(archive.get('GAME.FNT')),
   save,
   items: parseObjInfo(archive.get('OBJINFO.DAT')).items,
+  icons: loadItemIcons(archive),
 });
 
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.

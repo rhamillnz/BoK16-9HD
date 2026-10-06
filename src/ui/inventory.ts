@@ -1,6 +1,7 @@
 import type { Character, GamSave, InventoryItem } from '../formats/gam';
 import { glyphFor, measureString, type Font } from '../formats/fnt';
 import { ItemType, type ItemDef } from '../formats/objinfo';
+import { fitScale, resolveItemIcon, type ItemIconSet } from '../data/itemIcons';
 import { HUD_HEIGHT, HUD_WIDTH, chooseScale, type Rect } from './dialogBox';
 
 /** Slots per row in the item grid. */
@@ -238,7 +239,23 @@ function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: nu
   }
 }
 
-/** Draw one character's inventory screen. Item icons are placeholders keyed by imageIndex. */
+/** Draw an item icon centred in `box`, scaled by an integer factor with nearest-neighbour sampling. */
+function drawIcon(ctx: CanvasRenderingContext2D, icons: ItemIconSet, imageIndex: number, box: Rect): boolean {
+  const icon = resolveItemIcon(icons, imageIndex);
+  if (!icon) return false;
+  const k = fitScale(icon.width, icon.height, box.width, box.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = icon.width;
+  canvas.height = icon.height;
+  canvas.getContext('2d')!.putImageData(new ImageData(icon.rgba, icon.width, icon.height), 0, 0);
+  const prev = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(canvas, box.x + Math.floor((box.width - icon.width * k) / 2), box.y + Math.floor((box.height - icon.height * k) / 2), icon.width * k, icon.height * k);
+  ctx.imageSmoothingEnabled = prev;
+  return true;
+}
+
+/** Draw one character's inventory screen. Without `icons` (or for unknown images) a placeholder box is drawn. */
 export function drawInventory(
   ctx: CanvasRenderingContext2D,
   font: Font,
@@ -247,6 +264,7 @@ export function drawInventory(
   party: Character[],
   defs: ItemDef[],
   colors: InventoryColors = INVENTORY_COLORS,
+  icons?: ItemIconSet,
 ): void {
   const { scale, panel } = layout;
   ctx.fillStyle = colors.background;
@@ -269,12 +287,14 @@ export function drawInventory(
     const item = items[slot.index];
     if (!item) continue;
     const s = summarizeItem(item, defs);
-    ctx.fillStyle = colors.icon;
-    ctx.fillRect(slot.icon.x, slot.icon.y, slot.icon.width, slot.icon.height);
+    if (!icons || !drawIcon(ctx, icons, s.imageIndex, slot.icon)) {
+      ctx.fillStyle = colors.icon;
+      ctx.fillRect(slot.icon.x, slot.icon.y, slot.icon.width, slot.icon.height);
+      drawText(ctx, font, String(s.imageIndex), slot.icon.x + scale, slot.icon.y + scale, scale, colors.text, slot.icon.width);
+    }
     const tx = slot.icon.x + slot.icon.width + 2 * scale;
     const tw = slot.rect.x + slot.rect.width - tx - scale;
     const nameWidth = s.equipped ? tw - (font.maxWidth + 3) * scale : tw;
-    drawText(ctx, font, String(s.imageIndex), slot.icon.x + scale, slot.icon.y + scale, scale, colors.text, slot.icon.width);
     drawText(ctx, font, s.name, tx, slot.rect.y + 2 * scale, scale, colors.text, nameWidth);
     drawText(ctx, font, s.amount, tx, slot.rect.y + 2 * scale + (font.height + 2) * scale, scale, colors.text, tw);
     if (s.equipped) drawText(ctx, font, 'E', slot.rect.x + slot.rect.width - (font.maxWidth + 2) * scale, slot.rect.y + 2 * scale, scale, colors.equipped);
