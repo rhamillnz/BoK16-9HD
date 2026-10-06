@@ -1,28 +1,41 @@
 import * as THREE from 'three/webgpu';
 import { createStage } from '../render/stage';
 import { FlyCamera } from '../render/flyCamera';
+import { createSky, DOME_RADIUS } from '../render/sky';
+import { formatClock, shiftMinutes } from '../render/skyMath';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
 
 const { renderer, camera, backend } = await createStage(stageEl);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8fb4d8);
-scene.fog = new THREE.Fog(0x8fb4d8, 20_000, 120_000);
+const sky = createSky(scene);
 
-const sun = new THREE.DirectionalLight(0xfff1d6, 2.5);
-sun.position.set(30_000, 50_000, 20_000);
-scene.add(sun, new THREE.HemisphereLight(0xbcd4f0, 0x4a3b28, 1.2));
+// World units: 1 unit = 100 game units.
+camera.near = 0.1;
+camera.far = DOME_RADIUS * 4;
+camera.updateProjectionMatrix();
 
 // Placeholder ground until zone loading lands.
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(200_000, 200_000).rotateX(-Math.PI / 2),
+  new THREE.PlaneGeometry(4_000, 4_000).rotateX(-Math.PI / 2),
   new THREE.MeshStandardMaterial({ color: 0x5d6e3a, roughness: 1 }),
 );
 scene.add(ground);
 
-camera.position.set(0, 400, 0);
+// Time of day: [ and ] step the clock by 30 minutes.
+const TIME_STEP = 30;
+let minutes = 10 * 60;
+sky.update(minutes);
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'BracketLeft' && e.code !== 'BracketRight') return;
+  minutes = shiftMinutes(minutes, e.code === 'BracketLeft' ? -TIME_STEP : TIME_STEP);
+  sky.update(minutes);
+});
+
+camera.position.set(0, 4, 0);
 const fly = new FlyCamera(camera, renderer.domElement);
+fly.speed = 20; // world units per second
 
 let last = performance.now();
 let frames = 0;
@@ -43,5 +56,5 @@ renderer.setAnimationLoop(() => {
     fpsTime = 0;
   }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  hud.textContent = `${backend}  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(0)).join(', ')}`;
+  hud.textContent = `${formatClock(minutes)}  [ ] ±30 min\n${backend}  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
 });
