@@ -11,6 +11,8 @@ import { parseFNT } from '../formats/fnt';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
 import { mountHud } from '../ui/hud';
+import { createBrowserMusicPlayer } from '../audio/music';
+import { songForZone } from '../audio/songs';
 import { loadChapterStart, loadZone } from '../world/zone';
 
 const stageEl = document.getElementById('stage')!;
@@ -77,6 +79,13 @@ const screens = mountHud(document.body, {
   items: parseObjInfo(archive.get('OBJINFO.DAT')).items,
 });
 
+// Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
+const music = createBrowserMusicPlayer({ volume: 0.7 });
+void music.play(num('song', songForZone(start.zone))).catch((err) => console.warn('Music unavailable:', err));
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
+});
+
 let last = performance.now();
 let frames = 0;
 let fpsTime = 0;
@@ -101,5 +110,5 @@ renderer.setAnimationLoop(() => {
     fpsTime = 0;
   }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  hud.textContent = `${formatClock(minutes)}  [ ] ±30 min  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneInfo}\n${backend}  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
+  hud.textContent = `${formatClock(minutes)}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneInfo}\n${backend}  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
 });
