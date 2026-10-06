@@ -50,6 +50,10 @@ The record index is the item id used by inventories and shops.
 
 Weapon modifiers: bit `n` of `modifierMask >> 8` enables entry `n` of Flaming, SteelFire, Frost, Enhancement1, Enhancement2, Blessing1, Blessing2, Blessing3.
 
+## Icons
+
+Per BaKGL's `Icons` loader, `INVSHP1.BMX` and `INVSHP2.BMX` are appended into one image list drawn with `OPTIONS.PAL`, and `imageIndex` indexes that combined list directly (INVSHP2 images follow the last INVSHP1 image). Each image has its own width and height. Implemented in `src/data/itemIcons.ts`; not yet verified against the real files.
+
 ## Open questions
 
 - Meaning of `unknown1`, `unknown2` and the bits of `flags`.

@@ -1,3 +1,4 @@
+import type { ItemIconSet } from '../data/itemIcons';
 import type { Font } from '../formats/fnt';
 import type { GamSave } from '../formats/gam';
 import type { ItemDef } from '../formats/objinfo';
@@ -22,6 +23,8 @@ export interface HudData {
   font: Font;
   save: GamSave;
   items: ItemDef[];
+  /** Inventory item images; placeholders are drawn when absent. */
+  icons?: ItemIconSet;
 }
 
 type DialogSnippet = Parameters<typeof layoutDialog>[1];
@@ -141,7 +144,7 @@ export class HudScreens {
     this.dirty = false;
     const { font, items } = this.data;
     if (this.screen === 'inventory' && this.inventory) {
-      drawInventory(ctx, font, this.inventory.layout, this.inventory.state, this.party, items);
+      drawInventory(ctx, font, this.inventory.layout, this.inventory.state, this.party, items, undefined, this.data.icons);
     } else if (this.screen === 'sheet' && this.sheet) {
       const { layout, models, state } = this.sheet;
       drawCharacterSheet(ctx, font, layout, models[state.tab] ?? models[0]!, state);

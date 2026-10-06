@@ -10,6 +10,7 @@ import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
+import { loadItemIcons } from '../data/itemIcons';
 import { mountHud } from '../ui/hud';
 import { loadChapterStart, loadZone } from '../world/zone';
 
@@ -75,6 +76,7 @@ const screens = mountHud(document.body, {
   font: parseFNT(archive.get('GAME.FNT')),
   save: parseGam(new Uint8Array(await startup.arrayBuffer())),
   items: parseObjInfo(archive.get('OBJINFO.DAT')).items,
+  icons: loadItemIcons(archive),
 });
 
 let last = performance.now();
