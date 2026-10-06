@@ -8,9 +8,12 @@ import { formatClock, shiftMinutes } from '../render/skyMath';
 import { buildZoneScene, collectTerrainTriangles } from '../render/zoneScene';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
+import { parseBMX } from '../formats/bmx';
+import { parsePalette } from '../formats/palette';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
 import { mountHud } from '../ui/hud';
+import { portraitCanvases } from '../ui/partyBar';
 import { loadChapterStart, loadZone } from '../world/zone';
 
 const stageEl = document.getElementById('stage')!;
@@ -75,6 +78,7 @@ const screens = mountHud(document.body, {
   font: parseFNT(archive.get('GAME.FNT')),
   save: parseGam(new Uint8Array(await startup.arrayBuffer())),
   items: parseObjInfo(archive.get('OBJINFO.DAT')).items,
+  portraits: portraitCanvases(parseBMX(archive.get('HEADS.BMX')), parsePalette(archive.get('OPTIONS.PAL'))),
 });
 
 let last = performance.now();

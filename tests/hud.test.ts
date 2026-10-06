@@ -11,13 +11,14 @@ function testFont(): Font {
 }
 
 function character(index: number, name: string): Character {
-  const skill = { max: 50, current: 40, modifier: 0, selected: false, unseenImprovement: false } as unknown as Skill;
+  const skill = { max: 50, trueSkill: 40, current: 40, modifier: 0, selected: false, unseenImprovement: false } as unknown as Skill;
   return {
     index,
     name,
     spells: [],
     skills: Object.fromEntries(SKILL_NAMES.map((n) => [n, { ...skill }])),
     conditions: Object.fromEntries(CONDITION_NAMES.map((n) => [n, 0])),
+    affectors: [],
     inventory: { capacity: 8, items: [] },
   } as unknown as Character;
 }
