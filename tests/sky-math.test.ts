@@ -151,7 +151,7 @@ describe('sampleKeyframes', () => {
 describe('computeSkyState', () => {
   it('is bright and sunlit at noon', () => {
     const s = computeSkyState(h(12));
-    expect(s.keyDir).toEqual(s.sunDir);
+    s.keyDir.forEach((c, i) => expect(c).toBeCloseTo(s.sunDir[i]!, 5));
     expect(s.keyIntensity).toBeGreaterThan(2);
     expect(s.sunVisibility).toBe(1);
     expect(s.starAlpha).toBe(0);
@@ -160,8 +160,9 @@ describe('computeSkyState', () => {
 
   it('switches the key light to the moon at night, dimmer but present', () => {
     const s = computeSkyState(0);
-    expect(s.keyDir).toEqual(s.moonDir);
-    expect(s.keyDir[1]).toBeGreaterThan(0);
+    // The moon light is lifted/capped in elevation but still comes from the moon's side.
+    expect(s.keyDir[0] * s.moonDir[0] + s.keyDir[2] * s.moonDir[2]).toBeGreaterThanOrEqual(0);
+    expect(s.keyDir[1]).toBeGreaterThan(0.5);
     expect(s.keyIntensity).toBeGreaterThan(0.3);
     expect(s.keyIntensity).toBeLessThanOrEqual(MOON_INTENSITY);
     expect(s.starAlpha).toBe(1);
@@ -195,13 +196,34 @@ describe('computeSkyState', () => {
     }
   });
 
-  it('has the key light fade to zero at the horizon so the sun/moon hand-over does not pop', () => {
-    expect(computeSkyState(h(6)).keyIntensity).toBeCloseTo(0, 5);
-    expect(computeSkyState(h(18)).keyIntensity).toBeCloseTo(0, 5);
-    const justUp = computeSkyState(h(6, 1));
-    const justDown = computeSkyState(h(5, 59));
-    expect(justUp.keyIntensity).toBeLessThan(0.05);
-    expect(justDown.keyIntensity).toBeLessThan(0.05);
+  it('crossfades sun and moon so the key light never drops out at the horizon', () => {
+    for (const m of [h(5, 30), h(6), h(6, 30), h(17, 30), h(18), h(18, 30)]) {
+      const s = computeSkyState(m);
+      expect(s.keyIntensity, formatClock(m)).toBeGreaterThanOrEqual(MOON_INTENSITY - 1e-9);
+      expect(s.keyDir[1], formatClock(m)).toBeGreaterThan(0.2);
+      expect(len(s.keyDir), formatClock(m)).toBeCloseTo(1, 5);
+    }
+  });
+
+  it('lights twilight with a strong, warm hemisphere', () => {
+    for (const m of [h(5, 30), h(6), h(6, 30), h(17, 30), h(18), h(18, 30)]) {
+      const s = computeSkyState(m);
+      expect(s.hemiIntensity, formatClock(m)).toBeCloseTo(1.8, 5);
+      expect(s.hemiSky[0], formatClock(m)).toBeGreaterThan(s.hemiSky[2]);
+    }
+  });
+
+  it('never lights the ground less than at midnight (twilight is not darker than night)', () => {
+    const ground = (m: number) => {
+      const s = computeSkyState(m);
+      return (
+        s.keyIntensity * luma(s.keyColor) * Math.max(0, s.keyDir[1]) + s.hemiIntensity * luma(s.hemiSky)
+      );
+    };
+    const midnight = ground(0);
+    for (let m = 0; m < MINUTES_PER_DAY; m += 15) {
+      expect(ground(m), formatClock(m)).toBeGreaterThanOrEqual(midnight - 1e-9);
+    }
   });
 
   it('changes smoothly: no large jumps in any lighting value between adjacent minutes', () => {

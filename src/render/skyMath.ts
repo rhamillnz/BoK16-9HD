@@ -87,13 +87,22 @@ export interface Keyframe<T> {
   value: T;
 }
 
+/** A copy of the frames ordered by minute. */
+export function sortKeyframes<T>(frames: readonly Keyframe<T>[]): Keyframe<T>[] {
+  return [...frames].sort((a, b) => a.minute - b.minute);
+}
+
+const isSorted = (frames: readonly Keyframe<unknown>[]): boolean =>
+  frames.every((f, i) => i === 0 || frames[i - 1]!.minute <= f.minute);
+
 /**
  * Linear interpolation between keyframes, wrapping around midnight so the last
  * and first frames blend smoothly. Frames need not be sorted.
  */
 export function sampleKeyframes<T extends number[]>(frames: readonly Keyframe<T>[], minutes: number): T {
   if (frames.length === 0) throw new Error('sampleKeyframes: no keyframes');
-  const sorted = [...frames].sort((a, b) => a.minute - b.minute);
+  // Tables built with sortKeyframes() are already ordered; only sort unsorted input.
+  const sorted = isSorted(frames) ? frames : sortKeyframes(frames);
   const t = wrapMinutes(minutes);
   const first = sorted[0]!;
   const last = sorted[sorted.length - 1]!;
@@ -119,7 +128,9 @@ export function sampleKeyframes<T extends number[]>(frames: readonly Keyframe<T>
 
 const hm = (h: number, m = 0): number => h * 60 + m;
 const rgbFrames = (rows: [number, number][]): Keyframe<Rgb>[] =>
-  rows.map(([minute, hex]) => ({ minute, value: hexToRgb(hex) }));
+  sortKeyframes(rows.map(([minute, hex]) => ({ minute, value: hexToRgb(hex) })));
+const scalarFrames = (rows: [number, number][]): Keyframe<[number]>[] =>
+  sortKeyframes(rows.map(([minute, v]) => ({ minute, value: [v] as [number] })));
 
 /** Dome colour straight overhead. */
 export const ZENITH_FRAMES = rgbFrames([
@@ -163,7 +174,7 @@ export const SUN_COLOR_FRAMES = rgbFrames([
 ]);
 
 /** Sunlight strength before the low-elevation fade. */
-export const SUN_INTENSITY_FRAMES: Keyframe<[number]>[] = [
+export const SUN_INTENSITY_FRAMES = scalarFrames([
   [hm(5, 30), 1.2],
   [hm(6, 30), 1.6],
   [hm(8), 2.2],
@@ -171,16 +182,18 @@ export const SUN_INTENSITY_FRAMES: Keyframe<[number]>[] = [
   [hm(16), 2.3],
   [hm(17, 30), 1.8],
   [hm(18, 30), 1.2],
-].map(([minute, v]) => ({ minute: minute!, value: [v!] as [number] }));
+]);
 
 export const HEMI_SKY_FRAMES = rgbFrames([
   [hm(0), 0x8ea8e8],
   [hm(4, 30), 0x8ea8e8],
-  [hm(5, 45), 0xe0b090],
-  [hm(7), 0xbcd4f0],
+  [hm(5, 30), 0xf2c49a],
+  [hm(6, 30), 0xf0cca8],
+  [hm(7, 30), 0xbcd4f0],
   [hm(12), 0xbcd4f0],
-  [hm(17), 0xbcd4f0],
-  [hm(18), 0xe0a898],
+  [hm(16, 30), 0xbcd4f0],
+  [hm(17, 30), 0xf2c49a],
+  [hm(18, 30), 0xeeb899],
   [hm(19, 30), 0x8ea8e8],
   [hm(21, 30), 0x8ea8e8],
 ]);
@@ -188,26 +201,30 @@ export const HEMI_SKY_FRAMES = rgbFrames([
 export const HEMI_GROUND_FRAMES = rgbFrames([
   [hm(0), 0x3a4660],
   [hm(4, 30), 0x3a4660],
-  [hm(5, 45), 0x4a3a40],
-  [hm(7), 0x4a3b28],
-  [hm(17), 0x4a3b28],
-  [hm(18), 0x4a3a40],
+  [hm(5, 30), 0x6a5448],
+  [hm(6, 30), 0x6a5444],
+  [hm(7, 30), 0x4a3b28],
+  [hm(16, 30), 0x4a3b28],
+  [hm(17, 30), 0x6a5444],
+  [hm(18, 30), 0x645048],
   [hm(19, 30), 0x3a4660],
   [hm(21, 30), 0x3a4660],
 ]);
 
 /** Hemisphere (ambient) intensity. Deliberately well above zero at night. */
-export const HEMI_INTENSITY_FRAMES: Keyframe<[number]>[] = [
+export const HEMI_INTENSITY_FRAMES = scalarFrames([
   [hm(0), 1.4],
   [hm(4, 30), 1.4],
-  [hm(5, 45), 1.3],
-  [hm(7), 1.1],
+  [hm(5, 30), 1.8],
+  [hm(6, 30), 1.8],
+  [hm(7, 30), 1.15],
   [hm(12), 1.2],
-  [hm(17), 1.1],
-  [hm(18), 1.3],
+  [hm(16, 30), 1.1],
+  [hm(17, 30), 1.8],
+  [hm(18, 30), 1.8],
   [hm(19, 30), 1.4],
   [hm(21, 30), 1.4],
-].map(([minute, v]) => ({ minute: minute!, value: [v!] as [number] }));
+]);
 
 export const MOON_COLOR: Rgb = hexToRgb(0x9bb4ff);
 export const MOON_INTENSITY = 0.8;
@@ -224,7 +241,7 @@ export interface SkyState {
   horizon: Rgb;
   /** Sunlight colour (valid even when the sun is down; used for the disc and glow). */
   sunColor: Rgb;
-  /** Directional light: the sun while it is up, otherwise the moon. */
+  /** Directional light: the sun by day, the moon at night, crossfaded through twilight. */
   keyDir: Vec3;
   keyColor: Rgb;
   keyIntensity: number;
@@ -239,28 +256,55 @@ export interface SkyState {
   starAlpha: number;
 }
 
-/** Elevation (sin of altitude) over which the key light fades in after rising. */
-const KEY_FADE_ELEVATION = 0.15;
+/**
+ * The sun's key-light weight ramps in over this elevation range (sin of altitude),
+ * starting below the horizon so twilight is never unlit. The moon takes the rest.
+ */
+const KEY_FADE_FROM = -0.08;
+const KEY_FADE_TO = 0.12;
+/** While the sun and moon trade places their directions are lifted to at least this elevation. */
+const KEY_MIN_ELEVATION = 0.35;
+
+const liftDirection = ([x, y, z]: Vec3): Vec3 => [x, Math.max(y, KEY_MIN_ELEVATION), z];
+/**
+ * The moon light comes from the moon's side of the sky but at a fixed elevation, so night
+ * lighting is flat (it neither peaks at midnight nor dips as the moon sinks). The disc itself
+ * still follows moonDirection.
+ */
+const MOON_KEY_ELEVATION = 0.6;
+const moonKeyDirection = ([x, , z]: Vec3): Vec3 => {
+  const k = Math.sqrt(1 - MOON_KEY_ELEVATION ** 2) / (Math.hypot(x, z) || 1);
+  return [x * k, MOON_KEY_ELEVATION, z * k];
+};
 
 export function computeSkyState(minutes: number): SkyState {
   const sunDir = sunDirection(minutes);
   const moonDir = moonDirection(minutes);
-  const sunUp = sunDir[1] > 0;
 
-  const sunFade = smoothstep(0, KEY_FADE_ELEVATION, sunDir[1]);
-  const moonFade = smoothstep(0, KEY_FADE_ELEVATION, moonDir[1]);
+  // Crossfade sun -> moon. Opposite horizontal directions cancel while both lights are low,
+  // leaving a high-ish light that keeps the ground lit; the weights sum to 1 so it never dips.
+  const sunW = smoothstep(KEY_FADE_FROM, KEY_FADE_TO, sunDir[1]);
+  const moonW = 1 - sunW;
+  const sunLift = liftDirection(sunDir);
+  const moonLift = moonKeyDirection(moonDir);
+  const blended: Vec3 = [
+    sunLift[0] * sunW + moonLift[0] * moonW,
+    sunLift[1] * sunW + moonLift[1] * moonW,
+    sunLift[2] * sunW + moonLift[2] * moonW,
+  ];
+  const blendedLen = Math.hypot(...blended);
+  const keyDir = blended.map((v) => v / blendedLen) as Vec3;
+  const sunColor = sampleKeyframes(SUN_COLOR_FRAMES, minutes);
 
   return {
     sunDir,
     moonDir,
     zenith: sampleKeyframes(ZENITH_FRAMES, minutes),
     horizon: sampleKeyframes(HORIZON_FRAMES, minutes),
-    sunColor: sampleKeyframes(SUN_COLOR_FRAMES, minutes),
-    keyDir: sunUp ? sunDir : moonDir,
-    keyColor: sunUp ? sampleKeyframes(SUN_COLOR_FRAMES, minutes) : MOON_COLOR,
-    keyIntensity: sunUp
-      ? sampleKeyframes(SUN_INTENSITY_FRAMES, minutes)[0] * sunFade
-      : MOON_INTENSITY * moonFade,
+    sunColor,
+    keyDir,
+    keyColor: lerpRgb(MOON_COLOR, sunColor, sunW),
+    keyIntensity: sampleKeyframes(SUN_INTENSITY_FRAMES, minutes)[0] * sunW + MOON_INTENSITY * moonW,
     hemiSky: sampleKeyframes(HEMI_SKY_FRAMES, minutes),
     hemiGround: sampleKeyframes(HEMI_GROUND_FRAMES, minutes),
     hemiIntensity: sampleKeyframes(HEMI_INTENSITY_FRAMES, minutes)[0],
