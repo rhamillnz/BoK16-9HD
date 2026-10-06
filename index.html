@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Krondor Asset Viewer</title>
+    <link rel="stylesheet" href="/src/viewer/viewer.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Krondor Asset Viewer</h1>
+      <input id="filter" type="search" placeholder="Filter (e.g. .BMX, ACT, Z01)" />
+      <label>Palette <select id="palette"></select></label>
+      <label>Scale <select id="scale"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>6</option></select></label>
+      <label class="loader" hidden id="loader">Game folder <input id="folder" type="file" webkitdirectory /></label>
+      <span id="status"></span>
+    </header>
+    <main>
+      <nav id="list"></nav>
+      <section id="view"></section>
+    </main>
+    <script type="module" src="/src/viewer/main.ts"></script>
+  </body>
+</html>

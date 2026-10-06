@@ -1,0 +1,9 @@
+node_modules/
+dist/
+# Original game data must never be committed
+*.001
+*.RMF
+*.BMX
+*.PAL
+
+*.log
