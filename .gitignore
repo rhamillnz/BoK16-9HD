@@ -7,3 +7,6 @@ dist/
 *.PAL
 
 *.log
+
+# Downloaded third-party source art (mixed licences, large files) - see art/README.md
+art/incoming/
