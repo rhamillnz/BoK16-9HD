@@ -44,15 +44,16 @@ function makePolygon(points: number[]): CollisionPolygon {
  * counter-clockwise seen from above, matching the ToGlAngle conversion in §4.2–4.3.
  * A clip with no elements falls back to its bounding rectangle (±radiusX, ±radiusY).
  */
-export function placeClip(clip: ModelClip, item: Pick<WorldItem, 'x' | 'y' | 'zRot'>): CollisionPolygon[] {
+export function placeClip(clip: ModelClip, item: Pick<WorldItem, 'x' | 'y' | 'zRot'>, scale = 1): CollisionPolygon[] {
   const a = angleToRadians(item.zRot);
   const cos = Math.cos(a);
   const sin = Math.sin(a);
+  // Clip points are stored unscaled, like model vertices; `scale` is the model's 2^scale factor.
   const xf = (pts: number[]) => {
     const out: number[] = [];
     for (let i = 0; i < pts.length; i += 2) {
-      const x = pts[i]!;
-      const y = pts[i + 1]!;
+      const x = pts[i]! * scale;
+      const y = pts[i + 1]! * scale;
       out.push(item.x + x * cos - y * sin, item.y + x * sin + y * cos);
     }
     return out;
@@ -71,13 +72,15 @@ export function buildCollisionPolygons(
   items: readonly WorldItem[],
   clips: readonly (ModelClip | undefined)[],
   options: ClipPlacementOptions = {},
+  /** Per-model 2^scale factors, indexed like `clips`; defaults to 1. */
+  scales: readonly number[] = [],
 ): CollisionPolygon[] {
   const out: CollisionPolygon[] = [];
   for (const item of items) {
     if (item.type === 0) continue;
     const clip = clips[item.type];
     if (!clip || (clip.walkable && !options.includeWalkable)) continue;
-    out.push(...placeClip(clip, item));
+    out.push(...placeClip(clip, item, scales[item.type] ?? 1));
   }
   return out;
 }
