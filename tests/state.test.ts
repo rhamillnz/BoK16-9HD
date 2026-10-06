@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GAM_OFFSETS as O, decodeTime, type GamSave } from '../src/formats/gam';
 import {
   TIMES, advanceTime, createWorldState, getFlag, hoursUntil, minutesSinceMidnight,
-  restHealPerHour, restOneHour, setFlag, worldMinutes, worldTime,
+  restHealPerHour, restOneHour, setFlag, startChapter, worldMinutes, worldTime,
 } from '../src/game/state';
 
 function save(ticks = 0, slept = 0, events: GamSave['expiringEvents'] = []): GamSave {
@@ -106,5 +106,17 @@ describe('resting', () => {
   it('heal per hour doubles under the healing condition', () => {
     expect(restHealPerHour(0x64, false)).toBe(1);
     expect(restHealPerHour(0x64, true)).toBe(2);
+  });
+});
+
+describe('startChapter', () => {
+  it('skips to the next midnight plus the chapter time change and resets the sleep stamp', () => {
+    const s = startChapter(createWorldState(save(TIMES.oneDay * 2 + TIMES.oneHour * 5)), 2, 0x1234);
+    expect(s.chapter).toBe(2);
+    expect(s.ticks).toBe(TIMES.oneDay * 3 + 0x1234);
+    expect(s.ticksLastSlept).toBe(s.ticks);
+  });
+  it('a time exactly at midnight still moves to the following day', () => {
+    expect(startChapter(createWorldState(save(TIMES.oneDay)), 1, 0).ticks).toBe(TIMES.oneDay * 2);
   });
 });
