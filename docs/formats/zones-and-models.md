@@ -344,6 +344,12 @@ Contains chapter-specific trigger regions, enemy encounters, and scripted events
     | `completionState` | `u16` | Quest/event flag set upon completing this encounter |
     | `repeatable` | `u16` | Flag indicating if trigger can fire repeatedly |
 
+**Type ids** (`LIST_TYP.DAT` order): 0 background, 1 combat, 2 comment, 3 dialog, 4 health, 5 sound, 6 town, 7 trap, 8 zone, 9 disable, 10 enable, 11 block. `encounterTableIndex` indexes the matching `DEF_*.DAT` (BaKGL has no definitions for comment, health or sound). BaKGL reads 10 chapter blocks, so files may hold more than 9.
+
+**Trigger rectangle**: cells `left..right` and `bottom..top` are inclusive (BaK y is north-up, so `top >= bottom`), i.e. the world rectangle is `[left*1600, (right+1)*1600) x [bottom*1600, (top+1)*1600)` offset by the tile origin.
+
+**Activity** (`CheckEncounterActive`): inactive if `requiredState != 0` and that flag is clear, or `inhibitState != 0` and that flag is set, or the per-encounter "already encountered" save flag is set. On completion `completionState` is set; unless `repeatable != 0` a non-zero `chapterFlag` also sets the per-encounter flag so it will not fire again this chapter. Implemented in `src/formats/encounters.ts` and `src/world/encounters.ts` (the per-encounter seen flag is left to the caller).
+
 ---
 
 ### 3.7 Fixed Interactive Objects (`OBJFIXED.DAT`)
@@ -469,7 +475,7 @@ The initial player location when starting a chapter is loaded from `CHAP<chapter
 |---|---|---|---|
 | `+0x00` | `fileChapter` | `u16` | Chapter number |
 | `+0x02` | `gold` | `u32` | Party gold (**Unclear in BaKGL**: skipped, always zero) |
-| `+0x06` | `timeChange` | `u32` | Initial game clock time delta |
+| `+0x06` | `timeChange` | `u32` | Ticks added after the next midnight when the chapter begins (BaKGL `TransitionToChapter`: `time = nextMidnight + timeChange`, and time-last-slept is set to it). Implemented as `startChapter` in `src/game/state.ts`. |
 | `+0x0A` | `padding` | `u8[6]` | 6 skipped bytes |
 | `+0x10` | `zone` | `u8` | Zone number to load (e.g. `1` for Chapter 1) |
 | `+0x11` | `tileX` | `u8` | Tile coordinate $X$ |

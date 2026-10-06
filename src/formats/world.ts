@@ -50,6 +50,8 @@ export interface ChapterStart {
   cellY: number;
   /** 8-bit heading: 0 north, 64 west, 128 south, 192 east (counter-clockwise). */
   heading: number;
+  /** Game-clock ticks added after the next midnight when the chapter begins (`timeChange`, +0x06). */
+  timeElapsed: number;
   /** World position at the centre of the start cell. */
   x: number;
   y: number;
@@ -59,7 +61,9 @@ export interface ChapterStart {
 export function parseChapterStart(bytes: Uint8Array): ChapterStart {
   const r = new Reader(bytes);
   const chapter = r.u16();
-  r.skip(14);
+  r.skip(4); // gold: always zero in the shipped files
+  const timeElapsed = r.u32();
+  r.skip(6);
   const zone = r.u8();
   const tileX = r.u8();
   const tileY = r.u8();
@@ -67,7 +71,7 @@ export function parseChapterStart(bytes: Uint8Array): ChapterStart {
   const cellY = r.u8();
   const heading = r.u16() >> 8;
   return {
-    chapter, zone, tileX, tileY, cellX, cellY, heading,
+    chapter, zone, tileX, tileY, cellX, cellY, heading, timeElapsed,
     x: tileX * TILE_SIZE + cellX * CELL_SIZE + CELL_SIZE / 2,
     y: tileY * TILE_SIZE + cellY * CELL_SIZE + CELL_SIZE / 2,
   };

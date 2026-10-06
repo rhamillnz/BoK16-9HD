@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { Fn, attribute, cameraPosition, cross, float, instancedBufferAttribute, normalize, positionLocal, vec3 } from 'three/tsl';
 import { toRGBA, type IndexedImage } from '../formats/bmx';
 import { Terrain } from '../formats/scx';
 import { EF_2D_OBJECT, type Face, type Model } from '../formats/tbl';
@@ -9,7 +10,7 @@ import type { ZoneData } from '../world/zone';
 /**
  * Builds a three.js scene graph for an outdoor zone from the original data.
  * Static meshes are baked into world space and merged per material, so the whole
- * zone renders in a handful of draw calls. Trees and other billboards are sprites.
+ * zone renders in a handful of draw calls. Trees and other billboards are instanced upright billboards (one draw call per sprite texture).
  *
  * Coordinates: BaK (x east, y north, z up) -> render (x/100, z/100, -y/100).
  */
@@ -110,6 +111,54 @@ function tileableTerrain(strip: IndexedImage, seed: number): IndexedImage {
   return { width: size, height: size, pixels };
 }
 
+let billboardQuad: THREE.PlaneGeometry | undefined;
+
+/**
+ * One InstancedMesh for all billboards sharing a texture. `data` holds 5 floats per instance
+ * (render-space x, y, z of the bottom centre, then width and height). Each quad turns around
+ * the Y axis to face the camera, so trees stay upright. Unlit, alpha-tested and fogged like
+ * the THREE.Sprite it replaces.
+ */
+export function createBillboards(map: THREE.Texture, data: number[], name: string): THREE.InstancedMesh {
+  const count = data.length / 5;
+  if (!billboardQuad) {
+    // Bottom-centre anchored unit quad.
+    billboardQuad = new THREE.PlaneGeometry(1, 1);
+    billboardQuad.translate(0, 0.5, 0);
+  }
+  const size = new Float32Array(count * 2);
+  const geometry = billboardQuad.clone();
+  const material = new THREE.MeshBasicNodeMaterial({ map, alphaTest: 0.5, fog: true, side: THREE.DoubleSide });
+  // The instance matrix (translation only) is applied to positionLocal before positionNode runs,
+  // so subtracting the quad's own vertex recovers the instance's anchor point.
+  const sizeAttr = new THREE.InstancedBufferAttribute(size, 2);
+  const quad = attribute<'vec3'>('position', 'vec3');
+  material.positionNode = Fn(() => {
+    const anchor = positionLocal.sub(quad);
+    const wh = instancedBufferAttribute<'vec2'>(sizeAttr, 'vec2');
+    const toCamera = vec3(cameraPosition.x.sub(anchor.x), float(0), cameraPosition.z.sub(anchor.z));
+    const right = normalize(cross(vec3(0, 1, 0), toCamera));
+    return anchor.add(right.mul(quad.x.mul(wh.x))).add(vec3(0, 1, 0).mul(quad.y.mul(wh.y)));
+  })();
+
+  const mesh = new THREE.InstancedMesh(geometry, material, count);
+  mesh.name = name;
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < count; i++) {
+    m.makeTranslation(data[i * 5]!, data[i * 5 + 1]!, data[i * 5 + 2]!);
+    mesh.setMatrixAt(i, m);
+    size[i * 2] = data[i * 5 + 3]!;
+    size[i * 2 + 1] = data[i * 5 + 4]!;
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.computeBoundingSphere();
+  // The shader moves vertices, so the bounding sphere must cover the quads, not just the anchors.
+  const bs = mesh.boundingSphere!;
+  const maxExtent = size.reduce((a, v) => Math.max(a, v), 0);
+  bs.radius += maxExtent;
+  return mesh;
+}
+
 export interface ZoneScene {
   group: THREE.Group;
   collision: CollisionPolygon[];
@@ -133,16 +182,7 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
     return b;
   };
 
-  const spriteMaterials = new Map<number, THREE.SpriteMaterial>();
-  const spriteMaterial = (index: number) => {
-    let mat = spriteMaterials.get(index);
-    if (!mat) {
-      const img = slotImages[index];
-      mat = new THREE.SpriteMaterial({ map: img ? imageTexture(img, palette, false) : null, alphaTest: 0.5, fog: true });
-      spriteMaterials.set(index, mat);
-    }
-    return mat;
-  };
+  const billboards = new Map<number, number[]>();
 
   const c = new THREE.Vector3();
   const n = new THREE.Vector3();
@@ -159,11 +199,15 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
       const sf = model.sprite.scale === 0 ? 256 : model.sprite.scale;
       const major = ((2 * model.radius * sf) / 256) * model.scale;
       const maxDim = Math.max(img.width, img.height);
-      const sprite = new THREE.Sprite(spriteMaterial(model.sprite.index));
-      sprite.center.set(0.5, 0);
-      sprite.scale.set(((img.width / maxDim) * major) / WORLD_SCALE, ((img.height / maxDim) * major * VGA_PIXEL_STRETCH) / WORLD_SCALE, 1);
-      sprite.position.set(item.x / WORLD_SCALE, item.z / WORLD_SCALE, -item.y / WORLD_SCALE);
-      group.add(sprite);
+      let list = billboards.get(model.sprite.index);
+      if (!list) billboards.set(model.sprite.index, (list = []));
+      list.push(
+        item.x / WORLD_SCALE,
+        item.z / WORLD_SCALE,
+        -item.y / WORLD_SCALE,
+        ((img.width / maxDim) * major) / WORLD_SCALE,
+        ((img.height / maxDim) * major * VGA_PIXEL_STRETCH) / WORLD_SCALE,
+      );
       sprites++;
       continue;
     }
@@ -237,7 +281,11 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
     const map = src ? imageTexture(src, palette, false) : null;
     addMesh(batch, new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.9, side: THREE.DoubleSide }), `slot${image}`);
   }
-  drawCalls += sprites;
+  for (const [index, data] of billboards) {
+    const img = slotImages[index]!;
+    group.add(createBillboards(imageTexture(img, palette, false), data, `sprite${index}`));
+    drawCalls++;
+  }
 
   // Terrain pieces (entity flags without EF_2D_OBJECT) are floor, not obstacles.
   const clips = table.clips.map((clip, i) => (table.models[i] && table.models[i]!.flags & EF_2D_OBJECT ? clip : undefined));
@@ -245,4 +293,33 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
   const collision = buildCollisionPolygons(items, clips, {}, scales);
 
   return { group, collision, stats: { items: items.length, meshItems, sprites, triangles, drawCalls } };
+}
+
+/**
+ * Terrain triangles (models without EF_2D_OBJECT) in placed world space, BaK coordinates,
+ * as a flat array of 9 numbers per triangle (x, y, z per corner) for `buildHeightField`.
+ */
+export function collectTerrainTriangles(zone: ZoneData): number[] {
+  const { table, items } = zone;
+  const out: number[] = [];
+  for (const item of items) {
+    const model = table.models[item.type];
+    if (!model || model.sprite || model.flags & EF_2D_OBJECT) continue;
+    const yaw = angleToRadians(item.zRot);
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    const v = model.vertices;
+    const world = (i: number) => {
+      const vx = v[i * 3]!;
+      const vy = v[i * 3 + 1]!;
+      const vz = v[i * 3 + 2]!;
+      return [item.x + vx * cos - vy * sin, item.y + vx * sin + vy * cos, item.z + vz] as const;
+    };
+    for (const face of model.faces) {
+      if (face.indices.length < 3) continue;
+      const loop = face.indices.map(world);
+      for (let k = 1; k + 1 < loop.length; k++) out.push(...loop[0]!, ...loop[k]!, ...loop[k + 1]!);
+    }
+  }
+  return out;
 }

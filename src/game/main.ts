@@ -2,9 +2,10 @@ import * as THREE from 'three/webgpu';
 import { createStage } from '../render/stage';
 import { FlyCamera } from '../render/flyCamera';
 import { createSky, DOME_RADIUS } from '../render/sky';
+import { buildHeightField } from '../world/heightField';
 import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
 import { formatClock, shiftMinutes } from '../render/skyMath';
-import { buildZoneScene } from '../render/zoneScene';
+import { buildZoneScene, collectTerrainTriangles } from '../render/zoneScene';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
 import { parseGam } from '../formats/gam';
@@ -30,7 +31,9 @@ const [rmf, data] = await Promise.all([fetch('/bak/KRONDOR.RMF'), fetch('/bak/KR
 if (!rmf.ok || !data.ok) throw new Error('Game data not found: set BAK_DIR to your Betrayal at Krondor install');
 const archive = new ResourceArchive(new Uint8Array(await rmf.arrayBuffer()), new Uint8Array(await data.arrayBuffer()));
 const start = loadChapterStart(archive, 1);
-const zone = buildZoneScene(loadZone(archive, start.zone));
+const zoneData = loadZone(archive, start.zone);
+const zone = buildZoneScene(zoneData);
+const heightField = buildHeightField(collectTerrainTriangles(zoneData));
 scene.add(zone.group);
 const zoneInfo = `zone ${start.zone}: ${zone.stats.meshItems} meshes, ${zone.stats.sprites} sprites, ${Math.round(zone.stats.triangles / 1000)}k tris, ${zone.collision.length} colliders`;
 
@@ -48,7 +51,7 @@ window.addEventListener('keydown', (e) => {
 // Debug: ?x=&y=&h= (BaK units, 8-bit heading) overrides the chapter start position.
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
-const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading)); // flat ground for now
+const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading), heightField.getHeight);
 party.polygons = zone.collision;
 const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);

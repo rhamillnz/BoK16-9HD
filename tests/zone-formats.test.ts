@@ -510,6 +510,7 @@ describe('parseChapterStart', () => {
       cellX: 12,
       cellY: 30,
       heading: 0xc0, // 192 = east
+      timeElapsed: 0x1234,
       x: 6 * 64000 + 12 * 1600 + 800,
       y: 7 * 64000 + 30 * 1600 + 800,
     });

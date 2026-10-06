@@ -11,3 +11,6 @@ dist/
 # Downloaded third-party source art (mixed licences, large files) - see art/README.md
 art/incoming/
 shots/
+
+# Reference geometry exported from the original game data - never commit
+art/reference/
