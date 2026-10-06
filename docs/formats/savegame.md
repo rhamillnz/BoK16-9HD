@@ -24,7 +24,7 @@ All values are little-endian. BaKGL reads the file as a flat, uncompressed buffe
 | `0xb3b` | ? | tile visibility records | not parsed |
 | `0x1ed4` | ? | Pantathians event flag | not parsed |
 
-**Time.** One tick is 2 game seconds. `seconds = ticks*2`, hour = `(seconds/3600) % 24`, day = `seconds/86400`. BaKGL notes a time step of `0x1e` = 30 s for main-view movement, which does not match 2 s/tick, so treat the movement step comment as unexplained.
+**Time.** One tick is 2 game seconds. `seconds = ticks*2`, hour = `(seconds/3600) % 24`, day = `seconds/86400`.
 
 ## 2. Location block (`0x76`)
 
@@ -42,7 +42,7 @@ BaKGL's own comments label the position reads `0x7a`/`0x7f`, which disagrees wit
 
 ## 3. Characters
 
-Six character slots (Owyn, Locklear, Gorath, Pug, Patrus, Sorcerer-style slots depend on chapter; names are read from the file, not assumed). Each slot has data in several separate tables, indexed by character `c`:
+Six character slots; names are read from the file, not assumed. Each slot has data in several separate tables, indexed by character `c`:
 
 | Table | Address | Stride |
 |---|---|---|
