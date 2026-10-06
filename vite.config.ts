@@ -26,4 +26,10 @@ function serveGameData(): Plugin {
 
 export default defineConfig({
   plugins: [serveGameData()],
+  build: {
+    target: 'es2022',
+    rollupOptions: {
+      input: { viewer: 'index.html', game: 'game.html' },
+    },
+  },
 });
