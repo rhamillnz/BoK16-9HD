@@ -75,6 +75,11 @@ export interface ModelTable {
   models: (Model | undefined)[];
   /** Collision clips from the GID: chunk, indexed like names. Empty when the chunk is absent. */
   clips: (ModelClip | undefined)[];
+  /**
+   * One message per model or clip that failed to parse (its slot is then `undefined`).
+   * Real tables can contain entries our reader cannot decode, e.g. COMBAT.TBL's `dots`.
+   */
+  warnings: string[];
 }
 
 export const CLIP_WALKABLE = 0x01;
@@ -82,22 +87,30 @@ export const CLIP_HAS_VERTICAL = 0x02;
 
 export function parseTBL(bytes: Uint8Array): ModelTable {
   const names = parseNames(requireTag(bytes, 'MAP:'));
+  const warnings: string[] = [];
   const dat = findTag(bytes, 'DAT:');
-  const models = dat ? parseModels(dat, names) : names.map(() => undefined);
+  const models = dat ? parseModels(dat, names, warnings) : names.map(() => undefined);
   const gid = findTag(bytes, 'GID:');
-  const clips = gid ? parseClips(gid, names.length) : [];
-  return { names, models, clips };
+  const clips = gid ? parseClips(gid, names.length, warnings) : [];
+  return { names, models, clips, warnings };
 }
 
-/** GID: chunk (§1.5). Item offsets are chunk-relative; a zero-length record yields no clip. */
-export function parseClips(gid: Uint8Array, count: number): (ModelClip | undefined)[] {
+/**
+ * GID: chunk (§1.5). Item offsets are chunk-relative; a zero-length record yields no clip.
+ * A clip that fails to parse throws, unless `warnings` is given: then it becomes `undefined`
+ * and its message is appended there.
+ */
+export function parseClips(gid: Uint8Array, count: number, warnings?: string[]): (ModelClip | undefined)[] {
   const r = new Reader(gid);
   const offsets = Array.from({ length: count }, () => segOffset(r));
   return offsets.map((start, i) => {
     try {
       return parseClip(gid, start);
     } catch (err) {
-      throw new Error(`clip ${i}: ${(err as Error).message}`);
+      const message = `clip ${i}: ${(err as Error).message}`;
+      if (!warnings) throw new Error(message);
+      warnings.push(message);
+      return undefined;
     }
   });
 }
@@ -165,7 +178,7 @@ function segOffset(r: Reader): number {
   return (upper << 4) + (lower & 0x0f);
 }
 
-function parseModels(dat: Uint8Array, names: string[]): (Model | undefined)[] {
+function parseModels(dat: Uint8Array, names: string[], warnings: string[]): (Model | undefined)[] {
   const r = new Reader(dat);
   const offsets = names.map(() => segOffset(r));
   const models: (Model | undefined)[] = [];
@@ -176,7 +189,8 @@ function parseModels(dat: Uint8Array, names: string[]): (Model | undefined)[] {
     try {
       models.push(parseModel(dat, offsets[i]!, name));
     } catch (err) {
-      throw new Error(`model ${i} (${name}): ${(err as Error).message}`);
+      warnings.push(`model ${i} (${name}): ${(err as Error).message}`);
+      models.push(undefined);
     }
   });
   return models;
