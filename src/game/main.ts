@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { createStage } from '../render/stage';
 import { FlyCamera } from '../render/flyCamera';
 import { createSky, DOME_RADIUS } from '../render/sky';
+import { PartyController, PartyKeyboard } from '../world/partyController';
 import { formatClock, shiftMinutes } from '../render/skyMath';
 
 const stageEl = document.getElementById('stage')!;
@@ -33,9 +34,23 @@ window.addEventListener('keydown', (e) => {
   sky.update(minutes);
 });
 
-camera.position.set(0, 4, 0);
+// Party controller drives the camera; F toggles the debug fly camera.
+const party = new PartyController(); // flat ground, no collision until zones load
+const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
+let flyMode = false;
+party.applyToCamera(camera);
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyF' || e.repeat) return;
+  flyMode = !flyMode;
+  if (flyMode) {
+    fly.setHeading(camera.rotation.y);
+  } else {
+    document.exitPointerLock();
+  }
+  partyKeys.clear();
+});
 
 let last = performance.now();
 let frames = 0;
@@ -45,7 +60,12 @@ renderer.setAnimationLoop(() => {
   const now = performance.now();
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  fly.update(dt);
+  if (flyMode) {
+    fly.update(dt);
+  } else {
+    party.update(dt, partyKeys.read());
+    party.applyToCamera(camera);
+  }
   renderer.render(scene, camera);
 
   frames++;
@@ -56,5 +76,5 @@ renderer.setAnimationLoop(() => {
     fpsTime = 0;
   }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  hud.textContent = `${formatClock(minutes)}  [ ] ±30 min\n${backend}  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
+  hud.textContent = `${formatClock(minutes)}  [ ] ±30 min  F: ${flyMode ? 'fly' : 'party'} cam\n${backend}  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
 });
