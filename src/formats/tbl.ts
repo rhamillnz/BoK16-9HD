@@ -47,16 +47,101 @@ export interface Model {
   sprite?: SpriteInfo;
 }
 
+/** One clip polygon of a ModelClip (§1.5.3–1.5.4). Coordinates are raw model-space units. */
+export interface ClipElement {
+  /** Element scale factor as stored; its use by the original engine is not yet confirmed, so points are left unscaled. */
+  scale: number;
+  baseHeight: number;
+  /** Closed polygon loop, flattened [x, y, ...]. */
+  points: number[];
+  /** Edge normal components, flattened [u, v, ...], one pair per point. */
+  normals: number[];
+  /** Vertical limit point [x, y]; only present when the clip has the vertical flag. */
+  heightPoint?: [number, number];
+}
+
+export interface ModelClip {
+  radiusX: number;
+  radiusY: number;
+  /** Player can step on it, so it does not block movement. */
+  walkable: boolean;
+  /** Has 3D height / extrusion data. */
+  hasVertical: boolean;
+  elements: ClipElement[];
+}
+
 export interface ModelTable {
   names: string[];
   models: (Model | undefined)[];
+  /** Collision clips from the GID: chunk, indexed like names. Empty when the chunk is absent. */
+  clips: (ModelClip | undefined)[];
 }
+
+export const CLIP_WALKABLE = 0x01;
+export const CLIP_HAS_VERTICAL = 0x02;
 
 export function parseTBL(bytes: Uint8Array): ModelTable {
   const names = parseNames(requireTag(bytes, 'MAP:'));
   const dat = findTag(bytes, 'DAT:');
   const models = dat ? parseModels(dat, names) : names.map(() => undefined);
-  return { names, models };
+  const gid = findTag(bytes, 'GID:');
+  const clips = gid ? parseClips(gid, names.length) : [];
+  return { names, models, clips };
+}
+
+/** GID: chunk (§1.5). Item offsets are chunk-relative; a zero-length record yields no clip. */
+export function parseClips(gid: Uint8Array, count: number): (ModelClip | undefined)[] {
+  const r = new Reader(gid);
+  const offsets = Array.from({ length: count }, () => segOffset(r));
+  return offsets.map((start, i) => {
+    try {
+      return parseClip(gid, start);
+    } catch (err) {
+      throw new Error(`clip ${i}: ${(err as Error).message}`);
+    }
+  });
+}
+
+function parseClip(gid: Uint8Array, start: number): ModelClip {
+  const r = new Reader(gid, start);
+  const radiusX = r.u16();
+  const radiusY = r.u16();
+  const flags = r.u8();
+  const elementCount = r.u8();
+  const adjust = r.u16() - 8;
+  const hasVertical = (flags & CLIP_HAS_VERTICAL) !== 0;
+
+  const headers = Array.from({ length: elementCount }, () => {
+    const edgeOffs = r.u16();
+    const entries = r.u8();
+    const scale = r.u8();
+    const baseHeight = r.u16();
+    let heightOff: number | undefined;
+    if (hasVertical) {
+      heightOff = r.u16();
+      r.skip(2);
+    }
+    return { edgeOffs, entries, scale, baseHeight, heightOff };
+  });
+
+  const elements = headers.map((h): ClipElement => {
+    const pr = new Reader(gid, start + h.edgeOffs - adjust);
+    const points: number[] = [];
+    const normals: number[] = [];
+    for (let p = 0; p < h.entries; p++) {
+      normals.push(pr.u8() << 24 >> 24, pr.u8() << 24 >> 24);
+      points.push(pr.i16(), pr.i16());
+    }
+    let heightPoint: ClipElement['heightPoint'];
+    if (h.heightOff !== undefined) {
+      const hr = new Reader(gid, start + h.heightOff - adjust);
+      hr.skip(2);
+      heightPoint = [hr.i16(), hr.i16()];
+    }
+    return { scale: h.scale, baseHeight: h.baseHeight, points, normals, heightPoint };
+  });
+
+  return { radiusX, radiusY, walkable: (flags & CLIP_WALKABLE) !== 0, hasVertical, elements };
 }
 
 function parseNames(map: Uint8Array): string[] {
