@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { InventoryItem } from '../src/formats/gam';
+import type { Font, Glyph } from '../src/formats/fnt';
 import { ItemType, type ItemDef } from '../src/formats/objinfo';
 import {
   SLOT_COLUMNS,
   defaultLayoutOptions,
+  fitText,
   initialInventoryState,
   itemInfoLines,
   layoutInventory,
@@ -75,5 +77,23 @@ describe('input', () => {
     expect(stepInventory(layout, initialInventoryState(), { type: 'hover', x: r.x + 1, y: r.y + 1 }).selected).toBe(4);
     const t = layout.tabs[1]!.rect;
     expect(stepInventory(layout, initialInventoryState(), { type: 'click', x: t.x + 1, y: t.y + 1 }).tab).toBe(1);
+  });
+});
+
+describe('fitText', () => {
+  const glyphs: Glyph[] = [];
+  for (let code = 32; code < 127; code++) glyphs.push({ code, width: 4, height: 6, pixels: new Uint8Array(24).fill(1) });
+  const font: Font = { version: 0xff, maxWidth: 4, height: 6, baseline: 5, firstChar: 32, glyphs };
+  it('leaves text that fits unchanged', () => {
+    expect(fitText(font, 'Sword', 2, 40)).toBe('Sword');
+  });
+  it('ellipsizes long names to the width', () => {
+    const out = fitText(font, 'Standard Knife', 2, 12 * 4 * 2);
+    expect(out.endsWith('...')).toBe(true);
+    expect(out.length).toBeLessThan('Standard Knife'.length);
+    expect(out.length * 4 * 2).toBeLessThanOrEqual(12 * 4 * 2);
+  });
+  it('returns an empty string when not even the ellipsis fits', () => {
+    expect(fitText(font, 'Standard Knife', 2, 8)).toBe('');
   });
 });

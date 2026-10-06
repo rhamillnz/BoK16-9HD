@@ -18,6 +18,7 @@ function character(index: number, name: string): Character {
     spells: [],
     skills: Object.fromEntries(SKILL_NAMES.map((n) => [n, { ...skill }])),
     conditions: Object.fromEntries(CONDITION_NAMES.map((n) => [n, 0])),
+    affectors: [],
     inventory: { capacity: 8, items: [] },
   } as unknown as Character;
 }
