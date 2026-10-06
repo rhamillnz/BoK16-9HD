@@ -11,7 +11,7 @@ function testFont(): Font {
 }
 
 function character(index: number, name: string): Character {
-  const skill = { max: 50, current: 40, modifier: 0, selected: false, unseenImprovement: false } as unknown as Skill;
+  const skill = { max: 50, trueSkill: 40, current: 40, modifier: 0, selected: false, unseenImprovement: false } as unknown as Skill;
   return {
     index,
     name,

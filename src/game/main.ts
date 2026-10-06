@@ -8,12 +8,15 @@ import { DEBUG_TIME_STEP, GameClock } from './clock';
 import { buildZoneScene, collectTerrainTriangles } from '../render/zoneScene';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
+import { parseBMX } from '../formats/bmx';
+import { parsePalette } from '../formats/palette';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
 import { loadItemIcons } from '../data/itemIcons';
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
+import { portraitCanvases } from '../ui/partyBar';
 import { loadChapterStart, loadZone } from '../world/zone';
 
 const stageEl = document.getElementById('stage')!;
@@ -79,6 +82,7 @@ const screens = mountHud(document.body, {
   save,
   items: parseObjInfo(archive.get('OBJINFO.DAT')).items,
   icons: loadItemIcons(archive),
+  portraits: portraitCanvases(parseBMX(archive.get('HEADS.BMX')), parsePalette(archive.get('OPTIONS.PAL'))),
 });
 
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.

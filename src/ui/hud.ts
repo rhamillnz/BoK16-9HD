@@ -15,6 +15,7 @@ import {
   type DialogResult,
   type DialogState,
 } from './dialogBox';
+import { buildPartyBar, drawPartyBar, layoutPartyBar, type PartyBarLayout, type PartyBarMember, type PortraitSet } from './partyBar';
 import { defaultLayoutOptions, drawInventory, initialInventoryState, layoutInventory, stepInventory, type InventoryLayout, type InventoryState } from './inventory';
 
 export type HudScreen = 'none' | 'inventory' | 'sheet' | 'dialog';
@@ -25,6 +26,8 @@ export interface HudData {
   items: ItemDef[];
   /** Inventory item images; placeholders are drawn when absent. */
   icons?: ItemIconSet;
+  /** HEADS.BMX portraits by character index; the party bar draws plain slots without them. */
+  portraits?: PortraitSet;
 }
 
 type DialogSnippet = Parameters<typeof layoutDialog>[1];
@@ -42,6 +45,7 @@ export class HudScreens {
   private dialog: { layout: DialogLayout; state: DialogState; done: (r: DialogResult) => void } | undefined;
   /** Set whenever the picture changed since the last `draw`. */
   dirty = true;
+  private readonly partyBar: { layout: PartyBarLayout; members: PartyBarMember[] };
 
   constructor(
     private readonly data: HudData,
@@ -49,6 +53,8 @@ export class HudScreens {
     readonly height = HUD_HEIGHT,
   ) {
     this.party = partyCharacters(data.save);
+    const members = buildPartyBar(data.save);
+    this.partyBar = { members, layout: layoutPartyBar(data.font, members.length, { canvasWidth: width, canvasHeight: height }) };
   }
 
   /** True while a screen is open; the party controller must ignore movement then. */
@@ -150,6 +156,8 @@ export class HudScreens {
       drawCharacterSheet(ctx, font, layout, models[state.tab] ?? models[0]!, state);
     } else if (this.screen === 'dialog' && this.dialog) {
       drawDialog(ctx, font, this.dialog.layout, this.dialog.state);
+    } else if (this.screen === 'none') {
+      drawPartyBar(ctx, font, this.partyBar.layout, this.partyBar.members, this.data.portraits);
     }
   }
 }
