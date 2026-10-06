@@ -1,0 +1,11 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { ResourceArchive } from '../src/formats/archive';
+import { parseSCX } from '../src/formats/scx';
+import { parsePalette } from '../src/formats/palette';
+import { toRGBA } from '../src/formats/bmx';
+import { encodePNG } from './png';
+const D = 'C:/Program Files (x86)/GOG Galaxy/Games/Betrayal at Krondor';
+const a = new ResourceArchive(readFileSync(`${D}/KRONDOR.RMF`), readFileSync(`${D}/KRONDOR.001`));
+const img = parseSCX(a.get('Z01L.SCX'));
+writeFileSync(process.argv[2]!, encodePNG(img.width, img.height, toRGBA(img, parsePalette(a.get('Z01.PAL'))), 3));
+console.log('ok');
