@@ -88,6 +88,18 @@ export interface Skill {
   unseenImprovement: boolean;
 }
 
+/**
+ * Skill-effect row for the Drunk condition: skills in `mask` are scaled by
+ * `100 - (0xffff - value) * amount / 100` percent. Only Drunk has one.
+ */
+const DRUNK_SKILL_MASK = 0xfff2;
+const DRUNK_SKILL_VALUE = 0xffc4;
+const SKILL_CAPS = [500, 500, 500, 500, 200, 200, 200, 200, 200, 200, 200, 200, 200, 100, 200, 200];
+const SKILL_ABS_MAX = 250;
+const SKILL_MIN = [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+/** How strongly a skill is scaled by current health (0 = not at all). */
+const SKILL_HEALTH_EFFECT = [0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2];
+
 export interface SkillAffector {
   type: number;
   /** Skill index (0..15) from the single-bit mask, or -1 if the mask is not a single bit. */
@@ -177,6 +189,51 @@ export interface GamSave {
   activeSpells: number;
   /** The save bytes, for reading event flags. */
   bytes: Uint8Array;
+}
+
+/**
+ * The value the game shows for a skill. The save's `current` byte is only a
+ * cache (it is 0 for every character in STARTUP.GAM); the game recomputes it
+ * from `trueSkill` plus the equipment modifier, affectors, conditions and, for
+ * non-health skills, the character's current health. For health and stamina
+ * that gives current hit points / stamina, with `max` as the cap.
+ *
+ * `read: 'max'` and `'trueSkill'` return the stored bytes directly.
+ */
+export function effectiveSkill(
+  character: Pick<Character, 'skills' | 'conditions' | 'affectors'>,
+  name: SkillName,
+  read: 'current' | 'max' | 'trueSkill' | 'noHealthEffect' = 'current',
+): number {
+  const skill = character.skills[name];
+  if (read === 'max') return skill.max;
+  if (read === 'trueSkill') return skill.trueSkill;
+  const index = SKILL_NAMES.indexOf(name);
+  let value = Math.max(0, skill.trueSkill + skill.modifier);
+
+  if (skill.max !== 0) {
+    for (const a of character.affectors) {
+      if (a.skill !== index) continue;
+      value = a.type & 0xc00
+        ? Math.trunc((value * (a.adjustment + 100)) / 100)
+        : value + a.adjustment;
+    }
+  }
+
+  const drunk = character.conditions.drunk;
+  if (drunk !== 0 && (DRUNK_SKILL_MASK & (1 << index)) !== 0) {
+    const effect = 100 - Math.trunc(((0xffff - DRUNK_SKILL_VALUE) * drunk) / 100);
+    value = Math.trunc((effect * value) / 100);
+  }
+
+  const healthEffect = SKILL_HEALTH_EFFECT[index]!;
+  if (healthEffect !== 0 && read !== 'noHealthEffect') {
+    const { max: maxHealth, trueSkill } = character.skills.health;
+    const health = healthEffect > 1 ? Math.trunc(((healthEffect - 1) * trueSkill + maxHealth) / healthEffect) : trueSkill;
+    value = maxHealth === 0 ? 0 : Math.trunc((value * health + maxHealth - 1) / maxHealth);
+  }
+
+  return Math.max(SKILL_MIN[index]!, Math.min(value, SKILL_CAPS[index]!, SKILL_ABS_MAX));
 }
 
 export function decodeTime(ticks: number): GameTime {

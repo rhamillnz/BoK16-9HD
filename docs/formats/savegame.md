@@ -62,7 +62,11 @@ Six character slots; names are read from the file, not assumed. Each slot has da
 | +88 | u8 | **UNKNOWN** (BaKGL: combat character index) |
 | +89 | 6 | **UNKNOWN** |
 
-Each skill is 5 bytes: `max`, `trueSkill`, `current`, `experience`, `modifier` (signed). Order of the 16 skills: Health, Stamina, Speed, Strength, Defense, Crossbow, Melee, Casting, Assessment, Armorcraft, Weaponcraft, Barding, Haggling, Lockpick, Scouting, Stealth. (BaKGL also has a computed "TotalHealth" = 0x10, not stored.)
+Each skill is 5 bytes: `max`, `trueSkill`, `current`, `experience`, `modifier` (signed). Order of the 16 skills: Health, Stamina, Speed, Strength, Defense, Crossbow, Melee, Casting, Assessment, Armorcraft, Weaponcraft, Barding, Haggling, Lockpick, Scouting, Stealth. 
+
+**The `current` byte is a cache, not the live value.** In real STARTUP.GAM it is 0 for every skill of every character while `max` and `trueSkill` are populated (e.g. Locklear health/stamina max 55/45). BaKGL never reads it: `CalculateEffectiveSkillValue` starts from `trueSkill`, adds the signed `modifier` (recomputed from equipment), then applies affectors, the Drunk condition and (for non-health skills) a current-health scaling, and clamps to per-skill caps. For health and stamina `trueSkill` is therefore the current hit points / stamina and `max` is the ceiling. `effectiveSkill()` in `src/formats/gam.ts` implements this. Item `conditionOrQuantity` is read exactly as BaKGL reads it (raw byte, 0..100 for condition-based items), so an equipped armour showing 23% is stored that way, not misparsed.
+
+(BaKGL also has a computed "TotalHealth" = 0x10, not stored.)
 
 The "selected for improvement" and "unseen improvement" booleans are not in this block; they are event flags: pointer `0x1856 + c*0x11 + skill` (selected) and `0x18ce + c*0x11 + skill` (unseen improvement). Note the `0x11` stride (17), not 16.
 

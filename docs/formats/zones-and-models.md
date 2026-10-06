@@ -469,7 +469,7 @@ The initial player location when starting a chapter is loaded from `CHAP<chapter
 |---|---|---|---|
 | `+0x00` | `fileChapter` | `u16` | Chapter number |
 | `+0x02` | `gold` | `u32` | Party gold (**Unclear in BaKGL**: skipped, always zero) |
-| `+0x06` | `timeChange` | `u32` | Initial game clock time delta |
+| `+0x06` | `timeChange` | `u32` | Ticks added after the next midnight when the chapter begins (BaKGL `TransitionToChapter`: `time = nextMidnight + timeChange`, and time-last-slept is set to it). Implemented as `startChapter` in `src/game/state.ts`. |
 | `+0x0A` | `padding` | `u8[6]` | 6 skipped bytes |
 | `+0x10` | `zone` | `u8` | Zone number to load (e.g. `1` for Chapter 1) |
 | `+0x11` | `tileX` | `u8` | Tile coordinate $X$ |

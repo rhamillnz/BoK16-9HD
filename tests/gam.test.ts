@@ -3,6 +3,7 @@ import {
   CHARACTER_SKILL_STRIDE,
   GAM_OFFSETS as O,
   decodeTime,
+  effectiveSkill,
   eventFlagLocation,
   parseGam,
   readEventFlag,
@@ -157,5 +158,42 @@ describe('gam', () => {
     const bad = buildSave();
     bad[O.partyKeys] = 9; // 9 items, capacity 8
     expect(() => parseGam(bad)).toThrow(/capacity/);
+  });
+});
+
+describe('effectiveSkill', () => {
+  const skill = (max: number, trueSkill: number, modifier = 0) => ({
+    max, trueSkill, current: 0, experience: 0, modifier, selected: false, unseenImprovement: false,
+  });
+  const noConditions = { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0 };
+  const character = (over: Record<string, ReturnType<typeof skill>> = {}, conditions = noConditions) => ({
+    skills: { health: skill(55, 55), stamina: skill(45, 45), strength: skill(40, 40), ...over } as never,
+    conditions,
+    affectors: [],
+  });
+
+  it('derives current health and stamina from trueSkill, not the zero cache byte', () => {
+    const c = character();
+    expect(effectiveSkill(c, 'health')).toBe(55);
+    expect(effectiveSkill(c, 'stamina')).toBe(45);
+    expect(effectiveSkill(c, 'health', 'max')).toBe(55);
+  });
+
+  it('applies modifiers, affectors and caps', () => {
+    const c = { ...character({ speed: skill(30, 30, 5) }), affectors: [{ type: 0, skill: 2, skillMask: 4, adjustment: 10, startTime: 0, endTime: 0 }] };
+    expect(effectiveSkill(c, 'speed')).toBe(45);
+    expect(effectiveSkill(character({ speed: skill(30, 30, -50) }), 'speed')).toBe(0);
+  });
+
+  it('scales non-health skills by current health', () => {
+    const hurt = character({ health: skill(100, 50), strength: skill(40, 40) });
+    expect(effectiveSkill(hurt, 'strength')).toBe(20);
+    expect(effectiveSkill(hurt, 'strength', 'noHealthEffect')).toBe(40);
+  });
+
+  it('weakens skills while drunk', () => {
+    const c = character({}, { ...noConditions, drunk: 100 });
+    expect(effectiveSkill(c, 'stamina')).toBe(Math.trunc((41 * 45) / 100));
+    expect(effectiveSkill(c, 'health')).toBe(55);
   });
 });

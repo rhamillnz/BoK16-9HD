@@ -66,6 +66,17 @@ export function createWorldState(save: GamSave): WorldState {
   };
 }
 
+/**
+ * Begin a chapter, as the original chapter transition does: skip to the next
+ * midnight, add the chapter's `timeElapsed` (CHAPn.DAT `timeChange`), and mark
+ * the party as freshly rested.
+ */
+export function startChapter(s: WorldState, chapter: number, timeElapsed: number): WorldState {
+  const next = s.ticks + TICKS_PER_DAY;
+  const ticks = next - (next % TICKS_PER_DAY) + timeElapsed;
+  return { ...s, chapter, ticks, ticksLastSlept: ticks };
+}
+
 export const worldTime = (s: WorldState): GameTime => decodeTime(s.ticks);
 
 /** 0..1439. Feed to `SkyDome.update`. Fractional: includes the current second. */
