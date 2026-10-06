@@ -73,6 +73,8 @@ At each model's offset:
 
 > **Special Model Handling in BaKGL**: If the model name is `"boom"`, BaKGL duplicates the previous model in the array to preserve index alignment, noting: *"to keep the indices aligned - not sure what to do with this"*.
 
+> **Unparseable models**: some entries cannot be decoded (COMBAT.TBL's `dots` runs past the end of the `DAT:` chunk). `parseTBL` yields `undefined` for that slot and records a message in `ModelTable.warnings` instead of throwing; see `combat.md`.
+
 #### 1.4.3 Component Headers
 Following the model header (at header offset $+ 14$ if unbounded, or $+ 26$ if bounded), there are `componentCount` component records:
 

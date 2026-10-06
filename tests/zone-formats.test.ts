@@ -392,12 +392,46 @@ describe('parseTBL', () => {
     expect(() => parseTBL(chunk('DAT:', new Uint8Array(8)))).toThrow('tag not found: MAP:');
   });
 
+  it('has no warnings for a clean table', () => {
+    expect(table.warnings).toEqual([]);
+  });
+
+  it('yields undefined plus a warning for a model that fails to parse, keeping the others', () => {
+    const bad: ModelSpec = {
+      ...BOUNDED_BOX,
+      components: [[{ set: 0, faces: [{ edges: [{ material: 0x90, color: 1, indices: [0, 4] }] }] }]],
+    };
+    const t = parseTBL(buildTbl(['bad', 'box'], [buildModel(bad), buildModel(BOUNDED_BOX)]));
+    expect(t.models[0]).toBeUndefined();
+    expect(t.models[1]?.name).toBe('box');
+    expect(t.warnings).toHaveLength(1);
+    expect(t.warnings[0]).toMatch(/model 0 \(bad\): vertex index 4 >= 4/);
+  });
+
+  it('warns instead of throwing when a model runs past the end of DAT:', () => {
+    const truncated = buildModel(BOUNDED_BOX).subarray(0, 20);
+    const t = parseTBL(buildTbl(['cut'], [truncated]));
+    expect(t.models).toEqual([undefined]);
+    expect(t.warnings[0]).toMatch(/^model 0 \(cut\): .*past end/);
+  });
+
+  it('aliases "boom" to undefined when the previous model failed', () => {
+    const bad: ModelSpec = {
+      ...BOUNDED_BOX,
+      components: [[{ set: 0, faces: [{ edges: [{ material: 0x90, color: 1, indices: [0, 4] }] }] }]],
+    };
+    const t = parseTBL(buildTbl(['bad', 'boom'], [buildModel(bad), undefined]));
+    expect(t.models).toEqual([undefined, undefined]);
+  });
+
   it('reports the model index and name when a vertex index is out of range', () => {
     const bad: ModelSpec = {
       ...BOUNDED_BOX,
       components: [[{ set: 0, faces: [{ edges: [{ material: 0x90, color: 1, indices: [0, 4] }] }] }]],
     };
-    expect(() => parseTBL(buildTbl(['bad'], [buildModel(bad)]))).toThrow(/model 0 \(bad\): vertex index 4 >= 4/);
+    expect(parseTBL(buildTbl(['bad'], [buildModel(bad)])).warnings).toEqual([
+      expect.stringMatching(/^model 0 \(bad\): vertex index 4 >= 4/),
+    ]);
   });
 });
 
