@@ -4,7 +4,7 @@ import { FlyCamera } from '../render/flyCamera';
 import { createSky, DOME_RADIUS } from '../render/sky';
 import { buildHeightField } from '../world/heightField';
 import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
-import { formatClock, shiftMinutes } from '../render/skyMath';
+import { DEBUG_TIME_STEP, GameClock } from './clock';
 import { buildZoneScene, collectTerrainTriangles } from '../render/zoneScene';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
@@ -39,14 +39,15 @@ const heightField = buildHeightField(collectTerrainTriangles(zoneData));
 scene.add(zone.group);
 const zoneInfo = `zone ${start.zone}: ${zone.stats.meshItems} meshes, ${zone.stats.sprites} sprites, ${Math.round(zone.stats.triangles / 1000)}k tris, ${zone.collision.length} colliders`;
 
-// Time of day: [ and ] step the clock by 30 minutes.
-const TIME_STEP = 30;
-let minutes = 10 * 60;
-sky.update(minutes);
+// Game clock: the world state starts at the chapter's CHAP time; [ and ] step it by 30 minutes.
+const startup = await fetch('/bak/STARTUP.GAM');
+const save = parseGam(new Uint8Array(await startup.arrayBuffer()));
+const clock = GameClock.forChapter(save, 1, start.timeElapsed);
+sky.update(clock.minutes);
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'BracketLeft' && e.code !== 'BracketRight') return;
-  minutes = shiftMinutes(minutes, e.code === 'BracketLeft' ? -TIME_STEP : TIME_STEP);
-  sky.update(minutes);
+  clock.shift(e.code === 'BracketLeft' ? -DEBUG_TIME_STEP : DEBUG_TIME_STEP);
+  sky.update(clock.minutes);
 });
 
 // Party controller drives the camera; F toggles the debug fly camera.
@@ -72,10 +73,9 @@ window.addEventListener('keydown', (e) => {
 });
 
 // HUD screens: I inventory, C character sheet, Esc closes; movement is ignored while one is open.
-const startup = await fetch('/bak/STARTUP.GAM');
 const screens = mountHud(document.body, {
   font: parseFNT(archive.get('GAME.FNT')),
-  save: parseGam(new Uint8Array(await startup.arrayBuffer())),
+  save,
   items: parseObjInfo(archive.get('OBJINFO.DAT')).items,
 });
 
@@ -97,7 +97,12 @@ renderer.setAnimationLoop(() => {
   if (flyMode) {
     fly.update(dt);
   } else {
+    const px = party.x;
+    const py = party.y;
     party.update(dt, screens.blocking ? NO_INPUT : partyKeys.read());
+    if (party.x !== px || party.y !== py) {
+      if (clock.walk(dt)) sky.update(clock.minutes);
+    }
     party.applyToCamera(camera);
   }
   renderer.render(scene, camera);
@@ -110,5 +115,5 @@ renderer.setAnimationLoop(() => {
     fpsTime = 0;
   }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  hud.textContent = `${formatClock(minutes)}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneInfo}\n${backend}  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
+  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneInfo}\n${backend}  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
 });

@@ -1,7 +1,7 @@
 import type { Character, GamSave, InventoryItem } from '../formats/gam';
-import { measureString, type Font } from '../formats/fnt';
+import { glyphFor, measureString, type Font } from '../formats/fnt';
 import { ItemType, type ItemDef } from '../formats/objinfo';
-import { HUD_HEIGHT, HUD_WIDTH, chooseScale, rasterizeText, type Rect } from './dialogBox';
+import { HUD_HEIGHT, HUD_WIDTH, chooseScale, type Rect } from './dialogBox';
 
 /** Slots per row in the item grid. */
 export const SLOT_COLUMNS = 4;
@@ -206,18 +206,36 @@ export const INVENTORY_COLORS: InventoryColors = {
   equipped: '#80d080',
 };
 
+/**
+ * Shorten `text` with a trailing "..." so it fits `maxWidth` device pixels at `scale`. Text that
+ * already fits is returned unchanged; when even "..." does not fit, the empty string is returned.
+ */
+export function fitText(font: Font, text: string, scale: number, maxWidth: number): string {
+  const fits = (t: string) => measureString(font, t) * scale <= maxWidth;
+  if (fits(text)) return text;
+  const ellipsis = '...';
+  for (let n = text.length - 1; n > 0; n--) {
+    const t = text.slice(0, n).trimEnd() + ellipsis;
+    if (fits(t)) return t;
+  }
+  return fits(ellipsis) ? ellipsis : '';
+}
+
+/** Draw glyph pixels with fillRect so unset pixels stay transparent (putImageData would overwrite the background). */
 function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string, maxWidth?: number) {
   if (text === '') return;
-  const prev = ctx.fillStyle;
+  const t = maxWidth === undefined ? text : fitText(font, text, scale, maxWidth);
   ctx.fillStyle = css;
-  const rgb = String(ctx.fillStyle);
-  ctx.fillStyle = prev;
-  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(rgb);
-  const color: [number, number, number, number] = m ? [parseInt(m[1]!, 16), parseInt(m[2]!, 16), parseInt(m[3]!, 16), 255] : [255, 255, 255, 255];
-  let t = text;
-  while (maxWidth !== undefined && t.length > 1 && measureString(font, t) * scale > maxWidth) t = t.slice(0, -1);
-  const img = rasterizeText(font, t, scale, color);
-  ctx.putImageData(new ImageData(img.data, img.width, img.height), x, y);
+  let gx = x;
+  for (let i = 0; i < t.length; i++) {
+    const g = glyphFor(font, t.charCodeAt(i));
+    for (let py = 0; py < g.height; py++) {
+      for (let px = 0; px < g.width; px++) {
+        if (g.pixels[py * g.width + px] !== 0) ctx.fillRect(gx + px * scale, y + py * scale, scale, scale);
+      }
+    }
+    gx += g.width * scale;
+  }
 }
 
 /** Draw one character's inventory screen. Item icons are placeholders keyed by imageIndex. */
@@ -255,8 +273,9 @@ export function drawInventory(
     ctx.fillRect(slot.icon.x, slot.icon.y, slot.icon.width, slot.icon.height);
     const tx = slot.icon.x + slot.icon.width + 2 * scale;
     const tw = slot.rect.x + slot.rect.width - tx - scale;
+    const nameWidth = s.equipped ? tw - (font.maxWidth + 3) * scale : tw;
     drawText(ctx, font, String(s.imageIndex), slot.icon.x + scale, slot.icon.y + scale, scale, colors.text, slot.icon.width);
-    drawText(ctx, font, s.name, tx, slot.rect.y + 2 * scale, scale, colors.text, tw);
+    drawText(ctx, font, s.name, tx, slot.rect.y + 2 * scale, scale, colors.text, nameWidth);
     drawText(ctx, font, s.amount, tx, slot.rect.y + 2 * scale + (font.height + 2) * scale, scale, colors.text, tw);
     if (s.equipped) drawText(ctx, font, 'E', slot.rect.x + slot.rect.width - (font.maxWidth + 2) * scale, slot.rect.y + 2 * scale, scale, colors.equipped);
   }

@@ -34,19 +34,25 @@ function character(index: number, name: string, over: Partial<Record<SkillName, 
 
 describe('sheet model', () => {
   it('splits skills into vitals, attributes and learned skills', () => {
-    const m = buildSheetModel(character(0, 'Owyn', { health: { current: 10, max: 40 } }));
+    const m = buildSheetModel(character(0, 'Owyn', { health: { trueSkill: 10, max: 40 } }));
     expect(m.vitals.map((r) => r.skill)).toEqual(['health', 'stamina']);
     expect(m.attributes.map((r) => r.skill)).toEqual(['speed', 'strength', 'defense']);
     expect(m.skills).toHaveLength(11);
     expect(m.vitals[0]!.fraction).toBeCloseTo(0.25);
     expect(m.spellCount).toBe(2);
   });
+  it('shows the recomputed value when the saved current byte is 0', () => {
+    const m = buildSheetModel(character(0, 'Locklear', { health: { current: 0, trueSkill: 55, max: 55 }, lockpick: { current: 0, trueSkill: 40, max: 50 } }));
+    expect(m.vitals[0]!.current).toBe(55);
+    expect(m.vitals[0]!.fraction).toBe(1);
+    expect(m.skills.find((r) => r.skill === 'lockpick')!.current).toBe(40);
+  });
   it('keeps only non-zero conditions in canonical order', () => {
     const m = buildSheetModel(character(0, 'Pug', {}, { starving: 20, poisoned: 5 }));
     expect(m.conditions.map((c) => c.name)).toEqual(['poisoned', 'starving']);
   });
   it('guards zero max and clamps overfull bars', () => {
-    const m = buildSheetModel(character(0, 'X', { speed: { max: 0, current: 0 }, strength: { max: 10, current: 30 } }));
+    const m = buildSheetModel(character(0, 'X', { speed: { max: 0, trueSkill: 0 }, strength: { max: 10, trueSkill: 30 } }));
     expect(m.attributes[0]!.fraction).toBe(0);
     expect(m.attributes[1]!.fraction).toBe(1);
   });

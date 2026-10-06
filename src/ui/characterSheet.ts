@@ -1,4 +1,4 @@
-import { CONDITION_NAMES, SKILL_NAMES, type Character, type ConditionName, type GamSave, type SkillName } from '../formats/gam';
+import { CONDITION_NAMES, SKILL_NAMES, effectiveSkill, type Character, type ConditionName, type GamSave, type SkillName } from '../formats/gam';
 import { glyphFor, measureString, type Font } from '../formats/fnt';
 import { HUD_HEIGHT, HUD_WIDTH, type Rect } from './dialogBox';
 
@@ -54,15 +54,17 @@ export interface SheetModel {
 
 function row(character: Character, skill: SkillName): SheetRow {
   const s = character.skills[skill];
+  // The save's `current` byte is only a cache (0 in STARTUP.GAM); the game shows the recomputed value.
+  const current = effectiveSkill(character, skill);
   return {
     skill,
     label: SKILL_LABELS[skill],
-    current: s.current,
+    current,
     max: s.max,
     modifier: s.modifier,
     selected: s.selected,
     unseenImprovement: s.unseenImprovement,
-    fraction: s.max > 0 ? Math.min(1, s.current / s.max) : 0,
+    fraction: s.max > 0 ? Math.min(1, current / s.max) : 0,
   };
 }
 
