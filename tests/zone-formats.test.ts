@@ -212,11 +212,19 @@ function buildDat(models: (Uint8Array | undefined)[]): Uint8Array {
   return new Bytes().raw(table.done()).raw(body.done()).done();
 }
 
-function buildTbl(names: string[], models?: (Uint8Array | undefined)[]): Uint8Array {
+/** Minimal valid GID: every model shares one empty, walkable clip record (8 bytes after the table). */
+function buildEmptyGid(count: number): Uint8Array {
+  const out = new Bytes();
+  const at = count * 4;
+  for (let i = 0; i < count; i++) out.u16(at & 0x0f, at >> 4);
+  return out.u16(0, 0).u8(1, 0).u16(8).done();
+}
+
+function buildTbl(names: string[], models?: (Uint8Array | undefined)[], gid?: Uint8Array): Uint8Array {
   const out = new Bytes();
   out.raw(chunk('APP:', new Bytes().u8(1, 2, 3, 4, 5, 6).done()));
   out.raw(chunk('MAP:', buildMap(names)));
-  out.raw(chunk('GID:', new Bytes().u8(9, 9, 9, 9).done()));
+  out.raw(chunk('GID:', gid ?? buildEmptyGid(names.length)));
   // High bit of the size marks a container chunk; the parser must mask it off.
   if (models) out.raw(chunk('DAT:', buildDat(models), 0x80000000));
   return out.done();

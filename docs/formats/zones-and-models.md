@@ -176,6 +176,10 @@ Followed by `elementCount` element definitions:
   - `y`: `i16` (point coordinate $Y$)
 - If `heightOff` is present, seeking to `itemStart + heightOff - (offsetAdjust - 8)` reads a single vertical limit point `(u: i8, v: i8, x: i16, y: i16)`.
 
+#### 1.5.5 Use in this project
+- `parseTBL().clips[i]` is the clip for model name `i` (`src/formats/tbl.ts`). Points are kept in raw model units; the element `scale` byte is exposed but not applied because its meaning is unconfirmed.
+- `src/world/collision.ts` places each clip at the item's `(x, y)` rotated counter-clockwise by `zRot`, and treats clips with the walkable flag as non-blocking. A clip with no elements falls back to a `±radiusX, ±radiusY` rectangle.
+
 ---
 
 ## 2. World Tile Files (`*.WLD`, e.g., `T010607.WLD`)
