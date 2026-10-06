@@ -246,3 +246,32 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
 
   return { group, collision, stats: { items: items.length, meshItems, sprites, triangles, drawCalls } };
 }
+
+/**
+ * Terrain triangles (models without EF_2D_OBJECT) in placed world space, BaK coordinates,
+ * as a flat array of 9 numbers per triangle (x, y, z per corner) for `buildHeightField`.
+ */
+export function collectTerrainTriangles(zone: ZoneData): number[] {
+  const { table, items } = zone;
+  const out: number[] = [];
+  for (const item of items) {
+    const model = table.models[item.type];
+    if (!model || model.sprite || model.flags & EF_2D_OBJECT) continue;
+    const yaw = angleToRadians(item.zRot);
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    const v = model.vertices;
+    const world = (i: number) => {
+      const vx = v[i * 3]!;
+      const vy = v[i * 3 + 1]!;
+      const vz = v[i * 3 + 2]!;
+      return [item.x + vx * cos - vy * sin, item.y + vx * sin + vy * cos, item.z + vz] as const;
+    };
+    for (const face of model.faces) {
+      if (face.indices.length < 3) continue;
+      const loop = face.indices.map(world);
+      for (let k = 1; k + 1 < loop.length; k++) out.push(...loop[0]!, ...loop[k]!, ...loop[k + 1]!);
+    }
+  }
+  return out;
+}
