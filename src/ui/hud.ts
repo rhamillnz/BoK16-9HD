@@ -63,7 +63,7 @@ export class HudScreens {
   }
 
   open(screen: 'inventory' | 'sheet'): void {
-    this.closeDialog({ kind: 'finish' });
+    this.closeDialog({ kind: 'cancel' });
     if (screen === 'inventory') {
       const layout = layoutInventory(defaultLayoutOptions(this.party.length, 16, this.width, this.height));
       this.inventory = { layout, state: initialInventoryState() };
@@ -77,14 +77,14 @@ export class HudScreens {
   }
 
   close(): void {
-    this.closeDialog({ kind: 'finish' });
+    this.closeDialog({ kind: 'cancel' });
     this.screen = 'none';
     this.dirty = true;
   }
 
   /** Show a dialogue box; `done` gets the choice or finish result and the HUD closes. */
   showDialog(snippet: DialogSnippet, choiceLabels: string[], done: (r: DialogResult) => void): void {
-    this.closeDialog({ kind: 'finish' });
+    this.closeDialog({ kind: 'cancel' });
     const layout = layoutDialog(this.data.font, snippet, choiceLabels, defaultBoxOptions(this.width, this.height));
     this.dialog = { layout, state: initialState(layout), done };
     this.screen = 'dialog';

@@ -29,7 +29,7 @@ action  x actionCount   (10 bytes each)
 u8[textLength]          text
 ```
 
-Header is 8 bytes. Text follows the actions and is not NUL-terminated by the length; BaKGL reads exactly `textLength` bytes. Our parser decodes them as Latin-1 up to the first NUL. Control bytes in the text are described in section 6 and handled by `src/formats/textCodes.ts`.
+Header is 9 bytes (`u8 + u16 + 4 x u8 + u16`; the parser and tests use this). Text follows the actions and is not NUL-terminated by the length; BaKGL reads exactly `textLength` bytes. Our parser decodes them as Latin-1 up to the first NUL. Control bytes in the text are described in section 6 and handled by `src/formats/textCodes.ts`.
 
 ### displayStyle *(per BaKGL comments, unverified)*
 0x00/0x06 centre of full screen; 0x02 action area; 0x03 non-bold at bottom; 0x04 bold at bottom; 0x05 large action area.
@@ -128,3 +128,19 @@ Derived from BaKGL's text box (`gui/textBox.cpp`) for understanding only; tokeni
 | `0xF9` | toggles inactive (greyed) |
 
 At a paragraph end emphasis, italic, unbold, inactive, red, white and Moredhel reset; bold carries over. Other bytes below 0x20, `0x7F`, `0xF2` and `0xFA`-`0xFF` are unknown and silently dropped. Printable Latin-1 above 0x7F is left alone. Centring and the bold-text bottom box come from the snippet's `displayStyle`, not from in-text codes. The word-wrapper measures glyph widths only, so styles never change line breaking (faux-bold is drawn with a 1px offset).
+
+## 7. Encounters and running a conversation
+
+Derived from BaKGL (`bak/encounter/dialog.cpp`, `block.cpp`, `bak/state/encounter.cpp`, `gui/dialogRunner.cpp`) for understanding only; our code is `src/game/encounterRunner.ts`.
+
+**Encounter to dialogue.** A dialog encounter (type 3) has `tableIndex` into `DEF_DIAL.DAT`; a block encounter (type 11) uses `DEF_BLOC.DAT` the same way. Both files are `u32 count` then `count` records of 9 bytes: 3 unknown bytes, `u32` dialogue key, `u16` unknown. The key is looked up in the **global** key map built from all 32 `DIAL_Zxx.DDX` files (lowest file number wins a duplicate); it is not tied to the current zone. Offset targets stay in the file of the snippet that holds them. Block also stops the party (the original undoes the last step).
+
+**Flags.** An encounter is skipped when a "used" flag is set: the per-encounter flag at event pointer `(zone - 1) * 0x190 + tileIndex * 10 + encounterIndex + 0x190` (`tileIndex` is the tile's position in `ZxxREF.DAT`), or the party already triggered it since entering the tile ("recently encountered", cleared on tile change). When a dialog encounter starts: set `completionState` if non-zero; unless `repeatable`, set the per-encounter flag if `chapterFlag != 0` and mark it recently encountered. Block (and enable/disable/zone) set the per-encounter flag whenever `chapterFlag != 0`, ignoring `repeatable`.
+
+**Conversation loop.** A stack of pending targets; the start key is pushed first. Entering a snippet runs its actions (`PushNextDialog` pushes, `SetFlag` sets bits, `SetEndOfDialogState` -1 clears the stack). A snippet is shown if it has text or is a topic list (`displayStyle3 == 4`). After a snippet with no pending pick, the next target is: a random choice for style 8; else the first choice whose condition holds; else the stack top; an empty stack or key 0 ends. Condition: the value selected by `state` (event flag 0/1, game state, inventory, random `rand(0x1000) % range`...) must be `>= min` and (`max == 0xFFFF` or `<= max`). Conversation and query choices do not evaluate on their own: the player picks them.
+
+- Query snippets (`displayStyle3 & 2`): buttons are the query choices, labelled from `KEYWORD.DAT` (Yes 0x100, No 0x101, Accept 0x104, Decline 0x105, Haggle 0x106).
+- Topic snippets (`displayStyle3 == 4`): one entry per conversation choice whose event pointer is set and whose inhibit flag (`0x1a2c + pointer`) is clear, plus "Goodbye". Picking a topic marks it clicked (`0x1d4c + pointer`) and pushes its target; Goodbye (no match) pops the stack.
+- `KEYWORD.DAT`: `u16 length`, `u16` string offsets up to file offset `0x2b8` (347 entries), NUL-terminated strings at those offsets. Indices below `0xAC` are topic names, indexed by event pointer.
+
+Not applied yet (reported on the session): items, skills, conditions, healing, spells, sounds, time, text variables, teleports. Scripted `customState`, `haveNote` and `castSpell` choices, party money and shop context read as 0.

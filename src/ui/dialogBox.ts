@@ -248,7 +248,8 @@ export interface DialogState {
   selected: number;
 }
 
-export type DialogResult = { kind: 'none' } | { kind: 'choose'; index: number } | { kind: 'finish' };
+/** `cancel`: the dialogue was closed from outside (Esc, another screen) rather than answered. */
+export type DialogResult = { kind: 'none' } | { kind: 'choose'; index: number } | { kind: 'finish' } | { kind: 'cancel' };
 
 export function initialState(layout: DialogLayout): DialogState {
   return { page: 0, selected: layout.choices.length > 0 ? 0 : -1 };

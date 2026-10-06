@@ -13,6 +13,8 @@ import { parsePalette } from '../formats/palette';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
 import { loadItemIcons } from '../data/itemIcons';
+import { createWorldState } from './state';
+import { EncounterDriver, encounterResourceNames, loadEncounterRunner, prefetchResources } from './encounterDriver';
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
@@ -92,6 +94,30 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
 });
 
+let prevX = party.x;
+let prevY = party.y;
+
+// Encounters: dialogue and other triggers fire as the party walks into their rectangles.
+const encounters = new EncounterDriver(
+  loadEncounterRunner({
+    read: await prefetchResources(archive, encounterResourceNames(start.zone, zoneData.tiles)),
+    zone: start.zone,
+    tiles: zoneData.tiles,
+    chapter: start.chapter,
+    world: createWorldState(save),
+  }),
+  (view, done) => screens.showDialog(view.snippet, view.options.map((o) => o.label), (r) => r.kind !== 'none' && done(r)),
+  {
+    other: (e) => console.log('encounter (not run yet):', e.encounter.record.action, e.encounter.record),
+    blocked: () => party.setPosition(prevX, prevY),
+    finished: ({ session }) => {
+      if (session.teleport !== undefined) console.log('dialogue teleport (not run yet):', session.teleport);
+      if (session.pendingActions.length) console.log('dialogue actions (not applied yet):', session.pendingActions.map((a) => a.name ?? a.type));
+      if (session.warnings.length) console.warn(session.warnings);
+    },
+  },
+);
+
 let last = performance.now();
 let frames = 0;
 let fpsTime = 0;
@@ -105,11 +131,14 @@ renderer.setAnimationLoop(() => {
   } else {
     const px = party.x;
     const py = party.y;
+    prevX = px;
+    prevY = py;
     party.update(dt, screens.blocking ? NO_INPUT : partyKeys.read());
     if (party.x !== px || party.y !== py) {
       if (clock.walk(dt)) sky.update(clock.minutes);
     }
     party.applyToCamera(camera);
+    if (!screens.blocking) encounters.update(party.x, party.y);
   }
   renderer.render(scene, camera);
 
