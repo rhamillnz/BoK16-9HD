@@ -25,3 +25,4 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 - [x] 17 End-to-end smoke tests in CI with synthetic zone data
 - [x] 18 Player README: controls, pointing the game at your own BaK install
 - [x] Inventory and money hand-over between chapters (backlog 2, item 6)
+- [x] 19 Light spells brighten outdoor scenes at night (fading out by day)

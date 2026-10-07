@@ -38,7 +38,16 @@ export const MINE_LOOK = {
   /** An active light spell: brighter and reaching further. */
   magicBoost: 2.2,
   magicReach: 1.8,
+  /** Outdoors a light spell is a softer, wider glow than the mine lantern. */
+  outdoorIntensity: 260,
+  outdoorDistance: 46,
 } as const;
+
+/** Outdoor light-spell glow strength (0..1) for the sun's visibility: full at night, gone in daylight. */
+export function outdoorMagicStrength(sunVisibility: number): number {
+  const t = Math.min(1, Math.max(0, 1 - sunVisibility));
+  return t * t * (3 - 2 * t);
+}
 
 /** Lantern flicker multiplier (about 0.9-1.1) for a time in seconds; smooth and deterministic. */
 export function torchFlicker(seconds: number): number {
