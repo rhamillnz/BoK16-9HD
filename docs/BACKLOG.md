@@ -26,4 +26,5 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 - [x] 18 Player README: controls, pointing the game at your own BaK install
 
 Backlog 2:
-- [x] 19 Unify rest models: camping uses the inn rules (`rest.ts`: shared health pool, conditions, near death, 13 hour Sick cure); camping keeps interruptions and party-shared rations
+- [x] 19 Light spells brighten outdoor scenes at night (fading out by day)
+- [x] 20 Unify rest models: camping uses the inn rules (`rest.ts`: shared health pool, conditions, near death, 13 hour Sick cure); camping keeps interruptions and party-shared rations
