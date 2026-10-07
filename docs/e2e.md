@@ -10,3 +10,7 @@ Notes:
 - The harness exposes `window.__e2e` (pose, open screen, gold, frame count) for assertions. Extend the harness, not `main.ts`, when a new feature needs smoke coverage.
 - Locally, point `CHROMIUM` at a Chromium binary, or run `npx playwright-core install chromium` once.
 - `npx vitest run` does not pick these up (they are `*.e2e.ts`).
+
+## Chapter 1 critical path
+
+`tests/chapter1Journey.test.ts` (part of `npx vitest run`, no browser) walks one story over hand-built data: first dialogue (gift, flag), a town gate dialogue and zone transition, a shop buy and sell, a combat with rewards and wounds written back, a chest looted with its flag set, a teleport back, then save and load (chest contents restored through the save extras). It checks the hand-offs between the pure modules the game composes; the browser smoke tests above cover rendering and input.
