@@ -32,34 +32,6 @@ export const CHAPTER_RECAP_KEY = 0x186ab6;
 export const chapterStartTextKey = (chapter: number): number => CHAPTER_START_TEXT_KEY + chapter - 1;
 export const chapterRecapKey = (chapter: number): number => CHAPTER_RECAP_KEY + chapter - 1;
 
-// ---- Cutscene sequence -----------------------------------------------------
-
-/** An animation (ADS script driving a TTM) or a text book page set (.BOK). */
-export type ChapterCutscene = { kind: 'anim'; ads: string; ttm: string } | { kind: 'book'; file: string };
-
-const anim = (name: string): ChapterCutscene => ({ kind: 'anim', ads: `${name}.ADS`, ttm: `${name}.TTM` });
-const book = (name: string): ChapterCutscene => ({ kind: 'book', file: `${name}.BOK` });
-
-/** Chapters whose ending has no book pages before the animation. */
-const NO_ENDING_BOOK = new Set([2, 4, 6, 7, 8]);
-
-/** The intro of a chapter: title animation, opening book page, opening animation. */
-export function chapterIntro(chapter: number): ChapterCutscene[] {
-  return [anim(`CHAPTER${chapter}`), book(`C${chapter}1`), anim(`C${chapter}1`)];
-}
-
-/** The ending of a chapter. The epilogue after the last chapter has none. */
-export function chapterFinale(chapter: number): ChapterCutscene[] {
-  if (chapter > LAST_CHAPTER) return [];
-  const out: ChapterCutscene[] = [];
-  if (!NO_ENDING_BOOK.has(chapter)) out.push(book(`C${chapter}2`));
-  out.push(anim(chapter === 9 ? 'C93' : `C${chapter}2`));
-  return out;
-}
-
-/** Everything shown between leaving `chapter` and arriving in the next one. */
-export const transitionCutscenes = (chapter: number): ChapterCutscene[] => [...chapterFinale(chapter), ...chapterIntro(chapter + 1)];
-
 // ---- World reset -----------------------------------------------------------
 
 /** Clear a run of event flags with one copy of the save bytes. */

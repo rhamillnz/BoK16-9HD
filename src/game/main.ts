@@ -48,6 +48,7 @@ import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
+import { installCutscenes } from './cutsceneControls';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
 
@@ -349,6 +350,9 @@ await installContainers({
   }),
 });
 
+// Cutscenes: ADS/TTM animations full screen (?cutscene=CHAPTER1.ADS,CHAPTER1.TTM plays one at start).
+const cutscenes = installCutscenes({ fetch: (names) => prefetchResources(archive, names), hud: screens, chapter: () => start.chapter });
+
 // Chapter transitions: a dialogue or chapter-end hotspot ends the chapter (cutscenes, reset, start script, new start).
 const chapters = installChapters({
   items: objectItems,
@@ -356,6 +360,7 @@ const chapters = installChapters({
   setParty: (p) => { partyState = p; screens.setParty(p); },
   getWorld: () => clock.state,
   setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  playCutscenes: async (from, to) => { await cutscenes.playChapterFinish(from); await cutscenes.playChapterStart(to); },
   loadStart: (n) => loadChapterStart(archive, n),
   loadStore: async () => loadDialogStore(await prefetchResources(archive, Array.from({ length: 32 }, (_, n) => dialogFileName(n)))),
   showText: (key) => new Promise<void>((done) => {

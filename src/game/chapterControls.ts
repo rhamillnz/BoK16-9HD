@@ -4,10 +4,8 @@ import {
   LAST_CHAPTER,
   chapterStartTextKey,
   clearTransitionRequest,
-  transitionCutscenes,
   transitionRequested,
   transitionToChapter,
-  type ChapterCutscene,
 } from './chapters';
 import { parseDDX, type DialogFile } from '../formats/ddx';
 import { DIALOG_FILE_COUNT, dialogFileName, type ReadResource } from './encounterDriver';
@@ -26,11 +24,8 @@ export interface ChapterHost {
   loadStart(chapter: number): ChapterStart;
   /** The dialogue files (and keyword table) the start-of-chapter script lives in. */
   loadStore(): Promise<DialogStore>;
-  /**
-   * Play the finish and intro scenes in order, resolving when they are done. Leave unset until the
-   * cutscene player exists: the transition then goes straight to the new chapter.
-   */
-  playCutscenes?(scenes: readonly ChapterCutscene[]): Promise<void>;
+  /** Play the ending of chapter `from`, then the intro of chapter `to`. Leave unset to skip the scenes. */
+  playCutscenes?(from: number, to: number): Promise<void>;
   /** Show the dialogue at `key` (the chapter's map caption) and resolve when it is dismissed. */
   showText(key: number): Promise<void>;
   /**
@@ -60,7 +55,7 @@ export function installChapters(host: ChapterHost): ChapterControls {
     if (busy || chapter < 1 || chapter > LAST_CHAPTER) return false;
     busy = true;
     try {
-      if (opts.cutscenes !== false && host.playCutscenes) await host.playCutscenes(transitionCutscenes(chapter - 1));
+      if (opts.cutscenes !== false && host.playCutscenes) await host.playCutscenes(chapter - 1, chapter);
       const store = await host.loadStore();
       const start = host.loadStart(chapter);
       const result = transitionToChapter({

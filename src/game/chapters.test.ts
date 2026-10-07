@@ -5,12 +5,9 @@ import type { ChapterStart } from '../formats/world';
 import {
   ENCOUNTER_FLAG_BASE,
   START_OF_CHAPTER_KEY,
-  chapterFinale,
-  chapterIntro,
   chapterStartTextKey,
   clearFlags,
   startOfChapterActions,
-  transitionCutscenes,
   transitionRequested,
   clearTransitionRequest,
   transitionToChapter,
@@ -103,25 +100,7 @@ const party = (): PartyState => ({ gold: 0, characters: [character(0), character
 const world = (chapter = 1, ticks = 5000): WorldState => ({ chapter, ticks, ticksLastSlept: 0, bytes: new Uint8Array(GAM_OFFSETS.complexEventFlags + 0x800), expiringEvents: [] });
 const start = (chapter: number): ChapterStart => ({ chapter, zone: 2, tileX: 1, tileY: 1, cellX: 0, cellY: 0, heading: 64, timeElapsed: 100, x: 64800, y: 64800 });
 
-describe('cutscene sequence', () => {
-  it('names the intro files by chapter', () => {
-    expect(chapterIntro(3)).toEqual([
-      { kind: 'anim', ads: 'CHAPTER3.ADS', ttm: 'CHAPTER3.TTM' },
-      { kind: 'book', file: 'C31.BOK' },
-      { kind: 'anim', ads: 'C31.ADS', ttm: 'C31.TTM' },
-    ]);
-  });
-  it('skips the ending book in chapters that have none, and ends chapter 9 with C93', () => {
-    expect(chapterFinale(2)).toEqual([{ kind: 'anim', ads: 'C22.ADS', ttm: 'C22.TTM' }]);
-    expect(chapterFinale(1)[0]).toEqual({ kind: 'book', file: 'C12.BOK' });
-    expect(chapterFinale(9).at(-1)).toEqual({ kind: 'anim', ads: 'C93.ADS', ttm: 'C93.TTM' });
-    expect(chapterFinale(10)).toEqual([]);
-  });
-  it('joins the ending of one chapter to the intro of the next', () => {
-    const list = transitionCutscenes(1);
-    expect(list.at(0)).toEqual({ kind: 'book', file: 'C12.BOK' });
-    expect(list.at(-1)).toEqual({ kind: 'anim', ads: 'C21.ADS', ttm: 'C21.TTM' });
-  });
+describe('keys', () => {
   it('keys the map caption by chapter', () => expect(chapterStartTextKey(3)).toBe(0x128));
 });
 
@@ -196,7 +175,7 @@ describe('installChapters', () => {
       getWorld: () => w, setWorld: (x: WorldState) => { w = x; },
       loadStart: (n: number) => start(n),
       loadStore: async () => store(),
-      playCutscenes: async (s: readonly unknown[]) => { log.push(`cutscenes ${s.length}`); },
+      playCutscenes: async (a: number, b: number) => { log.push(`cutscenes ${a}-${b}`); },
       showText: async (k: number) => { log.push(`text ${k.toString(16)}`); },
       arrive: async (c: ChapterStart, t: number | undefined) => { log.push(`arrive ${c.chapter} ${t}`); },
       onTransitioned: (c: number) => { log.push(`done ${c}`); },
@@ -209,7 +188,7 @@ describe('installChapters', () => {
     const t = host();
     const c = installChapters(t.h);
     expect(await c.begin()).toBe(true);
-    expect(t.log).toEqual(['cutscenes 5', 'done 2', 'text 127', 'arrive 2 7']);
+    expect(t.log).toEqual(['cutscenes 1-2', 'done 2', 'text 127', 'arrive 2 7']);
     expect(t.world().chapter).toBe(2);
   });
   it('skips cutscenes when asked or when there is no player', async () => {

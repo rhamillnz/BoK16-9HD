@@ -56,12 +56,17 @@ const asciiUpper = (s: string) => s.toUpperCase();
 /** The loader names `.BMP`/`.SCR` resources by their packed twin: last character becomes `X`. */
 const packedName = (name: string) => `${name.slice(0, -1)}X`;
 
-/** Decode a TTM file into its scripts, keyed by script id. */
-export function parseTtm(bytes: Uint8Array): Map<number, TtmScript> {
+/** The decompressed `TT3:` op stream of a TTM file. */
+function ttmBody(bytes: Uint8Array): Uint8Array {
   const tt3 = findTag(bytes, 'TT3:');
   if (!tt3 || tt3.length < 5) throw new Error('TTM: no TT3 chunk');
   const size = (tt3[1]! | (tt3[2]! << 8) | (tt3[3]! << 16) | (tt3[4]! << 24)) >>> 0;
-  const body = tt3[0] === 1 ? decompressRLE(tt3.subarray(5), size).data : tt3.subarray(5, 5 + size);
+  return tt3[0] === 1 ? decompressRLE(tt3.subarray(5), size).data : tt3.subarray(5, 5 + size);
+}
+
+/** Decode a TTM file into its scripts, keyed by script id. */
+export function parseTtm(bytes: Uint8Array): Map<number, TtmScript> {
+  const body = ttmBody(bytes);
 
   const scripts = new Map<number, TtmScript>();
   let current: TtmScript | undefined;
@@ -152,6 +157,169 @@ export function parseTtm(bytes: Uint8Array): Map<number, TtmScript> {
     }
   }
   return scripts;
+}
+
+// ---- TTM frames (animation) ------------------------------------------------
+
+/** One operation of an animated script, in the form the cutscene player runs. */
+export type TtmFrameOp =
+  | { op: 'slotImage' | 'slotPalette'; slot: number }
+  | { op: 'loadPalette' | 'loadImage' | 'loadScreen'; name: string }
+  | { op: 'sprite'; x: number; y: number; index: number; slot: number; width: number; height: number; flipX: boolean; flipY: boolean }
+  | { op: 'spriteRotated'; x: number; y: number; index: number; slot: number; width: number; height: number; angle: number }
+  | { op: 'rect'; x: number; y: number; width: number; height: number; filled: boolean; edge: number; fill: number }
+  | { op: 'clip'; x: number; y: number; right: number; bottom: number }
+  | { op: 'saveBackground' }
+  | { op: 'saveRect'; x: number; y: number; width: number; height: number }
+  | { op: 'saveRegion'; x: number; y: number; width: number; height: number }
+  | { op: 'setSaveLayer' | 'drawSavedRegion'; layer: number }
+  | { op: 'copyLayer'; x: number; y: number; width: number; height: number; source: number; target: number }
+  | { op: 'delay'; ticks: number }
+  | { op: 'dialog'; key: number | undefined; type: number }
+  | { op: 'sound'; index: number }
+  | { op: 'fadeIn' | 'fadeOut'; startColor: number; steps: number; endColor: number; duration: number }
+  | { op: 'gotoTag'; tag: number }
+  | { op: 'endScript' };
+
+export interface TtmFrame {
+  /** Script id when the frame opens a script (`0x1100`/`0x1110`); ADS starts and `gotoTag` jump to it. */
+  tag: number | undefined;
+  ops: TtmFrameOp[];
+}
+
+const FRAME_OP = {
+  saveBackground: 0x0020,
+  endScript: 0x0110,
+  endFrame: 0x0ff0,
+  delay: 0x1020,
+  slotImage: 0x1050,
+  slotPalette: 0x1060,
+  scriptTag: 0x1100,
+  setScript: 0x1110,
+  setSaveLayer: 0x1120,
+  gotoTag: 0x1200,
+  setColor: 0x2000,
+  showDialog: 0x2010,
+  clip: 0x4000,
+  fadeOut: 0x4110,
+  fadeIn: 0x4120,
+  saveRect: 0x4200,
+  saveRegion: 0x4210,
+  rect: 0xa100,
+  frame: 0xa110,
+  sprite: 0xa500,
+  spriteRotated: 0xa5a0,
+  drawSavedRegion: 0xa600,
+  copyLayer: 0xb600,
+  sound: 0xc050,
+} as const;
+
+/**
+ * Decode a TTM file into its animation frames, in file order. A frame ends at op `0x0ff0`; all scripts of the
+ * file are laid end to end and a script runs from the frame carrying its tag to its `endScript` (or a `gotoTag`).
+ * Edge and fill colours are resolved here, per script, so parallel scripts do not share them.
+ */
+export function parseTtmFrames(bytes: Uint8Array): TtmFrame[] {
+  const r = new Reader(ttmBody(bytes));
+  const frames: TtmFrame[] = [];
+  let ops: TtmFrameOp[] = [];
+  let tag: number | undefined;
+  let tagged = false;
+  let edge = 0xf;
+  let fill = 0xf;
+  const push = () => {
+    frames.push({ tag, ops });
+    ops = [];
+    tag = undefined;
+    tagged = false;
+  };
+
+  while (r.remaining >= 2) {
+    const word = r.u16();
+    const count = word & 0xf;
+    const code = word & 0xfff0;
+
+    if (count === 0xf) {
+      let name = '';
+      while (!r.atEnd()) {
+        const c = r.u8();
+        if (c === 0) break;
+        name += String.fromCharCode(c);
+      }
+      if (r.remaining & 1) r.skip(1);
+      name = asciiUpper(name);
+      if (code === OP.loadPalette) ops.push({ op: 'loadPalette', name });
+      else if (code === OP.loadImage) ops.push({ op: 'loadImage', name: packedName(name) });
+      else if (code === OP.loadScreen) ops.push({ op: 'loadScreen', name: packedName(name) });
+      continue;
+    }
+
+    const args: number[] = [];
+    for (let i = 0; i < count && r.remaining >= 2; i++) args.push(r.i16());
+    const a = (i: number) => args[i] ?? 0;
+
+    switch (code) {
+      case FRAME_OP.setScript:
+      case FRAME_OP.scriptTag:
+        if (ops.length === 0 && !tagged) {
+          tag = a(0);
+          tagged = true;
+        }
+        if (code === FRAME_OP.setScript) {
+          edge = 0xf;
+          fill = 0xf;
+        }
+        break;
+      case FRAME_OP.endFrame: push(); break;
+      case FRAME_OP.endScript: ops.push({ op: 'endScript' }); break;
+      case FRAME_OP.saveBackground: ops.push({ op: 'saveBackground' }); break;
+      case FRAME_OP.delay: ops.push({ op: 'delay', ticks: a(0) }); break;
+      case FRAME_OP.slotImage: ops.push({ op: 'slotImage', slot: a(0) }); break;
+      case FRAME_OP.slotPalette: ops.push({ op: 'slotPalette', slot: a(0) }); break;
+      case FRAME_OP.setSaveLayer: ops.push({ op: 'setSaveLayer', layer: a(0) }); break;
+      case FRAME_OP.drawSavedRegion: ops.push({ op: 'drawSavedRegion', layer: a(0) }); break;
+      case FRAME_OP.gotoTag: ops.push({ op: 'gotoTag', tag: a(0) }); break;
+      case FRAME_OP.setColor:
+        edge = a(0);
+        fill = a(1);
+        break;
+      case FRAME_OP.clip: ops.push({ op: 'clip', x: a(0), y: a(1), right: a(2), bottom: a(3) }); break;
+      case FRAME_OP.saveRect: ops.push({ op: 'saveRect', x: a(0), y: a(1), width: a(2), height: a(3) }); break;
+      case FRAME_OP.saveRegion: ops.push({ op: 'saveRegion', x: a(0), y: a(1), width: a(2), height: a(3) }); break;
+      case FRAME_OP.copyLayer:
+        ops.push({ op: 'copyLayer', x: a(0), y: a(1), width: a(2), height: a(3), source: a(4), target: a(5) });
+        break;
+      case FRAME_OP.rect:
+      case FRAME_OP.frame:
+        ops.push({ op: 'rect', x: a(0), y: a(1), width: a(2), height: a(3), filled: code === FRAME_OP.rect, edge, fill });
+        break;
+      case FRAME_OP.sprite:
+      case 0xa510:
+      case 0xa520:
+      case 0xa530: {
+        const flip = (code & 0xf0) >> 4;
+        const scaled = args.length >= 6;
+        ops.push({
+          op: 'sprite', x: a(0), y: a(1), index: a(2), slot: a(3),
+          width: scaled ? a(4) : 0, height: scaled ? a(5) : 0, flipX: (flip & 2) !== 0, flipY: (flip & 1) !== 0,
+        });
+        break;
+      }
+      case FRAME_OP.spriteRotated:
+        ops.push({ op: 'spriteRotated', x: a(0), y: a(1), index: a(2), slot: a(3), width: a(4), height: a(5), angle: a(6) });
+        break;
+      case FRAME_OP.showDialog: ops.push({ op: 'dialog', key: a(0) === -1 ? undefined : a(0), type: a(1) }); break;
+      case FRAME_OP.sound: ops.push({ op: 'sound', index: a(0) }); break;
+      case FRAME_OP.fadeIn:
+      case FRAME_OP.fadeOut:
+        ops.push({ op: code === FRAME_OP.fadeIn ? 'fadeIn' : 'fadeOut', startColor: a(0), steps: a(1), endColor: a(2), duration: a(3) });
+        break;
+      default:
+        break;
+    }
+  }
+  if (ops.length > 0) push();
+  return frames;
 }
 
 // ---- ADS -------------------------------------------------------------------
