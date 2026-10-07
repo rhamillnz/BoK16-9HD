@@ -46,6 +46,7 @@ import { installTempleControls } from './templeControls';
 import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
+import { installCutscenes } from './cutsceneControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -341,6 +342,9 @@ await installContainers({
     runDialogSession(session, showView, (cancelled) => { encounters.runner.finish(session); applyDialog(session, undefined, cancelled); done(); });
   }),
 });
+
+// Cutscenes: ADS/TTM animations full screen (?cutscene=CHAPTER1.ADS,CHAPTER1.TTM plays one at start).
+installCutscenes({ fetch: (names) => prefetchResources(archive, names), hud: screens, chapter: () => start.chapter });
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
