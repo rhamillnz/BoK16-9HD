@@ -184,7 +184,7 @@ Derived from BaKGL (`bak/encounter/dialog.cpp`, `block.cpp`, `bak/state/encounte
 - `ElapseTime`, `SetAddResetState` (sets the flag now and queues a reset-state timer with flags 0x40), `SetTimeExpiringState`: world clock and expiring events.
 - `SpecialAction` 0 / 1: lose / gain the "item value" game state (0x753e) in royals. Other specials are not applied.
 
-Not applied (returned as `unhandled`): skills (`GainSkill`, `LoadSkillValue`), sounds, actor loading, popup sizes, combat specials and the rest of `SpecialAction`. "Who" selection follows the characters the text variables picked (section 6.1); without a text context those actions fall back to the whole active party.
+Not applied (returned as `unhandled`): sounds, actor loading, popup sizes, combat specials and the rest of `SpecialAction`. "Who" selection follows the characters the text variables picked (section 6.1); without a text context those actions fall back to the whole active party.
 
 ### 7.2 Teleports and zone transitions
 
@@ -194,4 +194,15 @@ Zone encounters (type 8) index `DEF_ZONE.DAT`: `u32 count`, then 20-byte records
 
 When the target zone differs from the current one the zone scene is rebuilt (`src/game/zoneHost.ts`), encounters are reloaded for the new zone and the zone song starts; the party is placed without firing the encounters it arrives in.
 
-Scripted `customState`, `haveNote` and `castSpell` choices, party money and shop context still read as 0 in choice conditions.
+Scripted `customState`, `haveNote` and `castSpell` choices read through hooks on `DialogEnv` (section 8); with no hook they are 0.
+
+## 8. Choice context and skill actions
+
+Our own reading of BaKGL's behaviour, for understanding only; code is `src/game/dialogEnv.ts` (`makeDialogEnv`), `encounterRunner.ts` and `dialogEffects.ts`. Items marked *(unverified)* are not checked against game data.
+
+- Game states the party supplies: 0x7531 money (royals), 0x7533 can't afford (1 when the purse is below the item value), 0x753e item value (the shop's current price), 0x7543 current zone. 0x7537 chapter, 0x7539 night, 0x753a day and 0x753c hour come from the world clock. Other ids read from an optional `gameState` hook, else 0.
+- `inventory` choices test every active character's pack and the key ring; money items test the purse (53 needs 10 royals, 54 any).
+- `haveNote`, `castSpell` (spell `state - 0xCB21`, true when the player just cast it) and `customState` (id `state & ~0x9C40`) call `haveNote`, `castSpell` and `customState` hooks; the world has no notes or casting UI wired yet, so by default they are false/0.
+- **LoadSkillValue** (w1 = skill index into SKILL_NAMES) stores the best active character's effective value of that skill as the dialogue's skill check and remembers that character as the one `@` source 12 names. Choices on game state 0x753d then compare it with their min/max. *(unverified: the original may roll against the skill rather than compare it directly.)*
+- **GainSkill** (w0 who, w1 skill, i16 min, i16 max) adds `min`, or `min + rand % (max - min)`, to the selected characters' true skill, clamped to 0 and the character's maximum for it; characters whose maximum is 0 are skipped. Raised skills are reported in `improvedSkills`. *(unverified: the meaning of w0 is guessed to match "who" of the other actions.)*
+- SetPopupDimensions is ignored; the HUD picks its own box.

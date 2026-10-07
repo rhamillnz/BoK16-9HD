@@ -186,7 +186,7 @@ describe('world actions', () => {
   });
 
   it('leaves actions it has no effect for in `unhandled`', () => {
-    const r = apply(actions({ type: ActionType.PlaySound, words: [1, 0] }, { type: ActionType.GainSkill, words: [0, 1, 1, 2] }));
-    expect(r.unhandled.map((a) => a.name)).toEqual(['PlaySound', 'GainSkill']);
+    const r = apply(actions({ type: ActionType.PlaySound, words: [1, 0] }, { type: ActionType.LoadActor, words: [1, 2, 3, 0] }));
+    expect(r.unhandled.map((a) => a.name)).toEqual(['PlaySound', 'LoadActor']);
   });
 });
