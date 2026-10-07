@@ -48,6 +48,7 @@ import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
+import { installPerf } from '../render/perf';
 import { installCutscenes } from './cutsceneControls';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
@@ -97,6 +98,7 @@ window.addEventListener('keydown', (e) => {
 // Party controller drives the camera; F toggles the debug fly camera.
 const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading), zoneHost.getHeight);
 party.polygons = zoneHost.current.scene.collision;
+const tickPerf = installPerf(renderer, scene);
 const updateUnderground = installUnderground(sky, party);
 const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);
@@ -444,6 +446,7 @@ renderer.setAnimationLoop(() => {
       clock.state = encounters.runner.world;
     }
   }
+  tickPerf(camera, dt);
   sky.followShadow(camera.position.x, camera.position.y, camera.position.z);
   post.render();
 

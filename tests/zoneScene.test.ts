@@ -9,7 +9,7 @@ const model = (sprite?: { index: number; scale: number }) => ({
 });
 
 describe('instanced billboards', () => {
-  it('batches sprites into one InstancedMesh per texture with the original sizing', () => {
+  it('batches sprites into InstancedMeshes per texture and ground chunk with the original sizing', () => {
     const palette = new Uint8Array(256 * 4).fill(255);
     const zone = {
       zone: 1,
@@ -26,14 +26,16 @@ describe('instanced billboards', () => {
     } as unknown as ZoneData;
     const scene = buildZoneScene(zone);
     const meshes = scene.group.children.filter((o): o is THREE.InstancedMesh => o instanceof THREE.InstancedMesh);
-    expect(meshes.map((m) => m.count).sort()).toEqual([1, 2]);
+    // Texture 0's two trees sit in different 32-unit ground chunks, so they get a mesh each.
+    expect(meshes.map((m) => m.count)).toEqual([1, 1, 1]);
+    expect(meshes.every((m) => m.userData.chunk)).toBe(true);
     expect(scene.stats.sprites).toBe(3);
-    expect(scene.stats.drawCalls).toBe(2);
+    expect(scene.stats.drawCalls).toBe(3);
     expect(scene.group.children.some((o) => o instanceof THREE.Sprite)).toBe(false);
 
     const m = new THREE.Matrix4();
     const p = new THREE.Vector3();
-    meshes.find((x) => x.count === 2)!.getMatrixAt(0, m);
+    meshes[0]!.getMatrixAt(0, m);
     p.setFromMatrixPosition(m);
     expect(p.toArray()).toEqual([10, 3, -20]);
   });
