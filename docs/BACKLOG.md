@@ -31,3 +31,8 @@ Backlog 2:
 - [x] 21 Note-based sound effects: WebAudio synth for FRP.SX MIDI-style voices
 - [x] 22 Cutscene book viewer (.BOK pages for cutscenes and chapter transitions) and music changes during cutscenes
 - [x] Inventory and money hand-over between chapters (per-chapter purse, chapter 4 and 5 stash swaps; town containers not yet) (PR #61)
+
+Backlog 3:
+- [~] 1 Town containers, chapter 7 flag and expiry steps: machinery and tests merged (`chapterRules.ts`), rule tables empty until the real values are verified (see docs/formats/chapters.md, Open values)
+- [ ] 2 Real-data checklist for Reuben's review of integration
+- [ ] 3 Performance and E2E pass over everything merged

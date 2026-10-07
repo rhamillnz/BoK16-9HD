@@ -9,7 +9,8 @@ import type { WorldState } from './state';
  * What the party carries from one chapter into the next. See docs/formats/chapters.md. Chapters 2 to 8
  * start with the money the party ended the previous chapter with (or a fixed purse), and chapters 4 and
  * 5 swap a character's inventory with a stash container in the world. Inns, rooms and the like that
- * are town containers (chapter 2 Locklear's room, chapter 6 Lurough inns) are not modelled yet.
+ * are town containers (chapter 2 Locklear's room, chapter 6 Lurough inns) are handled by chapterRules.ts,
+ * whose rule table is still empty.
  */
 
 /** Save-character slots of the three characters whose kit changes. */
