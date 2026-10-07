@@ -1,0 +1,24 @@
+[
+  { "name": "church", "out": "public/models/buildings/church.glb", "ground": "Plaster", "upper": "Plaster", "floors": 1,
+    "parts": [
+      { "modules": [7, 4], "chimney": false },
+      { "modules": [3, 3], "offset": [7, 3], "skip": ["-x"], "door": false }
+    ],
+    "target": [17.0, 13.9, 9.5], "preview": "shots/build-church.png" },
+  { "name": "temple", "out": "public/models/buildings/temple.glb", "ground": "UnevenBrick", "upper": "Plaster",
+    "parts": [
+      { "modules": [6, 4], "floors": 2, "door_side": "-y" },
+      { "modules": [6, 3], "floors": 1, "offset": [-7, 0], "skip": ["+x"] },
+      { "modules": [6, 3], "floors": 1, "offset": [7, 0], "skip": ["-x"] },
+      { "kind": "tower", "modules": [2, 2], "floors": 2, "offset": [0, 6] }
+    ],
+    "target": [13.5, 23.8, 10.5], "preview": "shots/build-temple.png" },
+  { "name": "illhouse", "out": "public/models/buildings/illhouse.glb", "ground": "UnevenBrick", "upper": "Plaster", "floors": 1,
+    "parts": [
+      { "modules": [7, 4], "chimney": true },
+      { "modules": [4, 4], "offset": [8, -3], "skip": ["-x"], "door": false }
+    ],
+    "target": [18.0, 18.0, 8.0], "preview": "shots/build-illhouse.png" },
+  { "name": "rftshack", "out": "public/models/buildings/rftshack.glb", "modules": [4, 3], "floors": 1, "ground": "Plaster", "upper": "Plaster", "chimney": false,
+    "target": [14.0, 10.0, 7.0], "preview": "shots/build-rftshack.png" }
+]

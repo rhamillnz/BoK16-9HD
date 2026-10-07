@@ -75,6 +75,7 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
 1. **Remaining buildings**: church (17.0 x 13.9 x 9.5, main hall + annex), temple (13.5 x 23.8 x 10.5),
    illhouse (18 x 18 x 8, zone 3), rftshack (14 x 10 x 7, zone 9), catapult (zone 6, use kit/props).
    Extend `build_house.py` (e.g. annex/tower options) rather than one-off scripts.
+   **DONE except catapult** (church, temple, illhouse, rftshack built via `art/jobs/buildings-landmarks.json`; catapult still open).
 2. **Roof colour variety**: per-building roof tint variants (terracotta, slate grey-blue, dark
    green-grey, thatch-brown) via the `textures` swap or material tint; vary between `house`,
    `house1`, `inn`, `blcksmth` so villages aren't uniformly red.
@@ -93,7 +94,7 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
 6. **Bodies** (`dbody1`, `dbody2`, `rogebody`, `morhbody`, ...): posed lying figures built from
    Universal Base Characters + Modular Character Outfits in Blender (a death pose from the
    Universal Animation Library), fitted to the original sprite footprint.
-7. **Upscale every remaining original sprite, item icon and portrait** with `tools/upscale`
+7. **DONE by Opus (582 images in `art/reference/Z??/slots-4x`).** ~~Upscale every remaining original sprite, item icon and portrait~~ with `tools/upscale`
    into `art/reference/Z??/slots-4x/` (gitignored); check a few in game.
 8. **Verify the cloud's `integration` branch** periodically: run it on port 5176, screenshot
    the start, the village, a town scene, combat and the map, and write findings to

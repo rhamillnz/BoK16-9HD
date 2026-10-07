@@ -29,6 +29,10 @@
     "inn": { "file": "buildings/inn.glb" },
     "house": { "file": "buildings/house.glb" },
     "house1": { "file": "buildings/house1.glb" },
-    "blcksmth": { "file": "buildings/blcksmth.glb" }
+    "blcksmth": { "file": "buildings/blcksmth.glb" },
+    "church": { "file": "buildings/church.glb" },
+    "temple": { "file": "buildings/temple.glb" },
+    "illhouse": { "file": "buildings/illhouse.glb" },
+    "rftshack": { "file": "buildings/rftshack.glb" }
   }
 }

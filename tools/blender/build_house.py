@@ -14,6 +14,10 @@ jobs.json entries:
    "target": [16.6, 9.3, 12.2],   # final size in render units: x (long axis), depth, height
    "preview": "shots/build-inn.png"}
 
+A job may instead list "parts" (shared keys at job level are defaults): a main hall plus annexes
+and towers, e.g. {"modules": [7, 3], "offset": [x, y]} / {"kind": "tower", "modules": [2, 2], ...}.
+See build_part() for the per-part keys. Offsets are in metres before the final 90 degree turn.
+
 The building is assembled with its ridge along Blender Y, rotated so the long axis is X
 (the original models' long axis), then scaled per-axis to `target` with its base centre at
 the origin. Textures are capped at 512 px and exported as WebP.
@@ -86,34 +90,48 @@ def wall_name(family, kind):
     return {"plain": "Wall_Plaster_Straight", "window": "Wall_Plaster_Window_Wide_Round", "door": "Wall_Plaster_Door_Round", "grid": "Wall_Plaster_WoodGrid"}[kind]
 
 
-def build(kit, job):
-    length, width = job["modules"]  # length along Y (ridge), width along X
+def build_part(kit, part, ox=0.0, oy=0.0, primary=True):
+    """Build one block centred at (ox, oy) in metres. Ridge runs along Y.
+
+    part keys: modules [length, width], floors, ground/upper, woodgrid, chimney,
+    kind "hall" (gabled roof) or "tower" (2x2 modules, pointed tower roof),
+    skip: wall sides to omit where another block abuts ("-x", "+x", "-y", "+y"),
+    door: put the entrance on this block (default: primary block only), on face `door_side` (default "-x").
+    """
+    length, width = part["modules"]  # length along Y (ridge), width along X
     hx, hy = width * MODULE / 2, length * MODULE / 2
-    floors = job.get("floors", 1)
+    floors = part.get("floors", 1)
+    skip = set(part.get("skip", []))
+    tower = part.get("kind") == "tower"
+    door = part.get("door", primary)
+    door_side = part.get("door_side", "-x")
     for f in range(floors):
         z = f * STOREY
-        family = job.get("ground", "UnevenBrick") if f == 0 else job.get("upper", "Plaster")
-        # Long walls (front -X side and back +X side) carry windows; the front ground floor gets the door.
+        family = part.get("ground", "UnevenBrick") if f == 0 else part.get("upper", "Plaster")
+        # Walls alternate plain/window; the ground floor gets the door on `door_side`.
         sides = [
-            # (fixed coordinate, count, along axis, rotation, is_front)
-            ("x", -hx, length, -90.0, True),
-            ("x", hx, length, 90.0, False),
-            ("y", -hy, width, 0.0, False),
-            ("y", hy, width, 180.0, False),
+            # (name, axis, fixed coordinate, count, rotation)
+            ("-x", "x", -hx, length, -90.0),
+            ("+x", "x", hx, length, 90.0),
+            ("-y", "y", -hy, width, 0.0),
+            ("+y", "y", hy, width, 180.0),
         ]
-        for axis, fixed, count, rot, front in sides:
+        for name, axis, fixed, count, rot in sides:
+            if name in skip:
+                continue
             for i in range(count):
                 along = -count * MODULE / 2 + MODULE / 2 + i * MODULE
                 mid = i == count // 2
-                if f == 0 and front and mid:
+                if f == 0 and name == door_side and mid and door:
                     kind = "door"
                 elif i % 2 == 1:
                     kind = "window"
-                elif f > 0 and job.get("woodgrid") and family == "Plaster":
+                elif f > 0 and part.get("woodgrid") and family == "Plaster":
                     kind = "grid"
                 else:
                     kind = "plain"
                 x, y = (fixed, along) if axis == "x" else (along, fixed)
+                x, y = x + ox, y + oy
                 kit.place(wall_name(family, kind), x, y, z, rot)
                 if kind == "door":
                     # Door leaves are hinged at their left edge (x = 0..1.12): centre it in the opening.
@@ -123,21 +141,34 @@ def build(kit, job):
         # Wooden floor on every storey so windows and doorways don't show a hollow shell.
         for gx in range(width):
             for gy in range(length):
-                kit.place("Floor_WoodDark", -hx + MODULE / 2 + gx * MODULE, -hy + MODULE / 2 + gy * MODULE, z + 0.02)
+                kit.place("Floor_WoodDark", ox - hx + MODULE / 2 + gx * MODULE, oy - hy + MODULE / 2 + gy * MODULE, z + 0.02)
         corner = "Corner_Exterior_Brick" if family == "UnevenBrick" else "Corner_Exterior_Wood"
         for cx, cy in ((-hx, -hy), (hx, -hy), (-hx, hy), (hx, hy)):
-            kit.place(corner, cx, cy, z)
+            kit.place(corner, cx + ox, cy + oy, z)
     top = floors * STOREY
     # Ceiling under the roof space.
     for gx in range(width):
         for gy in range(length):
-            kit.place("Floor_WoodDark", -hx + MODULE / 2 + gx * MODULE, -hy + MODULE / 2 + gy * MODULE, top - 0.02)
-    kit.place(f"Roof_RoundTiles_{width * 2}x{length * 2}", 0, 0, top)
+            kit.place("Floor_WoodDark", ox - hx + MODULE / 2 + gx * MODULE, oy - hy + MODULE / 2 + gy * MODULE, top - 0.02)
+    if tower:
+        kit.place("Roof_Tower_RoundTiles", ox, oy, top)
+        return
+    kit.place(f"Roof_RoundTiles_{width * 2}x{length * 2}", ox, oy, top)
     gable = f"Roof_Front_Brick{width * 2}"
-    kit.place(gable, 0, -hy, top, 0.0)
-    kit.place(gable, 0, hy, top, 180.0)
-    if job.get("chimney"):
-        kit.place("Prop_Chimney", hx * 0.45, hy * 0.5, top)
+    if "-y" not in skip:
+        kit.place(gable, ox, oy - hy, top, 0.0)
+    if "+y" not in skip:
+        kit.place(gable, ox, oy + hy, top, 180.0)
+    if part.get("chimney"):
+        kit.place("Prop_Chimney", ox + hx * 0.45, oy + hy * 0.5, top)
+
+
+def build(kit, job):
+    """A job is either a single block or {"parts": [{..., "offset": [x, y]}, ...]} (first part = main)."""
+    for i, part in enumerate(job.get("parts", [job])):
+        merged = {**job, **part} if "parts" in job else part
+        ox, oy = part.get("offset", (0.0, 0.0))
+        build_part(kit, merged, ox, oy, primary=(i == 0))
 
 
 def bounds(objs):
