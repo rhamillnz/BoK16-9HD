@@ -49,6 +49,7 @@ import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
 import { LAST_CHAPTER } from './chapters';
+import { installJournal } from './journalControls';
 import { installPerf } from '../render/perf';
 import { installBookPlayer } from './bookControls';
 import { installCutscenes } from './cutsceneControls';
@@ -142,6 +143,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
 });
 installSfx(); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
+installJournal({ hud: screens, zone: () => zoneHost.current.zone }); // J: dialogue lines seen
 
 let prevX = party.x;
 let prevY = party.y;
