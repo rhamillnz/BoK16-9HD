@@ -15,7 +15,7 @@ The record index is the item id used by inventories and shops.
 |---|---|---|---|
 | 0x00 | char[30] | `name` | NUL-padded |
 | 0x1e | u16 | `unknown1` | **unknown** |
-| 0x20 | u16 | `flags` | Behaviour flags; bit meanings **unknown** |
+| 0x20 | u16 | `flags` | Behaviour flags; from BaKGL: `0x10` consumable, `0x80` magical, `0x800` stackable, `0x1000` condition based, `0x2000` charge based, `0x8000` quantity based (others unknown) |
 | 0x22 | u16 | `unknown2` | **unknown** |
 | 0x24 | i16 | `level` | |
 | 0x26 | i16 | `value` | Base price in royals |
