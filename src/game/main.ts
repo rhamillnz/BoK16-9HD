@@ -29,7 +29,7 @@ import { loadCombatSupport } from './combatController';
 import { EncounterType } from '../formats/encounters';
 import { partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
-import { parseTeleports, planTransition, type Destination, type ZoneTransition } from './transitions';
+import { entryPointForZone, parseTeleports, planTransition, type Destination, type ZoneTransition } from './transitions';
 import { QUERY_YES, runDialogSession, type DialogSession, type ShowDialog } from './encounterRunner';
 import { HotspotAction, gdsLetter, type TownEntry } from '../formats/gds';
 import { createTownHost, townExit } from './townHost';
@@ -80,10 +80,13 @@ const chapterStart = loadChapterStart(archive, 1);
 const startZone = num('zone', chapterStart.zone);
 const zoneHost = await ZoneHost.create(scene, archive, startZone);
 const [firstTileX, firstTileY] = zoneHost.current.data.tiles[0] ?? [0, 0];
+const entry = startZone === chapterStart.zone || !archive.has('TELEPORT.DAT') ? undefined : entryPointForZone(startZone, parseTeleports(archive.get('TELEPORT.DAT')));
 const start =
   startZone === chapterStart.zone
     ? chapterStart
-    : { ...chapterStart, zone: startZone, x: (firstTileX + 0.5) * TILE_SIZE, y: (firstTileY + 0.5) * TILE_SIZE };
+    : entry
+      ? { ...chapterStart, zone: startZone, x: entry.x, y: entry.y, heading: entry.heading }
+      : { ...chapterStart, zone: startZone, x: (firstTileX + 0.5) * TILE_SIZE, y: (firstTileY + 0.5) * TILE_SIZE };
 
 // Game clock: the world state starts at the chapter's CHAP time; [ and ] step it by 30 minutes.
 const startup = await fetch('/bak/STARTUP.GAM');
