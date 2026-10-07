@@ -69,8 +69,10 @@ class Kit:
             self.cache[name] = meshes
         return self.cache[name]
 
-    def place(self, name, x, y, z, rot_deg=0.0):
-        mat = Matrix.Translation((x, y, z)) @ Euler((0, 0, math.radians(rot_deg))).to_matrix().to_4x4()
+    def place(self, name, x, y, z, rot_deg=0.0, local_dx=0.0):
+        """Place a piece at (x, y, z) rotated about Z; `local_dx` shifts it along its own X axis."""
+        rot = Euler((0, 0, math.radians(rot_deg))).to_matrix().to_4x4()
+        mat = Matrix.Translation((x, y, z)) @ rot @ Matrix.Translation((local_dx, 0, 0))
         for src in self._load(name):
             o = src.copy()
             self.scene.collection.objects.link(o)
@@ -114,13 +116,22 @@ def build(kit, job):
                 x, y = (fixed, along) if axis == "x" else (along, fixed)
                 kit.place(wall_name(family, kind), x, y, z, rot)
                 if kind == "door":
-                    kit.place("Door_4_Round", x, y, z, rot)
+                    # Door leaves are hinged at their left edge (x = 0..1.12): centre it in the opening.
+                    kit.place("Door_4_Round", x, y, z, rot, local_dx=-0.5)
                 elif kind == "window":
                     kit.place("Window_Wide_Round1", x, y, z, rot)
+        # Wooden floor on every storey so windows and doorways don't show a hollow shell.
+        for gx in range(width):
+            for gy in range(length):
+                kit.place("Floor_WoodDark", -hx + MODULE / 2 + gx * MODULE, -hy + MODULE / 2 + gy * MODULE, z + 0.02)
         corner = "Corner_Exterior_Brick" if family == "UnevenBrick" else "Corner_Exterior_Wood"
         for cx, cy in ((-hx, -hy), (hx, -hy), (-hx, hy), (hx, hy)):
             kit.place(corner, cx, cy, z)
     top = floors * STOREY
+    # Ceiling under the roof space.
+    for gx in range(width):
+        for gy in range(length):
+            kit.place("Floor_WoodDark", -hx + MODULE / 2 + gx * MODULE, -hy + MODULE / 2 + gy * MODULE, top - 0.02)
     kit.place(f"Roof_RoundTiles_{width * 2}x{length * 2}", 0, 0, top)
     gable = f"Roof_Front_Brick{width * 2}"
     kit.place(gable, 0, -hy, top, 0.0)
