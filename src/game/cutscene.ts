@@ -430,6 +430,11 @@ export class CutscenePlayer {
     return this.wait === 'click';
   }
 
+  /** Paused while a book or dialogue screen (see `CutsceneHost.book`) is shown on top. */
+  get waitingForExternal(): boolean {
+    return this.wait === 'external';
+  }
+
   /** Move time forward. */
   update(dtMs: number): void {
     if (this.finished) return;

@@ -29,4 +29,4 @@ Backlog 2:
 - [x] 19 Light spells brighten outdoor scenes at night (fading out by day)
 - [x] 20 Unify rest models: camping uses the inn rules (`rest.ts`: shared health pool, conditions, near death, 13 hour Sick cure); camping keeps interruptions and party-shared rations
 - [x] 21 Note-based sound effects: WebAudio synth for FRP.SX MIDI-style voices
-- [x] 22 Inventory and money hand-over between chapters (per-chapter purse, chapter 4 and 5 stash swaps; town containers not yet)
+- [x] 22 Cutscene book viewer (.BOK pages for cutscenes and chapter transitions) and music changes during cutscenes

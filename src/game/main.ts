@@ -49,6 +49,7 @@ import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
 import { installPerf } from '../render/perf';
+import { installBookPlayer } from './bookControls';
 import { installCutscenes } from './cutsceneControls';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
@@ -354,7 +355,7 @@ const containerStore = await installContainers({
 });
 
 // Cutscenes: ADS/TTM animations full screen (?cutscene=CHAPTER1.ADS,CHAPTER1.TTM plays one at start).
-const cutscenes = installCutscenes({ fetch: (names) => prefetchResources(archive, names), hud: screens, chapter: () => start.chapter });
+const cutscenes = installCutscenes({ fetch: (names) => prefetchResources(archive, names), hud: screens, chapter: () => start.chapter, music, ...installBookPlayer({ fetch: (names) => prefetchResources(archive, names), hud: screens }) });
 
 // Chapter transitions: a dialogue or chapter-end hotspot ends the chapter (cutscenes, reset, start script, new start).
 const chapters = installChapters({
