@@ -6,7 +6,7 @@
 
 import { effectiveSkill, type Character, type InventoryItem } from '../formats/gam';
 import type { SpellDef } from '../formats/spells';
-import { isSpellcaster, knownSpells } from '../game/spells';
+import { isSpellcaster, knownSpells, spellKind } from '../game/spells';
 import { ItemType, Race, type ItemDef } from '../formats/objinfo';
 import type { Fighter } from './battle';
 import type { EnemyRecord, PartyGridSlot } from './combatData';
@@ -59,6 +59,26 @@ export const MONSTER_BOLT: WeaponStats = {
 /** Crossbow skill from which a monster shoots. */
 export const MONSTER_SHOOTER_SKILL = 30;
 
+/** Casting skill from which a monster casts. */
+export const MONSTER_CASTER_SKILL = 30;
+/** A monster can afford a spell whose minimum cost is at most its Casting skill over this. */
+export const MONSTER_CAST_DIVISOR = 3;
+
+/**
+ * Spells a monster casts (**unverified**: monster spell lists are not in the data we have read, and
+ * BaKGL has no monster casting). A monster with Casting skill of `MONSTER_CASTER_SKILL` or more
+ * knows every item-free damage or healing spell whose minimum cost is within a third of its skill,
+ * and always at least the cheapest damage spell.
+ */
+export function monsterSpells(casting: number, defs: readonly SpellDef[]): SpellDef[] {
+  if (casting < MONSTER_CASTER_SKILL) return [];
+  const usable = defs.filter((d) => d.objectRequired === undefined && (spellKind(d) === 'damage' || spellKind(d) === 'heal'));
+  const known = usable.filter((d) => d.minCost * MONSTER_CAST_DIVISOR <= casting);
+  if (known.some((d) => spellKind(d) === 'damage')) return known;
+  const cheapest = usable.filter((d) => spellKind(d) === 'damage').sort((a, b) => a.minCost - b.minCost)[0];
+  return cheapest ? [...known, cheapest] : known;
+}
+
 /** The equipped armour; its rating is the item's accuracy-swing field. */
 export function equippedArmor(items: readonly InventoryItem[], defs: readonly ItemDef[]): ArmorStats | undefined {
   for (const it of items) {
@@ -97,8 +117,9 @@ export function partyFighter(c: Character, slot: PartyGridSlot | undefined, inde
   };
 }
 
-export function enemyFighter(e: EnemyRecord, name: string, index: number): Fighter {
+export function enemyFighter(e: EnemyRecord, name: string, index: number, spellDefs: readonly SpellDef[] = []): Fighter {
   const v = (n: keyof EnemyRecord['skills']) => Math.max(0, e.skills[n].trueSkill + e.skills[n].modifier);
+  const spells = monsterSpells(v('casting'), spellDefs);
   return {
     id: `enemy${e.combatant}`,
     side: 'enemy',
@@ -115,6 +136,7 @@ export function enemyFighter(e: EnemyRecord, name: string, index: number): Fight
     defense: v('defense'),
     melee: v('melee'),
     race: monsterRace(e.monster),
+    ...(spells.length > 0 ? { spells } : {}),
     ...(v('crossbow') >= MONSTER_SHOOTER_SKILL ? { ranged: { crossbow: v('crossbow'), weapon: MONSTER_BOLT } } : {}),
   };
 }
