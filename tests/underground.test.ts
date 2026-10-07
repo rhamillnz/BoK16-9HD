@@ -75,7 +75,8 @@ describe('underground zones', () => {
     expect(torch.intensity).toBeGreaterThan(100);
     expect(torch.position.x).toBe(3);
     sky.update(12 * 60);
-    expect(torch.visible).toBe(false);
+    expect(torch.visible).toBe(true); // stays registered so the light count (and shader) does not change at dawn
+    expect(torch.intensity).toBe(0);
     sky.update(0);
     sky.setMagicLight(false);
     expect(torch.visible).toBe(false);
