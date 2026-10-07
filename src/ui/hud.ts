@@ -16,9 +16,11 @@ import {
   type DialogState,
 } from './dialogBox';
 import { buildPartyBar, drawPartyBar, layoutPartyBar, type PartyBarLayout, type PartyBarMember, type PortraitSet } from './partyBar';
+import { drawSaveScreen, initialSaveScreenState, layoutSaveScreen, stepSaveScreen, type SaveScreenLayout, type SaveScreenState } from './saveScreen';
+import type { SlotInfo } from '../game/saveGame';
 import { defaultLayoutOptions, drawInventory, initialInventoryState, layoutInventory, stepInventory, type InventoryLayout, type InventoryState } from './inventory';
 
-export type HudScreen = 'none' | 'inventory' | 'sheet' | 'dialog';
+export type HudScreen = 'none' | 'inventory' | 'sheet' | 'dialog' | 'saves';
 
 export interface HudData {
   font: Font;
@@ -28,6 +30,14 @@ export interface HudData {
   icons?: ItemIconSet;
   /** HEADS.BMX portraits by character index; the party bar draws plain slots without them. */
   portraits?: PortraitSet;
+}
+
+/** What the save/load screen (F6) needs from the game: slot listing and the two actions. */
+export interface SaveHandler {
+  list(): Promise<SlotInfo[]>;
+  /** Resolves to a short message for the status line. */
+  save(slot: string): Promise<string>;
+  load(slot: string): Promise<string>;
 }
 
 type DialogSnippet = Parameters<typeof layoutDialog>[1];
@@ -43,6 +53,9 @@ export class HudScreens {
   private inventory: { layout: InventoryLayout; state: InventoryState } | undefined;
   private sheet: { layout: SheetLayout; models: SheetModel[]; state: SheetState } | undefined;
   private dialog: { layout: DialogLayout; state: DialogState; done: (r: DialogResult) => void } | undefined;
+  /** Set by the game to enable the F6 save/load screen. */
+  saveHandler: SaveHandler | undefined;
+  private saves: { layout: SaveScreenLayout; state: SaveScreenState; slots: SlotInfo[] } | undefined;
   /** Set whenever the picture changed since the last `draw`. */
   dirty = true;
   private partyBar: { layout: PartyBarLayout; members: PartyBarMember[] };
@@ -87,7 +100,39 @@ export class HudScreens {
     this.dirty = true;
   }
 
+  /** Open the save/load screen on the given tab, listing slots first. */
+  async openSaves(mode: 'save' | 'load' = 'save'): Promise<void> {
+    const handler = this.saveHandler;
+    if (!handler || this.screen === 'dialog') return;
+    const slots = await handler.list();
+    this.closeDialog({ kind: 'cancel' });
+    this.saves = { layout: layoutSaveScreen(slots.length, this.width, this.height), state: initialSaveScreenState(mode), slots };
+    this.screen = 'saves';
+    this.dirty = true;
+  }
+
+  private async useSlot(kind: 'save' | 'load', slot: string): Promise<void> {
+    const handler = this.saveHandler;
+    const s = this.saves;
+    if (!handler || !s) return;
+    let message: string;
+    try {
+      message = await (kind === 'save' ? handler.save(slot) : handler.load(slot));
+    } catch (err) {
+      message = `Failed: ${(err as Error).message}`;
+    }
+    if (this.saves !== s) return;
+    if (kind === 'load' && !message.startsWith('Failed')) {
+      this.close();
+      return;
+    }
+    s.slots = await handler.list();
+    s.state = { ...s.state, message };
+    this.dirty = true;
+  }
+
   close(): void {
+    this.saves = undefined;
     this.closeDialog({ kind: 'cancel' });
     this.screen = 'none';
     this.dirty = true;
@@ -123,6 +168,11 @@ export class HudScreens {
       else this.open('sheet');
       return true;
     }
+    if (code === 'F6' && this.screen !== 'dialog') {
+      if (this.screen === 'saves') this.close();
+      else void this.openSaves();
+      return true;
+    }
     if (this.screen === 'none') return false;
     if (code === 'Escape') {
       this.close();
@@ -148,6 +198,10 @@ export class HudScreens {
       const r = stepSheet(this.sheet.layout, this.sheet.state, ev);
       this.sheet.state = r.state;
       if (r.result.kind === 'close') this.close();
+    } else if (this.screen === 'saves' && this.saves) {
+      const r = stepSaveScreen(this.saves.layout, this.saves.state, this.saves.slots, ev);
+      this.saves.state = r.state;
+      if (r.result.kind !== 'none') void this.useSlot(r.result.kind, r.result.slot);
     } else if (this.screen === 'dialog' && this.dialog) {
       const r = stepDialog(this.dialog.layout, this.dialog.state, ev);
       this.dialog.state = r.state;
@@ -165,6 +219,8 @@ export class HudScreens {
     } else if (this.screen === 'sheet' && this.sheet) {
       const { layout, models, state } = this.sheet;
       drawCharacterSheet(ctx, font, layout, models[state.tab] ?? models[0]!, state);
+    } else if (this.screen === 'saves' && this.saves) {
+      drawSaveScreen(ctx, font, this.saves.layout, this.saves.state, this.saves.slots);
     } else if (this.screen === 'dialog' && this.dialog) {
       drawDialog(ctx, font, this.dialog.layout, this.dialog.state);
     } else if (this.screen === 'none') {

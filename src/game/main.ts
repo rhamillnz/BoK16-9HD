@@ -24,6 +24,7 @@ import { partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
 import { parseTeleports, planTransition, type Destination } from './transitions';
 import type { WorldState } from './state';
+import { installSaveControls } from './saveControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -156,6 +157,20 @@ async function travelTo(d: Destination): Promise<void> {
 }
 
 let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, clock.state);
+
+// Save and load: F5 quick-save, F9 quick-load, F6 slot screen.
+await installSaveControls({
+  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState }),
+  restore: async (d) => {
+    clock.state = d.world;
+    partyState = d.party;
+    screens.setParty(partyState);
+    sky.update(clock.minutes);
+    await travelTo({ zone: d.zone, tileX: 0, tileY: 0, x: d.x, y: d.y, heading: d.heading });
+  },
+  canQuickSave: () => !screens.blocking && !encounters.busy && !travelling,
+  setSaveHandler: (h) => { screens.saveHandler = h; },
+});
 
 // Post-processing: P cycles low/medium/high (?post=low|medium|high sets the start).
 const post = createPost(renderer, scene, camera, parseQuality(new URLSearchParams(location.search).get('post'), 'medium'));
