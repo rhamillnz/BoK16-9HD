@@ -86,7 +86,7 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
 4. **Partly done (verge grass + roadside stones); rest (cart-track road material, ruts) moved to Opus.** **Road verges**: soften road and path edges into the grass (e.g. grass clumps biased to road edges,
    or an edge-darkening/blend band in `src/render/roadMaterial.ts`), plus occasional RockPath
    stones from the nature kit along roads.
-5. **Props**: replace remaining sprite/flat props with kit models through the manifest: chests
+5. **DONE (partly, see Questions for Reuben)** **Props**: replace remaining sprite/flat props with kit models through the manifest: chests
    (`chest_nl`, `box`, `bag`), fences (`fence`), signs (`sign1-4`, `signpost`), wells, tents,
    campfires (`fireold`, `campfire`), stumps, dirt piles, gravestones (`tstone*`, `tmbstone`).
    Fantasy Props MegaKit isn't downloaded; use Medieval Village props (crates, fences, wagon) and
