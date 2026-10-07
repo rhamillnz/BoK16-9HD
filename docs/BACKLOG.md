@@ -30,7 +30,9 @@ Backlog 2:
 - [x] 20 Unify rest models: camping uses the inn rules (`rest.ts`: shared health pool, conditions, near death, 13 hour Sick cure); camping keeps interruptions and party-shared rations
 - [x] 21 Note-based sound effects: WebAudio synth for FRP.SX MIDI-style voices
 - [x] 22 Cutscene book viewer (.BOK pages for cutscenes and chapter transitions) and music changes during cutscenes
+- [x] 23 Enemies casting spells: monsters with Casting skill cast damage and healing spells in combat (PR #60)
 - [x] Inventory and money hand-over between chapters (per-chapter purse, chapter 4 and 5 stash swaps; town containers not yet) (PR #61)
+- [x] Overhead mine models (ZxxM.TBL) drawn on the Tab map in mines (PR #59)
 
 Backlog 3:
 - [~] 1 Town containers, chapter 7 flag and expiry steps: machinery and tests merged (`chapterRules.ts`), rule tables empty until the real values are verified (see docs/formats/chapters.md, Open values)
@@ -39,7 +41,7 @@ Backlog 3:
 
 Backlog 4 (from Opus real-data review of integration at 7e8a3b6, 2026-10-07):
 - [x] 1 Books: the illuminated drop cap (e.g. C11.BOK page 1 "B") overlaps the first text line; indent the first lines beside the initial instead of drawing text under it (books.md image placement)
-- [ ] 2 `?chapter=N` start position is nondeterministic: chapter 2 landed once in zone 11 at (8, -8) and once in zone 1 at the default spawn. The start-of-chapter teleport races the scene load, and the (8, -8) looks like unscaled tile coordinates. Make the chapter start await the scene and apply the real start position
+- [x] 2 `?chapter=N` start position is nondeterministic: chapter 2 landed once in zone 11 at (8, -8) and once in zone 1 at the default spawn. The start-of-chapter teleport races the scene load, and the (8, -8) looks like unscaled tile coordinates. Make the chapter start await the scene and apply the real start position
 - [ ] 3 Mine zone 10 at the default `?zone=10` spawn renders fully black (no lantern pool, no geometry visible). Spawn inside the tunnels (zone entry point) and make sure the lantern lights the floor even if the party starts outside
 - [ ] 4 Chapter 5 (zone 5) runs at 20 fps vs 60 fps elsewhere on the same GPU (74 sprites, 17k tris): profile with F3 and fix the hot spot
 - [x] 5 Startup main menu no longer covers `book`, `cutscene`, `chapter`, `zone` debug starts (fixed on main)

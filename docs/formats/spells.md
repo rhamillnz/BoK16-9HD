@@ -27,8 +27,19 @@ BaKGL does not implement combat spell effects, and SPELLDOC text is not needed t
 * `light`: spells 0, 2 and 26, cast outside combat.
 * everything else is listed as unsupported and not offered.
 
-The cost (power) comes off Stamina then Health, never below 1 Health; the caster picks a power between `minCost` and `maxCost` (the world cast menu offers low, middle and high; combat uses as much as affordable). Combat casting needs a target within 8 cells; casters earn 2 `casting` experience per cast. Enemies do not cast. Books already read are remembered per session only.
+The cost (power) comes off Stamina then Health, never below 1 Health; the caster picks a power between `minCost` and `maxCost` (the world cast menu offers low, middle and high; combat uses as much as affordable). Combat casting needs a target within 8 cells; casters earn 2 `casting` experience per cast. Enemies cast too (see below). Books already read are remembered per session only.
 
 ## Controls
 
 World: **V** casts (healing and light). Combat: **C** cycles through the caster's spells, then click the target. Inventory: use (U / Enter) on a scroll or book.
+
+## Enemy casting (**unverified**)
+
+BaKGL has no monster spellcasting and the save parser reads no monster spell lists, so this is our own stand-in. Enemy fighters get spells from their save `casting` skill (`monsterSpells`, src/combat/roster.ts): below 30 they cast nothing; from 30 they know every damage or healing spell that needs no carried item and whose minimum cost is at most a third of the skill, and always at least the cheapest damage spell.
+
+On its turn (`castTurn` in src/combat/ai.ts, after the badly-hurt defend check and before shooting or melee) a caster:
+
+1. heals the most hurt living ally within 8 cells who is at half Health or less, if it knows a healing spell;
+2. otherwise casts its strongest damage spell at the weakest foe within 8 cells.
+
+Enemies pay only from Stamina (`castSpell`'s `maxSpend`), never Health, and only when Stamina covers the spell's minimum cost; a drained caster falls back to melee, shooting or moving. Spell damage ignores armour, as for the party; casts show in the combat log like the party's.
