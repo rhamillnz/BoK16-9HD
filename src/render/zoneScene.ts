@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { chunkBillboards } from './cullMath';
 import { Fn, attribute, cameraPosition, cross, float, instancedBufferAttribute, normalize, positionLocal, vec3 } from 'three/tsl';
 import { toRGBA, type IndexedImage } from '../formats/bmx';
 import { Terrain } from '../formats/scx';
@@ -320,8 +321,15 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
   }
   for (const [index, data] of billboards) {
     const img = slotImages[index]!;
-    group.add(createBillboards(overrides?.slotTextures.get(index) ?? imageTexture(img, palette, false), data, `sprite${index}`));
-    drawCalls++;
+    const map = overrides?.slotTextures.get(index) ?? imageTexture(img, palette, false);
+    // One mesh per ground chunk (sharing the texture): chunks are frustum- and distance-culled separately.
+    for (const chunk of chunkBillboards(data)) {
+      const mesh = createBillboards(map, chunk, `sprite${index}`);
+      const bs = mesh.boundingSphere!;
+      mesh.userData.chunk = { x: bs.center.x, z: bs.center.z, r: bs.radius };
+      group.add(mesh);
+      drawCalls++;
+    }
   }
 
   for (const [name, placements] of overridePlacements) {

@@ -1,12 +1,15 @@
 import type * as THREE from 'three/webgpu';
+import { applyRewards, applyWear } from '../combat/rewards';
+import { rollFrom } from '../combat/rules';
 import { buildFighters, applyBattleToParty, retreatDestination } from '../combat/setup';
 import type { Fighter } from '../combat/battle';
 import type { CombatOutcome } from '../combat/turns';
+import type { SpellDef } from '../formats/spells';
 import type { ItemDef } from '../formats/objinfo';
 import type { PlacedEncounter } from '../world/encounters';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
 import {
-  CombatController, enemiesOf, loadSheets, spriteLookup, type CombatSupport,
+  CombatController, enemiesOf, loadSheets, spriteLookup, type CombatResult, type CombatSupport,
 } from './combatController';
 
 export interface CombatEncounterDeps {
@@ -16,6 +19,8 @@ export interface CombatEncounterDeps {
   getHeight: (x: number, y: number) => number;
   support: CombatSupport;
   items: readonly ItemDef[];
+  /** SPELLS.DAT, so magic-users can cast. */
+  spells?: readonly SpellDef[];
   /** The party's current position and 8-bit heading. */
   position: () => { x: number; y: number; heading: number };
   /** Move the party (after a retreat) without firing the encounters it lands in. */
@@ -39,7 +44,7 @@ function revive(party: PartyState): PartyState {
 /**
  * Glue between the encounter system and a fight: builds the fighters for a combat encounter, runs it,
  * and applies the result (wounds, the encounter marked done on a win, the retreat move otherwise).
- * Entry and scout dialogues, the post-fight dialogue and loot are not handled yet.
+ * Entry and scout dialogues and the post-fight dialogue are not handled yet.
  */
 export class CombatEncounters {
   private readonly controller: CombatController;
@@ -75,7 +80,7 @@ export class CombatEncounters {
     try {
       const enemies = enemiesOf(s, def);
       const fighters = buildFighters({
-        def, enemies, party: activeCharacters(this.d.getParty()), partyGrid: s.partyGrid, monsterNames: s.monsterNames, items,
+        def, enemies, party: activeCharacters(this.d.getParty()), partyGrid: s.partyGrid, monsterNames: s.monsterNames, items, spells: this.d.spells,
       });
       const sheets = await loadSheets(s, fighters.map((f) => f.monster));
       const pos = this.d.position();
@@ -85,7 +90,7 @@ export class CombatEncounters {
           spriteFor: spriteLookup(s, sheets),
           palette: s.palette ?? new Uint8Array(1024).fill(255),
         },
-        (outcome, after) => this.finished(e, def, outcome, after, pos),
+        (outcome, after, result) => this.finished(e, def, outcome, after, pos, result),
       );
     } finally {
       this.starting = false;
@@ -98,9 +103,12 @@ export class CombatEncounters {
     outcome: CombatOutcome,
     fighters: readonly Fighter[],
     at: { x: number; y: number },
+    result: CombatResult,
   ): void {
     let party = applyBattleToParty(this.d.getParty(), fighters);
+    party = applyWear(party, result.history, this.d.items, rollFrom(Math.random));
     if (outcome === 'won') {
+      if (result.rewards) party = applyRewards(party, result.rewards);
       this.d.markDone(e);
     } else {
       if (outcome === 'dead') party = revive(party);

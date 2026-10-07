@@ -1,3 +1,4 @@
+import { makeDialogEnv } from './dialogEnv';
 import * as THREE from 'three/webgpu';
 import { createStage } from '../render/stage';
 import { FlyCamera } from '../render/flyCamera';
@@ -13,10 +14,11 @@ import { parsePalette } from '../formats/palette';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
 import { loadItemIcons } from '../data/itemIcons';
-import { EncounterDriver, encounterResourceNames, loadEncounterRunner, prefetchResources } from './encounterDriver';
+import { EncounterDriver, dialogFileName, encounterResourceNames, loadEncounterRunner, prefetchResources } from './encounterDriver';
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
+import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { loadChapterStart } from '../world/zone';
 import { TILE_SIZE } from '../formats/world';
@@ -29,11 +31,29 @@ import { partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
 import { parseTeleports, planTransition, type Destination, type ZoneTransition } from './transitions';
 import { QUERY_YES, runDialogSession, type DialogSession, type ShowDialog } from './encounterRunner';
-import { gdsLetter, type TownEntry } from '../formats/gds';
+import { HotspotAction, gdsLetter, type TownEntry } from '../formats/gds';
 import { createTownHost, townExit } from './townHost';
 import type { PlacedEncounter } from '../world/encounters';
 import type { WorldState } from './state';
 import { installSaveControls } from './saveControls';
+import { createInnHost } from './inn';
+import { findShop, parseShopContainers } from '../formats/gdsContainers';
+import { ruleFor } from './dialogEffects';
+import { createNotice } from '../ui/notice';
+import { installCamp } from './campControls';
+import { installContainers } from './containerControls';
+import { installItemControls } from './itemControls';
+import { installTempleControls } from './templeControls';
+import { installCast, justCast } from './castControls';
+import { parseSpells } from '../formats/spells';
+import { createShops } from './shopControls';
+import { installChapters, loadDialogStore } from './chapterControls';
+import { installPerf } from '../render/perf';
+import { installBookPlayer } from './bookControls';
+import { installCutscenes } from './cutsceneControls';
+import { installUnderground } from './undergroundMode';
+import { currentLight } from './spells';
+import { installMainMenu } from './mainMenuControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -79,6 +99,8 @@ window.addEventListener('keydown', (e) => {
 // Party controller drives the camera; F toggles the debug fly camera.
 const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading), zoneHost.getHeight);
 party.polygons = zoneHost.current.scene.collision;
+const tickPerf = installPerf(renderer, scene);
+const updateUnderground = installUnderground(sky, party);
 const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
@@ -112,6 +134,7 @@ void music.play(num('song', songForZone(start.zone))).catch((err) => console.war
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
 });
+installSfx(); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
 
 let prevX = party.x;
 let prevY = party.y;
@@ -143,13 +166,37 @@ const applyDialog = (session: DialogSession, transition: ZoneTransition | undefi
     town.dismiss();
     void travelTo(out.destination);
   }
+  void chapters.afterDialog();
 };
+
+// Shops: buy, sell and haggle at shop hotspots of town scenes.
+const shops = createShops({
+  items: objectItems, scrollValues: parseObjInfo(archive.get('OBJINFO.DAT')).scrollValues, saveBytes: save.bytes, hud: screens,
+  getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state, zone: () => zoneHost.current.zone,
+  playDialog: (key, done) => town.playDialog(key, done),
+});
+
+// Inns: the innkeeper's offer, then nights of rest (see docs/formats/inns.md).
+const gdsContainers = parseShopContainers(save.bytes);
+const inns = createInnHost({
+  stats: (ref) => findShop(gdsContainers, ref)?.stats,
+  chapter: () => start.chapter,
+  world: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); sky.update(clock.minutes); },
+  party: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  playDialog: (key, done) => town.playDialog(key, done),
+  itemRule: (i) => ruleFor(objectItems, i),
+  notify: createNotice(),
+});
 
 // Town and temple scenes: a 2D screen on the HUD whose hotspots open dialogues.
 const town = createTownHost({
+  shop: (ref) => shops.open(ref),
   fetch: (names) => prefetchResources(archive, names),
   hud: screens,
-  chapter: start.chapter,
+  get chapter() { return start.chapter; },
   world: () => clock.state,
   playDialog: (key, done) => {
     encounters.runner.setWorld(clock.state);
@@ -157,9 +204,10 @@ const town = createTownHost({
     runDialogSession(session, showView, (cancelled) => {
       encounters.runner.finish(session);
       applyDialog(session, undefined, cancelled);
-      done({ cancelled, endState: session.endOfDialogState });
+      done({ cancelled, endState: session.endOfDialogState, choice: session.lastChoice });
     });
   },
+  inn: (ref) => inns.enter(ref),
 });
 
 // Entering a town: the party stands at the entry's exit position outside the door, then the scene opens.
@@ -173,11 +221,14 @@ const enterTown = async (e: PlacedEncounter, t: TownEntry) => {
   encounters.runner.enterAt(exit.x, exit.y);
 };
 
+const spellDefs = archive.has('SPELLS.DAT') ? parseSpells(archive.get('SPELLS.DAT')) : [];
+
 // Combat encounters: a fight on the combat grid, then wounds applied and the encounter marked done (or a retreat).
 const combat = new CombatEncounters({
   scene, camera, canvas: renderer.domElement, getHeight: zoneHost.getHeight,
   support: await loadCombatSupport(archive, save.bytes),
   items: objectItems,
+  spells: spellDefs,
   position: () => ({ x: party.x, y: party.y, heading: party.heading8 }),
   placeParty: (x, y, h) => { party.setPosition(x, y, h); prevX = x; prevY = y; encounters.runner.enterAt(x, y); },
   getParty: () => partyState,
@@ -190,7 +241,7 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
   const table = read('TELEPORT.DAT');
   teleports = table ? parseTeleports(table) : [];
   return new EncounterDriver(
-    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter }) } }),
+    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: makeDialogEnv({ getParty: () => partyState, zone: zoneNumber, chapter: start.chapter, extras: shops.textExtras, castSpell: (n) => justCast(n, clock.state.ticks) }) }),
     showView,
     {
       other: (e) => {
@@ -238,8 +289,9 @@ let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, c
 
 // Save and load: F5 quick-save, F9 quick-load, F6 slot screen.
 await installSaveControls({
-  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState }),
+  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState, shops: shops.snapshot() }),
   restore: async (d) => {
+    shops.restore(d.shops);
     clock.state = d.world;
     partyState = d.party;
     screens.setParty(partyState);
@@ -249,6 +301,87 @@ await installSaveControls({
   canQuickSave: () => !screens.blocking && !encounters.busy && !travelling,
   setSaveHandler: (h) => { screens.saveHandler = h; },
 });
+
+// Camping: R rests with healing, rations and time passing.
+installCamp({
+  items: objectItems,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  canCamp: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
+  menu: (text, choices) => new Promise((resolve) => screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
+  onTimePassed: () => sky.update(clock.minutes),
+});
+installItemControls({ items: objectItems, spells: spellDefs, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
+
+// Spells: V casts healing and light spells outside combat (combat casting lives in the fight panel, C).
+const cast = installCast({
+  spells: spellDefs,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getTicks: () => clock.state.ticks,
+  canCast: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
+  menu: (text, choices) => new Promise((resolve) => screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
+});
+
+// Temples: cure, bless and teleport at temple hotspots.
+installTempleControls({
+  town: town.controller, screens, items: objectItems, saveBytes: save.bytes,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  playDialog: (key, done) => town.playDialog(key, done),
+  teleportLayout: archive.has('REQ_TELE.DAT') ? archive.get('REQ_TELE.DAT') : undefined,
+  travel: (i) => { const d = teleports[i]; if (d) void travelTo(d); },
+});
+
+// Chests and containers: E opens the one the party stands next to (locks, riddles, traps, take and put).
+const containerStore = await installContainers({
+  archive, items: objectItems, get chapter() { return start.chapter; }, saveBytes: save.bytes, hud: screens,
+  zone: () => zoneHost.current.zone,
+  position: () => ({ x: party.x, y: party.y }),
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  canInteract: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
+  playDialog: (key) => new Promise<void>((done) => {
+    encounters.runner.setWorld(clock.state);
+    const session = encounters.runner.startDialog(key);
+    runDialogSession(session, showView, (cancelled) => { encounters.runner.finish(session); applyDialog(session, undefined, cancelled); done(); });
+  }),
+});
+
+// Cutscenes: ADS/TTM animations full screen (?cutscene=CHAPTER1.ADS,CHAPTER1.TTM plays one at start).
+const cutscenes = installCutscenes({ fetch: (names) => prefetchResources(archive, names), hud: screens, chapter: () => start.chapter, music, ...installBookPlayer({ fetch: (names) => prefetchResources(archive, names), hud: screens }) });
+
+// Chapter transitions: a dialogue or chapter-end hotspot ends the chapter (cutscenes, reset, start script, new start).
+const chapters = installChapters({
+  items: objectItems, containers: containerStore,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  playCutscenes: async (from, to) => { await cutscenes.playChapterFinish(from); await cutscenes.playChapterStart(to); },
+  loadStart: (n) => loadChapterStart(archive, n),
+  loadStore: async () => loadDialogStore(await prefetchResources(archive, Array.from({ length: 32 }, (_, n) => dialogFileName(n)))),
+  showText: (key) => new Promise<void>((done) => {
+    const session = encounters.runner.startDialog(key);
+    runDialogSession(session, showView, () => done());
+  }),
+  arrive: async (c, teleport) => {
+    town.dismiss();
+    start.chapter = c.chapter;
+    encounters = await makeEncounters(zoneHost.current.zone, zoneHost.current.data.tiles, clock.state);
+    await travelTo({ zone: c.zone, tileX: c.tileX, tileY: c.tileY, x: c.x, y: c.y, heading: c.heading });
+    if (teleport !== undefined && teleports[teleport]) await travelTo(teleports[teleport]!);
+  },
+  onTransitioned: () => sky.update(clock.minutes),
+});
+town.controller.handle(HotspotAction.ChapterEnd, ({ done }) => void chapters.begin().finally(done));
+if (q.has('chapter') && num('chapter', 1) > 1) void chapters.begin(num('chapter', 1), { cutscenes: false });
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
@@ -280,6 +413,9 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// Main menu: shown at start and on Escape (new game, continue, load, options).
+installMainMenu({ screens, music, post, applyGraphics, canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode });
+
 let last = performance.now();
 let frames = 0;
 let fpsTime = 0;
@@ -288,6 +424,7 @@ renderer.setAnimationLoop(() => {
   const now = performance.now();
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  updateUnderground(zoneHost.current.zone, currentLight(cast.lights, clock.state.ticks) !== undefined);
   if (flyMode) {
     fly.update(dt);
   } else {
@@ -310,6 +447,7 @@ renderer.setAnimationLoop(() => {
       clock.state = encounters.runner.world;
     }
   }
+  tickPerf(camera, dt);
   sky.followShadow(camera.position.x, camera.position.y, camera.position.z);
   post.render();
 

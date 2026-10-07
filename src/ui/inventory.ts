@@ -137,6 +137,18 @@ export function itemInfoLines(item: InventoryItem | undefined, defs: ItemDef[]):
   return lines;
 }
 
+/** Key help shown at the bottom of the info panel. */
+export const INVENTORY_HELP = ['Enter use  X equip', 'T give  R repair'];
+
+/** Slots to lay out: the largest capacity in the party (the original's limit is slots, not weight). */
+export function slotCountFor(party: Character[], fallback = 16): number {
+  return party.reduce((n, c) => Math.max(n, c.inventory.capacity), 0) || fallback;
+}
+
+export function itemCountLine(c: Character | undefined): string {
+  return c ? `Carrying ${c.inventory.items.length}/${c.inventory.capacity}` : '';
+}
+
 export interface InventoryState {
   /** Index into the active party. */
   tab: number;
@@ -223,7 +235,7 @@ export function fitText(font: Font, text: string, scale: number, maxWidth: numbe
 }
 
 /** Draw glyph pixels with fillRect so unset pixels stay transparent (putImageData would overwrite the background). */
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string, maxWidth?: number) {
+export function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string, maxWidth?: number) {
   if (text === '') return;
   const t = maxWidth === undefined ? text : fitText(font, text, scale, maxWidth);
   ctx.fillStyle = css;
@@ -240,7 +252,7 @@ function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: nu
 }
 
 /** Draw an item icon centred in `box`, scaled by an integer factor with nearest-neighbour sampling. */
-function drawIcon(ctx: CanvasRenderingContext2D, icons: ItemIconSet, imageIndex: number, box: Rect): boolean {
+export function drawIcon(ctx: CanvasRenderingContext2D, icons: ItemIconSet, imageIndex: number, box: Rect): boolean {
   const icon = resolveItemIcon(icons, imageIndex);
   if (!icon) return false;
   const k = fitScale(icon.width, icon.height, box.width, box.height);
@@ -265,6 +277,7 @@ export function drawInventory(
   defs: ItemDef[],
   colors: InventoryColors = INVENTORY_COLORS,
   icons?: ItemIconSet,
+  message = '',
 ): void {
   const { scale, panel } = layout;
   ctx.fillStyle = colors.background;
@@ -302,8 +315,14 @@ export function drawInventory(
 
   ctx.fillStyle = colors.slot;
   ctx.fillRect(layout.info.x, layout.info.y, layout.info.width, layout.info.height);
-  const lines = itemInfoLines(items[state.selected], defs);
+  const lines = [itemCountLine(character), ...itemInfoLines(items[state.selected], defs)];
   lines.forEach((line, i) => {
     drawText(ctx, font, line, layout.info.x + 4 * scale, layout.info.y + 4 * scale + i * (font.height + 3) * scale, scale, colors.text, layout.info.width - 8 * scale);
+  });
+  const lineHeight = (font.height + 3) * scale;
+  const bottom = layout.info.y + layout.info.height - 4 * scale;
+  const footer = [...(message ? [message] : []), ...INVENTORY_HELP];
+  footer.forEach((line, i) => {
+    drawText(ctx, font, line, layout.info.x + 4 * scale, bottom - (footer.length - i) * lineHeight, scale, i === 0 && message ? colors.equipped : colors.text, layout.info.width - 8 * scale);
   });
 }

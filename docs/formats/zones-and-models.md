@@ -356,7 +356,7 @@ Contains chapter-specific trigger regions, enemy encounters, and scripted events
 ### 3.7 Fixed Interactive Objects (`OBJFIXED.DAT`)
 **Function**: `BAK::LoadFixedObjects()` in `bak/fixedObject.cpp`
 
-Stores global interactive containers (chests, crypts, bags, grave markers).
+Stores global interactive containers (chests, crypts, bags, grave markers). The record layout, locks, riddle chests and traps are in `containers.md`.
 - Starts with a 2-byte skipped header.
 - Loops through zones; for each zone, reads `objects: u16`, then parses `objects` container structures with world coordinates and inventory contents.
 
@@ -582,3 +582,14 @@ To initialize and render **Zone 1** (`Z01`) at the start of Chapter 1, execute t
    - Convert placed items and terrain tiles into mesh objects.
    - Upload textures and palette to the GPU.
    - Render terrain quads, 3D polygon meshes with appropriate palette/texture flags, and camera-facing billboarded sprites.
+
+## Underground (mine) zones
+
+Zones 10, 11 and 12 are mines (our own summary of how BaKGL treats them):
+
+- The tunnels, rooms and their ceilings are ordinary models in `Z10.TBL` / `Z11.TBL` / `Z12.TBL` (`m_` pieces such as `m_rm1`, `m_door`), placed by the tile `.WLD` files like any other item. There is no separate ceiling layer.
+- `ZxxM.TBL` (e.g. `Z10M.TBL`) has the same model indices again, each model replaced by a flattened overhead variant (name + `_ug`, e.g. `m_door_ug`, with `m_doorgi_ug` for an open door). The original uses them for the overhead map. We load them as `ZoneData.overheadTable` but do not draw them yet.
+- No sky: the background is black. Walking is half speed.
+- Entity types that matter below ground: tunnel, pit, entrance and door.
+
+Our rendering (src/world/underground.ts, `Sky.setUnderground`): the sky dome and sun are hidden, fog is near-black and short, a faint cool hemisphere light keeps stone readable, and a flickering warm point light follows the party as its lantern. An active light spell (castControls) widens and brightens it. Grass is skipped, the ground-strip sheet (`ZxxL.SCX`) is optional, and walking runs at `UNDERGROUND_SPEED_SCALE`.
