@@ -18,7 +18,7 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 - [x] 10 Dialogue topics/keywords and remaining dialogue actions
 - [x] 11 Sound effects: SX/sound resource format and player
 - [x] 12 Cutscene player for ADS/TTM animations
-- [ ] 13 Chapter transitions and intro screens, per-chapter start state
+- [x] 13 Chapter transitions and intro screens, per-chapter start state
 - [x] 14 Underground mine zones (Z10M-Z12M) with ceilings and lighting
 - [x] 15 Main menu: new game, continue, load, options
 - [x] 16 Performance: billboard chunk culling (frustum + fog distance), F3 perf overlay (trees were already instanced impostors)

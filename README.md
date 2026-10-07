@@ -81,6 +81,7 @@ Add these to the game address, for example `http://localhost:5173/game.html?zone
 | `x=` `y=` `h=` | Start position in game units, and an 8-bit heading |
 | `song=N` | Play music track N instead of the zone's song |
 | `cutscene=ADS,TTM` | Play a cutscene on load, e.g. `cutscene=CHAPTER1.ADS,CHAPTER1.TTM` |
+| `chapter=N` | Start in chapter N (2 to 9): runs the chapter reset and start script without cutscenes |
 
 ## Saves and settings
 

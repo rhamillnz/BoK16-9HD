@@ -14,7 +14,7 @@ import { parsePalette } from '../formats/palette';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
 import { loadItemIcons } from '../data/itemIcons';
-import { EncounterDriver, encounterResourceNames, loadEncounterRunner, prefetchResources } from './encounterDriver';
+import { EncounterDriver, dialogFileName, encounterResourceNames, loadEncounterRunner, prefetchResources } from './encounterDriver';
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
@@ -31,7 +31,7 @@ import { partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
 import { parseTeleports, planTransition, type Destination, type ZoneTransition } from './transitions';
 import { QUERY_YES, runDialogSession, type DialogSession, type ShowDialog } from './encounterRunner';
-import { gdsLetter, type TownEntry } from '../formats/gds';
+import { HotspotAction, gdsLetter, type TownEntry } from '../formats/gds';
 import { createTownHost, townExit } from './townHost';
 import type { PlacedEncounter } from '../world/encounters';
 import type { WorldState } from './state';
@@ -47,6 +47,7 @@ import { installTempleControls } from './templeControls';
 import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
+import { installChapters, loadDialogStore } from './chapterControls';
 import { installPerf } from '../render/perf';
 import { installCutscenes } from './cutsceneControls';
 import { installUnderground } from './undergroundMode';
@@ -164,6 +165,7 @@ const applyDialog = (session: DialogSession, transition: ZoneTransition | undefi
     town.dismiss();
     void travelTo(out.destination);
   }
+  void chapters.afterDialog();
 };
 
 // Shops: buy, sell and haggle at shop hotspots of town scenes.
@@ -193,7 +195,7 @@ const town = createTownHost({
   shop: (ref) => shops.open(ref),
   fetch: (names) => prefetchResources(archive, names),
   hud: screens,
-  chapter: start.chapter,
+  get chapter() { return start.chapter; },
   world: () => clock.state,
   playDialog: (key, done) => {
     encounters.runner.setWorld(clock.state);
@@ -336,7 +338,7 @@ installTempleControls({
 
 // Chests and containers: E opens the one the party stands next to (locks, riddles, traps, take and put).
 await installContainers({
-  archive, items: objectItems, chapter: start.chapter, saveBytes: save.bytes, hud: screens,
+  archive, items: objectItems, get chapter() { return start.chapter; }, saveBytes: save.bytes, hud: screens,
   zone: () => zoneHost.current.zone,
   position: () => ({ x: party.x, y: party.y }),
   getParty: () => partyState,
@@ -352,7 +354,33 @@ await installContainers({
 });
 
 // Cutscenes: ADS/TTM animations full screen (?cutscene=CHAPTER1.ADS,CHAPTER1.TTM plays one at start).
-installCutscenes({ fetch: (names) => prefetchResources(archive, names), hud: screens, chapter: () => start.chapter });
+const cutscenes = installCutscenes({ fetch: (names) => prefetchResources(archive, names), hud: screens, chapter: () => start.chapter });
+
+// Chapter transitions: a dialogue or chapter-end hotspot ends the chapter (cutscenes, reset, start script, new start).
+const chapters = installChapters({
+  items: objectItems,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  playCutscenes: async (from, to) => { await cutscenes.playChapterFinish(from); await cutscenes.playChapterStart(to); },
+  loadStart: (n) => loadChapterStart(archive, n),
+  loadStore: async () => loadDialogStore(await prefetchResources(archive, Array.from({ length: 32 }, (_, n) => dialogFileName(n)))),
+  showText: (key) => new Promise<void>((done) => {
+    const session = encounters.runner.startDialog(key);
+    runDialogSession(session, showView, () => done());
+  }),
+  arrive: async (c, teleport) => {
+    town.dismiss();
+    start.chapter = c.chapter;
+    encounters = await makeEncounters(zoneHost.current.zone, zoneHost.current.data.tiles, clock.state);
+    await travelTo({ zone: c.zone, tileX: c.tileX, tileY: c.tileY, x: c.x, y: c.y, heading: c.heading });
+    if (teleport !== undefined && teleports[teleport]) await travelTo(teleports[teleport]!);
+  },
+  onTransitioned: () => sky.update(clock.minutes),
+});
+town.controller.handle(HotspotAction.ChapterEnd, ({ done }) => void chapters.begin().finally(done));
+if (q.has('chapter') && num('chapter', 1) > 1) void chapters.begin(num('chapter', 1), { cutscenes: false });
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.

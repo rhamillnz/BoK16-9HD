@@ -213,6 +213,8 @@ export async function installContainers(setup: ContainerSetup): Promise<Containe
   const hud = setup.hud;
   const host: ContainerHost = {
     ...setup,
+    // Read live: `setup.chapter` may be a getter that follows chapter transitions.
+    get chapter() { return setup.chapter; },
     store,
     riddleText: data.riddleText,
     menu: (text, choices) => new Promise((resolve) => hud.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
