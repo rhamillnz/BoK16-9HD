@@ -1,5 +1,6 @@
 import type { PerspectiveCamera } from 'three/webgpu';
 import { headingToRadians } from '../formats/world';
+import { DEFAULT_BINDINGS, isBound, type Bindings } from './bindings';
 import { slideMove, type CollisionPolygon, type Vec2 } from './collision';
 
 /**
@@ -26,6 +27,9 @@ export interface PartyInput {
   turnLeft: boolean;
   turnRight: boolean;
   run: boolean;
+  /** Analog stick deflection, -1 to 1 (forward and left positive); added to the key state. */
+  moveAxis?: number;
+  turnAxis?: number;
 }
 
 export const NO_INPUT: Readonly<PartyInput> = {
@@ -48,16 +52,18 @@ export function headingToVector(h: number): Vec2 {
 }
 
 /** Turning left (counter-clockwise) increases the heading. */
-export function stepHeading(heading: number, turn: -1 | 0 | 1, dt: number): number {
+export function stepHeading(heading: number, turn: number, dt: number): number {
   return normalizeHeading(heading + turn * TURN_RATE * dt);
 }
 
 /** Displacement for one frame, in BaK units. Opposing keys cancel. */
-export function walkDelta(heading: number, move: -1 | 0 | 1, run: boolean, dt: number): Vec2 {
+export function walkDelta(heading: number, move: number, run: boolean, dt: number): Vec2 {
   const speed = WALK_SPEED * (run ? RUN_MULTIPLIER : 1) * move * dt;
   const v = headingToVector(heading);
   return { x: v.x * speed, y: v.y * speed };
 }
+
+const clampAxis = (v: number): number => Math.max(-1, Math.min(1, v));
 
 export class PartyController {
   x: number;
@@ -94,13 +100,18 @@ export class PartyController {
   }
 
   update(dt: number, input: Readonly<PartyInput>): void {
-    const turn = (Number(input.turnLeft) - Number(input.turnRight)) as -1 | 0 | 1;
-    const move = (Number(input.forward) - Number(input.back)) as -1 | 0 | 1;
+    const turn = clampAxis(Number(input.turnLeft) - Number(input.turnRight) + (input.turnAxis ?? 0));
+    const move = clampAxis(Number(input.forward) - Number(input.back) + (input.moveAxis ?? 0));
     this.heading = stepHeading(this.heading, turn, dt);
     if (move === 0) return;
     const p = slideMove({ x: this.x, y: this.y }, walkDelta(this.heading, move, input.run, dt * this.speedScale), PARTY_RADIUS, this.polygons);
     this.x = p.x;
     this.y = p.y;
+  }
+
+  /** Mouse-look: turn by `units` of heading (positive turns left). */
+  turnBy(units: number): void {
+    this.heading = normalizeHeading(this.heading + units);
   }
 
   /** Places the camera: render x = x/scale, y = height/scale, z = -y/scale. */
@@ -110,11 +121,14 @@ export class PartyController {
   }
 }
 
-/** Keyboard binding: arrows or WASD, Shift to run. */
+/** Keyboard binding: WASD and arrows by default (rebindable, see bindings.ts), Shift to run. */
 export class PartyKeyboard {
   private readonly keys = new Set<string>();
 
-  constructor(target: Window = window) {
+  constructor(
+    target: Window = window,
+    private readonly bindings: () => Readonly<Bindings> = () => DEFAULT_BINDINGS,
+  ) {
     target.addEventListener('keydown', (e) => this.keys.add(e.code));
     target.addEventListener('keyup', (e) => this.keys.delete(e.code));
     target.addEventListener('blur', () => this.keys.clear());
@@ -125,13 +139,14 @@ export class PartyKeyboard {
   }
 
   read(): PartyInput {
-    const k = this.keys;
+    const b = this.bindings();
+    const down = (a: keyof Bindings) => [...this.keys].some((c) => isBound(b, a, c));
     return {
-      forward: k.has('ArrowUp') || k.has('KeyW'),
-      back: k.has('ArrowDown') || k.has('KeyS'),
-      turnLeft: k.has('ArrowLeft') || k.has('KeyA'),
-      turnRight: k.has('ArrowRight') || k.has('KeyD'),
-      run: k.has('ShiftLeft') || k.has('ShiftRight'),
+      forward: down('forward'),
+      back: down('back'),
+      turnLeft: down('turnLeft'),
+      turnRight: down('turnRight'),
+      run: down('run'),
     };
   }
 }

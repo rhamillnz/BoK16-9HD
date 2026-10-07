@@ -5,7 +5,7 @@ import { FlyCamera } from '../render/flyCamera';
 import { createPost } from '../render/post';
 import { parseQuality } from '../render/postSettings';
 import { createSky, DOME_RADIUS } from '../render/sky';
-import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
+import { PartyController, NO_INPUT } from '../world/partyController';
 import { DEBUG_TIME_STEP, GameClock } from './clock';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
@@ -56,6 +56,7 @@ import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
 import { installMainMenu } from './mainMenuControls';
+import { installInput } from './inputControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -106,10 +107,11 @@ const party = new PartyController(num('x', start.x), num('y', start.y), num('h',
 party.polygons = zoneHost.current.scene.collision;
 const tickPerf = installPerf(renderer, scene);
 const updateUnderground = installUnderground(sky, party);
-const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
 let flyMode = false;
+// Rebindable keys, gamepad, mouse-look, field of view and UI scale (Options in the main menu).
+const partyKeys = installInput({ party, camera, canvas: renderer.domElement, blocking: () => screens.blocking, combatActive: () => combat.active, flyMode: () => flyMode });
 party.applyToCamera(camera);
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'KeyF' || e.repeat) return;
