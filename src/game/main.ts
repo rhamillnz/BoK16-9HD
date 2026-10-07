@@ -48,6 +48,7 @@ import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
+import { installMainMenu } from './mainMenuControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -374,6 +375,9 @@ window.addEventListener('keydown', (e) => {
     applyGraphics(true);
   }
 });
+
+// Main menu: shown at start and on Escape (new game, continue, load, options).
+installMainMenu({ screens, music, post, applyGraphics, canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode });
 
 let last = performance.now();
 let frames = 0;

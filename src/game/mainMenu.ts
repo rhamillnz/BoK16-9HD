@@ -1,0 +1,116 @@
+import { POST_QUALITIES, parseQuality, type PostQuality } from '../render/postSettings';
+import type { MenuModel } from '../ui/menuScreen';
+
+/** Player options kept between sessions. */
+export interface GameSettings {
+  quality: PostQuality;
+  /** Music volume, 0 to 1 in steps of 0.1. */
+  volume: number;
+  muted: boolean;
+}
+
+export const DEFAULT_SETTINGS: GameSettings = { quality: 'medium', volume: 0.7, muted: false };
+export const SETTINGS_KEY = 'bok.settings';
+export const VOLUME_STEP = 0.1;
+
+const clampVolume = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 10) / 10;
+
+/** Reads stored settings; anything missing or malformed falls back to the defaults. */
+export function parseSettings(json: string | null | undefined): GameSettings {
+  let raw: Record<string, unknown> = {};
+  try {
+    const v: unknown = json ? JSON.parse(json) : {};
+    if (v && typeof v === 'object') raw = v as Record<string, unknown>;
+  } catch {
+    // corrupt storage: use defaults
+  }
+  return {
+    quality: parseQuality(typeof raw.quality === 'string' ? raw.quality : null, DEFAULT_SETTINGS.quality),
+    volume: typeof raw.volume === 'number' && Number.isFinite(raw.volume) ? clampVolume(raw.volume) : DEFAULT_SETTINGS.volume,
+    muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
+  };
+}
+
+export const serializeSettings = (s: GameSettings): string => JSON.stringify(s);
+
+export function stepQuality(q: PostQuality): PostQuality {
+  return POST_QUALITIES[(POST_QUALITIES.indexOf(q) + 1) % POST_QUALITIES.length]!;
+}
+
+export const stepVolume = (v: number, dir: 1 | -1): number => clampVolume(v + dir * VOLUME_STEP);
+
+export type MainMenuId = 'resume' | 'new' | 'continue' | 'load' | 'options';
+export type OptionsId = 'quality' | 'volDown' | 'volUp' | 'mute' | 'keys' | 'back';
+
+export interface MainMenuState {
+  /** The game is running (the menu was opened over it) so Resume makes sense. */
+  started: boolean;
+  /** There is at least one save to continue from. */
+  hasSave: boolean;
+}
+
+export function mainMenuModel(s: MainMenuState, message?: string): MenuModel {
+  return {
+    title: 'Betrayal at Krondor',
+    lines: [],
+    rows: [
+      ...(s.started ? [{ id: 'resume', label: 'Resume' }] : []),
+      { id: 'new', label: 'New game' },
+      { id: 'continue', label: 'Continue', enabled: s.hasSave },
+      { id: 'load', label: 'Load game', enabled: s.hasSave },
+      { id: 'options', label: 'Options' },
+    ],
+    buttons: [],
+    message,
+  };
+}
+
+export const QUALITY_NOTES: Record<PostQuality, string> = {
+  low: 'no post-processing or shadows',
+  medium: 'bloom, colour grade, shadows',
+  high: 'adds ambient occlusion',
+};
+
+export function optionsModel(s: GameSettings): MenuModel {
+  return {
+    title: 'Options',
+    lines: [],
+    rows: [
+      { id: 'quality', label: 'Graphics quality', detail: s.quality },
+      { id: 'volDown', label: 'Music volume down', enabled: s.volume > 0 },
+      { id: 'volUp', label: 'Music volume up', enabled: s.volume < 1 },
+      { id: 'mute', label: 'Music', detail: s.muted ? 'off' : 'on' },
+      { id: 'keys', label: 'Key help' },
+    ],
+    buttons: [{ id: 'back', label: 'Back' }],
+    message: `Volume ${Math.round(s.volume * 100)}%. Graphics: ${QUALITY_NOTES[s.quality]}`,
+  };
+}
+
+/** Every key the game uses, as [keys, what it does]. Keep in step with the controls in src/. */
+export const KEY_HELP: readonly (readonly [string, string])[] = [
+  ['W A S D / arrows', 'Walk and turn'],
+  ['Esc', 'This menu; closes any open screen'],
+  ['I', 'Inventory'],
+  ['C', 'Character sheet'],
+  ['Tab', 'Map'],
+  ['E', 'Open the chest or container beside you'],
+  ['R', 'Camp and rest'],
+  ['V', 'Cast a healing or light spell'],
+  ['F5 / F9', 'Quick save / quick load'],
+  ['F6', 'Save and load slots'],
+  ['M', 'Music on/off'],
+  ['P', 'Cycle graphics quality'],
+  ['[ and ]', 'Move the clock by 30 minutes (debug)'],
+  ['F', 'Fly camera (debug)'],
+  ['Combat', 'D defend, W wait, S slash, F shoot, C cast, Q retreat, Enter end turn'],
+];
+
+export function keyHelpModel(): MenuModel {
+  return {
+    title: 'Keys',
+    lines: KEY_HELP.map(([k, what]) => `${k}: ${what}`),
+    rows: [],
+    buttons: [{ id: 'back', label: 'Back' }],
+  };
+}
