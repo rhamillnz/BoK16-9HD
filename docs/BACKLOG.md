@@ -53,4 +53,4 @@ Backlog 5 (from Opus, 2026-10-08; start after open PRs and Backlog 4):
 - [ ] 4 Chapter 1 critical-path e2e test with synthetic data: start, first dialogue, a town, a shop purchase, a combat, a chest, a zone transition, save and load
 - [ ] 5 Loading and error screens: zone-load progress, friendly errors for missing/wrong game data, WebGPU-not-available message noting the WebGL2 fallback
 - [ ] 6 Code health: ESLint + Prettier in CI, split src/game/main.ts into feature modules (mostly composition), remove dead code and stale probe scripts
-- [ ] 7 Journal/notes screen: research BaKGL for a bookmark or quest log; otherwise a simple notes screen of key dialogue lines seen
+- [x] 7 Journal/notes screen: research BaKGL for a bookmark or quest log; otherwise a simple notes screen of key dialogue lines seen (BaKGL not readable from the cloud, so this is the simple notes screen: J, dialogue lines kept via saveExtras)
