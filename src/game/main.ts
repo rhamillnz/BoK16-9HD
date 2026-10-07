@@ -55,6 +55,7 @@ import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
 import { installMainMenu } from './mainMenuControls';
+import { ensureGameData } from '../ui/dataPicker';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -69,6 +70,7 @@ camera.far = DOME_RADIUS * 4;
 camera.updateProjectionMatrix();
 
 // Original game data, served by the dev server from the local install (see vite.config.ts).
+await ensureGameData(); // standalone build: folder picker + OPFS cache
 hud.textContent = 'Loading game data…';
 const [rmf, data] = await Promise.all([fetch('/bak/KRONDOR.RMF'), fetch('/bak/KRONDOR.001')]);
 if (!rmf.ok || !data.ok) throw new Error('Game data not found: set BAK_DIR to your Betrayal at Krondor install');

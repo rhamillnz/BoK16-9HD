@@ -43,6 +43,12 @@ set BAK_DIR=D:\Games\Betrayal at Krondor && npm run dev
 
 If the page stops with "Game data not found", `BAK_DIR` is wrong or the files are not in that folder (check the spelling and that `KRONDOR.RMF` is directly inside it). Restart `npm run dev` after changing it.
 
+### Standalone build (no dev server)
+
+`npm run build` writes a static site to `dist/` (relative URLs, so any static host or sub-path works; try it with `npm run preview`). Without the dev server there is no `/bak/`, so on first run the game asks for your install folder: **Choose game folder** (File System Access API), or drop the folder on the page, or, in browsers without the picker, the file-input fallback. `KRONDOR.RMF`, `KRONDOR.001`, `STARTUP.GAM`, `*.SX` and `music/*.ogg` are copied into the browser's private storage (OPFS) with a progress bar, and later visits start straight away. Nothing is uploaded. If OPFS is unavailable the files are kept in memory for the session.
+
+URL option: `?resetdata` forgets the cached files and asks for the folder again.
+
 ## Controls
 
 The same list is in the game: press **Esc** and choose Options, then Keys.
