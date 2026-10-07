@@ -17,6 +17,7 @@ import { EncounterDriver, encounterResourceNames, loadEncounterRunner, prefetchR
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
+import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { loadChapterStart } from '../world/zone';
 import { TILE_SIZE } from '../formats/world';
@@ -120,6 +121,7 @@ void music.play(num('song', songForZone(start.zone))).catch((err) => console.war
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
 });
+installSfx(); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
 
 let prevX = party.x;
 let prevY = party.y;

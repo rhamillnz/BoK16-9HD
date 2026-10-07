@@ -1,4 +1,5 @@
-import type { DialogAction } from '../formats/ddx';
+import { playSfx } from '../audio/sfxBus';
+import { ActionType, type DialogAction } from '../formats/ddx';
 import { applyDialogEffects, type DialogEffectsContext } from './dialogEffects';
 import { QUERY_NO, type DialogSession } from './encounterRunner';
 import type { PartyState } from './party';
@@ -40,6 +41,7 @@ export function resolveDialogOutcome(o: DialogOutcomeOptions): DialogOutcome {
     session.pendingActions,
   );
   const warnings = [...session.warnings];
+  for (const a of session.pendingActions) if (a.type === ActionType.PlaySound) playSfx(a.words[0]);
 
   let destination: Destination | undefined;
   if (session.teleport !== undefined) {
@@ -54,7 +56,7 @@ export function resolveDialogOutcome(o: DialogOutcomeOptions): DialogOutcome {
     ticksElapsed: effects.ticksElapsed,
     destination,
     lostItems: effects.lostItems,
-    unhandled: effects.unhandled,
+    unhandled: effects.unhandled.filter((a) => a.type !== ActionType.PlaySound),
     warnings,
   };
 }

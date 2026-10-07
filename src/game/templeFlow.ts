@@ -1,3 +1,5 @@
+import { playSfx } from '../audio/sfxBus';
+import { Snd } from '../audio/soundIds';
 import { CONDITION_NAMES, effectiveSkill, type Character } from '../formats/gam';
 import { HotspotAction, templeNumber } from '../formats/gds';
 import { findShop, type ShopContainer, type ShopStats } from '../formats/gdsContainers';
@@ -156,6 +158,7 @@ export function installTemples(town: TownController, d: TempleDeps): void {
           const r = applyCure(party, who, shop.haggleDifficulty, temple);
           if (!r.ok) return cureMenu(temple, shop, who, 'You cannot afford that.', back);
           d.setParty(r.party);
+          playSfx(Snd.teleport); // the original reuses its teleport chime for healing
           d.menu.close();
           return d.playDialog(TEMPLE_DIALOG.healPostHealing, () => {
             const rest = cureQuotes(d.getParty(), shop.haggleDifficulty, temple).find((x) => x.cost > 0);
@@ -210,6 +213,7 @@ export function installTemples(town: TownController, d: TempleDeps): void {
         const r = applyBlessing(d.getParty(), who, slot, d.items, shop);
         if (!r.ok) return blessMenu(shop, r.reason === 'cannotAfford' ? 'You cannot afford that.' : 'That cannot be blessed.', back);
         d.setParty(r.party);
+        playSfx(Snd.bless);
         blessMenu(shop, `Blessed for ${formatRoyals(r.cost)}.`, back);
       },
       () => {
@@ -265,6 +269,7 @@ export function installTemples(town: TownController, d: TempleDeps): void {
         const cost = teleportCost(here, spot(t)!, shop.haggleAnnoyance, shop.categories);
         if (cost > party.gold) return teleportMenu(ctx, source, shop, layout, 'You cannot afford that.');
         d.setParty({ ...party, gold: party.gold - cost });
+        playSfx(Snd.teleport);
         d.menu.close();
         d.playDialog(TEMPLE_DIALOG.teleportPost, () => {
           town.dismiss();

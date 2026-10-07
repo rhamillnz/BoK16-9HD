@@ -1,3 +1,5 @@
+import { playSfx } from '../audio/sfxBus';
+import { Snd } from '../audio/soundIds';
 import type { ItemDef } from '../formats/objinfo';
 import type { ItemHandler } from '../ui/hudRegistry';
 import { giveToCharacter, repairItem, toggleEquip, useItem, type ItemUseResult } from './itemUse';
@@ -23,6 +25,11 @@ export function installItemControls(host: ItemControlsHost): void {
         case 'give': r = target === undefined ? { party: p, message: 'Nobody to give it to.', ok: false } : giveToCharacter(p, character, slot, target, host.items); break;
       }
       if (r.ok || r.party !== p) host.setParty(r.party);
+      if (r.ok) {
+        const def = host.items[p.characters.find((c) => c.index === character)?.inventory.items[slot]?.itemIndex ?? -1];
+        if (action === 'use' && def?.useSound) playSfx(def.useSound, def.soundPlayTimes + 1);
+        else if (action === 'equip') playSfx(Snd.drag);
+      }
       return r.message;
     },
   });

@@ -1,4 +1,6 @@
 import '../ui/shopHudScreen'; // registers the 'shop' HUD screen
+import { playSfx } from '../audio/sfxBus';
+import { Snd } from '../audio/soundIds';
 import type { InventoryItem } from '../formats/gam';
 import { parseShopContainers, type ShopStats } from '../formats/gdsContainers';
 import type { GdsRef } from '../formats/gds';
@@ -158,6 +160,7 @@ export function createShops(host: ShopHost) {
       if (!done.ok) return reopen(); // the party changed during the dialogue
       host.setParty(done.result.party);
       shop = done.result.shop;
+      playSfx(Snd.buy);
       reopen(`Bought ${d.name} for ${formatRoyals(done.price)}`);
     };
 
@@ -196,6 +199,7 @@ export function createShops(host: ShopHost) {
       if (!done.ok) return reopen();
       host.setParty(done.result.party);
       shop = done.result.shop;
+      playSfx(Snd.buy);
       reopen(`Sold ${d?.name ?? 'item'} for ${formatRoyals(done.price)}`);
     };
 
