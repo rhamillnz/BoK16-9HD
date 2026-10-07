@@ -356,7 +356,7 @@ Contains chapter-specific trigger regions, enemy encounters, and scripted events
 ### 3.7 Fixed Interactive Objects (`OBJFIXED.DAT`)
 **Function**: `BAK::LoadFixedObjects()` in `bak/fixedObject.cpp`
 
-Stores global interactive containers (chests, crypts, bags, grave markers).
+Stores global interactive containers (chests, crypts, bags, grave markers). The record layout, locks, riddle chests and traps are in `containers.md`.
 - Starts with a 2-byte skipped header.
 - Loops through zones; for each zone, reads `objects: u16`, then parses `objects` container structures with world coordinates and inventory contents.
 

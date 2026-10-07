@@ -35,6 +35,7 @@ import type { PlacedEncounter } from '../world/encounters';
 import type { WorldState } from './state';
 import { installSaveControls } from './saveControls';
 import { installCamp } from './campControls';
+import { installContainers } from './containerControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -261,6 +262,23 @@ installCamp({
   canCamp: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
   menu: (text, choices) => new Promise((resolve) => screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
   onTimePassed: () => sky.update(clock.minutes),
+});
+
+// Chests and containers: E opens the one the party stands next to (locks, riddles, traps, take and put).
+await installContainers({
+  archive, items: objectItems, chapter: start.chapter, saveBytes: save.bytes, hud: screens,
+  zone: () => zoneHost.current.zone,
+  position: () => ({ x: party.x, y: party.y }),
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  canInteract: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
+  playDialog: (key) => new Promise<void>((done) => {
+    encounters.runner.setWorld(clock.state);
+    const session = encounters.runner.startDialog(key);
+    runDialogSession(session, showView, (cancelled) => { encounters.runner.finish(session); applyDialog(session, undefined, cancelled); done(); });
+  }),
 });
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting

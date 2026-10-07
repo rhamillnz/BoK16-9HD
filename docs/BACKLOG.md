@@ -11,7 +11,7 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 - [ ] 3 Temples: healing, curing conditions, blessings, temple teleport network
 - [x] 4 Camping in the wild: R key rest/sleep, healing, rations, time, interruptions
 - [ ] 5 Using items: eat, drink, scrolls, repair, equip/unequip, swap between characters, weight and slot limits
-- [ ] 6 Chests and containers (OBJFIXED.DAT, tile objects): open, take/put, word-lock riddle chests, traps
+- [x] 6 Chests and containers (OBJFIXED.DAT, tile objects): open, take/put, word-lock riddle chests, traps
 - [ ] 7 Combat pass 2: crossbows/ranged, enemy AI, loot, experience, wounds
 - [ ] 8 Skill improvement by practice
 - [ ] 9 Spells: research data, casting in combat and the world

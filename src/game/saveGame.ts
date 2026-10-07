@@ -23,6 +23,8 @@ export interface SaveGameData {
   heading: number;
   world: WorldState;
   party: PartyState;
+  /** Sections owned by feature modules (see saveExtras.ts); absent in older saves. */
+  extras?: Record<string, unknown>;
 }
 
 /** One-line description shown in the slot list. */
