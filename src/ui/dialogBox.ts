@@ -397,25 +397,29 @@ export function rasterizeText(font: Font, text: string, scale: number, color: [n
   return { width, height, data };
 }
 
-function parseColor(ctx: CanvasRenderingContext2D, css: string): [number, number, number, number] {
-  const prev = ctx.fillStyle;
-  ctx.fillStyle = css;
-  const resolved = String(ctx.fillStyle);
-  ctx.fillStyle = prev;
-  const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(resolved);
-  if (hex) return [parseInt(hex[1]!, 16), parseInt(hex[2]!, 16), parseInt(hex[3]!, 16), 255];
-  const rgba = /rgba?\(([^)]+)\)/.exec(resolved);
-  const p = rgba ? rgba[1]!.split(',').map((s) => parseFloat(s)) : [255, 255, 255, 1];
-  return [p[0]!, p[1]!, p[2]!, Math.round((p[3] ?? 1) * 255)];
-}
-
+/** Draw glyph pixels with fillRect (horizontal runs) so unset pixels stay transparent; putImageData would overwrite the box background with them. */
 function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string, spacing: number) {
   if (text === '') return;
-  const img = rasterizeText(font, text, scale, parseColor(ctx, css), spacing);
-  ctx.putImageData(new ImageData(img.data, img.width, img.height), x, y);
+  ctx.fillStyle = css;
+  let gx = x;
+  for (let i = 0; i < text.length; i++) {
+    const g = glyphFor(font, text.charCodeAt(i));
+    for (let py = 0; py < g.height; py++) {
+      let start = -1;
+      for (let px = 0; px <= g.width; px++) {
+        const on = px < g.width && g.pixels[py * g.width + px] !== 0;
+        if (on && start < 0) start = px;
+        else if (!on && start >= 0) {
+          ctx.fillRect(gx + start * scale, y + py * scale, (px - start) * scale, scale);
+          start = -1;
+        }
+      }
+    }
+    gx += (g.width + spacing) * scale;
+  }
 }
 
-/** Draw the current page of a laid-out dialogue. putImageData ignores smoothing, so scaling stays crisp. */
+/** Draw the current page of a laid-out dialogue. Glyphs are integer-scaled rectangles, so scaling stays crisp. */
 export function drawDialog(
   ctx: CanvasRenderingContext2D,
   font: Font,

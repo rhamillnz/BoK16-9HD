@@ -26,6 +26,9 @@ import { advanceTime, setFlag, type WorldState } from './state';
 /** Game-state id the original keeps the "item value" in (price of the thing being bought or sold). */
 export const GAME_STATE_ITEM_VALUE = 0x753e;
 
+/** Marks a dialogue character slot nobody was picked for. */
+const NO_CHARACTER = 0xff;
+
 /** SpecialAction types that move money by the item value. */
 const SPECIAL_REDUCE_GOLD = 0;
 const SPECIAL_INCREASE_GOLD = 1;
@@ -82,7 +85,7 @@ export function applyDialogEffects(ctx: DialogEffectsContext, actions: readonly 
     const all = activeCharacters(party).map((c) => c.index);
     if (who <= 1) return all;
     const picked = ctx.dialogCharacters?.[who - 2];
-    return picked === undefined ? all : [picked];
+    return picked === undefined || picked === NO_CHARACTER ? all : [picked];
   };
   const randomBetween = (min: number, max: number) => (min === max ? max : min + (rnd(0x1000) % Math.max(1, max - min)));
 
@@ -124,7 +127,8 @@ export function applyDialogEffects(ctx: DialogEffectsContext, actions: readonly 
       case ActionType.LearnSpell: {
         // Unlike the other actions, "who" here indexes the dialogue's character list directly.
         const who = num(f.who);
-        const index = ctx.dialogCharacters?.[who] ?? activeCharacters(party)[who]?.index;
+        const picked = ctx.dialogCharacters?.[who];
+        const index = picked !== undefined && picked !== NO_CHARACTER ? picked : activeCharacters(party)[who]?.index;
         if (index === undefined) {
           unhandled.push(a);
           break;
