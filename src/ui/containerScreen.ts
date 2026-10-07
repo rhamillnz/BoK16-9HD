@@ -163,9 +163,19 @@ function drawSlot(ctx: CanvasRenderingContext2D, font: Font, slot: { rect: Rect;
     ctx.fillRect(slot.icon.x, slot.icon.y, slot.icon.width, slot.icon.height);
   }
   const tx = slot.icon.x + slot.icon.width + 2 * scale;
-  const tw = slot.rect.x + slot.rect.width - tx - scale;
-  drawText(ctx, font, item.name, tx, slot.rect.y + 2 * scale, scale, item.equipped ? c.equipped : c.text, tw);
-  drawText(ctx, font, item.amount, tx, slot.rect.y + 2 * scale + (font.height + 2) * scale, scale, c.text, tw);
+  const tw = slot.rect.x + slot.rect.width - tx - 2 * scale;
+  const lineH = (font.height + 2) * scale;
+  const nameCss = item.equipped ? c.equipped : c.text;
+  if (slot.rect.height >= 2 * lineH + 2 * scale) {
+    drawText(ctx, font, item.name, tx, slot.rect.y + 2 * scale, scale, nameCss, tw);
+    drawText(ctx, font, item.amount, tx, slot.rect.y + 2 * scale + lineH, scale, c.text, tw);
+    return;
+  }
+  // Short slots (a big party inventory): name and amount share one line, the amount right-aligned.
+  const y = slot.rect.y + Math.max(0, Math.floor((slot.rect.height - font.height * scale) / 2));
+  const aw = item.amount ? measureString(font, item.amount) * scale : 0;
+  drawText(ctx, font, item.amount, tx + tw - aw, y, scale, c.text);
+  drawText(ctx, font, item.name, tx, y, scale, nameCss, Math.max(0, tw - aw - (aw ? 4 * scale : 0)));
 }
 
 export function drawContainerScreen(
