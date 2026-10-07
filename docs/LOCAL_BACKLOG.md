@@ -96,7 +96,7 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
    Universal Animation Library), fitted to the original sprite footprint.
 7. **DONE by Opus (582 images in `art/reference/Z??/slots-4x`).** ~~Upscale every remaining original sprite, item icon and portrait~~ with `tools/upscale`
    into `art/reference/Z??/slots-4x/` (gitignored); check a few in game.
-8. **Verify the cloud's `integration` branch** periodically: run it on port 5176, screenshot
+8. **DONE once (2026-10-08, see `docs/INTEGRATION_NOTES.md`); repeat periodically** **Verify the cloud's `integration` branch** periodically: run it on port 5176, screenshot
    the start, the village, a town scene, combat and the map, and write findings to
    `docs/INTEGRATION_NOTES.md` on `local-art`.
 
