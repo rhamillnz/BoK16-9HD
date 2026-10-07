@@ -17,3 +17,17 @@ jobs:
       - run: npx tsc --noEmit
       # tests/gamedata.test.ts auto-skips when no game install is present.
       - run: npx vitest run
+
+  e2e:
+    # Smoke tests in headless Chromium against synthetic data (docs/e2e.md). No GPU on the
+    # runner, so three.js uses its WebGL2 fallback on SwiftShader.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright-core install --with-deps chromium
+      - run: npm run test:e2e
