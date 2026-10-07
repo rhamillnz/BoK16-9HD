@@ -66,7 +66,7 @@ function newItem(itemIndex: number, quantity: number, rule: ItemRule | undefined
 }
 
 /** Add to an existing stack of the same item first, then into a free slot. Returns undefined when full. */
-function addToCharacter(c: Character, itemIndex: number, quantity: number, rule: ItemRule | undefined): Character | undefined {
+export function addToCharacter(c: Character, itemIndex: number, quantity: number, rule: ItemRule | undefined): Character | undefined {
   const stackSize = rule?.stackSize ?? 1;
   let left = quantity;
   const items = c.inventory.items.map((it) => {

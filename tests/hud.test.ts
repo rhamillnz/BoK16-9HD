@@ -134,3 +134,34 @@ describe('HudScreens', () => {
     });
   });
 });
+
+describe('screen registry', () => {
+  it('lets a feature register a screen with a hotkey that toggles, blocks and closes', () => {
+    const seen: string[] = [];
+    const h = hud();
+    h.register('shop', () => ({
+      hotkey: 'KeyB',
+      open: () => { seen.push('open'); },
+      event: (ev) => { seen.push(ev.type); },
+      draw: () => { seen.push('draw'); },
+      close: () => { seen.push('close'); },
+    }));
+    expect(h.keyDown('KeyB', 'b')).toBe(true);
+    expect(h.screen).toBe('shop');
+    expect(h.blocking).toBe(true);
+    h.click(1, 1);
+    h.rightClick(1, 1); // dropped: the screen did not ask for right clicks
+    expect(seen).toEqual(['open', 'click']);
+    h.keyDown('KeyB', 'b');
+    expect(h.screen).toBe('none');
+    expect(seen.at(-1)).toBe('close');
+  });
+
+  it('lets open() refuse and rejects unknown screens', () => {
+    const h = hud();
+    h.register('never', () => ({ open: () => false, event: () => {}, draw: () => {} }));
+    h.open('never');
+    expect(h.screen).toBe('none');
+    expect(() => h.open('missing')).toThrow();
+  });
+});
