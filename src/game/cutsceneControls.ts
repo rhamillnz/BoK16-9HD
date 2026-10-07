@@ -1,21 +1,48 @@
 import { parseDDX, type DialogFile } from '../formats/ddx';
 import type { HudScreens } from '../ui/hud';
 import '../ui/cutsceneScreen'; // registers the cutscene screen
+import type { CutsceneScreenView } from '../ui/cutsceneScreen';
 import { playSfx } from '../audio/sfxBus';
 import { DIALOG_FILE_COUNT, dialogFileName } from './encounterDriver';
 import { DialogStore } from './encounterRunner';
-import { chapterFinishCutscenes, chapterStartCutscenes, cutsceneDialogKey, loadCutscene, type CutsceneHost, type CutsceneStep } from './cutscene';
+import { songFromSoundIndex } from '../audio/songs';
+import type { MusicPlayer } from '../audio/music';
+import { chapterFinishCutscenes, chapterStartCutscenes, cutsceneDialogKey, loadCutscene, type CutsceneHost, type CutscenePlayer, type CutsceneStep } from './cutscene';
 import { SCENE_HEIGHT, SCENE_WIDTH, type FetchResources } from './townScene';
 
 /** Book chapter file of a TTM dialogue type 2 key: `C` and the key as two digits. */
 export const bookFile = (key: number): string => `C${String(key % 100).padStart(2, '0')}.BOK`;
+
+/**
+ * Music changes of one cutscene: sound indexes of 255 and up name a song (1000 + song). The song playing before the
+ * first change is brought back by `restore` when the cutscene ends (silence if none was playing).
+ */
+export function cutsceneMusic(music: Pick<MusicPlayer, 'play' | 'stop' | 'songId'> | undefined): { change(index: number): void; restore(): void } {
+  let before: number | null | undefined;
+  return {
+    change(index) {
+      const song = songFromSoundIndex(index);
+      if (song === null || !music) return;
+      if (before === undefined) before = music.songId;
+      void music.play(song).catch((err) => console.warn('Cutscene music unavailable:', err));
+    },
+    restore() {
+      if (before === undefined || !music) return;
+      if (before === null) music.stop();
+      else void music.play(before).catch(() => undefined);
+      before = undefined;
+    },
+  };
+}
 
 /** What cutscenes need from the running game. */
 export interface CutsceneControlsHost {
   fetch: FetchResources;
   hud: HudScreens;
   chapter(): number;
-  /** A sound effect, or a music track from 255 up. Defaults to the sound-effect bus for effects. */
+  /** Where music changes of a cutscene (sound index 255 and up, 1000 + song) play; the previous song returns at its end. */
+  music?: Pick<MusicPlayer, 'play' | 'stop' | 'songId'>;
+  /** A sound effect, or a music track from 255 up. Defaults to the sound-effect bus for effects and `music` for tracks. */
   sound?(index: number): void;
   /** Run a full dialogue; resolve when it ends. */
   dialog?(key: number): Promise<void>;
@@ -56,19 +83,25 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
   const play = async (ads: string, ttm: string): Promise<void> => {
     if (active) return;
     const store = await loadDialogs().catch(() => undefined);
+    let view: CutsceneScreenView | undefined;
+    let player: CutscenePlayer | undefined;
+    /** A book or dialogue took the screen: put the cutscene back when it ends. */
+    const reopen = () => { if (view && player && !player.finished) host.hud.open('cutscene', view); };
+    const resume = (done: () => void) => () => { reopen(); done(); };
+    const music = cutsceneMusic(host.music);
     const hooks: CutsceneHost = {
       text: (n) => store?.byKey(cutsceneDialogKey(n))?.snippet.text,
-      sound: host.sound ?? ((i) => { if (i < 255) playSfx(i); }),
-      book: host.playBook && ((key, done) => void host.playBook!(bookFile(key)).then(done)),
-      dialog: host.dialog && ((key, done) => void host.dialog!(cutsceneDialogKey(key)).then(done)),
+      sound: host.sound ?? ((i) => { if (i < 255) playSfx(i); else music.change(i); }),
+      book: host.playBook && ((key, done) => void host.playBook!(bookFile(key)).then(resume(done))),
+      dialog: host.dialog && ((key, done) => void host.dialog!(cutsceneDialogKey(key)).then(resume(done))),
     };
-    let player;
     try {
       player = await loadCutscene(host.fetch, ads, ttm, { chapter: host.chapter(), host: hooks });
     } catch (err) {
       console.warn('Cutscene unavailable:', err);
       return;
     }
+    const pl: CutscenePlayer = player;
     active = true;
     await new Promise<void>((resolve) => {
       const canvas = document.createElement('canvas');
@@ -78,28 +111,30 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
       let raf = 0;
       let shown: Uint8ClampedArray | undefined;
       const tick = (now: number) => {
-        player.update(Math.min(100, now - last));
+        pl.update(Math.min(100, now - last));
         last = now;
-        if (player.take()) host.hud.invalidate();
-        if (!player.finished) raf = requestAnimationFrame(tick);
+        if (pl.take()) host.hud.invalidate();
+        if (!pl.finished) raf = requestAnimationFrame(tick);
       };
-      player.start(() => {
+      pl.start(() => {
         cancelAnimationFrame(raf);
         host.hud.end('cutscene');
+        music.restore();
         resolve();
       });
-      if (player.finished) return;
-      host.hud.open('cutscene', {
-        player,
+      if (pl.finished) return;
+      view = {
+        player: pl,
         picture: () => {
-          if (!player.image) return undefined;
-          if (shown !== player.image) {
-            shown = player.image;
-            canvas.getContext('2d')!.putImageData(new ImageData(player.image as Uint8ClampedArray<ArrayBuffer>, SCENE_WIDTH, SCENE_HEIGHT), 0, 0);
+          if (!pl.image) return undefined;
+          if (shown !== pl.image) {
+            shown = pl.image;
+            canvas.getContext('2d')!.putImageData(new ImageData(pl.image as Uint8ClampedArray<ArrayBuffer>, SCENE_WIDTH, SCENE_HEIGHT), 0, 0);
           }
           return canvas;
         },
-      });
+      };
+      host.hud.open('cutscene', view);
       raf = requestAnimationFrame(tick);
     });
     active = false;
