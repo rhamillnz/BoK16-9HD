@@ -72,4 +72,65 @@ describe('HudScreens', () => {
     expect(results).toEqual(['cancel']);
     expect(h.blocking).toBe(false);
   });
+
+  describe('town scene', () => {
+    const spot = { index: 0, x: 0, y: 0, width: 320, height: 200, chapterMask: 0, keyword: 1, action: 2, unknownD: 0, arg1: 0, arg2: 0, arg3: 0, tooltip: 0, unknown1a: 0, dialog: 0, checkEventState: 0 };
+    function openTown() {
+      const h = hud();
+      const calls: string[] = [];
+      h.showTown({
+        picture: {} as CanvasImageSource,
+        hotspots: [spot],
+        onClick: () => calls.push('click'),
+        onDescribe: () => calls.push('describe'),
+        onLeave: () => calls.push('leave'),
+      });
+      return { h, calls };
+    }
+    const middle = (h: ReturnType<typeof hud>) => [h.width / 2, h.height / 2] as const;
+
+    it('blocks movement, ignores the inventory and sheet keys, and Escape asks to leave', () => {
+      const { h, calls } = openTown();
+      expect(h.screen).toBe('town');
+      expect(h.blocking).toBe(true);
+      h.keyDown('KeyI', 'i');
+      h.keyDown('KeyC', 'c');
+      expect(h.screen).toBe('town');
+      expect(h.keyDown('Escape', 'Escape')).toBe(true);
+      expect(calls).toEqual(['leave']);
+      expect(h.screen).toBe('town'); // the controller decides when the scene closes
+    });
+
+    it('sends left clicks and right clicks on a hotspot to the scene', () => {
+      const { h, calls } = openTown();
+      h.click(...middle(h));
+      h.rightClick(...middle(h));
+      h.click(1, 1);
+      expect(calls).toEqual(['click', 'describe']);
+    });
+
+    it('plays dialogue on top of the scene and returns to it afterwards', () => {
+      const { h } = openTown();
+      const results: string[] = [];
+      h.showDialog({ text: 'Welcome', displayStyle3: 0 }, [], (r) => results.push(r.kind));
+      expect(h.screen).toBe('dialog');
+      h.keyDown('Enter', 'Enter');
+      expect(results).toEqual(['finish']);
+      expect(h.screen).toBe('town');
+      h.showDialog({ text: 'Again', displayStyle3: 0 }, [], (r) => results.push(r.kind));
+      h.keyDown('Escape', 'Escape'); // closes the dialogue, not the scene
+      expect(results).toEqual(['finish', 'cancel']);
+      expect(h.screen).toBe('town');
+    });
+
+    it('hideTown closes the scene and any dialogue above it', () => {
+      const { h } = openTown();
+      const results: string[] = [];
+      h.showDialog({ text: 'Hi', displayStyle3: 0 }, [], (r) => results.push(r.kind));
+      h.hideTown();
+      expect(results).toEqual(['cancel']);
+      expect(h.screen).toBe('none');
+      expect(h.blocking).toBe(false);
+    });
+  });
 });

@@ -1,5 +1,6 @@
 import { parseDDX, type DialogFile } from '../formats/ddx';
 import type { ResourceArchive } from '../formats/archive';
+import { parseTownTable } from '../formats/gds';
 import { tileName } from '../formats/world';
 import { EncounterMap } from '../world/encounters';
 import {
@@ -27,6 +28,8 @@ export function encounterResourceNames(zone: number, tiles: readonly (readonly [
     'DEF_DIAL.DAT',
     'DEF_BLOC.DAT',
     'DEF_ZONE.DAT',
+    'DEF_TOWN.DAT',
+    'DEF_BKGR.DAT',
     'TELEPORT.DAT',
     'KEYWORD.DAT',
     ...Array.from({ length: DIALOG_FILE_COUNT }, (_, n) => dialogFileName(n)),
@@ -86,6 +89,8 @@ export function loadEncounterRunner(opts: {
     defDial: table('DEF_DIAL.DAT'),
     defBloc: table('DEF_BLOC.DAT'),
     defZone: read('DEF_ZONE.DAT') ? parseZoneTransitions(read('DEF_ZONE.DAT')!) : [],
+    defTown: read('DEF_TOWN.DAT') ? parseTownTable(read('DEF_TOWN.DAT')!) : [],
+    defBackground: read('DEF_BKGR.DAT') ? parseTownTable(read('DEF_BKGR.DAT')!) : [],
     keywords: keywords ? parseKeywords(keywords) : [],
     env: opts.env,
   });
@@ -96,6 +101,8 @@ export interface EncounterHooks {
   other?: (e: Extract<EncounterEvent, { type: 'other' }>) => void;
   /** A zone encounter without a dialogue fired: the party should leave now. */
   zone?: (e: Extract<EncounterEvent, { type: 'zone' }>) => void;
+  /** A town or background encounter without an entry dialogue fired: the party enters the scene now. */
+  town?: (e: Extract<EncounterEvent, { type: 'town' }>) => void;
   /** A block encounter fired: undo the party's last step. */
   blocked?: () => void;
   /** A dialogue ended; effects the runner could not apply are on the session. */
@@ -125,6 +132,7 @@ export class EncounterDriver {
     for (const ev of this.runner.update(x, y)) {
       if (ev.type === 'other') this.hooks.other?.(ev);
       else if (ev.type === 'zone') this.hooks.zone?.(ev);
+      else if (ev.type === 'town') this.hooks.town?.(ev);
       else this.queue.push(ev);
     }
     this.next();

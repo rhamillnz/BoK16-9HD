@@ -16,9 +16,11 @@ import {
   type DialogState,
 } from './dialogBox';
 import { buildPartyBar, drawPartyBar, layoutPartyBar, type PartyBarLayout, type PartyBarMember, type PortraitSet } from './partyBar';
+import { drawTownScreen, initialTownState, layoutTownScreen, stepTown, type TownLayout, type TownState } from './townScreen';
+import type { Hotspot } from '../formats/gds';
 import { defaultLayoutOptions, drawInventory, initialInventoryState, layoutInventory, stepInventory, type InventoryLayout, type InventoryState } from './inventory';
 
-export type HudScreen = 'none' | 'inventory' | 'sheet' | 'dialog';
+export type HudScreen = 'none' | 'inventory' | 'sheet' | 'dialog' | 'town';
 
 export interface HudData {
   font: Font;
@@ -32,6 +34,15 @@ export interface HudData {
 
 type DialogSnippet = Parameters<typeof layoutDialog>[1];
 
+/** A town or temple scene shown full-screen: the picture, its available hotspots and what clicks do. */
+export interface TownView {
+  picture: CanvasImageSource;
+  hotspots: Hotspot[];
+  onClick(h: Hotspot): void;
+  onDescribe(h: Hotspot): void;
+  onLeave(): void;
+}
+
 /**
  * Screen manager for the 2560x1440 HUD overlay: I opens the inventory, C the character sheet,
  * Escape closes whatever is open, and dialogue can be shown on top. No DOM access, so it is testable;
@@ -43,6 +54,7 @@ export class HudScreens {
   private inventory: { layout: InventoryLayout; state: InventoryState } | undefined;
   private sheet: { layout: SheetLayout; models: SheetModel[]; state: SheetState } | undefined;
   private dialog: { layout: DialogLayout; state: DialogState; done: (r: DialogResult) => void } | undefined;
+  private town: { layout: TownLayout; state: TownState; view: TownView } | undefined;
   /** Set whenever the picture changed since the last `draw`. */
   dirty = true;
   private partyBar: { layout: PartyBarLayout; members: PartyBarMember[] };
@@ -89,6 +101,21 @@ export class HudScreens {
 
   close(): void {
     this.closeDialog({ kind: 'cancel' });
+    this.screen = this.town ? 'town' : 'none';
+    this.dirty = true;
+  }
+
+  /** Show a town scene; dialogues play on top of it and it stays until `hideTown`. */
+  showTown(view: TownView): void {
+    this.closeDialog({ kind: 'cancel' });
+    this.town = { layout: layoutTownScreen(this.width, this.height), state: initialTownState(), view };
+    this.screen = 'town';
+    this.dirty = true;
+  }
+
+  hideTown(): void {
+    this.closeDialog({ kind: 'cancel' });
+    this.town = undefined;
     this.screen = 'none';
     this.dirty = true;
   }
@@ -106,24 +133,28 @@ export class HudScreens {
     const d = this.dialog;
     if (!d) return;
     this.dialog = undefined;
-    if (this.screen === 'dialog') this.screen = 'none';
+    if (this.screen === 'dialog') this.screen = this.town ? 'town' : 'none';
     this.dirty = true;
     d.done(result);
   }
 
   /** Returns true when the key was consumed (the caller should preventDefault). */
   keyDown(code: string, key: string): boolean {
-    if (code === 'KeyI' && this.screen !== 'dialog') {
+    if (code === 'KeyI' && this.screen !== 'dialog' && !this.town) {
       if (this.screen === 'inventory') this.close();
       else this.open('inventory');
       return true;
     }
-    if (code === 'KeyC' && this.screen !== 'dialog') {
+    if (code === 'KeyC' && this.screen !== 'dialog' && !this.town) {
       if (this.screen === 'sheet') this.close();
       else this.open('sheet');
       return true;
     }
     if (this.screen === 'none') return false;
+    if (code === 'Escape' && this.screen === 'town') {
+      this.town?.view.onLeave();
+      return true;
+    }
     if (code === 'Escape') {
       this.close();
       return true;
@@ -140,8 +171,21 @@ export class HudScreens {
     this.event({ type: 'hover', x, y });
   }
 
-  private event(ev: { type: 'key'; key: string } | { type: 'click' | 'hover'; x: number; y: number }): void {
+  rightClick(x: number, y: number): void {
+    this.event({ type: 'rightClick', x, y });
+  }
+
+  private event(ev: { type: 'key'; key: string } | { type: 'click' | 'hover'; x: number; y: number } | { type: 'rightClick'; x: number; y: number }): void {
     this.dirty = true;
+    if (ev.type === 'rightClick' && this.screen !== 'town') return;
+    if (this.screen === 'town' && this.town) {
+      const r = stepTown(this.town.layout, this.town.view.hotspots, this.town.state, ev);
+      this.town.state = r.state;
+      if (r.result.kind === 'click') this.town.view.onClick(r.result.hotspot);
+      else if (r.result.kind === 'describe') this.town.view.onDescribe(r.result.hotspot);
+      return;
+    }
+    if (ev.type === 'rightClick') return;
     if (this.screen === 'inventory' && this.inventory) {
       this.inventory.state = stepInventory(this.inventory.layout, this.inventory.state, ev);
     } else if (this.screen === 'sheet' && this.sheet) {
@@ -160,6 +204,9 @@ export class HudScreens {
     ctx.clearRect(0, 0, this.width, this.height);
     this.dirty = false;
     const { font, items } = this.data;
+    if (this.town) {
+      drawTownScreen(ctx, font, this.town.layout, this.town.view.picture, this.town.state, this.width, this.height);
+    }
     if (this.screen === 'inventory' && this.inventory) {
       drawInventory(ctx, font, this.inventory.layout, this.inventory.state, this.party, items, undefined, this.data.icons);
     } else if (this.screen === 'sheet' && this.sheet) {
@@ -192,7 +239,8 @@ export function mountHud(parent: HTMLElement, data: HudData): HudScreens {
     if (screens.keyDown(e.code, e.key)) e.preventDefault();
   });
   window.addEventListener('mousemove', (e) => screens.blocking && screens.hover(...toCanvas(e)));
-  window.addEventListener('mousedown', (e) => screens.blocking && screens.click(...toCanvas(e)));
+  window.addEventListener('mousedown', (e) => screens.blocking && (e.button === 2 ? screens.rightClick(...toCanvas(e)) : screens.click(...toCanvas(e))));
+  window.addEventListener('contextmenu', (e) => screens.blocking && e.preventDefault());
 
   const render = () => {
     canvas.style.pointerEvents = screens.blocking ? 'auto' : 'none';
