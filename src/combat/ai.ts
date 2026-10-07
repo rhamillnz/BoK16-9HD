@@ -1,24 +1,56 @@
 /**
- * Enemy turns. BaKGL's combat AI is not part of what we have read, so this is a simple stand-in:
- * strike the nearest party member if one can be reached this turn, otherwise step toward the
- * nearest one, otherwise wait.
+ * Enemy turns. BaKGL's combat AI is not part of what we have read, so this is our own stand-in
+ * (**unverified**), in priority order:
+ *  1. badly hurt (a quarter of Health or less) with a foe next to it: defend;
+ *  2. a shooter with no foe next to it: shoot the weakest foe in range;
+ *  3. strike the weakest foe it can reach this turn, slashing when it has stamina to spare;
+ *  4. shoot if it can; otherwise step toward the nearest foe; otherwise wait.
  */
 
-import { attack, currentFighter, gridFor, isOver, moveTo, rest, type BattleState } from './battle';
+import {
+  attack, currentFighter, defend, gridFor, isOver, moveTo, rest, shoot, shootTargets,
+  type BattleState, type Fighter,
+} from './battle';
 import { isDead, type Roll } from './rules';
-import type { GridPos } from './grid';
+import { isAdjacent, type GridPos } from './grid';
 
 const manhattan = (a: GridPos, b: GridPos) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+/** Fraction of Health at or below which a fighter turtles up. */
+export const WOUNDED_FRACTION = 0.25;
+
+const toughness = (f: Fighter) => f.health + f.stamina;
 
 export function enemyTurn(s: BattleState, roll: Roll): BattleState {
   if (isOver(s)) return s;
   const me = currentFighter(s);
-  const foes = s.fighters.filter((f) => f.side !== me.side && !isDead(f)).sort((a, b) => manhattan(me.pos, a.pos) - manhattan(me.pos, b.pos));
-  for (const foe of foes) {
-    const next = attack(s, foe.pos, roll);
+  const foes = s.fighters.filter((f) => f.side !== me.side && !isDead(f));
+  const nearest = [...foes].sort((a, b) => manhattan(me.pos, a.pos) - manhattan(me.pos, b.pos));
+  const weakest = [...foes].sort((a, b) => toughness(a) - toughness(b) || manhattan(me.pos, a.pos) - manhattan(me.pos, b.pos));
+  const touching = foes.some((f) => isAdjacent(me.pos, f.pos));
+
+  if (touching && me.maxHealth > 0 && me.health <= me.maxHealth * WOUNDED_FRACTION) {
+    const next = defend(s);
     if (next) return next;
   }
-  const target = foes[0];
+
+  const shootWeakest = (): BattleState | undefined => {
+    const targets = shootTargets(s).sort((a, b) => toughness(a) - toughness(b));
+    return targets[0] ? shoot(s, targets[0].pos, roll) : undefined;
+  };
+  if (me.ranged && !touching) {
+    const next = shootWeakest();
+    if (next) return next;
+  }
+
+  for (const foe of weakest) {
+    const slash = isAdjacent(me.pos, foe.pos) && me.stamina > Math.max(3, me.maxStamina / 2);
+    const next = (slash ? attack(s, foe.pos, roll, { kind: 'slash' }) : undefined) ?? attack(s, foe.pos, roll);
+    if (next) return next;
+  }
+  const shot = shootWeakest();
+  if (shot) return shot;
+
+  const target = nearest[0];
   if (target) {
     const grid = gridFor(s);
     let best: GridPos | undefined;
