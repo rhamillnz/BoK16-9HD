@@ -109,6 +109,7 @@ party.applyToCamera(camera);
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'KeyF' || e.repeat) return;
   flyMode = !flyMode;
+  fly.enabled = flyMode;
   if (flyMode) {
     fly.setHeading(camera.rotation.y);
   } else {
@@ -347,6 +348,7 @@ const containerStore = await installContainers({
   getWorld: () => clock.state,
   setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
   canInteract: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
+  modelName: (model) => zoneHost.current.data.table.names[model],
   playDialog: (key) => new Promise<void>((done) => {
     encounters.runner.setWorld(clock.state);
     const session = encounters.runner.startDialog(key);

@@ -210,6 +210,8 @@ export function drawContainerScreen(
 }
 
 export class ContainerScreen implements HudScreenHandler {
+  /** Hotkeys (I, C, Tab) must not swap it out: the game waits for `onClose`. */
+  modal = true;
   private s: { layout: ContainerLayout; state: ContainerScreenState; view: ContainerView } | undefined;
   constructor(private readonly host: HudHost) {}
 
@@ -223,8 +225,11 @@ export class ContainerScreen implements HudScreenHandler {
   open(): boolean {
     return this.s !== undefined;
   }
+  /** However the screen is closed (Escape, the button, another screen opening), the view hears `onClose` once. */
   close(): void {
+    const s = this.s;
     this.s = undefined;
+    s?.view.onClose();
   }
   event(ev: ContainerEvent): void {
     const s = this.s;
@@ -239,11 +244,9 @@ export class ContainerScreen implements HudScreenHandler {
     }
   }
   escape(): void {
-    const s = this.s;
-    if (!s) return;
-    this.s = undefined;
-    this.host.close();
-    s.view.onClose();
+    if (!this.s) return;
+    this.host.close(); // calls close(), which tells the view
+    this.close();
   }
   draw(ctx: CanvasRenderingContext2D): void {
     const h = this.host;
@@ -318,6 +321,8 @@ export function drawWordLock(ctx: CanvasRenderingContext2D, font: Font, layout: 
 }
 
 export class WordLockScreen implements HudScreenHandler {
+  /** Like the container screen: the game waits for `onLeave` or a solve. */
+  modal = true;
   private s: { layout: WordLockLayout; view: WordLockView } | undefined;
   constructor(private readonly host: HudHost) {}
   show(view: WordLockView): void {
@@ -326,8 +331,11 @@ export class WordLockScreen implements HudScreenHandler {
   open(): boolean {
     return this.s !== undefined;
   }
+  /** Closing without solving counts as leaving (the view hears `onLeave` once). */
   close(): void {
+    const s = this.s;
     this.s = undefined;
+    s?.view.onLeave();
   }
   event(ev: Parameters<typeof stepWordLock>[1]): void {
     const s = this.s;
@@ -337,11 +345,9 @@ export class WordLockScreen implements HudScreenHandler {
     else if (a.kind === 'leave') this.escape();
   }
   escape(): void {
-    const s = this.s;
-    if (!s) return;
-    this.s = undefined;
-    this.host.close();
-    s.view.onLeave();
+    if (!this.s) return;
+    this.host.close(); // calls close(), which tells the view
+    this.close();
   }
   draw(ctx: CanvasRenderingContext2D): void {
     if (this.s) drawWordLock(ctx, this.host.font, this.s.layout, this.s.view.state());

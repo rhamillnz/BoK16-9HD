@@ -3,7 +3,7 @@ import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import type { ContainerView, WordLockView } from '../ui/containerScreen';
 import { ContainerStore, type WorldContainer } from './containers';
-import { containerSource, interact, type ContainerHost } from './containerControls';
+import { containerSource, containerTitle, interact, type ContainerHost } from './containerControls';
 import type { PartyState } from './party';
 import { getFlag, type WorldState } from './state';
 import { ITEM_PICKLOCK } from './locks';
@@ -202,5 +202,21 @@ describe('containerSource', () => {
     expect(source(5).map((c) => c.x)).toEqual([8]);
     expect(source(9)).toEqual([]);
     expect(containerSource(undefined, undefined)(1)).toEqual([]);
+  });
+});
+
+describe('containerTitle', () => {
+  const plain = { lock: undefined } as WorldContainer;
+  it('names bodies, gravestones and bushes from the model', () => {
+    for (const m of ['dbody1', 'dbody2', 'rogebody', 'morhbody', 'wyvrnbdy', 'giantbdy']) expect(containerTitle(plain, m)).toBe('Body');
+    expect(containerTitle(plain, 'tstone3')).toBe('Gravestone');
+    expect(containerTitle(plain, 'tmbstone')).toBe('Gravestone');
+    expect(containerTitle(plain, 'bush2')).toBe('Bush');
+  });
+  it('falls back to chest or container', () => {
+    expect(containerTitle(plain, 'chest_nl')).toBe('Chest');
+    expect(containerTitle({ lock: { flag: 0, rating: 20, fairyChestIndex: 0, trapDamage: 0 } } as WorldContainer, 'house')).toBe('Chest');
+    expect(containerTitle(plain, 'rftshack')).toBe('Container');
+    expect(containerTitle(plain)).toBe('Container');
   });
 });

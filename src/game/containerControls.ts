@@ -40,13 +40,20 @@ export interface ContainerHost {
   playDialog?(key: number): Promise<void>;
   /** Integer in [0, 100). */
   roll?(): number;
+  /** Name of a model in the current zone's table, for the screen title. */
+  modelName?(model: number): string | undefined;
 }
 
 const nameOf = (host: ContainerHost, itemIndex: number): string => host.items[itemIndex]?.name ?? `item ${itemIndex}`;
 const defaultRoll = (): number => Math.floor(Math.random() * 100);
 
-function title(c: WorldContainer): string {
-  return c.lock ? 'Chest' : 'Container';
+/** Screen title from the container's model name in the zone table (dbody1, rogebody, tstone3, ...). */
+export function containerTitle(c: WorldContainer, modelName?: string): string {
+  const name = modelName?.toLowerCase() ?? '';
+  if (/body|bdy$/.test(name)) return 'Body';
+  if (/^(tstone|tmbstone)/.test(name)) return 'Gravestone';
+  if (/^bush/.test(name)) return 'Bush';
+  return c.lock || name.startsWith('chest') ? 'Chest' : 'Container';
 }
 
 /** Work through whatever stands between the party and the contents; true when the container may be opened. */
@@ -128,7 +135,7 @@ export async function interact(host: ContainerHost): Promise<boolean> {
   let cur = opened;
   let message = '';
   const view: ContainerView = {
-    title: title(cur),
+    title: containerTitle(cur, host.modelName?.(cur.model)),
     capacity: () => cur.capacity,
     items: () => cur.items,
     message: () => message,
@@ -200,6 +207,7 @@ export interface ContainerSetup {
   /** False while a dialogue, town scene, fight or zone change owns the game. */
   canInteract(): boolean;
   playDialog?(key: number): Promise<void>;
+  modelName?(model: number): string | undefined;
 }
 
 /** E opens the container the party stands next to. The only wiring main.ts needs: one call with the setup. */
@@ -231,9 +239,8 @@ export async function installContainers(setup: ContainerSetup): Promise<Containe
         onTurn: (i) => {
           view.onTurn(i);
           if (isSolved()) {
-            screen.close();
+            resolve(true); // before closing: the close also reports a leave, which must not win
             hud.close();
-            resolve(true);
           }
         },
         onLeave: leave,
