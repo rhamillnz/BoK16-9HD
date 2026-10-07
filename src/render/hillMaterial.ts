@@ -3,8 +3,8 @@ import { Fn, float, mix, mx_noise_float, normalWorld, positionWorld, pow, smooth
 import { SLOPE_END, SLOPE_START, TERRAIN_MACRO_SCALE, TERRAIN_PATCH_SCALE } from './terrainMaterial';
 
 /** Rock colour (linear) the steep and high parts of hills fade towards. */
-const ROCK_LOW = vec3(0.17, 0.15, 0.12);
-const ROCK_HIGH = vec3(0.3, 0.28, 0.25);
+const ROCK_LOW = vec3(0.12, 0.105, 0.085);
+const ROCK_HIGH = vec3(0.22, 0.2, 0.18);
 /** World heights (render units) where hills start and finish turning to bare rock. */
 /** Exponent applied to the palette colour (< 1 brightens dark colours most). */
 export const HILL_GAMMA = 0.55;

@@ -102,7 +102,7 @@ export function scatterOnTriangles(
           // Rocks lean into the slope and sink a little so they sit in the ground instead of balancing on it.
           const lean = new THREE.Quaternion().setFromUnitVectors(up, upNormal.clone().lerp(up, 0.4).normalize());
           q.premultiply(lean);
-          p.addScaledVector(upNormal, -0.3 * s);
+          p.addScaledVector(upNormal, -0.8 * s);
         }
         scale.set(s, s * (0.85 + rand() * 0.3), s);
         out.push({ name: names[Math.floor(rand() * names.length)]!, matrix: new THREE.Matrix4().compose(p.clone(), q.clone(), scale.clone()) });

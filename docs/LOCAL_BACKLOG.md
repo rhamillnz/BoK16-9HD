@@ -83,7 +83,7 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
    palette colours. Give them smooth normals and the stylised terrain material
    (`src/render/terrainMaterial.ts`), slope-based rock colouring, and scatter nature-kit rocks/bushes
    on them. Changes go in `src/render/zoneScene.ts` / new modules.
-4. **Road verges**: soften road and path edges into the grass (e.g. grass clumps biased to road edges,
+4. **Partly done (verge grass + roadside stones); rest (cart-track road material, ruts) moved to Opus.** **Road verges**: soften road and path edges into the grass (e.g. grass clumps biased to road edges,
    or an edge-darkening/blend band in `src/render/roadMaterial.ts`), plus occasional RockPath
    stones from the nature kit along roads.
 5. **Props**: replace remaining sprite/flat props with kit models through the manifest: chests

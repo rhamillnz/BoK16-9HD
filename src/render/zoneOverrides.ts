@@ -5,6 +5,7 @@ import { overriddenModelNames, slotTextureUrl, type ZoneOverridePlan } from './o
 import { usedSlotImages } from './zoneScene';
 import { isHillModel } from './hillMesh';
 import { SCATTER_MODELS } from './scatter';
+import { ROAD_STONES } from './roadStones';
 
 export type { ZoneOverridePlan };
 
@@ -36,7 +37,7 @@ export async function prepareZoneOverrides(zone: ZoneData, overrides?: AssetOver
     const model = zone.table.models[item.type];
     return model && isHillModel(model.name);
   });
-  const scatterNames = overrides && hasHills ? SCATTER_MODELS.filter((n) => overrides.has(n)) : [];
+  const scatterNames = overrides ? [...(hasHills ? SCATTER_MODELS : []), ...ROAD_STONES].filter((n) => overrides.has(n)) : [];
 
   const loader = new THREE.TextureLoader();
   await Promise.all([
