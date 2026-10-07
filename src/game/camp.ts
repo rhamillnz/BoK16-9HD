@@ -1,22 +1,21 @@
-import type { Character } from '../formats/gam';
 import type { ItemDef } from '../formats/objinfo';
 import {
   REST_CURES_SICK_AFTER,
   hoursUntil,
-  restHealPerHour,
   restOneHour,
   type TimeReport,
   type WorldState,
 } from './state';
 import { activeCharacters, addCondition, removeItem, updateCharacter, type PartyState } from './party';
+import { applyTimeReport, canHeal } from './rest';
 
 /**
  * Camping in the wild (R key). Pure functions over `WorldState` and `PartyState`; the DOM-free
  * rules live here and `campControls.ts` wires them to the game. See docs/formats/camping.md.
  *
- * What comes from BaKGL: rest advances exactly one hour per step, camp heal parameters, the
- * 13 hour Sick cure, rations eaten at day boundaries. What is *estimated* (not read from the
- * original): stamina recovery, the NearDeath step, the ambush chance and the morning hour.
+ * Healing, conditions, near death, skill growth and the 13 hour Sick cure use the same rules as
+ * inns (`rest.ts`, `applyTimeReport`). Camping adds its own ration sharing across the party, the
+ * ambush chance and the morning hour (the last two are *estimated*, not read from the original).
  */
 
 /** ItemType.Ration in OBJINFO. */
@@ -25,8 +24,6 @@ export const ITEM_TYPE_RATION = 0x17;
 export const MORNING_HOUR = 6;
 /** Chance per camped hour that something finds the camp (estimate). */
 export const AMBUSH_CHANCE_PER_HOUR = 0.04;
-/** NearDeath condition points recovered at each day boundary (estimate). */
-export const NEAR_DEATH_RECOVERY = 10;
 /** Starving points added to a character with no ration at a day boundary. */
 export const STARVE_PENALTY = 5;
 /** Longest single camp, in hours. */
@@ -55,41 +52,13 @@ export interface CampResult {
   messages: string[];
 }
 
-const hasHealth = (c: Character) => c.skills.health.trueSkill > 0 || c.skills.health.max > 0;
-
 /** Hours a plan asks for given the current world time (before interruptions). */
 export function plannedHours(plan: CampPlan, world: WorldState, party: PartyState): number {
   if (plan.kind === 'hours') return Math.max(1, Math.min(MAX_CAMP_HOURS, Math.floor(plan.hours)));
   if (plan.kind === 'morning') return hoursUntil(world.ticks, MORNING_HOUR);
-  // Until everyone is healed: the slowest character's remaining hours at the camp rate, capped.
-  let worst = 0;
-  for (const c of activeCharacters(party)) {
-    const h = c.skills.health;
-    const ceiling = Math.floor((h.max * 0x50) / 100);
-    const base = restHealPerHour(0x64, c.conditions.healing > 0);
-    worst = Math.max(worst, Math.ceil(Math.max(0, ceiling - h.trueSkill) / base));
-  }
-  return Math.max(1, Math.min(MAX_CAMP_HOURS, worst));
-}
-
-/** Health a camp can restore a character to: the camp ceiling (80%) of their maximum. */
-export const campCeiling = (c: Character): number => Math.floor((c.skills.health.max * 0x50) / 100);
-
-/** One hour of sleep for one character: health up to the ceiling, stamina back to full. */
-export function healForHour(c: Character, healFraction: number, healPercentCeiling: number): Character {
-  if (!hasHealth(c)) return c;
-  const { health, stamina } = c.skills;
-  const ceiling = Math.floor((health.max * healPercentCeiling) / 100);
-  const gain = restHealPerHour(healFraction, c.conditions.healing > 0);
-  const nextHealth = health.trueSkill >= ceiling ? health.trueSkill : Math.min(ceiling, health.trueSkill + gain);
-  return {
-    ...c,
-    skills: {
-      ...c.skills,
-      health: { ...health, trueSkill: nextHealth },
-      stamina: { ...stamina, trueSkill: stamina.max },
-    },
-  };
+  // Until everyone is healed: the camp loop stops as soon as nobody can heal further.
+  void party;
+  return MAX_CAMP_HOURS;
 }
 
 /** Day boundary: every active character eats a ration (clearing Starving) or goes hungrier. */
@@ -133,30 +102,9 @@ export function countRations(party: PartyState, items: readonly ItemDef[]): numb
 }
 
 function applyReport(party: PartyState, report: TimeReport, items: readonly ItemDef[], messages: string[]): PartyState {
-  let p = party;
-  const heal = report.hourlyHeal;
-  if (heal) {
-    for (const c of activeCharacters(p)) {
-      p = updateCharacter(p, c.index, (x) => healForHour(x, heal.healFraction, heal.healPercentCeiling));
-    }
-  }
-  if (report.improveHealthStamina) {
-    for (const c of activeCharacters(p)) {
-      p = updateCharacter(p, c.index, (x) => ({
-        ...x,
-        skills: {
-          ...x.skills,
-          health: { ...x.skills.health, max: Math.min(255, x.skills.health.max + 1) },
-          stamina: { ...x.skills.stamina, max: Math.min(255, x.skills.stamina.max + 1) },
-        },
-      }));
-    }
-  }
-  if (report.improveNearDeath) {
-    for (const c of activeCharacters(p)) p = updateCharacter(p, c.index, (x) => addCondition(x, 'nearDeath', -NEAR_DEATH_RECOVERY));
-  }
-  if (report.consumeRations) p = eatRations(p, items, messages);
-  return p;
+  // The shared rules handle healing, conditions, near death and growth; camping shares rations itself.
+  const p = applyTimeReport(party, { ...report, consumeRations: false });
+  return report.consumeRations ? eatRations(p, items, messages) : p;
 }
 
 /**
@@ -170,7 +118,7 @@ export function camp(world: WorldState, party: PartyState, plan: CampPlan, opts:
   const messages: string[] = [];
   const hours = plannedHours(plan, world, party);
   const startTicks = world.ticks;
-  const healed = (p: PartyState) => activeCharacters(p).every((c) => c.skills.health.trueSkill >= campCeiling(c));
+  const healed = (p: PartyState) => !activeCharacters(p).some((c) => canHeal(c, false));
 
   let w = world;
   let p = party;

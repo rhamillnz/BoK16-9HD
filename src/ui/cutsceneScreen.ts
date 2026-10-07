@@ -10,7 +10,7 @@ export const CUTSCENE_TEXT_BOX = { x: 15, y: 125, width: 285, height: 66 } as co
 /** Keys that continue past a text pause. */
 const CONTINUE_KEYS = new Set([' ', 'Enter']);
 
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
+export function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
   ctx.fillStyle = css;
   let gx = x;
   for (let i = 0; i < text.length; i++) {
@@ -89,6 +89,8 @@ export class CutsceneScreen implements HudScreenHandler {
 
   close(): void {
     const v = this.view;
+    // A book or dialogue opened by the cutscene itself takes the screen over; the cutscene waits underneath.
+    if (v?.player.waitingForExternal) return;
     this.view = undefined;
     v?.player.skip();
   }

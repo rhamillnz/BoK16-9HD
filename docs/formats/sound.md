@@ -27,7 +27,7 @@ Each `voiceRef` names `size` bytes of voice data at `offset` in the body. The or
 The first byte is a code; the low nibble is the channel. One more byte follows and is skipped.
 
 - **Wave** (code `0xFE`): `u16 rate`, `u32 size`, 2 unknown bytes, then `size` bytes of unsigned 8-bit mono PCM at `rate` Hz.
-- **Note stream** (anything else): a stream of { delta, event }. The delta is a byte preceded by any number of `0xF8` bytes, each adding 240 ticks. The event is a status byte followed by data: note-on `9c key velocity` (velocity 0 means note-off), control `Bc ctl value`, patch `Cc program`, pitch `Ec lo hi`, or `0xFC` to end. `c` must equal the voice's channel. A byte that is not one of these statuses repeats the previous status (running status). Events are ordered by their absolute tick; ties keep stream order. `src/formats/sx.ts` repackages them as a format-0 Standard MIDI File, 32 ticks per quarter note. The browser has no MIDI synth, so the player only plays wave voices; note-only effects are silent.
+- **Note stream** (anything else): a stream of { delta, event }. The delta is a byte preceded by any number of `0xF8` bytes, each adding 240 ticks. The event is a status byte followed by data: note-on `9c key velocity` (velocity 0 means note-off), control `Bc ctl value`, patch `Cc program`, pitch `Ec lo hi`, or `0xFC` to end. `c` must equal the voice's channel. A byte that is not one of these statuses repeats the previous status (running status). Events are ordered by their absolute tick; ties keep stream order. `src/formats/sx.ts` repackages them as a format-0 Standard MIDI File, 32 ticks per quarter note. The file has no tempo event, so we use the MIDI default of 120 beats per minute (one tick is about 15.6 ms). The browser has no MIDI synth, so `src/audio/noteSynth.ts` plays these with oscillators: each note gets a short attack and release, a waveform picked from its General MIDI patch family, and the pitch wheel (range of two semitones) is sampled at note start. Effects are capped at 12 seconds.
 
 ## 4. Sound numbers the game uses
 
@@ -37,4 +37,4 @@ Item use plays the item's `useSound` (OBJINFO) `soundPlayTimes + 1` times. Dialo
 
 ## 5. How the game plays them
 
-Game modules call `playSfx(id)` from `src/audio/sfxBus.ts`; `installSfx()` (`src/audio/sfxWiring.ts`) loads `/bak/frp.sx`, decodes waves on first use and caches them, caps playback at 8 voices, and M mutes it with the music. Without game data the calls do nothing.
+Game modules call `playSfx(id)` from `src/audio/sfxBus.ts`; `installSfx()` (`src/audio/sfxWiring.ts`) loads `/bak/frp.sx`, decodes waves on first use and caches them, plays note-only effects through the oscillator synth when an entry has no wave, caps playback at 8 voices, and M mutes it with the music. Without game data the calls do nothing.

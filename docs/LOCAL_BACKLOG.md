@@ -24,6 +24,34 @@ this file is for local sessions. Opus reviews and merges both.
 - Reference art (copyrighted, reference only, never commit): `art/reference/riftwar/`.
 - Art direction: **stylised** (hand-painted, chunky fantasy, Quaternius-like), not photoreal.
 
+## Delegate mechanical work to Gemini
+
+Reuben has plenty of Gemini credit, so hand well-specified mechanical sub-tasks to Gemini via
+the headless Antigravity CLI (see the Delegation section of the global CLAUDE.md):
+
+    & "C:\Users\user\AppData\Local\agy\bin\agy.exe" -p "<precise spec>" --model gemini-3.8-flash-high --mode accept-edits --print-timeout 900s
+
+Good fits: writing/extending Blender job JSON files, batch sprite exports and upscales, unit
+tests for pure functions, probe scripts, doc drafts, repetitive manifest entries. Give exact
+file paths, expected behaviour and the command that verifies it. Use `gemini-3.1-pro-high` for
+anything harder. Keep the creative/visual judgement (what looks right) for yourself, and
+always check Gemini's diff and run the tests before committing.
+
+## Review your own work before it reaches Opus
+
+Opus is expensive, so it only skims. Before ticking an item off:
+
+1. Re-read the full diff (`git diff origin/integration...HEAD`) as a strict reviewer: dead code,
+   leftovers, debug logging, game-data or derived files staged by mistake, licence/credits.
+2. `npx tsc --noEmit` and `npx vitest run` pass.
+3. Screenshots with `scripts/shoot.mjs` of every visual change (before/after where possible),
+   saved under `shots/local/<item>/` (gitignored), and the game still at 60 fps.
+4. Append a short entry to `docs/REVIEW_NOTES.md`: item, what changed (files), screenshot
+   paths, fps, known issues/limitations, anything Opus should look at. Keep it under 15 lines.
+
+Opus will read `docs/REVIEW_NOTES.md` and the screenshots, not the whole diff, unless a note
+flags something.
+
 ## Tools you should reuse
 
 | Tool | What it does |
