@@ -1,12 +1,14 @@
 import type { PerspectiveCamera } from 'three/webgpu';
 
 /**
- * Debug fly camera: click to capture the mouse and look around. W/S (or Up/Down) fly
+ * Debug fly camera: while enabled, click to capture the mouse and look around. W/S (or Up/Down) fly
  * along the view direction, so looking up and pressing W climbs; A/D (or Left/Right)
  * strafe; Space or E rises, Ctrl or Q sinks; Shift moves 5x faster.
  */
 export class FlyCamera {
   speed = 2000; // world units per second
+  /** Only capture the mouse while the fly camera is in use; otherwise HUD screens need the cursor. */
+  enabled = false;
   private yaw = 0;
   private pitch = 0;
   private readonly keys = new Set<string>();
@@ -15,7 +17,9 @@ export class FlyCamera {
     private readonly camera: PerspectiveCamera,
     element: HTMLElement,
   ) {
-    element.addEventListener('click', () => element.requestPointerLock());
+    element.addEventListener('click', () => {
+      if (this.enabled) void element.requestPointerLock();
+    });
     document.addEventListener('mousemove', (e) => {
       if (document.pointerLockElement !== element) return;
       this.yaw -= e.movementX * 0.0025;

@@ -7,7 +7,8 @@ import { EF_2D_OBJECT, type Face, type Model } from '../formats/tbl';
 import { angleToRadians } from '../formats/world';
 import { createTerrainMaterial } from './terrainMaterial';
 import { createHillMaterial } from './hillMaterial';
-import { isHillModel, smoothNormals } from './hillMesh';
+import { hillTriangles, isHillModel } from './hillMesh';
+import { detailHill, type DetailedHill } from './hillDetail';
 import { DEFAULT_SCATTER, SCATTER_MODELS, scatterOnTriangles } from './scatter';
 import { PATH_STYLE, ROAD_STYLE, createRoadMaterial } from './roadMaterial';
 import { buildCollisionPolygons, type CollisionPolygon } from '../world/collision';
@@ -23,6 +24,14 @@ import { buildOverrideMeshes, placementMatrix, type ZoneOverridePlan } from './o
  */
 
 export const WORLD_SCALE = 100;
+
+/** Detailed hill surfaces per placed item: the scene and the height field both need them. */
+const hillDetailCache = new WeakMap<object, DetailedHill>();
+function detailedHill(item: object, loops: THREE.Vector3[][]): DetailedHill {
+  let d = hillDetailCache.get(item);
+  if (!d) hillDetailCache.set(item, (d = detailHill(hillTriangles(loops))));
+  return d;
+}
 /** BaK units covered by one repeat of a terrain texture. */
 const TERRAIN_TEXTURE_SPAN = 800;
 /** Small lifts (BaK units) so coplanar terrain decals (roads, rivers, fields) draw above the ground. */
@@ -64,12 +73,26 @@ function decalLift(model: Model): number {
   return 0;
 }
 
+/**
+ * Road and path pieces are 4-sided strips: their two short edges cross the road. Returns, per
+ * corner, which long edge it lies on (0 or 1), so the shader knows where across the road it is;
+ * -1s for anything that is not a quad.
+ */
+export function stripAcross(loop: readonly THREE.Vector3[]): number[] {
+  if (loop.length !== 4) return loop.map(() => -1);
+  const len = (a: number, b: number) => loop[a]!.distanceTo(loop[b]!);
+  // Edges 0-1 and 2-3 shorter: they cross the road, so corners 0 and 3 share one side.
+  return len(0, 1) + len(2, 3) < len(1, 2) + len(3, 0) ? [0, 1, 1, 0] : [0, 0, 1, 1];
+}
+
 /** Accumulates non-indexed triangles for one material. */
 class Batch {
   positions: number[] = [];
   normals: number[] = [];
   colors: number[] = [];
   uvs: number[] = [];
+  /** Road and path strips: 0 on one edge of the strip, 1 on the other (-1 when unknown). */
+  across: number[] = [];
 
   geometry(): THREE.BufferGeometry {
     const g = new THREE.BufferGeometry();
@@ -77,6 +100,7 @@ class Batch {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(this.normals, 3));
     if (this.colors.length) g.setAttribute('color', new THREE.Float32BufferAttribute(this.colors, 3));
     if (this.uvs.length) g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uvs, 2));
+    if (this.across.length) g.setAttribute('roadAcross', new THREE.Float32BufferAttribute(this.across, 1));
     g.computeBoundingSphere();
     return g;
   }
@@ -268,24 +292,18 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
     };
 
     if (isHillModel(model.name)) {
-      // Smooth normals across the model's shared vertices; palette colour per face.
+      // Subdivided, curved and sculpted (hillDetail.ts); palette colour per original face.
       const faces = model.faces.filter((f) => f.indices.length >= 3);
       const loops = faces.map((f) => f.indices.map((i) => world(i, new THREE.Vector3())));
-      const normals = smoothNormals(faces.map((f) => f.indices), loops);
-      faces.forEach((face, fi) => {
-        const loop = loops[fi]!;
-        const rgb = new THREE.Color().setRGB(palette[face.color * 4]! / 255, palette[face.color * 4 + 1]! / 255, palette[face.color * 4 + 2]! / 255, THREE.SRGBColorSpace);
-        for (let k = 1; k + 1 < loop.length; k++) {
-          // Reversed to counter-clockwise from outside, so the scatter step sees real upward normals.
-          for (const idx of [0, k + 1, k]) {
-            const p = loop[idx]!;
-            const nn = normals.get(face.indices[idx]!)!;
-            hillBatch.positions.push(p.x, p.y, p.z);
-            hillBatch.normals.push(nn.x, nn.y, nn.z);
-            hillBatch.colors.push(rgb.r, rgb.g, rgb.b);
-          }
-        }
-      });
+      const faceOfTriangle = faces.flatMap((f, fi) => Array.from({ length: f.indices.length - 2 }, () => fi));
+      const colours = faces.map((f) => new THREE.Color().setRGB(palette[f.color * 4]! / 255, palette[f.color * 4 + 1]! / 255, palette[f.color * 4 + 2]! / 255, THREE.SRGBColorSpace));
+      const detail = detailedHill(item, loops);
+      for (const x of detail.positions) hillBatch.positions.push(x);
+      for (const x of detail.normals) hillBatch.normals.push(x);
+      for (const t of detail.source) {
+        const rgb = colours[faceOfTriangle[t]!]!;
+        hillBatch.colors.push(rgb.r, rgb.g, rgb.b, rgb.r, rgb.g, rgb.b, rgb.r, rgb.g, rgb.b);
+      }
       continue;
     }
 
@@ -298,6 +316,7 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
       const rgb = mat.kind === 'color' ? new THREE.Color().setRGB(palette[face.color * 4]! / 255, palette[face.color * 4 + 1]! / 255, palette[face.color * 4 + 2]! / 255, THREE.SRGBColorSpace) : null;
       // Slot textures stretch over the face's first four corners, as in the original.
       const corner = [[0, 0], [1, 0], [1, 1], [0, 1]] as const;
+      const across = mat.kind === 'terrain' && (mat.strip === Terrain.Road || mat.strip === Terrain.Path) ? stripAcross(loop) : undefined;
       for (let k = 1; k + 1 < loop.length; k++) {
         for (const idx of [0, k, k + 1]) {
           const p = loop[idx]!;
@@ -307,6 +326,7 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
           if (mat.kind === 'terrain') {
             const span = TERRAIN_TEXTURE_SPAN / WORLD_SCALE;
             batch.uvs.push(p.x / span, p.z / span);
+            if (across) batch.across.push(across[idx]!);
           } else if (mat.kind === 'slot') {
             const uv = corner[Math.min(idx, 3)]!;
             batch.uvs.push(uv[0], uv[1]);
@@ -404,6 +424,14 @@ export function collectTerrainTriangles(zone: ZoneData): number[] {
       const vz = v[i * 3 + 2]!;
       return [item.x + vx * cos - vy * sin, item.y + vx * sin + vy * cos, item.z + vz] as const;
     };
+    if (isHillModel(model.name)) {
+      // Walk on the same sculpted surface that is drawn (render space back to BaK units).
+      const toRender = (p: readonly [number, number, number]) => new THREE.Vector3(p[0] / WORLD_SCALE, p[2] / WORLD_SCALE, -p[1] / WORLD_SCALE);
+      const loops = model.faces.filter((f) => f.indices.length >= 3).map((f) => f.indices.map((i) => toRender(world(i))));
+      const r = detailedHill(item, loops).positions;
+      for (let i = 0; i < r.length; i += 3) out.push(r[i]! * WORLD_SCALE, -r[i + 2]! * WORLD_SCALE, r[i + 1]! * WORLD_SCALE);
+      continue;
+    }
     for (const face of model.faces) {
       if (face.indices.length < 3) continue;
       const loop = face.indices.map(world);
