@@ -4,6 +4,7 @@
  * skill improvement is the next backlog item), so the numbers are our own stand-ins (**unverified**).
  */
 
+import { practiceSkill } from '../game/practice';
 import type { Character, SkillName } from '../formats/gam';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import { updateCharacter, type PartyState } from '../game/party';
@@ -85,16 +86,14 @@ export function battleRewards(fighters: readonly Fighter[], history: readonly Ba
 
 const indexOf = (f: string) => Number(f.replace('party', ''));
 
-/** Adds the experience and the loot money to the party. */
+/** Adds the loot money and turns the experience into skill levels (see practice.ts). */
 export function applyRewards(party: PartyState, rewards: Rewards): PartyState {
   let next: PartyState = { ...party, gold: party.gold + rewards.royals };
   for (const [id, xp] of rewards.experience) {
     next = updateCharacter(next, indexOf(id), (c) => {
-      const skills = { ...c.skills };
-      for (const [name, n] of Object.entries(xp) as [SkillName, number][]) {
-        skills[name] = { ...skills[name], experience: skills[name].experience + n };
-      }
-      return { ...c, skills };
+      let out = c;
+      for (const [name, n] of Object.entries(xp) as [SkillName, number][]) out = practiceSkill(out, name, 'direct', n);
+      return out;
     });
   }
   return next;

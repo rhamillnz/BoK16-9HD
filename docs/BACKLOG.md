@@ -13,7 +13,7 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 - [x] 5 Using items: eat, drink, scrolls, repair, equip/unequip, swap between characters, weight and slot limits
 - [x] 6 Chests and containers (OBJFIXED.DAT, tile objects): open, take/put, word-lock riddle chests, traps
 - [x] 7 Combat pass 2: crossbows/ranged, enemy AI, loot, experience, wounds
-- [ ] 8 Skill improvement by practice
+- [x] 8 Skill improvement by practice
 - [ ] 9 Spells: research data, casting in combat and the world
 - [ ] 10 Dialogue topics/keywords and remaining dialogue actions
 - [ ] 11 Sound effects: SX/sound resource format and player
