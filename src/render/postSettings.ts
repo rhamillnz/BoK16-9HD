@@ -34,12 +34,12 @@ export const POST_PRESETS: Record<PostQuality, PostSettings> = {
   medium: {
     enabled: true, bloom: true, bloomStrength: 0.18, bloomRadius: 0.5, bloomThreshold: 0.9,
     ao: false, aoResolutionScale: 0.5, aoSamples: 8, aoRadius: 0.5, aoIntensity: 1,
-    fxaa: true, grade: true, saturation: 1.12, contrast: 1.06, splitTone: 0.35, vignette: 0.25,
+    fxaa: true, grade: true, saturation: 1.1, contrast: 1.02, splitTone: 0.3, vignette: 0.1,
   },
   high: {
     enabled: true, bloom: true, bloomStrength: 0.22, bloomRadius: 0.6, bloomThreshold: 0.85,
-    ao: true, aoResolutionScale: 0.5, aoSamples: 12, aoRadius: 0.6, aoIntensity: 1.1,
-    fxaa: true, grade: true, saturation: 1.12, contrast: 1.06, splitTone: 0.35, vignette: 0.25,
+    ao: true, aoResolutionScale: 0.5, aoSamples: 12, aoRadius: 0.6, aoIntensity: 0.8,
+    fxaa: true, grade: true, saturation: 1.1, contrast: 1.02, splitTone: 0.3, vignette: 0.1,
   },
 };
 

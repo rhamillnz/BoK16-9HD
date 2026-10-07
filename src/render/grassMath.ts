@@ -33,7 +33,7 @@ export const GRASS_PRESETS: Record<GrassQuality, GrassSettings> = {
 export const CLUMP_STRIDE = 7;
 
 /** Height above the sampled ground (world units) for a clump at full scale. */
-export const CLUMP_HEIGHT = 0.55;
+export const CLUMP_HEIGHT = 0.3;
 
 /** Returns the ground height (world units) at (x, z), or null where grass must not grow. */
 export type GroundSampler = ((x: number, z: number) => number | null) & {

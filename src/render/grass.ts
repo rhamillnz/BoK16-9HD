@@ -66,8 +66,8 @@ export function createGrass(scene: THREE.Scene, sampleGround: GroundSampler, opt
   const base = options.color ?? sampleGround.color ?? [0.3, 0.45, 0.2];
 
   // Stylised palette from the ground colour: dark saturated roots, lighter warm tips.
-  const root = new THREE.Color().setRGB(base[0] * 0.45, base[1] * 0.62, base[2] * 0.35, THREE.SRGBColorSpace);
-  const tip = new THREE.Color().setRGB(Math.min(1, base[0] * 1.15 + 0.1), Math.min(1, base[1] * 1.3 + 0.06), base[2] * 0.75, THREE.SRGBColorSpace);
+  const root = new THREE.Color().setRGB(base[0] * 0.8, base[1] * 0.9, base[2] * 0.6, THREE.SRGBColorSpace);
+  const tip = new THREE.Color().setRGB(Math.min(1, base[0] * 1.45 + 0.14), Math.min(1, base[1] * 1.5 + 0.12), Math.min(1, base[2] * 0.9 + 0.02), THREE.SRGBColorSpace);
   const uRoot = uniform(root);
   const uTip = uniform(tip);
   const uRadius = uniform(1); // fade-out distance in world units
