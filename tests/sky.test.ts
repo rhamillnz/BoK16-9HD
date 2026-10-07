@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
-import { createSky, FOG_FAR, FOG_NEAR } from '../src/render/sky';
+import { createSky, FOG_FAR, FOG_NEAR, SHADOW_EXTENT } from '../src/render/sky';
 
 describe('createSky', () => {
   it('installs fog and lights and updates them through the day', () => {
@@ -25,5 +25,23 @@ describe('createSky', () => {
     expect(key.position.y).toBeGreaterThan(0); // moon is up at midnight
     expect(key.intensity).toBeGreaterThan(0.3);
     expect(hemi.intensity).toBeGreaterThan(0.7); // readable night
+  });
+
+  it('casts shadows from a frustum that follows the party in texel steps', () => {
+    const scene = new THREE.Scene();
+    const sky = createSky(scene);
+    const key = scene.children.find((o): o is THREE.DirectionalLight => o instanceof THREE.DirectionalLight)!;
+    expect(key.castShadow).toBe(true);
+    expect(key.shadow.camera.right).toBe(SHADOW_EXTENT);
+
+    sky.update(12 * 60);
+    sky.followShadow(10, 0, -20);
+    const a = key.target.position.clone();
+    sky.followShadow(10.0001, 0, -20); // far less than one texel: no movement
+    expect(key.target.position.distanceTo(a)).toBe(0);
+    sky.followShadow(100, 0, -20);
+    expect(key.target.position.x).toBeGreaterThan(a.x);
+    // The light stays on its direction from the target.
+    expect(key.position.clone().sub(key.target.position).normalize().y).toBeGreaterThan(0.3);
   });
 });

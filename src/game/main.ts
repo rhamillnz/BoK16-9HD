@@ -145,6 +145,7 @@ renderer.setAnimationLoop(() => {
       clock.state = encounters.runner.world;
     }
   }
+  sky.followShadow(camera.position.x, camera.position.y, camera.position.z);
   renderer.render(scene, camera);
 
   frames++;
