@@ -1,5 +1,5 @@
 import { ActionType, type DialogAction } from '../formats/ddx';
-import { CONDITION_NAMES, type ExpiringEvent } from '../formats/gam';
+import { CONDITION_NAMES, SKILL_NAMES, type ExpiringEvent } from '../formats/gam';
 import type { ItemDef } from '../formats/objinfo';
 import { ItemType } from '../formats/objinfo';
 import {
@@ -61,6 +61,8 @@ export interface DialogEffectsResult {
   ticksElapsed: number;
   /** Items dropped because nobody had room. */
   lostItems: { itemIndex: number; quantity: number }[];
+  /** Skills (indices into SKILL_NAMES) a GainSkill action raised, in order. */
+  improvedSkills: number[];
   /** Actions with no effect here (sounds, skills, text variables, combat...), in order. */
   unhandled: DialogAction[];
 }
@@ -79,6 +81,7 @@ export function applyDialogEffects(ctx: DialogEffectsContext, actions: readonly 
   let ticksElapsed = 0;
   const lostItems: DialogEffectsResult['lostItems'] = [];
   const unhandled: DialogAction[] = [];
+  const improvedSkills: number[] = [];
 
   /** Characters a "who" selects: 0 and 1 mean everyone active. */
   const targets = (who: number): number[] => {
@@ -122,6 +125,26 @@ export function applyDialogEffects(ctx: DialogEffectsContext, actions: readonly 
         }
         const amount = randomBetween(num(f.min), num(f.max));
         for (const index of targets(num(f.who))) party = updateCharacter(party, index, (c) => addCondition(c, name, amount));
+        break;
+      }
+      case ActionType.GainSkill: {
+        // Raises (or, with a negative amount, lowers) the skill's true value, never past the
+        // character's maximum for it; characters without the skill (max 0) are skipped.
+        const name = SKILL_NAMES[num(f.skill)];
+        if (!name) {
+          unhandled.push(a);
+          break;
+        }
+        const amount = randomBetween(num(f.min), num(f.max));
+        for (const index of targets(num(f.flag))) {
+          party = updateCharacter(party, index, (c) => {
+            const s = c.skills[name];
+            if (s.max === 0) return c;
+            const trueSkill = Math.max(0, Math.min(s.max, s.trueSkill + amount));
+            return { ...c, skills: { ...c.skills, [name]: { ...s, trueSkill, unseenImprovement: s.unseenImprovement || trueSkill > s.trueSkill } } };
+          });
+        }
+        if (amount > 0) improvedSkills.push(num(f.skill));
         break;
       }
       case ActionType.LearnSpell: {
@@ -173,7 +196,7 @@ export function applyDialogEffects(ctx: DialogEffectsContext, actions: readonly 
         unhandled.push(a);
     }
   }
-  return { world, party, ticksElapsed, lostItems, unhandled };
+  return { world, party, ticksElapsed, lostItems, improvedSkills, unhandled };
 }
 
 function addExpiring(world: WorldState, e: ExpiringEvent): WorldState {

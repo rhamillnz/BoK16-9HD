@@ -15,7 +15,7 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 - [x] 7 Combat pass 2: crossbows/ranged, enemy AI, loot, experience, wounds
 - [x] 8 Skill improvement by practice
 - [ ] 9 Spells: research data, casting in combat and the world
-- [ ] 10 Dialogue topics/keywords and remaining dialogue actions
+- [x] 10 Dialogue topics/keywords and remaining dialogue actions
 - [ ] 11 Sound effects: SX/sound resource format and player
 - [ ] 12 Cutscene player for ADS/TTM animations
 - [ ] 13 Chapter transitions and intro screens, per-chapter start state
