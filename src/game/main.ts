@@ -31,11 +31,13 @@ import { parseTeleports, planTransition, type Destination, type ZoneTransition }
 import { QUERY_YES, runDialogSession, type DialogSession, type ShowDialog } from './encounterRunner';
 import { gdsLetter, type TownEntry } from '../formats/gds';
 import { createTownHost, townExit } from './townHost';
+import type { DialogEnd } from './townController';
 import type { PlacedEncounter } from '../world/encounters';
 import type { WorldState } from './state';
 import { installSaveControls } from './saveControls';
 import { installCamp } from './campControls';
 import { installItemControls } from './itemControls';
+import { installTempleControls } from './templeControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -148,20 +150,21 @@ const applyDialog = (session: DialogSession, transition: ZoneTransition | undefi
 };
 
 // Town and temple scenes: a 2D screen on the HUD whose hotspots open dialogues.
+const playTownDialog = (key: number, done: (end: DialogEnd) => void) => {
+  encounters.runner.setWorld(clock.state);
+  const session = encounters.runner.startDialog(key);
+  runDialogSession(session, showView, (cancelled) => {
+    encounters.runner.finish(session);
+    applyDialog(session, undefined, cancelled);
+    done({ cancelled, endState: session.endOfDialogState, choice: session.lastChoice });
+  });
+};
 const town = createTownHost({
   fetch: (names) => prefetchResources(archive, names),
   hud: screens,
   chapter: start.chapter,
   world: () => clock.state,
-  playDialog: (key, done) => {
-    encounters.runner.setWorld(clock.state);
-    const session = encounters.runner.startDialog(key);
-    runDialogSession(session, showView, (cancelled) => {
-      encounters.runner.finish(session);
-      applyDialog(session, undefined, cancelled);
-      done({ cancelled, endState: session.endOfDialogState });
-    });
-  },
+  playDialog: (key, done) => playTownDialog(key, done),
 });
 
 // Entering a town: the party stands at the entry's exit position outside the door, then the scene opens.
@@ -264,6 +267,18 @@ installCamp({
   onTimePassed: () => sky.update(clock.minutes),
 });
 installItemControls({ items: objectItems, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
+
+// Temples: cure, bless and teleport at temple hotspots.
+installTempleControls({
+  town: town.controller, screens, items: objectItems, saveBytes: save.bytes,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  playDialog: playTownDialog,
+  teleportLayout: archive.has('REQ_TELE.DAT') ? archive.get('REQ_TELE.DAT') : undefined,
+  travel: (i) => { const d = teleports[i]; if (d) void travelTo(d); },
+});
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.

@@ -67,7 +67,7 @@ Actions: 2 dialogue, 3 exit, 4 goto, 5 barmaid, 6 shop, 7 inn, 8 container, 9 lu
 
 **Availability.** With `checkEventState != 0` and a flag pointer in the low word of `dialog`, the hotspot is available when the flag equals the high word. Otherwise it is available when `(chapterMask ^ 0xFFFF) & (1 << (chapter - 1))` is non-zero. Which `dialog` values count as flag pointers (1..0xAB and 0x200..0x1FFF here) is our reading of BaKGL's choice categories *(unverified)*.
 
-**Clicking.** A left click on a hotspot with a dialogue key (and not a temple) plays the dialogue; afterwards the action runs. The dialogue's `SetEndOfDialogState` value `s` overrides the action when `s + 5` is 4 (nothing), 3 (barmaid), 2 (inn), 1 (leave) or 0 (repair). Goto reloads the scene with `arg1` as the new letter; exit leaves. Shops, containers, inns, barmaids, lute, repair, temple, teleport and chapter end are not implemented yet: their dialogue plays, the action is logged. A right click plays the tooltip dialogue. Escape leaves the scene.
+**Clicking.** A left click on a hotspot with a dialogue key (and not a temple) plays the dialogue; afterwards the action runs. The dialogue's `SetEndOfDialogState` value `s` overrides the action when `s + 5` is 4 (nothing), 3 (barmaid), 2 (inn), 1 (leave) or 0 (repair). Goto reloads the scene with `arg1` as the new letter; exit leaves. Temples and teleports are implemented (see `temples.md`). Shops, containers, inns, barmaids, lute, repair and chapter end are not implemented yet: their dialogue plays, the action is logged. A right click plays the tooltip dialogue. Escape leaves the scene.
 
 ## 3. Scene scripts
 
