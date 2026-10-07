@@ -9,9 +9,9 @@ import { buildPartyBar, drawPartyBar, layoutPartyBar, type PartyBarLayout, type 
 import { drawCompass, layoutCompass, layoutMap, type CompassLayout, type MapLayout, type PartyPose } from './mapScreen';
 import './builtinScreens'; // registers the built-in screens
 import type { DialogScreen, TownScreen, TownView } from './builtinScreens';
-import { registeredHudScreens, registerHudScreen, type HudEvent, type HudHost, type HudScreen, type HudScreenFactory, type HudScreenHandler, type SaveHandler } from './hudRegistry';
+import { registeredHudScreens, registerHudScreen, type HudEvent, type HudHost, type HudScreen, type HudScreenFactory, type HudScreenHandler, type SaveHandler, type ItemHandler } from './hudRegistry';
 
-export { registerHudScreen, type HudHost, type HudScreen, type HudScreenHandler, type SaveHandler };
+export { registerHudScreen, type HudHost, type HudScreen, type HudScreenHandler, type SaveHandler, type ItemHandler };
 export type { TownView };
 
 export interface HudData {
@@ -36,6 +36,8 @@ export class HudScreens implements HudHost {
   party: ReturnType<typeof partyCharacters>;
   /** Set by the game to enable the F6 save/load screen. */
   saveHandler: SaveHandler | undefined;
+  /** Set by the game to enable using and equipping items in the inventory. */
+  itemHandler: ItemHandler | undefined;
   map: { layout: MapLayout; zone: number } | undefined;
   pose: PartyPose = { x: 0, y: 0, heading: 0 };
   private readonly compass: CompassLayout;
