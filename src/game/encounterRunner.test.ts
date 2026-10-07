@@ -8,6 +8,7 @@ import {
   DialogSession,
   DialogStore,
   EncounterRunner,
+  type EncounterRunnerOptions,
   GOODBYE,
   QUERY_NO,
   QUERY_YES,
@@ -17,6 +18,7 @@ import {
   runDialogSession,
   uniqueEncounterFlag,
 } from './encounterRunner';
+import { destinationAt, type ZoneTransition } from './transitions';
 import { getFlag, setFlag, TICKS_PER_HOUR, type WorldState } from './state';
 
 // ---- synthetic fixtures ----------------------------------------------------
@@ -408,7 +410,7 @@ function tileBytes(specs: EncSpec[]): Uint8Array {
 const CELL = 1600;
 const at = (cx: number, cy: number): [number, number] => [cx * CELL + 10, cy * CELL + 10];
 
-function runnerFor(specs: EncSpec[], w: WorldState = world(), tileX = 0, tileY = 0) {
+function runnerFor(specs: EncSpec[], w: WorldState = world(), tileX = 0, tileY = 0, extra: Partial<EncounterRunnerOptions> = {}) {
   const map = new EncounterMap(1);
   map.addTile(tileX, tileY, tileBytes(specs));
   const s = store([1, [{ key: 100, text: 'Greetings' }, { key: 101, text: 'Blocked' }]]);
@@ -421,6 +423,7 @@ function runnerFor(specs: EncSpec[], w: WorldState = world(), tileX = 0, tileY =
     defDial: [100],
     defBloc: [101],
     env: noRandom,
+    ...extra,
   });
 }
 
@@ -507,5 +510,42 @@ describe('EncounterRunner', () => {
     if (ev.type !== 'dialog') throw new Error('expected dialog');
     r.finish(ev.session);
     expect(getFlag(r.world, 0x800)).toBe(true);
+  });
+
+  describe('zone encounters', () => {
+    const transition = (dialog: number): ZoneTransition => ({ ...destinationAt(4, 3, 5, 6, 7, 0x4000), dialog });
+    const zoneAt = { ...dialogAt, typeId: EncounterType.Zone };
+
+    it('leaves at once when the transition has no dialogue', () => {
+      const r = runnerFor([{ ...zoneAt, completion: 0x600 }], world(), 0, 0, { defZone: [transition(0)] });
+      const ev = r.update(...at(2, 2))[0]!;
+      expect(ev.type).toBe('zone');
+      if (ev.type === 'zone') expect(ev.transition.zone).toBe(4);
+      expect(getFlag(r.world, 0x600)).toBe(true);
+    });
+
+    it('shows the dialogue first and carries the transition on the event', () => {
+      const r = runnerFor([zoneAt], world(), 0, 0, { defZone: [transition(100)] });
+      const ev = r.update(...at(2, 2))[0]!;
+      expect(ev.type).toBe('dialog');
+      if (ev.type === 'dialog') {
+        expect(ev.blocks).toBe(false);
+        expect(ev.transition?.zone).toBe(4);
+        expect(ev.session.view?.snippet.text).toBe('Greetings');
+      }
+    });
+
+    it('reports a zone encounter without a definition as other', () => {
+      const r = runnerFor([zoneAt]);
+      expect(r.update(...at(2, 2)).map((e) => e.type)).toEqual(['other']);
+    });
+
+    it('does not fire the encounters the party arrives in after a transition', () => {
+      const r = runnerFor([zoneAt], world(), 0, 0, { defZone: [transition(0)] });
+      r.enterAt(...at(2, 2));
+      expect(r.update(...at(2, 2))).toEqual([]);
+      r.update(...at(0, 0));
+      expect(r.update(...at(2, 2)).map((e) => e.type)).toEqual(['zone']);
+    });
   });
 });

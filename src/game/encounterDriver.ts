@@ -13,6 +13,7 @@ import {
   type ShowDialog,
 } from './encounterRunner';
 import type { WorldState } from './state';
+import { parseZoneTransitions } from './transitions';
 
 /** Reads a named resource from the archive or install directory; undefined when it does not exist. */
 export type ReadResource = (name: string) => Uint8Array | undefined;
@@ -25,6 +26,8 @@ export function encounterResourceNames(zone: number, tiles: readonly (readonly [
     ...tiles.map(([x, y]) => tileName(zone, x, y, 'DAT')),
     'DEF_DIAL.DAT',
     'DEF_BLOC.DAT',
+    'DEF_ZONE.DAT',
+    'TELEPORT.DAT',
     'KEYWORD.DAT',
     ...Array.from({ length: DIALOG_FILE_COUNT }, (_, n) => dialogFileName(n)),
   ];
@@ -82,6 +85,7 @@ export function loadEncounterRunner(opts: {
     store: new DialogStore(files),
     defDial: table('DEF_DIAL.DAT'),
     defBloc: table('DEF_BLOC.DAT'),
+    defZone: read('DEF_ZONE.DAT') ? parseZoneTransitions(read('DEF_ZONE.DAT')!) : [],
     keywords: keywords ? parseKeywords(keywords) : [],
     env: opts.env,
   });
@@ -90,6 +94,8 @@ export function loadEncounterRunner(opts: {
 export interface EncounterHooks {
   /** An encounter type that is not run yet (combat, town, zone...). */
   other?: (e: Extract<EncounterEvent, { type: 'other' }>) => void;
+  /** A zone encounter without a dialogue fired: the party should leave now. */
+  zone?: (e: Extract<EncounterEvent, { type: 'zone' }>) => void;
   /** A block encounter fired: undo the party's last step. */
   blocked?: () => void;
   /** A dialogue ended; effects the runner could not apply are on the session. */
@@ -118,6 +124,7 @@ export class EncounterDriver {
     if (this.active) return;
     for (const ev of this.runner.update(x, y)) {
       if (ev.type === 'other') this.hooks.other?.(ev);
+      else if (ev.type === 'zone') this.hooks.zone?.(ev);
       else this.queue.push(ev);
     }
     this.next();

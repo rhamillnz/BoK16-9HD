@@ -39,13 +39,13 @@ type DialogSnippet = Parameters<typeof layoutDialog>[1];
  */
 export class HudScreens {
   screen: HudScreen = 'none';
-  private readonly party;
+  private party;
   private inventory: { layout: InventoryLayout; state: InventoryState } | undefined;
   private sheet: { layout: SheetLayout; models: SheetModel[]; state: SheetState } | undefined;
   private dialog: { layout: DialogLayout; state: DialogState; done: (r: DialogResult) => void } | undefined;
   /** Set whenever the picture changed since the last `draw`. */
   dirty = true;
-  private readonly partyBar: { layout: PartyBarLayout; members: PartyBarMember[] };
+  private partyBar: { layout: PartyBarLayout; members: PartyBarMember[] };
 
   constructor(
     private readonly data: HudData,
@@ -55,6 +55,17 @@ export class HudScreens {
     this.party = partyCharacters(data.save);
     const members = buildPartyBar(data.save);
     this.partyBar = { members, layout: layoutPartyBar(data.font, members.length, { canvasWidth: width, canvasHeight: height }) };
+  }
+
+  /** The party changed (items, health, who is active): redraw the bar and rebuild screens on next open. */
+  setParty(party: Pick<GamSave, 'characters' | 'activeCharacters'>): void {
+    this.party = partyCharacters(party);
+    const members = buildPartyBar(party);
+    const layout = members.length === this.partyBar.members.length
+      ? this.partyBar.layout
+      : layoutPartyBar(this.data.font, members.length, { canvasWidth: this.width, canvasHeight: this.height });
+    this.partyBar = { members, layout };
+    this.dirty = true;
   }
 
   /** True while a screen is open; the party controller must ignore movement then. */
