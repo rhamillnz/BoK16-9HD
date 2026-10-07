@@ -5,6 +5,7 @@ import { createGroundSampler } from '../render/grassGround';
 import { prepareZoneOverrides } from '../render/zoneOverrides';
 import { buildZoneScene, collectTerrainTriangles, type ZoneScene } from '../render/zoneScene';
 import { buildHeightField, type HeightField } from '../world/heightField';
+import { isUndergroundZone } from '../world/underground';
 import { loadZone, type ZoneData } from '../world/zone';
 
 /** One loaded outdoor zone: its data, the scene group, the ground height lookup and its grass. */
@@ -17,11 +18,16 @@ export interface LoadedZone {
   info: string;
 }
 
+function noGrass(): Grass {
+  return { mesh: new THREE.Mesh(), quality: 'off', instances: 0, setQuality: () => {}, dispose: () => {} };
+}
+
 export async function loadZoneScene(archive: ResourceArchive, zone: number, parent: THREE.Scene): Promise<LoadedZone> {
   const data = loadZone(archive, zone);
   const scene = buildZoneScene(data, await prepareZoneOverrides(data));
   const heightField = buildHeightField(collectTerrainTriangles(data));
-  const grass = createGrass(parent, createGroundSampler(data, heightField));
+  // No grass underground: an inert stand-in keeps the quality switch and disposal calls harmless.
+  const grass = isUndergroundZone(zone) ? noGrass() : createGrass(parent, createGroundSampler(data, heightField));
   const info = `zone ${zone}: ${scene.stats.meshItems} meshes, ${scene.stats.sprites} sprites, ${Math.round(scene.stats.triangles / 1000)}k tris, ${scene.collision.length} colliders`;
   return { zone, data, scene, heightField, grass, info };
 }

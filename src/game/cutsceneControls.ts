@@ -1,6 +1,7 @@
 import { parseDDX, type DialogFile } from '../formats/ddx';
 import type { HudScreens } from '../ui/hud';
 import '../ui/cutsceneScreen'; // registers the cutscene screen
+import { playSfx } from '../audio/sfxBus';
 import { DIALOG_FILE_COUNT, dialogFileName } from './encounterDriver';
 import { DialogStore } from './encounterRunner';
 import { chapterFinishCutscenes, chapterStartCutscenes, cutsceneDialogKey, loadCutscene, type CutsceneHost, type CutsceneStep } from './cutscene';
@@ -14,7 +15,7 @@ export interface CutsceneControlsHost {
   fetch: FetchResources;
   hud: HudScreens;
   chapter(): number;
-  /** A sound effect, or a music track from 255 up. */
+  /** A sound effect, or a music track from 255 up. Defaults to the sound-effect bus for effects. */
   sound?(index: number): void;
   /** Run a full dialogue; resolve when it ends. */
   dialog?(key: number): Promise<void>;
@@ -57,7 +58,7 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
     const store = await loadDialogs().catch(() => undefined);
     const hooks: CutsceneHost = {
       text: (n) => store?.byKey(cutsceneDialogKey(n))?.snippet.text,
-      sound: host.sound,
+      sound: host.sound ?? ((i) => { if (i < 255) playSfx(i); }),
       book: host.playBook && ((key, done) => void host.playBook!(bookFile(key)).then(done)),
       dialog: host.dialog && ((key, done) => void host.dialog!(cutsceneDialogKey(key)).then(done)),
     };

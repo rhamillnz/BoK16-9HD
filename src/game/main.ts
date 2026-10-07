@@ -18,6 +18,7 @@ import { EncounterDriver, encounterResourceNames, loadEncounterRunner, prefetchR
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
+import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { loadChapterStart } from '../world/zone';
 import { TILE_SIZE } from '../formats/world';
@@ -47,6 +48,8 @@ import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installCutscenes } from './cutsceneControls';
+import { installUnderground } from './undergroundMode';
+import { currentLight } from './spells';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -92,6 +95,7 @@ window.addEventListener('keydown', (e) => {
 // Party controller drives the camera; F toggles the debug fly camera.
 const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading), zoneHost.getHeight);
 party.polygons = zoneHost.current.scene.collision;
+const updateUnderground = installUnderground(sky, party);
 const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
@@ -125,6 +129,7 @@ void music.play(num('song', songForZone(start.zone))).catch((err) => console.war
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
 });
+installSfx(); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
 
 let prevX = party.x;
 let prevY = party.y;
@@ -305,7 +310,7 @@ installCamp({
 installItemControls({ items: objectItems, spells: spellDefs, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
 
 // Spells: V casts healing and light spells outside combat (combat casting lives in the fight panel, C).
-installCast({
+const cast = installCast({
   spells: spellDefs,
   getParty: () => partyState,
   setParty: (p) => { partyState = p; screens.setParty(p); },
@@ -384,6 +389,7 @@ renderer.setAnimationLoop(() => {
   const now = performance.now();
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  updateUnderground(zoneHost.current.zone, currentLight(cast.lights, clock.state.ticks) !== undefined);
   if (flyMode) {
     fly.update(dt);
   } else {
