@@ -13,6 +13,8 @@ export interface TownHostOptions {
   world(): WorldState;
   /** Play the dialogue at `key` (applying its effects) and call `done` when it ends. */
   playDialog(key: number, done: (end: DialogEnd) => void): void;
+  /** The party clicked an inn hotspot in this scene. */
+  inn?(ref: GdsRef): void;
   /** Open the shop of a scene (false when it has none). */
   shop?(ref: GdsRef): boolean;
 }
@@ -39,6 +41,7 @@ export function createTownHost(o: TownHostOptions) {
     },
     hide: () => o.hud.hideTown(),
     playDialog: (key, done) => o.playDialog(key, done),
+    inn: o.inn,
     activeHotspots: (scene) => activeHotspots(scene.gds, o.world(), o.chapter),
     left: () => {
       const key = exitDialog;

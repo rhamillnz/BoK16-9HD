@@ -13,6 +13,7 @@ import type { TownEntry } from '../formats/gds';
 import { Reader } from '../formats/reader';
 import { isEncounterActive, type EncounterMap, type PlacedEncounter } from '../world/encounters';
 import { getFlag, hourOfDay, setFlag, type WorldState } from './state';
+import { scriptedState } from './dialogState';
 import { TextVariables, type TextVariableContext } from './textVariables';
 import type { ZoneTransition } from './transitions';
 
@@ -185,7 +186,7 @@ export function choiceValue(c: DialogChoice, s: WorldState, env: DialogEnv): num
         case GAME_STATE_NIGHT: return hour < 4 || hour >= 20 ? 1 : 0;
         case GAME_STATE_DAY: return hour >= 4 && hour < 20 ? 1 : 0;
         case GAME_STATE_HOUR: return hour;
-        default: return env.gameState?.(c.state) ?? 0;
+        default: return env.gameState?.(c.state) ?? scriptedState.read(c.state) ?? 0;
       }
     }
     case 'inventory':
@@ -278,7 +279,7 @@ export class DialogSession {
   ) {
     this.world = world;
     const ctx = env.textContext?.();
-    this.textVars = ctx && new TextVariables({ random: env.random, ...ctx });
+    this.textVars = ctx && new TextVariables({ random: env.random, itemValue: scriptedState.itemValue, ...ctx });
   }
 
   /** Characters the dialogue picked for `@N`, by variable (what "who" values of later actions address). */

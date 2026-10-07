@@ -32,6 +32,8 @@ export interface TownHooks {
   activeHotspots(scene: TownScene): Hotspot[];
   /** The party left the scene. */
   left(): void;
+  /** The party clicked an inn hotspot (or a dialogue sent it there). */
+  inn?(ref: GdsRef): void;
   /** A shop hotspot was clicked; return false when the scene has no shop (it is then reported as unsupported). */
   shop?(ref: GdsRef, hotspot: Hotspot): boolean;
   /** An action that is not implemented yet (shops, inns, temples, bards...). */
@@ -148,6 +150,10 @@ export class TownController {
       case HotspotAction.Unknown1:
       case HotspotAction.Dialog:
         break; // the dialogue was the whole action
+      case HotspotAction.Inn:
+        if (this.hooks.inn) this.hooks.inn(scene.ref);
+        else this.hooks.unsupported?.(action, h);
+        break;
       case HotspotAction.Shop:
         if (this.hooks.shop?.(scene.ref, h)) break;
         this.hooks.unsupported?.(action, h);
