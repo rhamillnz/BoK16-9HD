@@ -26,11 +26,11 @@ describe('instanced billboards', () => {
     } as unknown as ZoneData;
     const scene = buildZoneScene(zone);
     const meshes = scene.group.children.filter((o): o is THREE.InstancedMesh => o instanceof THREE.InstancedMesh);
-    // Texture 0's two trees sit in different 32-unit ground chunks, so they get a mesh each.
-    expect(meshes.map((m) => m.count)).toEqual([1, 1, 1]);
+    // Texture 0's two trees sit in the same 512-unit ground chunk, so they share a mesh.
+    expect(meshes.map((m) => m.count)).toEqual([2, 1]);
     expect(meshes.every((m) => m.userData.chunk)).toBe(true);
     expect(scene.stats.sprites).toBe(3);
-    expect(scene.stats.drawCalls).toBe(3);
+    expect(scene.stats.drawCalls).toBe(2);
     expect(scene.group.children.some((o) => o instanceof THREE.Sprite)).toBe(false);
 
     const m = new THREE.Matrix4();

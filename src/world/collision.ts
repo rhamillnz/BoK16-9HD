@@ -158,6 +158,14 @@ export function slideMove(
 ): Vec2 {
   const dist = Math.hypot(delta.x, delta.y);
   const steps = Math.max(1, Math.ceil(dist / Math.max(radius * 0.5, EPSILON)));
+  
+  const searchRadius = radius + dist;
+  const minX = from.x - searchRadius;
+  const maxX = from.x + searchRadius;
+  const minY = from.y - searchRadius;
+  const maxY = from.y + searchRadius;
+  const nearPolys = polygons.filter(p => p.maxX >= minX && p.minX <= maxX && p.maxY >= minY && p.minY <= maxY);
+
   let x = from.x;
   let y = from.y;
   for (let s = 0; s < steps; s++) {
@@ -166,7 +174,7 @@ export function slideMove(
     // Pushing out of one polygon can push into a neighbour, so iterate a few times.
     for (let iter = 0; iter < 4; iter++) {
       let moved = false;
-      for (const poly of polygons) {
+      for (const poly of nearPolys) {
         const r = resolveCircleVsPolygon(poly, x, y, radius);
         if (r) {
           x = r.x;
