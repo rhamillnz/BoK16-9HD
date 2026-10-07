@@ -59,3 +59,13 @@ Per BaKGL's `Icons` loader, `INVSHP1.BMX` and `INVSHP2.BMX` are appended into on
 - Meaning of `unknown1`, `unknown2` and the bits of `flags`.
 - Exact semantics of `effectMask`/`effect` and whether `imageSize` counts cells or pixels.
 - Not yet checked against the real `OBJINFO.DAT`: the `0x8a` count and that the trailing table is whole `u16`s.
+
+## Using items (game rules in `src/game/itemUse.ts`)
+
+These are our own provisional rules, not decoded from the original; `flags`, `effectMask` and `effect` are still unknown.
+
+- OBJINFO has no weight field, so the carry limit is the per-character slot count (`inventory.capacity`); stacks hold up to `stackSize`.
+- Equipment groups: Sword and Staff share one melee slot, Crossbow and Armor each have one. Broken items cannot be equipped.
+- Ration/Food clear Starving. Potion heals Health by `potionPowerOrBookChance` (10 when 0), capped at the maximum; Restoratives also clear Poisoned and Sick. Each use consumes one from a stack. Scrolls and books are refused until spells and the text viewer exist.
+- Repair: any Tool in the active party; success chance is the owner's Weaponcraft (Armorcraft for armour) clamped to 5..95 percent; success adds 25 condition and clears Broken on repairable items; the tool loses 10 condition either way.
+- Inventory keys: Enter/U use, X equip/unequip, T give to the next character, R repair; right click uses the slot under the cursor.
