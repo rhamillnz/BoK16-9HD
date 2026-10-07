@@ -11,6 +11,7 @@ jobs.json entries:
    "upper": "Plaster",            # wall family for upper floors
    "woodgrid": true,              # use timber-framed plaster panels on upper floors
    "chimney": true,
+   "roof": "terracotta",          # roof tint: terracotta (default) | slate | greygreen | thatch
    "target": [16.6, 9.3, 12.2],   # final size in render units: x (long axis), depth, height
    "preview": "shots/build-inn.png"}
 
@@ -178,6 +179,34 @@ def bounds(objs):
     return lo, hi
 
 
+ROOF_TINTS = {
+    # name: (r, g, b) multiplier applied to the roof tile texture's luminance
+    "terracotta": None,
+    "slate": (0.8, 0.86, 0.96),
+    "greygreen": (0.74, 0.84, 0.76),
+    "thatch": (1.0, 0.88, 0.62),
+}
+
+
+def tint_roof(name):
+    """Recolour the round-tile roof texture: keep its luminance, replace hue with the tint."""
+    import numpy as np
+    tint = ROOF_TINTS[name]
+    if tint is None:
+        return
+    for img in bpy.data.images:
+        if "RoundTiles_BaseColor" not in img.name:
+            continue
+        w, h = img.size
+        px = np.empty(w * h * 4, dtype=np.float32)
+        img.pixels.foreach_get(px)
+        px = px.reshape(-1, 4)
+        lum = (px[:, 0] * 0.3 + px[:, 1] * 0.55 + px[:, 2] * 0.15)[:, None]
+        px[:, :3] = np.clip(lum * 1.6 * np.array(tint, dtype=np.float32), 0, 1)
+        img.pixels.foreach_set(px.reshape(-1))
+        img.pack()
+
+
 def finish(scene, kit, job):
     parts = kit.parts
     # Long axis to X, base centre to origin, per-axis scale to the original's bounding box.
@@ -204,6 +233,7 @@ def finish(scene, kit, job):
         if max(w, h) > 512:
             k = 512 / max(w, h)
             img.scale(max(1, int(w * k)), max(1, int(h * k)))
+    tint_roof(job.get("roof", "terracotta"))
     os.makedirs(os.path.dirname(os.path.abspath(job["out"])), exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=os.path.abspath(job["out"]), export_format="GLB", export_yup=True,
                               export_image_format="WEBP", use_selection=True)

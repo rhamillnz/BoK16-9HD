@@ -76,7 +76,7 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
    illhouse (18 x 18 x 8, zone 3), rftshack (14 x 10 x 7, zone 9), catapult (zone 6, use kit/props).
    Extend `build_house.py` (e.g. annex/tower options) rather than one-off scripts.
    **DONE except catapult** (church, temple, illhouse, rftshack built via `art/jobs/buildings-landmarks.json`; catapult still open).
-2. **Roof colour variety**: per-building roof tint variants (terracotta, slate grey-blue, dark
+2. **DONE** **Roof colour variety**: per-building roof tint variants (terracotta, slate grey-blue, dark
    green-grey, thatch-brown) via the `textures` swap or material tint; vary between `house`,
    `house1`, `inn`, `blcksmth` so villages aren't uniformly red.
 3. **Hills**: landscape/hill models (`zero*`, `one*`, `landscp*`, `genmtn`, `stonemtn`) are flat-shaded
