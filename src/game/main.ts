@@ -34,6 +34,10 @@ import { createTownHost, townExit } from './townHost';
 import type { PlacedEncounter } from '../world/encounters';
 import type { WorldState } from './state';
 import { installSaveControls } from './saveControls';
+import { createInnHost } from './inn';
+import { findShop, parseShopContainers } from '../formats/gdsContainers';
+import { ruleFor } from './dialogEffects';
+import { createNotice } from '../ui/notice';
 import { installCamp } from './campControls';
 import { installItemControls } from './itemControls';
 import { installTempleControls } from './templeControls';
@@ -157,6 +161,20 @@ const shops = createShops({
   playDialog: (key, done) => town.playDialog(key, done),
 });
 
+// Inns: the innkeeper's offer, then nights of rest (see docs/formats/inns.md).
+const gdsContainers = parseShopContainers(save.bytes);
+const inns = createInnHost({
+  stats: (ref) => findShop(gdsContainers, ref)?.stats,
+  chapter: () => start.chapter,
+  world: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); sky.update(clock.minutes); },
+  party: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  playDialog: (key, done) => town.playDialog(key, done),
+  itemRule: (i) => ruleFor(objectItems, i),
+  notify: createNotice(),
+});
+
 // Town and temple scenes: a 2D screen on the HUD whose hotspots open dialogues.
 const town = createTownHost({
   shop: (ref) => shops.open(ref),
@@ -173,6 +191,7 @@ const town = createTownHost({
       done({ cancelled, endState: session.endOfDialogState, choice: session.lastChoice });
     });
   },
+  inn: (ref) => inns.enter(ref),
 });
 
 // Entering a town: the party stands at the entry's exit position outside the door, then the scene opens.
