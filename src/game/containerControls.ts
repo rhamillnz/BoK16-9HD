@@ -1,4 +1,5 @@
 import { parseFixedObjects, parseSaveZoneContainers, type ContainerRecord } from '../formats/containers';
+import { practiceCharacter } from './practice';
 import type { ItemDef } from '../formats/objinfo';
 import type { HudScreens } from '../ui/hud';
 import type { ContainerView, WordLockView } from '../ui/containerScreen';
@@ -89,6 +90,7 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
     if (tool === undefined) return undefined;
     const r = attemptLock(tool, skill, rating, roll);
     if (r.consumed !== undefined) host.setParty(removeItem(host.getParty(), r.consumed, 1, KEY_RULE));
+    if (r.learned && best) host.setParty(practiceCharacter(host.getParty(), best.character.index, 'lockpick'));
     if (r.unlocked) {
       save({ ...cur, unlocked: true });
       await host.menu(r.attempt.kind === 'opened' && r.attempt.with === 'key' ? 'The key turns and the lock opens.' : 'The lock gives way to the pick.', []);
@@ -103,6 +105,7 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
     const chance = disarmChance(best?.skill ?? 0);
     const pick = await host.menu(`The chest is trapped! ${best ? `${best.character.name} could try to disarm it (${chance}%).` : ''}`, ['Try to disarm it', 'Open it anyway', 'Leave it']);
     if (pick !== 0 && pick !== 1) return undefined;
+    if (pick === 0 && best) host.setParty(practiceCharacter(host.getParty(), best.character.index, 'lockpick'));
     if (pick === 0 && roll() < chance) {
       await host.menu('The trap is disarmed.', []);
     } else {
