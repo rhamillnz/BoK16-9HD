@@ -1,4 +1,5 @@
 import type { Character, InventoryItem } from '../formats/gam';
+import { practiceCharacter } from './practice';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import { addCondition, addToCharacter, updateCharacter, type ItemRule, type PartyState } from './party';
 
@@ -189,5 +190,6 @@ export function repairItem(
     ? owner.inventory.items.filter((_, i) => i !== toolSlot)
     : owner.inventory.items.map((x, i) => (i === toolSlot ? { ...x, conditionOrQuantity: worn } : x));
   party = setItems(party, owner, toolItems);
+  party = practiceCharacter(party, c.index, equipGroup(def) === 'armor' ? 'armorcraft' : 'weaponcraft'); // every attempt exercises the craft
   return { party, ok: success, message: success ? `${def.name} repaired.` : `The repair of ${def.name} failed.` };
 }
