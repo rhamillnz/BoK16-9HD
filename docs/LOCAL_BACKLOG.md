@@ -79,7 +79,7 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
 2. **DONE** **Roof colour variety**: per-building roof tint variants (terracotta, slate grey-blue, dark
    green-grey, thatch-brown) via the `textures` swap or material tint; vary between `house`,
    `house1`, `inn`, `blcksmth` so villages aren't uniformly red.
-3. **Hills**: landscape/hill models (`zero*`, `one*`, `landscp*`, `genmtn`, `stonemtn`) are flat-shaded
+3. **DONE** **Hills**: landscape/hill models (`zero*`, `one*`, `landscp*`, `genmtn`, `stonemtn`) are flat-shaded
    palette colours. Give them smooth normals and the stylised terrain material
    (`src/render/terrainMaterial.ts`), slope-based rock colouring, and scatter nature-kit rocks/bushes
    on them. Changes go in `src/render/zoneScene.ts` / new modules.
