@@ -1,5 +1,5 @@
 import { parseReq, type ReqLayout } from '../formats/req';
-import { parseGdsContainers } from '../formats/gdsShops';
+import { parseShopContainers } from '../formats/gdsContainers';
 import type { ItemDef } from '../formats/objinfo';
 import { MENU_SCREEN_ID, type MenuPanelScreen } from '../ui/menuHud';
 import type { HudScreens } from '../ui/hud';
@@ -35,7 +35,7 @@ export function installTempleControls(h: TempleHost): void {
   } catch (err) {
     console.warn('REQ_TELE.DAT unreadable; temple teleporting is off:', err);
   }
-  const containers = parseGdsContainers(h.saveBytes);
+  const containers = parseShopContainers(h.saveBytes);
   installTemples(h.town, {
     menu: {
       show: (model, onPick, onCancel) => {

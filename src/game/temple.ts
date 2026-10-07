@@ -1,5 +1,5 @@
 import { CONDITION_NAMES, effectiveSkill, type Character, type InventoryItem } from '../formats/gam';
-import type { ShopStats } from '../formats/gdsShops';
+import type { ShopStats } from '../formats/gdsContainers';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import { addCondition, loseRoyals, updateCharacter, type PartyState } from './party';
 import { getFlag, setFlag, type WorldState } from './state';

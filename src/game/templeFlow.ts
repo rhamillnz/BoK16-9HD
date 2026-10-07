@@ -1,6 +1,6 @@
 import { CONDITION_NAMES, effectiveSkill, type Character } from '../formats/gam';
 import { HotspotAction, templeNumber } from '../formats/gds';
-import { findGdsContainer, type GdsContainer, type ShopStats } from '../formats/gdsShops';
+import { findShop, type ShopContainer, type ShopStats } from '../formats/gdsContainers';
 import type { ItemDef } from '../formats/objinfo';
 import type { ReqLayout } from '../formats/req';
 import type { MenuModel } from '../ui/menuScreen';
@@ -39,7 +39,7 @@ export interface TempleDeps {
   setWorld(w: WorldState): void;
   items: readonly ItemDef[];
   /** The town containers of the save (shop statistics live there). */
-  containers(): readonly GdsContainer[];
+  containers(): readonly ShopContainer[];
   /** REQ_TELE.DAT: the temples' spots on the teleport map and their names. Without it teleporting is unavailable. */
   teleportLayout: ReqLayout | undefined;
   /** Move the party to entry `index` of TELEPORT.DAT. */
@@ -73,7 +73,7 @@ const stripMarkup = (label: string) => label.replace(/^#/, '');
  * hotspot, plus marking temples as seen when their scene opens.
  */
 export function installTemples(town: TownController, d: TempleDeps): void {
-  const shopOf = (ctx: ActionContext): ShopStats | undefined => findGdsContainer(d.containers(), ctx.scene.ref)?.shop;
+  const shopOf = (ctx: ActionContext): ShopStats | undefined => findShop(d.containers(), ctx.scene.ref)?.stats;
 
   town.onEnter((scene, active) => {
     const temple = templeNumber(scene.gds);

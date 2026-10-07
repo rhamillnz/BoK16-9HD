@@ -6,8 +6,8 @@ export interface DialogEnd {
   cancelled: boolean;
   /** Value set by the dialogue's SetEndOfDialogState action, if it ran one. */
   endState: number | undefined;
-  /** The query or topic the player picked last (a temple's Cure or Bless, say). */
-  choice?: number | undefined;
+  /** The query answer picked last (a keyword value such as Accept 0x104), if any. */
+  choice?: number;
 }
 
 /** What a feature handler gets when a hotspot's action is one it registered for. */
@@ -32,6 +32,8 @@ export interface TownHooks {
   activeHotspots(scene: TownScene): Hotspot[];
   /** The party left the scene. */
   left(): void;
+  /** A shop hotspot was clicked; return false when the scene has no shop (it is then reported as unsupported). */
+  shop?(ref: GdsRef, hotspot: Hotspot): boolean;
   /** An action that is not implemented yet (shops, inns, temples, bards...). */
   unsupported?(action: number, hotspot: Hotspot): void;
 }
@@ -146,6 +148,10 @@ export class TownController {
       case HotspotAction.Unknown1:
       case HotspotAction.Dialog:
         break; // the dialogue was the whole action
+      case HotspotAction.Shop:
+        if (this.hooks.shop?.(scene.ref, h)) break;
+        this.hooks.unsupported?.(action, h);
+        break;
       default: {
         const handler = this.handlers.get(action);
         if (!handler) {

@@ -1,21 +1,10 @@
 # Temples: curing, blessing, teleporting
 
-Implemented in `src/game/temple.ts` (rules), `src/game/templeFlow.ts` (screens and dialogue flow), `src/formats/gdsShops.ts` and `src/formats/req.ts` (data). Derived from reading BaKGL (`bak/temple.cpp`, `bak/shop.cpp`, `bak/save/containers.cpp`, `bak/layout.cpp`, `gui/temple/*`, `gui/teleportScreen.cpp`, `gui/gdsScene.cpp`) for understanding only; no code copied. Items marked *unverified* have not been checked against the original game.
+Implemented in `src/game/temple.ts` (rules), `src/game/templeFlow.ts` (screens and dialogue flow), `src/formats/gdsContainers.ts` and `src/formats/req.ts` (data). Derived from reading BaKGL (`bak/temple.cpp`, `bak/shop.cpp`, `bak/save/containers.cpp`, `bak/layout.cpp`, `gui/temple/*`, `gui/teleportScreen.cpp`, `gui/gdsScene.cpp`) for understanding only; no code copied. Items marked *unverified* have not been checked against the original game.
 
 ## Where a temple's numbers come from
 
-A temple is a GDS scene (see `towns.md`) whose `templeIndex` byte has bit 0x80 set; the low 7 bits are the **temple number** 1 to 12 (4 = Temple of Sung, 12 = Chapel of Ishap). Its prices live in the save, in the table of 98 **town containers** at `0x443c9` (the same table shops and inns use):
-
-```
-record:  u32 x? (4 bytes unknown)  u32 gdsNumber  u32 letterIndex     12-byte location
-         u8 type  u8 itemCount  u8 capacity  u8 flags
-         max(itemCount, capacity) x 4-byte item slots
-         then, in this order and only when the flag bit is set:
-           0x01 lock (4 bytes)   0x20 door (2)   0x02 dialogue (6)   0x04 shop stats (16)
-           0x08 encounter (9)    0x10 last-accessed time (4)
-```
-
-The letter index maps to a scene letter like the town tables do (0 and 1 are both A). Records vary in size, so the whole table is walked from the start.
+A temple is a GDS scene (see `towns.md`) whose `templeIndex` byte has bit 0x80 set; the low 7 bits are the **temple number** 1 to 12 (4 = Temple of Sung, 12 = Chapel of Ishap). Its prices live in the save, in the table of 98 **town containers** at `0x443c9` (the same table shops and inns use; layout in `shops.md`, parser `src/formats/gdsContainers.ts`).
 
 Shop stats (16 bytes): `u8 templeNumber, sellFactor, maxDiscount, buyFactor, haggleDifficulty, haggleAnnoyance, bardingSkill, bardingReward, bardingMaxReward, unknown, innSleepTilHour, innCost, repairTypes, repairFactor; u16 categories`. A temple reuses the shop fields:
 

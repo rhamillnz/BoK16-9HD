@@ -31,13 +31,13 @@ import { parseTeleports, planTransition, type Destination, type ZoneTransition }
 import { QUERY_YES, runDialogSession, type DialogSession, type ShowDialog } from './encounterRunner';
 import { gdsLetter, type TownEntry } from '../formats/gds';
 import { createTownHost, townExit } from './townHost';
-import type { DialogEnd } from './townController';
 import type { PlacedEncounter } from '../world/encounters';
 import type { WorldState } from './state';
 import { installSaveControls } from './saveControls';
 import { installCamp } from './campControls';
 import { installItemControls } from './itemControls';
 import { installTempleControls } from './templeControls';
+import { createShops } from './shopControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -149,22 +149,30 @@ const applyDialog = (session: DialogSession, transition: ZoneTransition | undefi
   }
 };
 
+// Shops: buy, sell and haggle at shop hotspots of town scenes.
+const shops = createShops({
+  items: objectItems, scrollValues: parseObjInfo(archive.get('OBJINFO.DAT')).scrollValues, saveBytes: save.bytes, hud: screens,
+  getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state, zone: () => zoneHost.current.zone,
+  playDialog: (key, done) => town.playDialog(key, done),
+});
+
 // Town and temple scenes: a 2D screen on the HUD whose hotspots open dialogues.
-const playTownDialog = (key: number, done: (end: DialogEnd) => void) => {
-  encounters.runner.setWorld(clock.state);
-  const session = encounters.runner.startDialog(key);
-  runDialogSession(session, showView, (cancelled) => {
-    encounters.runner.finish(session);
-    applyDialog(session, undefined, cancelled);
-    done({ cancelled, endState: session.endOfDialogState, choice: session.lastChoice });
-  });
-};
 const town = createTownHost({
+  shop: (ref) => shops.open(ref),
   fetch: (names) => prefetchResources(archive, names),
   hud: screens,
   chapter: start.chapter,
   world: () => clock.state,
-  playDialog: (key, done) => playTownDialog(key, done),
+  playDialog: (key, done) => {
+    encounters.runner.setWorld(clock.state);
+    const session = encounters.runner.startDialog(key);
+    runDialogSession(session, showView, (cancelled) => {
+      encounters.runner.finish(session);
+      applyDialog(session, undefined, cancelled);
+      done({ cancelled, endState: session.endOfDialogState, choice: session.lastChoice });
+    });
+  },
 });
 
 // Entering a town: the party stands at the entry's exit position outside the door, then the scene opens.
@@ -195,7 +203,7 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
   const table = read('TELEPORT.DAT');
   teleports = table ? parseTeleports(table) : [];
   return new EncounterDriver(
-    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter }) } }),
+    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter, ...shops.textExtras() }) } }),
     showView,
     {
       other: (e) => {
@@ -243,8 +251,9 @@ let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, c
 
 // Save and load: F5 quick-save, F9 quick-load, F6 slot screen.
 await installSaveControls({
-  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState }),
+  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState, shops: shops.snapshot() }),
   restore: async (d) => {
+    shops.restore(d.shops);
     clock.state = d.world;
     partyState = d.party;
     screens.setParty(partyState);
@@ -275,7 +284,7 @@ installTempleControls({
   setParty: (p) => { partyState = p; screens.setParty(p); },
   getWorld: () => clock.state,
   setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
-  playDialog: playTownDialog,
+  playDialog: (key, done) => town.playDialog(key, done),
   teleportLayout: archive.has('REQ_TELE.DAT') ? archive.get('REQ_TELE.DAT') : undefined,
   travel: (i) => { const d = teleports[i]; if (d) void travelTo(d); },
 });

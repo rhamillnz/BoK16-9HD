@@ -6,7 +6,7 @@ Reuben reviews `integration` against real data and fast-forwards `main`.
 HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the built-in screens live in src/ui/builtinScreens.ts. Keep src/game/main.ts to one import plus one call per feature.
 
 - [x] 0 HUD screen registry refactor and this file
-- [ ] 1 Shops and haggling: buy/sell at town shop hotspots with OBJINFO prices, Haggling skill, shop inventories
+- [x] 1 Shops and haggling: buy/sell at town shop hotspots with OBJINFO prices, Haggling skill, shop inventories
 - [ ] 2 Inns: rest and heal, rations and drinks, time passing
 - [x] 3 Temples: healing, curing conditions, blessings, temple teleport network
 - [x] 4 Camping in the wild: R key rest/sleep, healing, rations, time, interruptions

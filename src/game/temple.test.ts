@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
-import type { ShopStats } from '../formats/gdsShops';
+import type { ShopStats } from '../formats/gdsContainers';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import type { PartyState } from './party';
 import type { WorldState } from './state';
@@ -56,7 +56,7 @@ ITEMS[3] = { index: 3, name: 'Ration', type: ItemType.Ration, value: 1 } as Item
 
 const shop = (over: Partial<ShopStats> = {}): ShopStats => ({
   templeNumber: 1, sellFactor: 3, maxDiscount: 20, buyFactor: 3, haggleDifficulty: 65, haggleAnnoyance: 2, bardingSkill: 0, bardingReward: 0,
-  bardingMaxReward: 0, unknown: 0, innSleepTilHour: 0, innCost: 0, repairTypes: 0, repairFactor: 0, categories: 5, ...over,
+  bardingMaxReward: 0, unknown: 0, innSleepUntilHour: 0, innCost: 0, repairTypes: 0, repairFactor: 0, categories: 5, ...over,
 });
 
 describe('cure', () => {

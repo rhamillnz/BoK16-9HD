@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
 import { HotspotAction, type Hotspot } from '../formats/gds';
-import type { GdsContainer, ShopStats } from '../formats/gdsShops';
+import type { ShopContainer, ShopStats } from '../formats/gdsContainers';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import type { ReqLayout } from '../formats/req';
 import type { MenuModel } from '../ui/menuScreen';
@@ -30,9 +30,9 @@ items[1] = { index: 1, name: 'Sword', type: ItemType.Sword, value: 100 } as Item
 
 const shop: ShopStats = {
   templeNumber: 1, sellFactor: 3, maxDiscount: 20, buyFactor: 3, haggleDifficulty: 65, haggleAnnoyance: 2, bardingSkill: 0, bardingReward: 0,
-  bardingMaxReward: 0, unknown: 0, innSleepTilHour: 0, innCost: 0, repairTypes: 0, repairFactor: 0, categories: 5,
+  bardingMaxReward: 0, unknown: 0, innSleepUntilHour: 0, innCost: 0, repairTypes: 0, repairFactor: 0, categories: 5,
 };
-const container = (number: number): GdsContainer => ({ index: 0, ref: { number, letter: 'A' }, flags: 4, shop, address: 0 });
+const container = (number: number): ShopContainer => ({ ref: { number, letter: 'A' }, capacity: 0, items: [], stats: shop, address: 0 });
 
 const hotspot = (action: number, arg3 = 0x1000): Hotspot => ({ index: 0, x: 0, y: 0, width: 1, height: 1, chapterMask: 0, keyword: 0, action, unknownD: 0, arg1: 0, arg2: 0, arg3, tooltip: 0, dialog: 0, checkEventState: 0 }) as unknown as Hotspot;
 const sceneOf = (number: number, templeIndex: number, hotspots: Hotspot[]): TownScene =>
