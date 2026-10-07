@@ -30,6 +30,33 @@ export function equippedWeapon(items: readonly InventoryItem[], defs: readonly I
   return undefined;
 }
 
+/** The equipped crossbow (unbroken) as weapon stats; its bolt strength is the item's thrust strength. */
+export function equippedCrossbow(items: readonly InventoryItem[], defs: readonly ItemDef[]): WeaponStats | undefined {
+  for (const it of items) {
+    const def = defs[it.itemIndex];
+    if (!it.equipped || it.broken || !def || def.type !== ItemType.Crossbow) continue;
+    return {
+      strengthSwing: def.strengthSwing,
+      strengthThrust: def.strengthThrust,
+      accuracySwing: def.accuracySwing,
+      accuracyThrust: def.accuracyThrust,
+      condition: it.conditionOrQuantity,
+      race: raceKind(def.race),
+    };
+  }
+  return undefined;
+}
+
+/**
+ * Monsters' weapons are not parsed (see the header), but a monster with a real Crossbow skill is
+ * given this stand-in bolt so the enemy AI can shoot (**unverified**).
+ */
+export const MONSTER_BOLT: WeaponStats = {
+  strengthSwing: 0, strengthThrust: 8, accuracySwing: 0, accuracyThrust: 0, condition: 100, race: RaceKind.None,
+};
+/** Crossbow skill from which a monster shoots. */
+export const MONSTER_SHOOTER_SKILL = 30;
+
 /** The equipped armour; its rating is the item's accuracy-swing field. */
 export function equippedArmor(items: readonly InventoryItem[], defs: readonly ItemDef[]): ArmorStats | undefined {
   for (const it of items) {
@@ -42,6 +69,7 @@ export function equippedArmor(items: readonly InventoryItem[], defs: readonly It
 
 export function partyFighter(c: Character, slot: PartyGridSlot | undefined, index: number, defs: readonly ItemDef[]): Fighter {
   const skill = (n: Parameters<typeof effectiveSkill>[1]) => effectiveSkill(c, n);
+  const bow = equippedCrossbow(c.inventory.items, defs);
   return {
     id: `party${c.index}`,
     side: 'party',
@@ -61,6 +89,7 @@ export function partyFighter(c: Character, slot: PartyGridSlot | undefined, inde
     race: RaceKind.None,
     weapon: equippedWeapon(c.inventory.items, defs),
     armor: equippedArmor(c.inventory.items, defs),
+    ...(bow ? { ranged: { crossbow: skill('crossbow'), weapon: bow } } : {}),
   };
 }
 
@@ -82,6 +111,7 @@ export function enemyFighter(e: EnemyRecord, name: string, index: number): Fight
     defense: v('defense'),
     melee: v('melee'),
     race: monsterRace(e.monster),
+    ...(v('crossbow') >= MONSTER_SHOOTER_SKILL ? { ranged: { crossbow: v('crossbow'), weapon: MONSTER_BOLT } } : {}),
   };
 }
 

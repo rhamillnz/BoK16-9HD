@@ -34,8 +34,15 @@ import { createTownHost, townExit } from './townHost';
 import type { PlacedEncounter } from '../world/encounters';
 import type { WorldState } from './state';
 import { installSaveControls } from './saveControls';
+import { createInnHost } from './inn';
+import { findShop, parseShopContainers } from '../formats/gdsContainers';
+import { ruleFor } from './dialogEffects';
+import { createNotice } from '../ui/notice';
 import { installCamp } from './campControls';
 import { installContainers } from './containerControls';
+import { installItemControls } from './itemControls';
+import { installTempleControls } from './templeControls';
+import { createShops } from './shopControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -147,8 +154,31 @@ const applyDialog = (session: DialogSession, transition: ZoneTransition | undefi
   }
 };
 
+// Shops: buy, sell and haggle at shop hotspots of town scenes.
+const shops = createShops({
+  items: objectItems, scrollValues: parseObjInfo(archive.get('OBJINFO.DAT')).scrollValues, saveBytes: save.bytes, hud: screens,
+  getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state, zone: () => zoneHost.current.zone,
+  playDialog: (key, done) => town.playDialog(key, done),
+});
+
+// Inns: the innkeeper's offer, then nights of rest (see docs/formats/inns.md).
+const gdsContainers = parseShopContainers(save.bytes);
+const inns = createInnHost({
+  stats: (ref) => findShop(gdsContainers, ref)?.stats,
+  chapter: () => start.chapter,
+  world: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); sky.update(clock.minutes); },
+  party: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  playDialog: (key, done) => town.playDialog(key, done),
+  itemRule: (i) => ruleFor(objectItems, i),
+  notify: createNotice(),
+});
+
 // Town and temple scenes: a 2D screen on the HUD whose hotspots open dialogues.
 const town = createTownHost({
+  shop: (ref) => shops.open(ref),
   fetch: (names) => prefetchResources(archive, names),
   hud: screens,
   chapter: start.chapter,
@@ -159,9 +189,10 @@ const town = createTownHost({
     runDialogSession(session, showView, (cancelled) => {
       encounters.runner.finish(session);
       applyDialog(session, undefined, cancelled);
-      done({ cancelled, endState: session.endOfDialogState });
+      done({ cancelled, endState: session.endOfDialogState, choice: session.lastChoice });
     });
   },
+  inn: (ref) => inns.enter(ref),
 });
 
 // Entering a town: the party stands at the entry's exit position outside the door, then the scene opens.
@@ -192,7 +223,7 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
   const table = read('TELEPORT.DAT');
   teleports = table ? parseTeleports(table) : [];
   return new EncounterDriver(
-    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter }) } }),
+    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter, ...shops.textExtras() }) } }),
     showView,
     {
       other: (e) => {
@@ -240,8 +271,9 @@ let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, c
 
 // Save and load: F5 quick-save, F9 quick-load, F6 slot screen.
 await installSaveControls({
-  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState }),
+  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState, shops: shops.snapshot() }),
   restore: async (d) => {
+    shops.restore(d.shops);
     clock.state = d.world;
     partyState = d.party;
     screens.setParty(partyState);
@@ -262,6 +294,19 @@ installCamp({
   canCamp: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
   menu: (text, choices) => new Promise((resolve) => screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
   onTimePassed: () => sky.update(clock.minutes),
+});
+installItemControls({ items: objectItems, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
+
+// Temples: cure, bless and teleport at temple hotspots.
+installTempleControls({
+  town: town.controller, screens, items: objectItems, saveBytes: save.bytes,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  playDialog: (key, done) => town.playDialog(key, done),
+  teleportLayout: archive.has('REQ_TELE.DAT') ? archive.get('REQ_TELE.DAT') : undefined,
+  travel: (i) => { const d = teleports[i]; if (d) void travelTo(d); },
 });
 
 // Chests and containers: E opens the one the party stands next to (locks, riddles, traps, take and put).
