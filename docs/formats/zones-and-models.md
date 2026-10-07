@@ -307,6 +307,7 @@ A compact bitmask of explored/valid tiles across a $50 \times 50$ tile grid:
   $$\text{byteIndex} = (x \ll 3) + (y \gg 3)$$
   $$\text{bitMask} = 1 \ll (y \mathbin{\&} 7)$$
   $$\text{isTilePresent} = (\text{mapBytes}[\text{byteIndex}] \mathbin{\&} \text{bitMask}) \ne 0$$
+- Tile $(x, y)$ is the world tile `T<zone><XX><YY>`; world position $(wx, wy)$ falls in tile $(\lfloor wx/64000 \rfloor, \lfloor wy/64000 \rfloor)$. Implemented in `src/formats/zoneMap.ts`; the map screen (`src/ui/mapMath.ts`) draws north up.
 
 ---
 
