@@ -7,8 +7,8 @@ import { slideMove, type CollisionPolygon, type Vec2 } from './collision';
  * counter-clockwise from north: 0 = north, 64 = west, 128 = south, 192 = east.
  */
 
-/** Eye height above the ground, in BaK units. */
-export const EYE_HEIGHT = 100;
+/** Eye height above the ground, in BaK units (raised 20% from the original's 100 to sit at head height against the HD buildings). */
+export const EYE_HEIGHT = 120;
 /** Walking speed in BaK units per second. */
 export const WALK_SPEED = 400;
 /** Running speed multiplier (Shift). */

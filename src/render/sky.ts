@@ -36,6 +36,8 @@ export interface Sky {
   update(minutesSinceMidnight: number): void;
   /** Re-centre the shadow frustum on a render-space point (the party); call every frame. */
   followShadow(x: number, y: number, z: number): void;
+  /** Turn sun/moon shadows on or off (graphics quality). */
+  setShadows(enabled: boolean): void;
 }
 
 /** Dome radius in world units (fits inside any sensible camera far plane). */
@@ -148,6 +150,10 @@ export function createSky(scene: THREE.Scene): Sky {
   const setVec = (target: THREE.Vector3, v: Vec3) => target.set(v[0], v[1], v[2]);
 
   return {
+    setShadows(enabled: boolean): void {
+      key.castShadow = enabled;
+    },
+
     followShadow(x: number, y: number, z: number): void {
       // Snap the target to the shadow texel grid in light space.
       const texel = (2 * SHADOW_EXTENT) / SHADOW_MAP_SIZE;

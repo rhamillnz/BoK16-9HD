@@ -1,8 +1,9 @@
 import type { PerspectiveCamera } from 'three/webgpu';
 
 /**
- * Development camera: click to capture the mouse, WASD to move, Q/E down/up,
- * Shift to move faster. Will be replaced by the party movement controller.
+ * Debug fly camera: click to capture the mouse and look around. W/S (or Up/Down) fly
+ * along the view direction, so looking up and pressing W climbs; A/D (or Left/Right)
+ * strafe; Space or E rises, Ctrl or Q sinks; Shift moves 5x faster.
  */
 export class FlyCamera {
   speed = 2000; // world units per second
@@ -32,17 +33,24 @@ export class FlyCamera {
 
   update(dt: number): void {
     const k = this.keys;
-    const fast = k.has('ShiftLeft') || k.has('ShiftRight') ? 5 : 1;
+    const has = (...codes: string[]) => codes.some((c) => k.has(c));
+    const fast = has('ShiftLeft', 'ShiftRight') ? 5 : 1;
     const step = this.speed * fast * dt;
-    const fx = -Math.sin(this.yaw);
-    const fz = -Math.cos(this.yaw);
+    const cp = Math.cos(this.pitch);
+    // View direction (includes pitch) and the horizontal right vector.
+    const fx = -Math.sin(this.yaw) * cp;
+    const fy = Math.sin(this.pitch);
+    const fz = -Math.cos(this.yaw) * cp;
+    const rx = Math.cos(this.yaw);
+    const rz = -Math.sin(this.yaw);
     const p = this.camera.position;
-    if (k.has('KeyW')) { p.x += fx * step; p.z += fz * step; }
-    if (k.has('KeyS')) { p.x -= fx * step; p.z -= fz * step; }
-    if (k.has('KeyA')) { p.x += fz * step; p.z -= fx * step; }
-    if (k.has('KeyD')) { p.x -= fz * step; p.z += fx * step; }
-    if (k.has('KeyE')) p.y += step;
-    if (k.has('KeyQ')) p.y -= step;
+    const move = (dx: number, dy: number, dz: number, s: number) => { p.x += dx * s; p.y += dy * s; p.z += dz * s; };
+    if (has('KeyW', 'ArrowUp')) move(fx, fy, fz, step);
+    if (has('KeyS', 'ArrowDown')) move(fx, fy, fz, -step);
+    if (has('KeyD', 'ArrowRight')) move(rx, 0, rz, step);
+    if (has('KeyA', 'ArrowLeft')) move(rx, 0, rz, -step);
+    if (has('Space', 'KeyE')) p.y += step;
+    if (has('ControlLeft', 'ControlRight', 'KeyQ')) p.y -= step;
     this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
   }
 }

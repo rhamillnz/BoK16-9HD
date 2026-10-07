@@ -151,6 +151,7 @@ async function travelTo(d: Destination): Promise<void> {
     if (plan.reload) {
       const next = await zoneHost.switchTo(plan.zone);
       party.polygons = next.scene.collision;
+      next.grass.setQuality(post.quality);
       encounters = await makeEncounters(plan.zone, next.data.tiles, clock.state);
       void music.play(songForZone(plan.zone)).catch((err) => console.warn('Music unavailable:', err));
     }
@@ -165,9 +166,35 @@ async function travelTo(d: Destination): Promise<void> {
 
 let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, clock.state);
 
-// Post-processing: P cycles low/medium/high (?post=low|medium|high sets the start).
+// Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
+// drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
 const post = createPost(renderer, scene, camera, parseQuality(new URLSearchParams(location.search).get('post'), 'medium'));
-window.addEventListener('keydown', (e) => { if (e.code === 'KeyP' && !e.repeat) post.cycle(); });
+const toast = Object.assign(document.createElement('div'), { id: 'toast' });
+Object.assign(toast.style, {
+  position: 'absolute', top: '12%', left: '50%', transform: 'translateX(-50%)', padding: '10px 22px',
+  background: 'rgba(20,16,10,0.75)', border: '2px solid #c9a24a', color: '#f3e6c4', font: '600 22px system-ui, sans-serif',
+  borderRadius: '6px', pointerEvents: 'none', transition: 'opacity 0.4s', opacity: '0',
+});
+document.body.append(toast);
+let toastTimer = 0;
+const applyGraphics = (announce: boolean) => {
+  const q = post.quality;
+  sky.setShadows(q !== 'low');
+  zoneHost.current.grass.setQuality(q);
+  if (!announce) return;
+  const detail = { low: 'no post-processing, no shadows, sparse grass', medium: 'bloom + colour grade, shadows, normal grass', high: 'adds ambient occlusion, dense grass' }[q];
+  toast.textContent = `Graphics: ${q.toUpperCase()} - ${detail}`;
+  toast.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => (toast.style.opacity = '0'), 2200);
+};
+applyGraphics(false);
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyP' && !e.repeat) {
+    post.cycle();
+    applyGraphics(true);
+  }
+});
 
 let last = performance.now();
 let frames = 0;
