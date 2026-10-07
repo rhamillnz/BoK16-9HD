@@ -91,6 +91,10 @@ Add these to the game address, for example `http://localhost:5173/game.html?zone
 | `fov=N` | Camera field of view in degrees for this session. Overrides the Options setting |
 | `chapter=N` | Start in chapter N (2 to 9): runs the chapter reset and start script without cutscenes |
 
+## Loading and errors
+
+The game page shows a loading screen with progress while it starts and whenever a zone loads. If startup fails it shows a plain-language error instead of a blank page: game data missing (set `BAK_DIR`), game data that cannot be read, or no graphics support at all. When the browser has no WebGPU the game runs on the WebGL2 fallback and says so in a note at the bottom of the screen for a few seconds. There are no new keys or URL options.
+
 ## Saves and settings
 
 Saves go to your browser's IndexedDB (localStorage if that is unavailable), so they stay with that browser and address. Graphics, volume, mute, field of view, UI scale, mouse-look and key bindings are kept in the browser too.
