@@ -35,6 +35,9 @@ export const MINE_LOOK = {
   torchIntensity: 420,
   torchDistance: 34,
   torchDecay: 2,
+  /** An active light spell: brighter and reaching further. */
+  magicBoost: 2.2,
+  magicReach: 1.8,
 } as const;
 
 /** Lantern flicker multiplier (about 0.9-1.1) for a time in seconds; smooth and deterministic. */

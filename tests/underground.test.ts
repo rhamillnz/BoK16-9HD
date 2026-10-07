@@ -48,6 +48,22 @@ describe('underground zones', () => {
     expect(key.castShadow).toBe(true);
   });
 
+  it('widens the lantern while a light spell is active', () => {
+    const scene = new THREE.Scene();
+    const sky = createSky(scene);
+    const update = installUnderground(sky, new PartyController());
+    const torch = scene.children.find((o): o is THREE.PointLight => o instanceof THREE.PointLight)!;
+    update(10, false);
+    sky.followShadow(0, 0, 0);
+    const plain = torch.intensity;
+    update(10, true);
+    sky.followShadow(0, 0, 0);
+    expect(torch.distance).toBeCloseTo(MINE_LOOK.torchDistance * MINE_LOOK.magicReach);
+    expect(torch.intensity).toBeGreaterThan(plain * 1.5);
+    update(10, false);
+    expect(torch.distance).toBe(MINE_LOOK.torchDistance);
+  });
+
   it('halves walking speed in mines when the zone changes', () => {
     const scene = new THREE.Scene();
     const sky = createSky(scene);

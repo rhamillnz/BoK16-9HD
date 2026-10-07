@@ -47,6 +47,7 @@ import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installUnderground } from './undergroundMode';
+import { currentLight } from './spells';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -306,7 +307,7 @@ installCamp({
 installItemControls({ items: objectItems, spells: spellDefs, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
 
 // Spells: V casts healing and light spells outside combat (combat casting lives in the fight panel, C).
-installCast({
+const cast = installCast({
   spells: spellDefs,
   getParty: () => partyState,
   setParty: (p) => { partyState = p; screens.setParty(p); },
@@ -382,7 +383,7 @@ renderer.setAnimationLoop(() => {
   const now = performance.now();
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  updateUnderground(zoneHost.current.zone);
+  updateUnderground(zoneHost.current.zone, currentLight(cast.lights, clock.state.ticks) !== undefined);
   if (flyMode) {
     fly.update(dt);
   } else {

@@ -41,6 +41,8 @@ export interface Sky {
   setShadows(enabled: boolean): void;
   /** Underground: no sky or sun, black cave fog, a faint ambient and a flickering lantern on the party. */
   setUnderground(enabled: boolean): void;
+  /** Underground: an active light spell widens and brightens the lantern. */
+  setMagicLight(on: boolean): void;
 }
 
 /** Dome radius in world units (fits inside any sensible camera far plane). */
@@ -75,6 +77,7 @@ export function createSky(scene: THREE.Scene): Sky {
   torch.visible = false;
   scene.add(torch);
   let underground = false;
+  let magic = false;
   let lastMinutes = 12 * 60;
   let shadowsWanted = true;
 
@@ -176,6 +179,12 @@ export function createSky(scene: THREE.Scene): Sky {
       key.castShadow = enabled && !underground;
     },
 
+    setMagicLight(on: boolean): void {
+      if (on === magic) return;
+      magic = on;
+      torch.distance = MINE_LOOK.torchDistance * (on ? MINE_LOOK.magicReach : 1);
+    },
+
     setUnderground(enabled: boolean): void {
       if (enabled === underground) return;
       underground = enabled;
@@ -195,7 +204,7 @@ export function createSky(scene: THREE.Scene): Sky {
     followShadow(x: number, y: number, z: number): void {
       if (underground) {
         torch.position.set(x, y, z);
-        torch.intensity = MINE_LOOK.torchIntensity * torchFlicker(performance.now() / 1000);
+        torch.intensity = MINE_LOOK.torchIntensity * (magic ? MINE_LOOK.magicBoost : 1) * torchFlicker(performance.now() / 1000);
         return;
       }
       // Snap the target to the shadow texel grid in light space.
