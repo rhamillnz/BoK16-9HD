@@ -9,7 +9,7 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 - [ ] 1 Shops and haggling: buy/sell at town shop hotspots with OBJINFO prices, Haggling skill, shop inventories
 - [ ] 2 Inns: rest and heal, rations and drinks, time passing
 - [ ] 3 Temples: healing, curing conditions, blessings, temple teleport network
-- [ ] 4 Camping in the wild: R key rest/sleep, healing, rations, time, interruptions
+- [x] 4 Camping in the wild: R key rest/sleep, healing, rations, time, interruptions
 - [ ] 5 Using items: eat, drink, scrolls, repair, equip/unequip, swap between characters, weight and slot limits
 - [ ] 6 Chests and containers (OBJFIXED.DAT, tile objects): open, take/put, word-lock riddle chests, traps
 - [ ] 7 Combat pass 2: crossbows/ranged, enemy AI, loot, experience, wounds
