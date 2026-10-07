@@ -21,6 +21,7 @@ import {
   vec3,
 } from 'three/tsl';
 import { computeSkyState, type Rgb, type Vec3 } from './skyMath';
+import { MINE_LOOK, torchFlicker } from '../world/underground';
 
 /**
  * Time-of-day sky: gradient dome (follows the camera), sun + moon discs, stars,
@@ -38,6 +39,8 @@ export interface Sky {
   followShadow(x: number, y: number, z: number): void;
   /** Turn sun/moon shadows on or off (graphics quality). */
   setShadows(enabled: boolean): void;
+  /** Underground: no sky or sun, black cave fog, a faint ambient and a flickering lantern on the party. */
+  setUnderground(enabled: boolean): void;
 }
 
 /** Dome radius in world units (fits inside any sensible camera far plane). */
@@ -66,6 +69,14 @@ export function createSky(scene: THREE.Scene): Sky {
   scene.background = null; // the dome paints the whole view
   scene.fog = fog;
   scene.add(key, key.target, hemi);
+
+  // Underground lantern: a point light that follows the camera, only lit in mine zones.
+  const torch = new THREE.PointLight(MINE_LOOK.torchColor, 0, MINE_LOOK.torchDistance, MINE_LOOK.torchDecay);
+  torch.visible = false;
+  scene.add(torch);
+  let underground = false;
+  let lastMinutes = 12 * 60;
+  let shadowsWanted = true;
 
   // Sun shadows: an orthographic frustum that follows the party, snapped to shadow-map texels so
   // the shadows don't swim while walking. Soft edges come from the PCF radius.
@@ -149,12 +160,44 @@ export function createSky(scene: THREE.Scene): Sky {
   // --- per-update -----------------------------------------------------------
   const setVec = (target: THREE.Vector3, v: Vec3) => target.set(v[0], v[1], v[2]);
 
+  const applyUnderground = () => {
+    key.intensity = 0;
+    hemi.color.set(MINE_LOOK.hemiSky);
+    hemi.groundColor.set(MINE_LOOK.hemiGround);
+    hemi.intensity = MINE_LOOK.hemiIntensity;
+    fog.color.set(MINE_LOOK.fogColor);
+    fog.near = MINE_LOOK.fogNear;
+    fog.far = MINE_LOOK.fogFar;
+  };
+
   return {
     setShadows(enabled: boolean): void {
-      key.castShadow = enabled;
+      shadowsWanted = enabled;
+      key.castShadow = enabled && !underground;
+    },
+
+    setUnderground(enabled: boolean): void {
+      if (enabled === underground) return;
+      underground = enabled;
+      dome.visible = !enabled;
+      torch.visible = enabled;
+      torch.intensity = enabled ? MINE_LOOK.torchIntensity : 0;
+      key.castShadow = shadowsWanted && !enabled;
+      if (enabled) {
+        applyUnderground();
+      } else {
+        fog.near = FOG_NEAR;
+        fog.far = FOG_FAR;
+        this.update(lastMinutes);
+      }
     },
 
     followShadow(x: number, y: number, z: number): void {
+      if (underground) {
+        torch.position.set(x, y, z);
+        torch.intensity = MINE_LOOK.torchIntensity * torchFlicker(performance.now() / 1000);
+        return;
+      }
       // Snap the target to the shadow texel grid in light space.
       const texel = (2 * SHADOW_EXTENT) / SHADOW_MAP_SIZE;
       shadowRight.set(0, 1, 0).cross(lightDir);
@@ -171,6 +214,8 @@ export function createSky(scene: THREE.Scene): Sky {
       key.target.updateMatrixWorld();
     },
     update(minutes: number): void {
+      lastMinutes = minutes;
+      if (underground) return;
       const s = computeSkyState(minutes);
 
       setColor(key.color, s.keyColor);

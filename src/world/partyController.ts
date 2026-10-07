@@ -65,6 +65,8 @@ export class PartyController {
   /** Float heading in [0, 256); `heading8` gives the integer value the game would store. */
   heading: number;
   polygons: readonly CollisionPolygon[] = [];
+  /** Walking speed multiplier (0.5 in mines). */
+  speedScale = 1;
 
   constructor(
     x = 0,
@@ -96,7 +98,7 @@ export class PartyController {
     const move = (Number(input.forward) - Number(input.back)) as -1 | 0 | 1;
     this.heading = stepHeading(this.heading, turn, dt);
     if (move === 0) return;
-    const p = slideMove({ x: this.x, y: this.y }, walkDelta(this.heading, move, input.run, dt), PARTY_RADIUS, this.polygons);
+    const p = slideMove({ x: this.x, y: this.y }, walkDelta(this.heading, move, input.run, dt * this.speedScale), PARTY_RADIUS, this.polygons);
     this.x = p.x;
     this.y = p.y;
   }

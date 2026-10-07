@@ -46,6 +46,7 @@ import { installTempleControls } from './templeControls';
 import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
+import { installUnderground } from './undergroundMode';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -91,6 +92,7 @@ window.addEventListener('keydown', (e) => {
 // Party controller drives the camera; F toggles the debug fly camera.
 const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading), zoneHost.getHeight);
 party.polygons = zoneHost.current.scene.collision;
+const updateUnderground = installUnderground(sky, party);
 const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
@@ -380,6 +382,7 @@ renderer.setAnimationLoop(() => {
   const now = performance.now();
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
+  updateUnderground(zoneHost.current.zone);
   if (flyMode) {
     fly.update(dt);
   } else {
