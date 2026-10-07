@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three/webgpu';
 import { resolveArtPath } from '../src/assets/artServe';
@@ -84,7 +85,7 @@ describe('buildOverrideMeshes / buildZoneScene', () => {
 describe('resolveArtPath', () => {
   const root = '/srv/art/reference';
   it('maps png urls inside the root', () => {
-    expect(resolveArtPath(root, '/Z01/slots-4x/3.png?x=1')).toBe('/srv/art/reference/Z01/slots-4x/3.png');
+    expect(resolveArtPath(root, '/Z01/slots-4x/3.png?x=1')).toBe(path.resolve(root, 'Z01/slots-4x/3.png'));
   });
   it('rejects traversal and non-png files', () => {
     expect(resolveArtPath(root, '/../secret.png')).toBeUndefined();
