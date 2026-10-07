@@ -259,6 +259,8 @@ export function mountHud(parent: HTMLElement, data: HudData): HudScreens {
 
   const render = () => {
     canvas.style.pointerEvents = screens.blocking ? 'auto' : 'none';
+    // A captured mouse (fly camera) would leave screens unclickable: release it while one is open.
+    if (screens.blocking && document.pointerLockElement) document.exitPointerLock();
     if (screens.dirty) screens.draw(ctx);
     requestAnimationFrame(render);
   };

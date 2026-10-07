@@ -163,9 +163,19 @@ function drawSlot(ctx: CanvasRenderingContext2D, font: Font, slot: { rect: Rect;
     ctx.fillRect(slot.icon.x, slot.icon.y, slot.icon.width, slot.icon.height);
   }
   const tx = slot.icon.x + slot.icon.width + 2 * scale;
-  const tw = slot.rect.x + slot.rect.width - tx - scale;
-  drawText(ctx, font, item.name, tx, slot.rect.y + 2 * scale, scale, item.equipped ? c.equipped : c.text, tw);
-  drawText(ctx, font, item.amount, tx, slot.rect.y + 2 * scale + (font.height + 2) * scale, scale, c.text, tw);
+  const tw = slot.rect.x + slot.rect.width - tx - 2 * scale;
+  const lineH = (font.height + 2) * scale;
+  const nameCss = item.equipped ? c.equipped : c.text;
+  if (slot.rect.height >= 2 * lineH + 2 * scale) {
+    drawText(ctx, font, item.name, tx, slot.rect.y + 2 * scale, scale, nameCss, tw);
+    drawText(ctx, font, item.amount, tx, slot.rect.y + 2 * scale + lineH, scale, c.text, tw);
+    return;
+  }
+  // Short slots (a big party inventory): name and amount share one line, the amount right-aligned.
+  const y = slot.rect.y + Math.max(0, Math.floor((slot.rect.height - font.height * scale) / 2));
+  const aw = item.amount ? measureString(font, item.amount) * scale : 0;
+  drawText(ctx, font, item.amount, tx + tw - aw, y, scale, c.text);
+  drawText(ctx, font, item.name, tx, y, scale, nameCss, Math.max(0, tw - aw - (aw ? 4 * scale : 0)));
 }
 
 export function drawContainerScreen(
@@ -210,6 +220,8 @@ export function drawContainerScreen(
 }
 
 export class ContainerScreen implements HudScreenHandler {
+  /** Hotkeys (I, C, Tab) must not swap it out: the game waits for `onClose`. */
+  modal = true;
   private s: { layout: ContainerLayout; state: ContainerScreenState; view: ContainerView } | undefined;
   constructor(private readonly host: HudHost) {}
 
@@ -223,8 +235,11 @@ export class ContainerScreen implements HudScreenHandler {
   open(): boolean {
     return this.s !== undefined;
   }
+  /** However the screen is closed (Escape, the button, another screen opening), the view hears `onClose` once. */
   close(): void {
+    const s = this.s;
     this.s = undefined;
+    s?.view.onClose();
   }
   event(ev: ContainerEvent): void {
     const s = this.s;
@@ -239,11 +254,9 @@ export class ContainerScreen implements HudScreenHandler {
     }
   }
   escape(): void {
-    const s = this.s;
-    if (!s) return;
-    this.s = undefined;
-    this.host.close();
-    s.view.onClose();
+    if (!this.s) return;
+    this.host.close(); // calls close(), which tells the view
+    this.close();
   }
   draw(ctx: CanvasRenderingContext2D): void {
     const h = this.host;
@@ -318,6 +331,8 @@ export function drawWordLock(ctx: CanvasRenderingContext2D, font: Font, layout: 
 }
 
 export class WordLockScreen implements HudScreenHandler {
+  /** Like the container screen: the game waits for `onLeave` or a solve. */
+  modal = true;
   private s: { layout: WordLockLayout; view: WordLockView } | undefined;
   constructor(private readonly host: HudHost) {}
   show(view: WordLockView): void {
@@ -326,8 +341,11 @@ export class WordLockScreen implements HudScreenHandler {
   open(): boolean {
     return this.s !== undefined;
   }
+  /** Closing without solving counts as leaving (the view hears `onLeave` once). */
   close(): void {
+    const s = this.s;
     this.s = undefined;
+    s?.view.onLeave();
   }
   event(ev: Parameters<typeof stepWordLock>[1]): void {
     const s = this.s;
@@ -337,11 +355,9 @@ export class WordLockScreen implements HudScreenHandler {
     else if (a.kind === 'leave') this.escape();
   }
   escape(): void {
-    const s = this.s;
-    if (!s) return;
-    this.s = undefined;
-    this.host.close();
-    s.view.onLeave();
+    if (!this.s) return;
+    this.host.close(); // calls close(), which tells the view
+    this.close();
   }
   draw(ctx: CanvasRenderingContext2D): void {
     if (this.s) drawWordLock(ctx, this.host.font, this.s.layout, this.s.view.state());
