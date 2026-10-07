@@ -140,6 +140,7 @@ renderer.setAnimationLoop(() => {
     party.applyToCamera(camera);
     if (!screens.blocking) encounters.update(party.x, party.y);
   }
+  sky.followShadow(camera.position.x, camera.position.y, camera.position.z);
   renderer.render(scene, camera);
 
   frames++;

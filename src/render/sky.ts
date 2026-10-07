@@ -34,6 +34,8 @@ import { computeSkyState, type Rgb, type Vec3 } from './skyMath';
 export interface Sky {
   /** Apply the lighting, fog and dome for a time of day (minutes since midnight). */
   update(minutesSinceMidnight: number): void;
+  /** Re-centre the shadow frustum on a render-space point (the party); call every frame. */
+  followShadow(x: number, y: number, z: number): void;
 }
 
 /** Dome radius in world units (fits inside any sensible camera far plane). */
@@ -43,6 +45,10 @@ export const FOG_NEAR = 200;
 export const FOG_FAR = 1_200;
 /** How far from the origin the key light is placed; only its direction matters. */
 const LIGHT_DISTANCE = 500;
+
+/** Half-size of the shadow frustum in world units (~4 000 game units each way) and its map size. */
+export const SHADOW_EXTENT = 40;
+export const SHADOW_MAP_SIZE = 2048;
 
 /** Angular radius of the sun/moon discs in radians (exaggerated for readability). */
 const SUN_RADIUS = 0.035;
@@ -58,6 +64,24 @@ export function createSky(scene: THREE.Scene): Sky {
   scene.background = null; // the dome paints the whole view
   scene.fog = fog;
   scene.add(key, key.target, hemi);
+
+  // Sun shadows: an orthographic frustum that follows the party, snapped to shadow-map texels so
+  // the shadows don't swim while walking. Soft edges come from the PCF radius.
+  key.castShadow = true;
+  key.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+  const sc = key.shadow.camera;
+  sc.left = sc.bottom = -SHADOW_EXTENT;
+  sc.right = sc.top = SHADOW_EXTENT;
+  sc.near = 1;
+  sc.far = LIGHT_DISTANCE + 150;
+  sc.updateProjectionMatrix();
+  key.shadow.radius = 3;
+  key.shadow.blurSamples = 12;
+  key.shadow.bias = -0.0004;
+  key.shadow.normalBias = 0.05;
+  const lightDir = new THREE.Vector3(0, 1, 0);
+  const shadowRight = new THREE.Vector3();
+  const shadowUp = new THREE.Vector3();
 
   // --- dome -----------------------------------------------------------------
   const uZenith = uniform(new THREE.Color());
@@ -124,13 +148,29 @@ export function createSky(scene: THREE.Scene): Sky {
   const setVec = (target: THREE.Vector3, v: Vec3) => target.set(v[0], v[1], v[2]);
 
   return {
+    followShadow(x: number, y: number, z: number): void {
+      // Snap the target to the shadow texel grid in light space.
+      const texel = (2 * SHADOW_EXTENT) / SHADOW_MAP_SIZE;
+      shadowRight.set(0, 1, 0).cross(lightDir);
+      if (shadowRight.lengthSq() < 1e-6) shadowRight.set(1, 0, 0);
+      shadowRight.normalize();
+      shadowUp.crossVectors(lightDir, shadowRight);
+      const px = x * shadowRight.x + y * shadowRight.y + z * shadowRight.z;
+      const py = x * shadowUp.x + y * shadowUp.y + z * shadowUp.z;
+      const pl = x * lightDir.x + y * lightDir.y + z * lightDir.z;
+      const sx = Math.round(px / texel) * texel;
+      const sy = Math.round(py / texel) * texel;
+      key.target.position.set(0, 0, 0).addScaledVector(shadowRight, sx).addScaledVector(shadowUp, sy).addScaledVector(lightDir, pl);
+      key.position.copy(lightDir).multiplyScalar(LIGHT_DISTANCE).add(key.target.position);
+      key.target.updateMatrixWorld();
+    },
     update(minutes: number): void {
       const s = computeSkyState(minutes);
 
       setColor(key.color, s.keyColor);
       key.intensity = s.keyIntensity;
-      key.position.set(s.keyDir[0], s.keyDir[1], s.keyDir[2]).multiplyScalar(LIGHT_DISTANCE);
-      key.target.position.set(0, 0, 0);
+      lightDir.set(s.keyDir[0], s.keyDir[1], s.keyDir[2]).normalize();
+      key.position.copy(lightDir).multiplyScalar(LIGHT_DISTANCE).add(key.target.position);
 
       setColor(hemi.color, s.hemiSky);
       setColor(hemi.groundColor, s.hemiGround);

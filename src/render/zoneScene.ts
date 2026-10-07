@@ -4,6 +4,7 @@ import { toRGBA, type IndexedImage } from '../formats/bmx';
 import { Terrain } from '../formats/scx';
 import { EF_2D_OBJECT, type Face, type Model } from '../formats/tbl';
 import { angleToRadians } from '../formats/world';
+import { createTerrainMaterial } from './terrainMaterial';
 import { buildCollisionPolygons, type CollisionPolygon } from '../world/collision';
 import type { ZoneData } from '../world/zone';
 
@@ -263,7 +264,7 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
     const mesh = new THREE.Mesh(batch.geometry(), material);
     mesh.name = name;
     mesh.receiveShadow = true;
-    mesh.castShadow = name !== 'terrain';
+    mesh.castShadow = !name.startsWith('terrain');
     group.add(mesh);
     triangles += batch.positions.length / 9;
     drawCalls++;
@@ -274,7 +275,7 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
     const src = zone.terrain[strip];
     if (!src) continue;
     const map = imageTexture(tileableTerrain(src, strip + 1), palette, true);
-    addMesh(batch, new THREE.MeshStandardMaterial({ map, roughness: 1, side: THREE.DoubleSide }), `terrain${strip}`);
+    addMesh(batch, createTerrainMaterial(map, strip), `terrain${strip}`);
   }
   for (const [image, batch] of slotBatches) {
     const src = slotImages[image];
