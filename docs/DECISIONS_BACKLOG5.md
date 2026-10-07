@@ -15,7 +15,7 @@ This document tracks decisions made while executing tasks from Backlog 5.
 - **Goal**: Implement loading and error screens (zone-load progress, missing data errors, WebGPU fallback).
 - **Decisions**:
   - Added a splash screen div in game.html over the canvas.
-  - Wrapped main.ts setup in a 	ry...catch that routes uncaught startup errors into the UI splash screen (friendly error display).
+  - Wrapped main.ts setup in a try...catch that routes uncaught startup errors into the UI splash screen (friendly error display).
   - Updated the data fetching to throw a friendlier error if KRONDOR.RMF and .001 are missing.
-  - In 	ravelTo(), we show the splash screen with \Loading Zone \...\ before zoneHost.switchTo, waiting one frame to allow DOM rendering.
+  - In travelTo(), we show the splash screen with "Loading Zone ..." before zoneHost.switchTo, waiting one frame to allow DOM rendering.
   - After startup, if the backend is WebGL2, we show the in-game toast informing the user about the WebGL2 fallback.
