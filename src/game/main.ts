@@ -40,6 +40,7 @@ import { findShop, parseShopContainers } from '../formats/gdsContainers';
 import { ruleFor } from './dialogEffects';
 import { createNotice } from '../ui/notice';
 import { installCamp } from './campControls';
+import { installContainers } from './containerControls';
 import { installItemControls } from './itemControls';
 import { installTempleControls } from './templeControls';
 import { createShops } from './shopControls';
@@ -308,6 +309,23 @@ installTempleControls({
   playDialog: (key, done) => town.playDialog(key, done),
   teleportLayout: archive.has('REQ_TELE.DAT') ? archive.get('REQ_TELE.DAT') : undefined,
   travel: (i) => { const d = teleports[i]; if (d) void travelTo(d); },
+});
+
+// Chests and containers: E opens the one the party stands next to (locks, riddles, traps, take and put).
+await installContainers({
+  archive, items: objectItems, chapter: start.chapter, saveBytes: save.bytes, hud: screens,
+  zone: () => zoneHost.current.zone,
+  position: () => ({ x: party.x, y: party.y }),
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  canInteract: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
+  playDialog: (key) => new Promise<void>((done) => {
+    encounters.runner.setWorld(clock.state);
+    const session = encounters.runner.startDialog(key);
+    runDialogSession(session, showView, (cancelled) => { encounters.runner.finish(session); applyDialog(session, undefined, cancelled); done(); });
+  }),
 });
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting

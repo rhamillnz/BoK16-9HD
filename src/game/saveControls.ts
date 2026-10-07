@@ -1,6 +1,7 @@
 import type { SaveHandler } from '../ui/hud';
 import { QUICK_SLOT, SaveGames, createSaveStore, type SaveGameData } from './saveGame';
 import { slotLabel } from '../ui/saveScreen';
+import { captureSaveExtras, restoreSaveExtras } from './saveExtras';
 
 export interface SaveControlsHost {
   /** Snapshot of the running game. */
@@ -24,12 +25,13 @@ function toast(text: string): void {
 export async function installSaveControls(host: SaveControlsHost): Promise<SaveGames> {
   const games = new SaveGames(await createSaveStore());
   const save = async (slot: string): Promise<string> => {
-    await games.save(slot, host.capture());
+    await games.save(slot, { ...host.capture(), extras: captureSaveExtras() });
     return `Saved to ${slotLabel(slot)}`;
   };
   const load = async (slot: string): Promise<string> => {
     const data = await games.load(slot);
     if (!data) return `Failed: ${slotLabel(slot)} is empty`;
+    restoreSaveExtras(data.extras);
     await host.restore(data);
     return `Loaded ${slotLabel(slot)}`;
   };

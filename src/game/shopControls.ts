@@ -12,6 +12,7 @@ import {
   ItemFlag, UNPURCHASEABLE, applyHaggle, buy, buyPrice, canBuyItem, defaultRng, haggle, haggleSkill, isRefused, isRomneyGuildWars,
   offeredItem, priceOf, sell, shopFromContainer, type PriceContext, type Refusal, type Rng, type ShopState,
 } from './shops';
+import { practiceCharacter } from './practice';
 import type { WorldState } from './state';
 import type { TextVariableContext } from './textVariables';
 
@@ -172,6 +173,7 @@ export function createShops(host: ShopHost) {
       extras = { itemName: d.name, activeCharacter: who };
       const r = haggle(shop, d, haggleSkill(host.getParty(), who), rng);
       shop = applyHaggle(shop, item.itemIndex, r);
+      if (r.exercised) host.setParty(practiceCharacter(host.getParty(), who, 'haggling'));
       if (r.outcome === 'discount') {
         await play(SHOP_DIALOG.succeedHaggle);
         return doBuy(stockIndex, m); // offer the item again at the new price
