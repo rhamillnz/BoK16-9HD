@@ -28,3 +28,4 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 Backlog 2:
 - [x] 19 Light spells brighten outdoor scenes at night (fading out by day)
 - [x] 20 Unify rest models: camping uses the inn rules (`rest.ts`: shared health pool, conditions, near death, 13 hour Sick cure); camping keeps interruptions and party-shared rations
+- [x] 21 Note-based sound effects: WebAudio synth for FRP.SX MIDI-style voices
