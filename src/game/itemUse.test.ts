@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SKILL_NAMES, type Character, type InventoryItem, type Skill } from '../formats/gam';
 import { ItemType, type ItemDef } from '../formats/objinfo';
+import type { SpellDef } from '../formats/spells';
 import { giveToCharacter, repairItem, toggleEquip, useItem } from './itemUse';
 import type { PartyState } from './party';
 
@@ -14,6 +15,7 @@ function character(index: number, items: InventoryItem[], capacity = 4): Charact
   skills.health = skill(60, 30);
   skills.weaponcraft = skill(100, 100, 100);
   skills.armorcraft = skill(100, 100, 100);
+  skills.melee = skill(50, 10);
   return {
     index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
     combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
@@ -31,7 +33,9 @@ const DEFS = [
   D(0, ItemType.Sword), D(1, ItemType.Staff), D(2, ItemType.Armor), D(3, ItemType.Ration, { stackSize: 5 }),
   D(4, ItemType.Potion, { potionPowerOrBookChance: 15 }), D(5, ItemType.Restoratives, { potionPowerOrBookChance: 40 }),
   D(6, ItemType.Tool), D(7, ItemType.Scroll), D(8, ItemType.Crossbow),
+  D(9, ItemType.Book, { effectMask: 1 << 6, effect: 3, potionPowerOrBookChance: 50, alternativeEffect: 2 }),
 ];
+const SPELL_DEFS = [0, 1, 2, 3, 4, 5].map((i) => ({ index: i, name: i === 5 ? 'Flamecast' : `Spell${i}` })) as SpellDef[];
 const c0 = (p: PartyState) => p.characters[0]!;
 
 describe('toggleEquip', () => {
@@ -66,10 +70,32 @@ describe('useItem', () => {
     expect(c0(r.party).conditions.poisoned).toBe(0);
     expect(c0(r.party).conditions.sick).toBe(0);
   });
-  it('refuses scrolls and weapons without consuming them', () => {
-    const p = party([item(7), item(0)]);
+  it('refuses weapons without consuming them', () => {
+    const p = party([item(0)]);
     expect(useItem(p, 0, 0, DEFS)).toMatchObject({ ok: false, party: p });
-    expect(useItem(p, 0, 1, DEFS).ok).toBe(false);
+  });
+  it('a scroll teaches its spell to a magic-user and is used up', () => {
+    const p = party([item(7, { conditionOrQuantity: 5 })]);
+    expect(useItem(p, 0, 0, DEFS, { spells: SPELL_DEFS })).toMatchObject({ ok: false, message: expect.stringMatching(/cannot read magic/) });
+    const caster = { ...p, characters: [{ ...c0(p), skills: { ...c0(p).skills, casting: skill(40, 40) } }, ...p.characters.slice(1)] };
+    const r = useItem(caster, 0, 0, DEFS, { spells: SPELL_DEFS });
+    expect(r.ok).toBe(true);
+    expect(c0(r.party).spells).toEqual([5]);
+    expect(c0(r.party).inventory.items).toHaveLength(0);
+    expect(r.message).toMatch(/learns Flamecast/);
+    const again = useItem({ ...r.party, characters: [{ ...c0(r.party), inventory: { capacity: 4, items: [item(7, { conditionOrQuantity: 5 })] } }, ...r.party.characters.slice(1)] }, 0, 0, DEFS, { spells: SPELL_DEFS });
+    expect(again).toMatchObject({ ok: false, message: expect.stringMatching(/already knows/) });
+  });
+  it('a book raises its skill on the first reading and loses a charge', () => {
+    const p = party([item(9, { conditionOrQuantity: 2 })]);
+    const read = new Set<string>();
+    const ctx = { hasRead: (c: number, i: number) => read.has(`${c}:${i}`), markRead: (c: number, i: number) => { read.add(`${c}:${i}`); } };
+    const r = useItem(p, 0, 0, DEFS, ctx);
+    expect(c0(r.party).skills.melee.trueSkill).toBe(13);
+    expect(c0(r.party).inventory.items[0]!.conditionOrQuantity).toBe(1);
+    const second = useItem(r.party, 0, 0, DEFS, { ...ctx, random: () => 99 });
+    expect(c0(second.party).skills.melee.trueSkill).toBe(15);
+    expect(useItem(party([item(9, { conditionOrQuantity: 0 })]), 0, 0, DEFS).ok).toBe(false);
   });
   it('does not mutate its input', () => {
     const p = party([item(4)]);

@@ -14,12 +14,14 @@ import type { Roll } from './rules';
 export interface FighterTally {
   meleeHits: number;
   rangedHits: number;
+  /** Spells cast. */
+  casts: number;
   hitsTaken: number;
   /** Ids of the fighters this one felled. */
   slain: string[];
 }
 
-const empty = (): FighterTally => ({ meleeHits: 0, rangedHits: 0, hitsTaken: 0, slain: [] });
+const empty = (): FighterTally => ({ meleeHits: 0, rangedHits: 0, casts: 0, hitsTaken: 0, slain: [] });
 
 /** Hits landed, hits taken and kills per fighter id. */
 export function tallyBattle(history: readonly BattleEvent[]): Map<string, FighterTally> {
@@ -30,6 +32,14 @@ export function tallyBattle(history: readonly BattleEvent[]): Map<string, Fighte
     return t;
   };
   for (const e of history) {
+    if (e.type === 'cast') {
+      of(e.caster).casts++;
+      if (e.kind === 'damage') {
+        if (e.killed) of(e.caster).slain.push(e.target);
+        of(e.target).hitsTaken++;
+      }
+      continue;
+    }
     if (e.type !== 'attack' && e.type !== 'shoot') continue;
     if (!e.hit) continue;
     const a = of(e.attacker);
@@ -70,9 +80,11 @@ export function battleRewards(fighters: readonly Fighter[], history: readonly Ba
     const bounty = t.slain.reduce((sum, id) => sum + Math.max(1, Math.trunc((fighters.find((v) => v.id === id)?.maxHealth ?? 0) / KILL_XP_DIVISOR)), 0);
     const xp: Partial<Record<SkillName, number>> = {};
     // A kill's bounty goes to the skill the killer leaned on more.
+    const caster = t.casts > 0 && t.meleeHits === 0 && t.rangedHits === 0;
     const shooter = t.rangedHits > t.meleeHits;
-    if (t.meleeHits > 0 || (bounty > 0 && !shooter)) xp.melee = t.meleeHits * XP_PER_HIT + (shooter ? 0 : bounty);
+    if (t.meleeHits > 0 || (bounty > 0 && !shooter && !caster)) xp.melee = t.meleeHits * XP_PER_HIT + (shooter || caster ? 0 : bounty);
     if (t.rangedHits > 0) xp.crossbow = t.rangedHits * XP_PER_HIT + (shooter ? bounty : 0);
+    if (t.casts > 0) xp.casting = t.casts * XP_PER_HIT + (caster ? bounty : 0);
     if (t.hitsTaken > 0) xp.defense = t.hitsTaken * XP_PER_HIT_TAKEN;
     if (Object.keys(xp).length === 0) continue;
     experience.set(f.id, xp);
