@@ -572,6 +572,11 @@ export class EncounterRunner {
     return { type: 'dialog', encounter: e, session, blocks: false, transition };
   }
 
+  /** An encounter that runs outside the runner (a won combat) is done: set its completion flag and mark it seen. */
+  complete(e: PlacedEncounter): void {
+    this.markPostEncounter(e, true);
+  }
+
   /** The party was placed here (arrival after a transition): do not fire the encounters it stands in. */
   enterAt(x: number, y: number): void {
     this.inside = new Set(this.o.map.at(x, y));
