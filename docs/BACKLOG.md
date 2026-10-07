@@ -20,7 +20,7 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 - [x] 12 Cutscene player for ADS/TTM animations
 - [ ] 13 Chapter transitions and intro screens, per-chapter start state
 - [x] 14 Underground mine zones (Z10M-Z12M) with ceilings and lighting
-- [ ] 15 Main menu: new game, continue, load, options
+- [x] 15 Main menu: new game, continue, load, options
 - [ ] 16 Performance: tree LODs/impostors, culling, perf overlay
 - [ ] 17 End-to-end smoke tests in CI with synthetic zone data
 - [ ] 18 Player README: controls, pointing the game at your own BaK install
