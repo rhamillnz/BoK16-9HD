@@ -14,8 +14,11 @@ export class MenuPanelScreen implements HudScreenHandler {
   constructor(private readonly host: HudHost) {}
 
   /** Replace what the panel shows. Open it with `HudScreens.open(MENU_SCREEN_ID)` when it is not already up. */
-  show(model: MenuModel, onPick: (id: string) => void, onCancel: () => void): void {
-    this.s = { model, layout: layoutMenu(model, this.host.width, this.host.height), state: initialMenuState(model), onPick, onCancel };
+  show(model: MenuModel, onPick: (id: string) => void, onCancel: () => void, focusId?: string): void {
+    const state = initialMenuState(model);
+    const at = [...model.rows, ...model.buttons].findIndex((i) => i.id === focusId && i.enabled !== false);
+    if (at >= 0) state.focus = at;
+    this.s = { model, layout: layoutMenu(model, this.host.width, this.host.height), state, onPick, onCancel };
     this.host.invalidate();
   }
 
