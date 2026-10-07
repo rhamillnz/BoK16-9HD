@@ -22,7 +22,9 @@ describe('songs', () => {
   });
 
   it('maps bard outcomes to the BaKGL songs', () => {
-    expect([songForBard('failed'), songForBard('poor'), songForBard('good'), songForBard('best')]).toEqual([8, 40, 39, 7]);
+    expect([songForBard('failed'), songForBard('poor'), songForBard('good'), songForBard('best')]).toEqual([
+      8, 40, 39, 7,
+    ]);
   });
 
   it('falls back to the default for unmapped zones', () => {

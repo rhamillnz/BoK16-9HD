@@ -81,7 +81,7 @@ export const worldTime = (s: WorldState): GameTime => decodeTime(s.ticks);
 
 /** 0..1439. Feed to `SkyDome.update`. Fractional: includes the current second. */
 export function minutesSinceMidnight(ticks: number): number {
-  const seconds = ((ticks % TICKS_PER_DAY) + TICKS_PER_DAY) % TICKS_PER_DAY * SECONDS_PER_TICK;
+  const seconds = (((ticks % TICKS_PER_DAY) + TICKS_PER_DAY) % TICKS_PER_DAY) * SECONDS_PER_TICK;
   return seconds / 60;
 }
 

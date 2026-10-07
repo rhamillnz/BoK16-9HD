@@ -63,7 +63,10 @@ const findAt = (s: StashSource, at: { zone: number; x: number; y: number }): Wor
 
 const bit = (n: number): number => 1 << n;
 const toContainerItem = (i: InventoryItem): ContainerItem => ({
-  itemIndex: i.itemIndex, conditionOrQuantity: i.conditionOrQuantity, status: i.status, modifiers: i.modifiers,
+  itemIndex: i.itemIndex,
+  conditionOrQuantity: i.conditionOrQuantity,
+  status: i.status,
+  modifiers: i.modifiers,
 });
 
 /** Mirror the flag fields into the status byte, as the save does. */
@@ -80,7 +83,14 @@ function equipFirstOfType(c: Character, defs: readonly ItemDef[], type: ItemType
 }
 
 /** Move a character's whole inventory into a stash (replacing its contents) and give back an empty pack. */
-function stashAndGiveTorch(party: PartyState, stash: WorldContainer | undefined, who: number, defs: readonly ItemDef[], activate: boolean, store: StashSource): PartyState {
+function stashAndGiveTorch(
+  party: PartyState,
+  stash: WorldContainer | undefined,
+  who: number,
+  defs: readonly ItemDef[],
+  activate: boolean,
+  store: StashSource,
+): PartyState {
   const c = party.characters.find((x) => x.index === who);
   if (!c) return party;
   if (stash) store.replace({ ...stash, items: c.inventory.items.slice(0, stash.capacity).map(toContainerItem) });
@@ -91,7 +101,11 @@ function stashAndGiveTorch(party: PartyState, stash: WorldContainer | undefined,
       ...x,
       inventory: {
         ...x.inventory,
-        items: x.inventory.items.map((i) => (i.itemIndex === ITEM_TORCH ? { ...i, activated: true, status: i.status | bit(ITEM_STATUS_BITS.activated) } : i)),
+        items: x.inventory.items.map((i) =>
+          i.itemIndex === ITEM_TORCH
+            ? { ...i, activated: true, status: i.status | bit(ITEM_STATUS_BITS.activated) }
+            : i,
+        ),
       },
     }));
   }
@@ -133,7 +147,8 @@ export function applyChapterHandover(i: HandoverInput): { world: WorldState; par
       if (stash) {
         party = updateCharacter(party, CHAR_LOCKLEAR, (c) => {
           let next: Character = { ...c, inventory: { ...c.inventory, items: stash.items.map(toInventoryItem) } };
-          for (const t of [ItemType.Sword, ItemType.Armor, ItemType.Crossbow]) next = equipFirstOfType(next, i.items, t);
+          for (const t of [ItemType.Sword, ItemType.Armor, ItemType.Crossbow])
+            next = equipFirstOfType(next, i.items, t);
           return next;
         });
       }

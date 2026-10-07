@@ -15,8 +15,33 @@ import {
   tabAt,
 } from '../src/ui/inventory';
 
-const def = (o: Partial<ItemDef>): ItemDef => ({ index: 0, name: 'Thing', imageIndex: 7, value: 12, stackSize: 1, type: ItemType.Other, strengthSwing: 0, strengthThrust: 0, accuracySwing: 0, accuracyThrust: 0, ...o }) as ItemDef;
-const item = (o: Partial<InventoryItem>): InventoryItem => ({ itemIndex: 0, conditionOrQuantity: 50, status: 0, modifiers: 0, activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false, ...o });
+const def = (o: Partial<ItemDef>): ItemDef =>
+  ({
+    index: 0,
+    name: 'Thing',
+    imageIndex: 7,
+    value: 12,
+    stackSize: 1,
+    type: ItemType.Other,
+    strengthSwing: 0,
+    strengthThrust: 0,
+    accuracySwing: 0,
+    accuracyThrust: 0,
+    ...o,
+  }) as ItemDef;
+const item = (o: Partial<InventoryItem>): InventoryItem => ({
+  itemIndex: 0,
+  conditionOrQuantity: 50,
+  status: 0,
+  modifiers: 0,
+  activated: false,
+  used: false,
+  broken: false,
+  repairable: false,
+  equipped: false,
+  poisoned: false,
+  ...o,
+});
 
 describe('layout', () => {
   const layout = layoutInventory(defaultLayoutOptions(3, 10));
@@ -48,7 +73,12 @@ describe('item summary', () => {
   });
   it('falls back for unknown items and carries markers', () => {
     expect(summarizeItem(item({ itemIndex: 9 }), []).name).toBe('Item 9');
-    expect(itemInfoLines(item({ equipped: true, broken: true }), [def({})])).toEqual(['Thing', 'Value 12', 'Equipped', 'Broken']);
+    expect(itemInfoLines(item({ equipped: true, broken: true }), [def({})])).toEqual([
+      'Thing',
+      'Value 12',
+      'Equipped',
+      'Broken',
+    ]);
     expect(itemInfoLines(undefined, [])).toEqual([]);
   });
 });
@@ -82,7 +112,8 @@ describe('input', () => {
 
 describe('fitText', () => {
   const glyphs: Glyph[] = [];
-  for (let code = 32; code < 127; code++) glyphs.push({ code, width: 4, height: 6, pixels: new Uint8Array(24).fill(1) });
+  for (let code = 32; code < 127; code++)
+    glyphs.push({ code, width: 4, height: 6, pixels: new Uint8Array(24).fill(1) });
   const font: Font = { version: 0xff, maxWidth: 4, height: 6, baseline: 5, firstChar: 32, glyphs };
   it('leaves text that fits unchanged', () => {
     expect(fitText(font, 'Sword', 2, 40)).toBe('Sword');

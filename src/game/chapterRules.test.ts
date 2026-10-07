@@ -2,24 +2,58 @@ import { describe, expect, it } from 'vitest';
 import type { Character, InventoryItem } from '../formats/gam';
 import type { GdsRef } from '../formats/gds';
 import {
-  CHAPTER_EXPIRY_STEPS, CHAPTER_START_FLAGS, TOWN_STASH_RULES,
-  applyChapterFlags, applyChapterRules, applyTownStashes, runExpirySteps, type TownStash, type TownStashRule, type TownStashSource,
+  CHAPTER_EXPIRY_STEPS,
+  CHAPTER_START_FLAGS,
+  TOWN_STASH_RULES,
+  applyChapterFlags,
+  applyChapterRules,
+  applyTownStashes,
+  runExpirySteps,
+  type TownStash,
+  type TownStashRule,
+  type TownStashSource,
 } from './chapterRules';
 import type { PartyState } from './party';
 import { getFlag, type WorldState } from './state';
 
 const item = (itemIndex: number): InventoryItem => ({
-  itemIndex, conditionOrQuantity: 1, status: 0, modifiers: 0,
-  activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false,
+  itemIndex,
+  conditionOrQuantity: 1,
+  status: 0,
+  modifiers: 0,
+  activated: false,
+  used: false,
+  broken: false,
+  repairable: false,
+  equipped: false,
+  poisoned: false,
 });
-const char = (index: number, items: InventoryItem[]): Character => ({ index, name: `c${index}`, inventory: { capacity: 4, items } } as unknown as Character);
-const party = (chars: Character[]): PartyState => ({ gold: 0, characters: chars, activeCharacters: chars.map((c) => c.index), partyKeys: { capacity: 4, items: [] } });
-const world = (expiring: WorldState['expiringEvents'] = []): WorldState => ({ chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(0x2000), expiringEvents: expiring });
+const char = (index: number, items: InventoryItem[]): Character =>
+  ({ index, name: `c${index}`, inventory: { capacity: 4, items } }) as unknown as Character;
+const party = (chars: Character[]): PartyState => ({
+  gold: 0,
+  characters: chars,
+  activeCharacters: chars.map((c) => c.index),
+  partyKeys: { capacity: 4, items: [] },
+});
+const world = (expiring: WorldState['expiringEvents'] = []): WorldState => ({
+  chapter: 1,
+  ticks: 0,
+  ticksLastSlept: 0,
+  bytes: new Uint8Array(0x2000),
+  expiringEvents: expiring,
+});
 const ref: GdsRef = { number: 5, letter: 'B' };
 const key = (r: GdsRef) => `${r.number}${r.letter}`;
 function towns(initial: Record<string, TownStash>): TownStashSource & { map: Record<string, TownStash> } {
   const map = { ...initial };
-  return { map, get: (r) => map[key(r)], set: (r, s) => { map[key(r)] = s; } };
+  return {
+    map,
+    get: (r) => map[key(r)],
+    set: (r, s) => {
+      map[key(r)] = s;
+    },
+  };
 }
 const store: TownStashRule = { chapter: 2, who: 0, town: ref, mode: 'store' };
 const fetch: TownStashRule = { chapter: 6, who: 0, town: ref, mode: 'fetch' };
@@ -31,7 +65,8 @@ describe('chapter rule tables', () => {
     expect(Object.keys(CHAPTER_EXPIRY_STEPS)).toHaveLength(0);
   });
   it('leave the world and party untouched', () => {
-    const w = world(); const p = party([char(0, [item(1)])]);
+    const w = world();
+    const p = party([char(0, [item(1)])]);
     expect(applyChapterRules({ world: w, party: p, chapter: 7, towns: towns({}) })).toEqual({ world: w, party: p });
   });
 });
@@ -77,7 +112,10 @@ describe('chapter flags and expiry steps', () => {
   it('applyChapterRules combines all three', () => {
     const src = towns({ [key(ref)]: { capacity: 3, items: [] } });
     const out = applyChapterRules({
-      world: world([{ type: 3, flags: 0, data: 0x20, duration: 0x384 }]), party: party([char(0, [item(1)])]), chapter: 2, towns: src,
+      world: world([{ type: 3, flags: 0, data: 0x20, duration: 0x384 }]),
+      party: party([char(0, [item(1)])]),
+      chapter: 2,
+      towns: src,
       rules: { stashes: [store], flags: { 2: [0x30] }, expirySteps: { 2: 1 } },
     });
     expect(out.party.characters[0]!.inventory.items).toEqual([]);

@@ -40,7 +40,9 @@ const HEADER = 9; // u8 style, u16 actor, u8, u8 style3, u8 choices, u8 actions,
  */
 function buildDDX(specs: SnipSpec[]): Uint8Array {
   const keyed = specs.flatMap((s, i) => (s.key === undefined ? [] : [[s.key, i] as const]));
-  const sizes = specs.map((s) => HEADER + (s.choices?.length ?? 0) * 10 + (s.actions?.length ?? 0) * 10 + (s.text?.length ?? 0));
+  const sizes = specs.map(
+    (s) => HEADER + (s.choices?.length ?? 0) * 10 + (s.actions?.length ?? 0) * 10 + (s.text?.length ?? 0),
+  );
   const offsets: number[] = [];
   let at = 2 + 8 * keyed.length;
   for (const size of sizes) {
@@ -86,10 +88,17 @@ function buildDDX(specs: SnipSpec[]): Uint8Array {
   return out;
 }
 
-const store = (...files: [number, SnipSpec[]][]) => new DialogStore(new Map(files.map(([n, specs]) => [n, parseDDX(buildDDX(specs))])));
+const store = (...files: [number, SnipSpec[]][]) =>
+  new DialogStore(new Map(files.map(([n, specs]) => [n, parseDDX(buildDDX(specs))])));
 
 function world(chapter = 1, ticks = 0): WorldState {
-  return { chapter, ticks, ticksLastSlept: 0, bytes: new Uint8Array(GAM_OFFSETS.complexEventFlags + 0x800), expiringEvents: [] };
+  return {
+    chapter,
+    ticks,
+    ticksLastSlept: 0,
+    bytes: new Uint8Array(GAM_OFFSETS.complexEventFlags + 0x800),
+    expiringEvents: [],
+  };
 }
 
 const noRandom = { random: () => 0 };
@@ -131,7 +140,16 @@ describe('definition files', () => {
 
 describe('DialogStore', () => {
   it('finds keys across files, lowest file winning duplicates', () => {
-    const s = store([5, [{ key: 7, text: 'five' }]], [2, [{ key: 7, text: 'two' }, { key: 8, text: 'eight' }]]);
+    const s = store(
+      [5, [{ key: 7, text: 'five' }]],
+      [
+        2,
+        [
+          { key: 7, text: 'two' },
+          { key: 8, text: 'eight' },
+        ],
+      ],
+    );
     expect(s.byKey(7)?.snippet.text).toBe('two');
     expect(s.byKey(8)?.file).toBe(2);
     expect(s.byKey(99)).toBeUndefined();
@@ -153,10 +171,17 @@ describe('DialogSession', () => {
   });
 
   it('skips snippets without text but runs their actions', () => {
-    const s = store([1, [
-      { key: 1, choices: [{ state: 0, target: 2 }], actions: [{ type: ActionType.SetFlag, words: [0x300, 0, 0, 1] }] },
-      { text: 'After' },
-    ]]);
+    const s = store([
+      1,
+      [
+        {
+          key: 1,
+          choices: [{ state: 0, target: 2 }],
+          actions: [{ type: ActionType.SetFlag, words: [0x300, 0, 0, 1] }],
+        },
+        { text: 'After' },
+      ],
+    ]);
     const d = new DialogSession(s, world());
     d.start(1);
     expect(d.view?.snippet.text).toBe('After');
@@ -164,11 +189,21 @@ describe('DialogSession', () => {
   });
 
   it('picks the first choice whose event flag is set', () => {
-    const s = store([1, [
-      { key: 1, text: 'Fork', choices: [{ state: 0x400, min: 1, target: 2 }, { state: 0, target: 3 }] },
-      { text: 'flag set' },
-      { text: 'fallback' },
-    ]]);
+    const s = store([
+      1,
+      [
+        {
+          key: 1,
+          text: 'Fork',
+          choices: [
+            { state: 0x400, min: 1, target: 2 },
+            { state: 0, target: 3 },
+          ],
+        },
+        { text: 'flag set' },
+        { text: 'fallback' },
+      ],
+    ]);
     const a = new DialogSession(s, world());
     a.start(1);
     a.advance();
@@ -181,12 +216,23 @@ describe('DialogSession', () => {
   });
 
   it('tests the chapter and time of day through game-state choices', () => {
-    const s = store([1, [
-      { key: 1, text: 'Go', choices: [{ state: 0x7537, min: 2, max: 2, target: 2 }, { state: 0x7539, min: 1, target: 3 }, { state: 0, target: 4 }] },
-      { text: 'chapter two' },
-      { text: 'night' },
-      { text: 'day' },
-    ]]);
+    const s = store([
+      1,
+      [
+        {
+          key: 1,
+          text: 'Go',
+          choices: [
+            { state: 0x7537, min: 2, max: 2, target: 2 },
+            { state: 0x7539, min: 1, target: 3 },
+            { state: 0, target: 4 },
+          ],
+        },
+        { text: 'chapter two' },
+        { text: 'night' },
+        { text: 'day' },
+      ],
+    ]);
     const text = (w: WorldState) => {
       const d = new DialogSession(s, w);
       d.start(1);
@@ -199,11 +245,22 @@ describe('DialogSession', () => {
   });
 
   it('picks a random choice for style 8 snippets', () => {
-    const s = store([1, [
-      { key: 1, text: 'Roll', style3: 8, choices: [{ state: 0, target: 2 }, { state: 0, target: 3 }] },
-      { text: 'first' },
-      { text: 'second' },
-    ]]);
+    const s = store([
+      1,
+      [
+        {
+          key: 1,
+          text: 'Roll',
+          style3: 8,
+          choices: [
+            { state: 0, target: 2 },
+            { state: 0, target: 3 },
+          ],
+        },
+        { text: 'first' },
+        { text: 'second' },
+      ],
+    ]);
     const d = new DialogSession(s, world(), [], { random: () => 1 });
     d.start(1);
     d.advance();
@@ -211,15 +268,29 @@ describe('DialogSession', () => {
   });
 
   it('offers query choices and follows the one picked', () => {
-    const s = store([1, [
-      { key: 1, text: 'Enter?', style3: 2, choices: [{ state: QUERY_YES, target: 2 }, { state: QUERY_NO, target: 3 }] },
-      { text: 'in you go' },
-      { text: 'stay out' },
-    ]]);
+    const s = store([
+      1,
+      [
+        {
+          key: 1,
+          text: 'Enter?',
+          style3: 2,
+          choices: [
+            { state: QUERY_YES, target: 2 },
+            { state: QUERY_NO, target: 3 },
+          ],
+        },
+        { text: 'in you go' },
+        { text: 'stay out' },
+      ],
+    ]);
     const d = new DialogSession(s, world(), []);
     d.start(1);
     expect(d.view?.mode).toBe('query');
-    expect(d.view?.options.map((o) => [o.value, o.label])).toEqual([[QUERY_YES, 'Yes'], [QUERY_NO, 'No']]);
+    expect(d.view?.options.map((o) => [o.value, o.label])).toEqual([
+      [QUERY_YES, 'Yes'],
+      [QUERY_NO, 'No'],
+    ]);
     d.choose(QUERY_NO);
     expect(d.view?.snippet.text).toBe('stay out');
     expect(d.lastChoice).toBe(QUERY_NO);
@@ -230,20 +301,29 @@ describe('DialogSession', () => {
       key: 1,
       text: 'Ask me',
       style3: 4,
-      choices: [{ state: 5, target: 2 }, { state: 6, target: 3 }],
+      choices: [
+        { state: 5, target: 2 },
+        { state: 6, target: 3 },
+      ],
       actions: extra ? [{ type: ActionType.SetFlag, words: [6, 0, 0, 1] }] : [],
     });
-    const s = store([1, [
-      root(0),
-      { text: 'About five', actions: [{ type: ActionType.PushNextDialog, target: KEY | 1 }] },
-      { text: 'About six' },
-    ]]);
+    const s = store([
+      1,
+      [
+        root(0),
+        { text: 'About five', actions: [{ type: ActionType.PushNextDialog, target: KEY | 1 }] },
+        { text: 'About six' },
+      ],
+    ]);
     const keywords = ['', '', '', '', '', 'Rumours', 'Quests'];
     const d = new DialogSession(s, setFlag(world(), 5, true), keywords);
     d.start(1);
     expect(d.view?.mode).toBe('conversation');
     // Topic 6 is not enabled yet; Goodbye is always last.
-    expect(d.view?.options).toEqual([{ value: 5, label: 'Rumours' }, { value: GOODBYE, label: 'Goodbye' }]);
+    expect(d.view?.options).toEqual([
+      { value: 5, label: 'Rumours' },
+      { value: GOODBYE, label: 'Goodbye' },
+    ]);
     d.choose(5);
     expect(getFlag(d.world, 0x1d4c + 5)).toBe(true);
     expect(d.view?.snippet.text).toBe('About five');
@@ -284,15 +364,20 @@ describe('DialogSession', () => {
   });
 
   it('applies SetFlag, records teleports, and defers actions it cannot apply', () => {
-    const s = store([1, [{
-      key: 1,
-      text: 'Hi',
-      actions: [
-        { type: ActionType.SetFlag, words: [0x500, 0, 0, 1] },
-        { type: ActionType.Teleport, words: [9] },
-        { type: ActionType.GiveItem, words: [3, 0, 1, 0] },
+    const s = store([
+      1,
+      [
+        {
+          key: 1,
+          text: 'Hi',
+          actions: [
+            { type: ActionType.SetFlag, words: [0x500, 0, 0, 1] },
+            { type: ActionType.Teleport, words: [9] },
+            { type: ActionType.GiveItem, words: [3, 0, 1, 0] },
+          ],
+        },
       ],
-    }]]);
+    ]);
     const d = new DialogSession(s, world());
     d.start(1);
     expect(getFlag(d.world, 0x500)).toBe(true);
@@ -301,11 +386,19 @@ describe('DialogSession', () => {
   });
 
   it('empties the stack on end-of-dialogue state -1', () => {
-    const s = store([1, [
-      { key: 1, text: 'A', choices: [{ state: 0, target: 2 }], actions: [{ type: ActionType.PushNextDialog, target: 3 }] },
-      { text: 'B', actions: [{ type: ActionType.SetEndOfDialogState, words: [0xffff] }] },
-      { text: 'never' },
-    ]]);
+    const s = store([
+      1,
+      [
+        {
+          key: 1,
+          text: 'A',
+          choices: [{ state: 0, target: 2 }],
+          actions: [{ type: ActionType.PushNextDialog, target: 3 }],
+        },
+        { text: 'B', actions: [{ type: ActionType.SetEndOfDialogState, words: [0xffff] }] },
+        { text: 'never' },
+      ],
+    ]);
     const d = new DialogSession(s, world());
     d.start(1);
     d.advance();
@@ -333,7 +426,8 @@ describe('DialogSession', () => {
 });
 
 describe('applySetFlag', () => {
-  const action = (words: number[]) => parseDDX(buildDDX([{ key: 1, actions: [{ type: ActionType.SetFlag, words }] }])).snippets[0]!.actions[0]!;
+  const action = (words: number[]) =>
+    parseDDX(buildDDX([{ key: 1, actions: [{ type: ActionType.SetFlag, words }] }])).snippets[0]!.actions[0]!;
 
   it('sets and clears the pointer, plus the second and third pointers when given', () => {
     const w = applySetFlag(world(), action([0x10, 0x11, 0x12, 1]));
@@ -345,18 +439,33 @@ describe('applySetFlag', () => {
 
 describe('runDialogSession', () => {
   it('keeps showing until the session ends and maps picks to option values', () => {
-    const s = store([1, [
-      { key: 1, text: 'Q', style3: 2, choices: [{ state: QUERY_YES, target: 2 }, { state: QUERY_NO, target: 0 }] },
-      { text: 'Yes!' },
-    ]]);
+    const s = store([
+      1,
+      [
+        {
+          key: 1,
+          text: 'Q',
+          style3: 2,
+          choices: [
+            { state: QUERY_YES, target: 2 },
+            { state: QUERY_NO, target: 0 },
+          ],
+        },
+        { text: 'Yes!' },
+      ],
+    ]);
     const d = new DialogSession(s, world());
     d.start(1);
     const shown: string[] = [];
     let ended: boolean | undefined;
-    runDialogSession(d, (view, done) => {
-      shown.push(view.snippet.text);
-      done(view.options.length > 0 ? { kind: 'choose', index: 0 } : { kind: 'finish' });
-    }, (cancelled) => (ended = cancelled));
+    runDialogSession(
+      d,
+      (view, done) => {
+        shown.push(view.snippet.text);
+        done(view.options.length > 0 ? { kind: 'choose', index: 0 } : { kind: 'finish' });
+      },
+      (cancelled) => (ended = cancelled),
+    );
     expect(shown).toEqual(['Q', 'Yes!']);
     expect(ended).toBe(false);
   });
@@ -367,10 +476,14 @@ describe('runDialogSession', () => {
     d.start(1);
     const shown: string[] = [];
     let ended: boolean | undefined;
-    runDialogSession(d, (view, done) => {
-      shown.push(view.snippet.text);
-      done({ kind: 'cancel' });
-    }, (cancelled) => (ended = cancelled));
+    runDialogSession(
+      d,
+      (view, done) => {
+        shown.push(view.snippet.text);
+        done({ kind: 'cancel' });
+      },
+      (cancelled) => (ended = cancelled),
+    );
     expect(shown).toEqual(['A']);
     expect(ended).toBe(true);
   });
@@ -380,7 +493,10 @@ describe('runDialogSession', () => {
 
 interface EncSpec {
   typeId?: number;
-  l: number; t: number; r: number; b: number;
+  l: number;
+  t: number;
+  r: number;
+  b: number;
   tableIndex?: number;
   chapterFlag?: number;
   required?: number;
@@ -410,10 +526,22 @@ function tileBytes(specs: EncSpec[]): Uint8Array {
 const CELL = 1600;
 const at = (cx: number, cy: number): [number, number] => [cx * CELL + 10, cy * CELL + 10];
 
-function runnerFor(specs: EncSpec[], w: WorldState = world(), tileX = 0, tileY = 0, extra: Partial<EncounterRunnerOptions> = {}) {
+function runnerFor(
+  specs: EncSpec[],
+  w: WorldState = world(),
+  tileX = 0,
+  tileY = 0,
+  extra: Partial<EncounterRunnerOptions> = {},
+) {
   const map = new EncounterMap(1);
   map.addTile(tileX, tileY, tileBytes(specs));
-  const s = store([1, [{ key: 100, text: 'Greetings' }, { key: 101, text: 'Blocked' }]]);
+  const s = store([
+    1,
+    [
+      { key: 100, text: 'Greetings' },
+      { key: 101, text: 'Blocked' },
+    ],
+  ]);
   return new EncounterRunner({
     map,
     world: w,
@@ -515,7 +643,13 @@ describe('EncounterRunner', () => {
   describe('town encounters', () => {
     const townAt = { ...dialogAt, typeId: EncounterType.Town };
     const entry = (entryDialog: number) => ({
-      ref: { number: 2, letter: 'B' }, entryDialog, exitDialog: 0, exitCellX: 1, exitCellY: 2, exitHeading: 0x4000, walkToDest: false,
+      ref: { number: 2, letter: 'B' },
+      entryDialog,
+      exitDialog: 0,
+      exitCellX: 1,
+      exitCellY: 2,
+      exitHeading: 0x4000,
+      walkToDest: false,
     });
 
     it('asks the entry dialogue first and carries the town on the event', () => {
@@ -531,7 +665,9 @@ describe('EncounterRunner', () => {
     it('enters at once when the entry has no dialogue, and reads background encounters from their own table', () => {
       const r = runnerFor([townAt], world(), 0, 0, { defTown: [entry(0)] });
       expect(r.update(...at(2, 2)).map((e) => e.type)).toEqual(['town']);
-      const b = runnerFor([{ ...dialogAt, typeId: EncounterType.Background }], world(), 0, 0, { defBackground: [entry(0)] });
+      const b = runnerFor([{ ...dialogAt, typeId: EncounterType.Background }], world(), 0, 0, {
+        defBackground: [entry(0)],
+      });
       expect(b.update(...at(2, 2)).map((e) => e.type)).toEqual(['town']);
     });
 
@@ -593,10 +729,18 @@ describe('DialogSession text variables', () => {
   const env = { random: () => 0, textContext: () => ({ party, chapter: 1 }) };
 
   it('replaces @N in the text with names set by SetTextVariable and by default', () => {
-    const s = store([1, [
-      { key: 1, text: '@4 remarked to @1.', choices: [{ state: 0, target: 2 }], actions: [{ type: ActionType.SetTextVariable, words: [1, 2] }] },
-      { text: '@4 nodded.' },
-    ]]);
+    const s = store([
+      1,
+      [
+        {
+          key: 1,
+          text: '@4 remarked to @1.',
+          choices: [{ state: 0, target: 2 }],
+          actions: [{ type: ActionType.SetTextVariable, words: [1, 2] }],
+        },
+        { text: '@4 nodded.' },
+      ],
+    ]);
     const d = new DialogSession(s, world(), [], env);
     d.start(1);
     expect(d.view?.snippet.text).toBe('Locklear remarked to Gorath.');

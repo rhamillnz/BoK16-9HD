@@ -16,7 +16,8 @@ export interface SaveControlsHost {
 function toast(text: string): void {
   const el = document.createElement('div');
   el.textContent = text;
-  el.style.cssText = 'position:fixed;left:50%;top:12px;transform:translateX(-50%);padding:6px 14px;background:rgba(24,16,8,.92);color:#f0e0b8;border:1px solid #c8a050;font:14px monospace;z-index:10;pointer-events:none';
+  el.style.cssText =
+    'position:fixed;left:50%;top:12px;transform:translateX(-50%);padding:6px 14px;background:rgba(24,16,8,.92);color:#f0e0b8;border:1px solid #c8a050;font:14px monospace;z-index:10;pointer-events:none';
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 2000);
 }

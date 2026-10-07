@@ -19,7 +19,6 @@ import { applyChapterRules, type ChapterRules, type TownStashSource } from './ch
 
 export const LAST_CHAPTER = 9;
 
-
 /** Per-encounter "already done" flags: `ENCOUNTER_FLAG_COUNT` bits from this pointer, cleared each chapter. */
 export const ENCOUNTER_FLAG_BASE = 0x190;
 export const ENCOUNTER_FLAG_COUNT = 0x12c0;
@@ -70,7 +69,12 @@ export interface StartActions {
  * the last of its choices whose condition holds, until a snippet without choices; that one's
  * actions run last.
  */
-export function startOfChapterActions(store: DialogStore, world: WorldState, chapter: number, env: DialogEnv = {}): StartActions {
+export function startOfChapterActions(
+  store: DialogStore,
+  world: WorldState,
+  chapter: number,
+  env: DialogEnv = {},
+): StartActions {
   const out: StartActions = { world, pending: [], teleport: undefined, warnings: [] };
   const root = store.byKey(START_OF_CHAPTER_KEY);
   if (!root) {
@@ -84,7 +88,8 @@ export function startOfChapterActions(store: DialogStore, world: WorldState, cha
       else out.pending.push(a);
     }
   };
-  const resolve = (target: DialogTarget | undefined, file: number) => (target ? store.resolve(target, file) : undefined);
+  const resolve = (target: DialogTarget | undefined, file: number) =>
+    target ? store.resolve(target, file) : undefined;
 
   const reset = resolve(root.snippet.choices[0]?.target, root.file);
   if (reset) run(reset.snippet.actions);
@@ -156,7 +161,13 @@ export function transitionToChapter(i: ChapterTransitionInput): ChapterTransitio
   let party = i.party;
   for (const c of activeCharacters(party)) party = updateCharacter(party, c.index, (x) => healCharacter(x, 100));
 
-  const handover = applyChapterHandover({ world, party, chapter: i.chapter, items: i.items ?? [], containers: i.containers });
+  const handover = applyChapterHandover({
+    world,
+    party,
+    chapter: i.chapter,
+    items: i.items ?? [],
+    containers: i.containers,
+  });
   world = handover.world;
   party = handover.party;
   const rules = applyChapterRules({ world, party, chapter: i.chapter, towns: i.towns, rules: i.rules });
@@ -165,5 +176,11 @@ export function transitionToChapter(i: ChapterTransitionInput): ChapterTransitio
 
   const script = startOfChapterActions(i.store, world, i.chapter, i.env);
   const effects = applyDialogEffects({ world: script.world, party, items: i.items }, script.pending);
-  return { world: effects.world, party: effects.party, teleport: script.teleport, start: i.start, warnings: script.warnings };
+  return {
+    world: effects.world,
+    party: effects.party,
+    teleport: script.teleport,
+    start: i.start,
+    warnings: script.warnings,
+  };
 }

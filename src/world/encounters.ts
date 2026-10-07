@@ -24,7 +24,9 @@ export function placeEncounter(record: EncounterRecord, tileX: number, tileY: nu
   const lo = (a: number, b: number) => Math.min(a, b) * CELL_SIZE;
   const hi = (a: number, b: number) => (Math.max(a, b) + 1) * CELL_SIZE;
   return {
-    record, tileX, tileY,
+    record,
+    tileX,
+    tileY,
     minX: x0 + lo(record.left, record.right),
     maxX: x0 + hi(record.left, record.right),
     minY: y0 + lo(record.top, record.bottom),

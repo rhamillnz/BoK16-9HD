@@ -16,7 +16,11 @@ describe('save extras', () => {
 
   it('extras survive the JSON save format and are optional', () => {
     const data = {
-      savedAt: 1, zone: 1, x: 0, y: 0, heading: 0,
+      savedAt: 1,
+      zone: 1,
+      x: 0,
+      y: 0,
+      heading: 0,
       world: { chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(4), expiringEvents: [] },
       party: { gold: 0, characters: [], activeCharacters: [], partyKeys: { capacity: 1, items: [] } },
       extras: { containers: { '1:0': { items: [], unlocked: true, trapSpent: false } } },

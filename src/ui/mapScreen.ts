@@ -1,7 +1,18 @@
 import { glyphFor, measureString, type Font } from '../formats/fnt';
 import { presentTiles, type ZoneMap } from '../formats/zoneMap';
 import { HUD_HEIGHT, HUD_WIDTH, chooseScale, type Rect } from './dialogBox';
-import { COMPASS_POINTS, compassAngle, compassPoint, fitViewport, headingToMapDir, insideBounds, tileBounds, tileRect, worldToMap, type MapViewport } from './mapMath';
+import {
+  COMPASS_POINTS,
+  compassAngle,
+  compassPoint,
+  fitViewport,
+  headingToMapDir,
+  insideBounds,
+  tileBounds,
+  tileRect,
+  worldToMap,
+  type MapViewport,
+} from './mapMath';
 
 /** Where the party is: BaK world units (x east, y north) and an 8-bit counter-clockwise heading. */
 export interface PartyPose {
@@ -44,7 +55,12 @@ export interface MapLayout {
 
 export function layoutMap(map: ZoneMap, width = HUD_WIDTH, height = HUD_HEIGHT): MapLayout {
   const scale = chooseScale(height);
-  const panel: Rect = { x: Math.floor(width * 0.2), y: Math.floor(height * 0.06), width: Math.floor(width * 0.6), height: Math.floor(height * 0.88) };
+  const panel: Rect = {
+    x: Math.floor(width * 0.2),
+    y: Math.floor(height * 0.06),
+    width: Math.floor(width * 0.6),
+    height: Math.floor(height * 0.88),
+  };
   const pad = 12 * scale;
   const title = { x: panel.x + pad, y: panel.y + pad };
   const top = title.y + 14 * scale;
@@ -53,7 +69,15 @@ export function layoutMap(map: ZoneMap, width = HUD_WIDTH, height = HUD_HEIGHT):
   return { scale, panel, title, viewport: fitViewport(tileBounds(tiles, 1), area), tiles };
 }
 
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+): void {
   ctx.fillStyle = css;
   let gx = x;
   for (let i = 0; i < text.length; i++) {
@@ -67,8 +91,15 @@ function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: nu
   }
 }
 
-function arrowPath(ctx: CanvasRenderingContext2D, cx: number, cy: number, dir: { x: number; y: number }, size: number): void {
-  const px = -dir.y, py = dir.x;
+function arrowPath(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  dir: { x: number; y: number },
+  size: number,
+): void {
+  const px = -dir.y,
+    py = dir.x;
   ctx.beginPath();
   ctx.moveTo(cx + dir.x * size, cy + dir.y * size);
   ctx.lineTo(cx - dir.x * size * 0.7 + px * size * 0.7, cy - dir.y * size * 0.7 + py * size * 0.7);
@@ -78,7 +109,14 @@ function arrowPath(ctx: CanvasRenderingContext2D, cx: number, cy: number, dir: {
 }
 
 /** Full-screen map: parchment-dark panel, explored-style tile blocks, party arrow. */
-export function drawMap(ctx: CanvasRenderingContext2D, font: Font, layout: MapLayout, pose: PartyPose, zone: number, colors: MapColors = MAP_COLORS): void {
+export function drawMap(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: MapLayout,
+  pose: PartyPose,
+  zone: number,
+  colors: MapColors = MAP_COLORS,
+): void {
   const { scale, panel, viewport: v } = layout;
   ctx.fillStyle = colors.backdrop;
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -88,7 +126,15 @@ export function drawMap(ctx: CanvasRenderingContext2D, font: Font, layout: MapLa
   ctx.lineWidth = 2 * scale;
   ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
 
-  drawText(ctx, font, `Map of zone ${zone}   facing ${compassPoint(pose.heading)}`, layout.title.x, layout.title.y, scale, colors.text);
+  drawText(
+    ctx,
+    font,
+    `Map of zone ${zone}   facing ${compassPoint(pose.heading)}`,
+    layout.title.x,
+    layout.title.y,
+    scale,
+    colors.text,
+  );
 
   for (const [tx, ty] of layout.tiles) {
     const r = tileRect(v, tx, ty);
@@ -111,7 +157,15 @@ export function drawMap(ctx: CanvasRenderingContext2D, font: Font, layout: MapLa
     ctx.stroke();
   }
   const hint = 'Tab or Esc: close';
-  drawText(ctx, font, hint, panel.x + panel.width - measureString(font, hint) * scale - 12 * scale, layout.title.y, scale, colors.text);
+  drawText(
+    ctx,
+    font,
+    hint,
+    panel.x + panel.width - measureString(font, hint) * scale - 12 * scale,
+    layout.title.y,
+    scale,
+    colors.text,
+  );
 }
 
 export interface CompassLayout {
@@ -129,7 +183,13 @@ export function layoutCompass(width = HUD_WIDTH, height = HUD_HEIGHT): CompassLa
 }
 
 /** Round compass whose cardinal letters rotate so the party's facing is always at the top. */
-export function drawCompass(ctx: CanvasRenderingContext2D, font: Font, layout: CompassLayout, heading: number, colors: MapColors = MAP_COLORS): void {
+export function drawCompass(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: CompassLayout,
+  heading: number,
+  colors: MapColors = MAP_COLORS,
+): void {
   const { scale, cx, cy, radius } = layout;
   ctx.fillStyle = colors.backdrop;
   ctx.beginPath();
@@ -146,7 +206,15 @@ export function drawCompass(ctx: CanvasRenderingContext2D, font: Font, layout: C
     const lx = cx + Math.sin(a) * radius * 0.68;
     const ly = cy - Math.cos(a) * radius * 0.68;
     const g = glyphFor(font, label.charCodeAt(0));
-    drawText(ctx, font, label, lx - (g.width * scale) / 2, ly - (g.height * scale) / 2, scale, label === 'N' ? colors.arrow : colors.text);
+    drawText(
+      ctx,
+      font,
+      label,
+      lx - (g.width * scale) / 2,
+      ly - (g.height * scale) / 2,
+      scale,
+      label === 'N' ? colors.arrow : colors.text,
+    );
   }
   // Fixed pointer: the direction the party faces.
   ctx.fillStyle = colors.arrow;

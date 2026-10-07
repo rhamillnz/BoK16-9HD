@@ -71,7 +71,14 @@ export function parseChapterStart(bytes: Uint8Array): ChapterStart {
   const cellY = r.u8();
   const heading = r.u16() >> 8;
   return {
-    chapter, zone, tileX, tileY, cellX, cellY, heading, timeElapsed,
+    chapter,
+    zone,
+    tileX,
+    tileY,
+    cellX,
+    cellY,
+    heading,
+    timeElapsed,
     x: tileX * TILE_SIZE + cellX * CELL_SIZE + CELL_SIZE / 2,
     y: tileY * TILE_SIZE + cellY * CELL_SIZE + CELL_SIZE / 2,
   };

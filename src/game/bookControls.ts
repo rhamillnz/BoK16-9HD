@@ -44,12 +44,18 @@ export function installBookPlayer(host: BookPlayerHost): { playBook(file: string
           const opaque = new Uint8Array(palette);
           for (let i = 3; i < opaque.length; i += 4) opaque[i] = 255;
           background = toCanvas(img.width, img.height, toRGBA(img, opaque));
-        } catch { /* plain paper instead */ }
+        } catch {
+          /* plain paper instead */
+        }
       }
       const images: (HTMLCanvasElement | undefined)[] = [];
       const bmx = read('BOOK.BMX');
       if (bmx && palette) {
-        try { for (const img of parseBMX(bmx)) images.push(toCanvas(img.width, img.height, toRGBA(img, palette))); } catch { /* no pictures */ }
+        try {
+          for (const img of parseBMX(bmx)) images.push(toCanvas(img.width, img.height, toRGBA(img, palette)));
+        } catch {
+          /* no pictures */
+        }
       }
       view = { book, background, images, done: () => undefined };
     } catch (err) {

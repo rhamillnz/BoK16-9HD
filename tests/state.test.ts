@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { GAM_OFFSETS as O, decodeTime, type GamSave } from '../src/formats/gam';
 import {
-  TIMES, advanceTime, createWorldState, getFlag, hoursUntil, minutesSinceMidnight,
-  restHealPerHour, restOneHour, setFlag, startChapter, worldMinutes, worldTime,
+  TIMES,
+  advanceTime,
+  createWorldState,
+  getFlag,
+  hoursUntil,
+  minutesSinceMidnight,
+  restHealPerHour,
+  restOneHour,
+  setFlag,
+  startChapter,
+  worldMinutes,
+  worldTime,
 } from '../src/game/state';
 
 function save(ticks = 0, slept = 0, events: GamSave['expiringEvents'] = []): GamSave {
@@ -61,8 +71,7 @@ describe('advanceTime', () => {
     expect(advanceTime(createWorldState(save(TIMES.oneDay * 29 - 1)), 1).report.improveHealthStamina).toBe(false);
   });
   it('warns about sleep at 17 h and damages at 18 h, only while awake', () => {
-    const at = (h: number, opts = {}) =>
-      advanceTime(createWorldState(save(TIMES.oneHour * h - 1)), 1, opts).report;
+    const at = (h: number, opts = {}) => advanceTime(createWorldState(save(TIMES.oneHour * h - 1)), 1, opts).report;
     expect(at(17)).toMatchObject({ needSleep: true, sleepDamage: false });
     expect(at(18)).toMatchObject({ needSleep: true, sleepDamage: true });
     expect(at(16).needSleep).toBe(false);
@@ -79,11 +88,13 @@ describe('advanceTime', () => {
 
 describe('expiring events', () => {
   it('counts down, fires set/reset flags and drops finished events', () => {
-    const s = createWorldState(save(0, 0, [
-      { type: 3, flags: 0, data: 0x1856, duration: 100 },
-      { type: 4, flags: 0, data: 0x1857, duration: 50 },
-      { type: 1, flags: 0, data: 0, duration: 500 },
-    ]));
+    const s = createWorldState(
+      save(0, 0, [
+        { type: 3, flags: 0, data: 0x1856, duration: 100 },
+        { type: 4, flags: 0, data: 0x1857, duration: 50 },
+        { type: 1, flags: 0, data: 0, duration: 500 },
+      ]),
+    );
     const pre = setFlag(s, 0x1857, true);
     const r = advanceTime(pre, 60);
     expect(getFlag(r.state, 0x1857)).toBe(false);

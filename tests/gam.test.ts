@@ -36,7 +36,10 @@ function buildSave() {
   b[O.followRoad] = 1;
 
   // Character 1 ("Owyn"), others blank.
-  b.set([...'Owyn'].map((c) => c.charCodeAt(0)), O.characterName + 10);
+  b.set(
+    [...'Owyn'].map((c) => c.charCodeAt(0)),
+    O.characterName + 10,
+  );
   const s = O.characterSkills + CHARACTER_SKILL_STRIDE;
   b.set([0xaa, 0xbb], s);
   b.set([0b00000101, 0, 0, 0, 0, 0x80], s + 2); // spells 0, 2, 47
@@ -109,8 +112,13 @@ describe('gam', () => {
     expect([...c.unknownHeader]).toEqual([0xaa, 0xbb]);
     expect(c.spells).toEqual([0, 2, 47]);
     expect(c.skills.speed).toEqual({
-      max: 50, trueSkill: 40, current: 45, experience: 7, modifier: -3,
-      selected: true, unseenImprovement: false,
+      max: 50,
+      trueSkill: 40,
+      current: 45,
+      experience: 7,
+      modifier: -3,
+      selected: true,
+      unseenImprovement: false,
     });
     expect(c.skills.stealth.unseenImprovement).toBe(true);
     expect(c.skills.stealth.selected).toBe(false);
@@ -123,9 +131,7 @@ describe('gam', () => {
     const c = save.characters[1]!;
     expect(c.conditions.nearDeath).toBe(100);
     expect(c.conditions.sick).toBe(0);
-    expect(c.affectors).toEqual([
-      { type: 2, skill: 3, skillMask: 8, adjustment: -5, startTime: 10, endTime: 20 },
-    ]);
+    expect(c.affectors).toEqual([{ type: 2, skill: 3, skillMask: 8, adjustment: -5, startTime: 10, endTime: 20 }]);
   });
 
   it('reads inventories with status flags', () => {
@@ -133,7 +139,12 @@ describe('gam', () => {
     expect(inv.capacity).toBe(24);
     expect(inv.items).toHaveLength(2);
     expect(inv.items[0]).toMatchObject({
-      itemIndex: 10, conditionOrQuantity: 90, activated: true, used: true, equipped: true, broken: false,
+      itemIndex: 10,
+      conditionOrQuantity: 90,
+      activated: true,
+      used: true,
+      equipped: true,
+      broken: false,
     });
     expect(inv.items[1]).toMatchObject({ itemIndex: 20, conditionOrQuantity: 3, modifiers: 1 });
     expect(save.partyKeys.items.map((i) => i.itemIndex)).toEqual([77]);
@@ -163,7 +174,13 @@ describe('gam', () => {
 
 describe('effectiveSkill', () => {
   const skill = (max: number, trueSkill: number, modifier = 0) => ({
-    max, trueSkill, current: 0, experience: 0, modifier, selected: false, unseenImprovement: false,
+    max,
+    trueSkill,
+    current: 0,
+    experience: 0,
+    modifier,
+    selected: false,
+    unseenImprovement: false,
   });
   const noConditions = { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0 };
   const character = (over: Record<string, ReturnType<typeof skill>> = {}, conditions = noConditions) => ({
@@ -180,7 +197,10 @@ describe('effectiveSkill', () => {
   });
 
   it('applies modifiers, affectors and caps', () => {
-    const c = { ...character({ speed: skill(30, 30, 5) }), affectors: [{ type: 0, skill: 2, skillMask: 4, adjustment: 10, startTime: 0, endTime: 0 }] };
+    const c = {
+      ...character({ speed: skill(30, 30, 5) }),
+      affectors: [{ type: 0, skill: 2, skillMask: 4, adjustment: 10, startTime: 0, endTime: 0 }],
+    };
     expect(effectiveSkill(c, 'speed')).toBe(45);
     expect(effectiveSkill(character({ speed: skill(30, 30, -50) }), 'speed')).toBe(0);
   });

@@ -1,18 +1,43 @@
-import { CONDITION_NAMES, SKILL_NAMES, effectiveSkill, type Character, type ConditionName, type GamSave, type SkillName } from '../formats/gam';
+import {
+  CONDITION_NAMES,
+  SKILL_NAMES,
+  effectiveSkill,
+  type Character,
+  type ConditionName,
+  type GamSave,
+  type SkillName,
+} from '../formats/gam';
 import { glyphFor, measureString, type Font } from '../formats/fnt';
 import { HUD_HEIGHT, HUD_WIDTH, type Rect } from './dialogBox';
 
 /** Display names for the 16 skills, in `SKILL_NAMES` order. */
 export const SKILL_LABELS: Record<SkillName, string> = {
-  health: 'Health', stamina: 'Stamina', speed: 'Speed', strength: 'Strength', defense: 'Defense',
-  crossbow: 'Crossbow', melee: 'Melee', casting: 'Casting', assessment: 'Assessment',
-  armorcraft: 'Armorcraft', weaponcraft: 'Weaponcraft', barding: 'Barding', haggling: 'Haggling',
-  lockpick: 'Lockpick', scouting: 'Scouting', stealth: 'Stealth',
+  health: 'Health',
+  stamina: 'Stamina',
+  speed: 'Speed',
+  strength: 'Strength',
+  defense: 'Defense',
+  crossbow: 'Crossbow',
+  melee: 'Melee',
+  casting: 'Casting',
+  assessment: 'Assessment',
+  armorcraft: 'Armorcraft',
+  weaponcraft: 'Weaponcraft',
+  barding: 'Barding',
+  haggling: 'Haggling',
+  lockpick: 'Lockpick',
+  scouting: 'Scouting',
+  stealth: 'Stealth',
 };
 
 export const CONDITION_LABELS: Record<ConditionName, string> = {
-  sick: 'Sick', plagued: 'Plagued', poisoned: 'Poisoned', drunk: 'Drunk',
-  healing: 'Healing', starving: 'Starving', nearDeath: 'Near Death',
+  sick: 'Sick',
+  plagued: 'Plagued',
+  poisoned: 'Poisoned',
+  drunk: 'Drunk',
+  healing: 'Healing',
+  starving: 'Starving',
+  nearDeath: 'Near Death',
 };
 
 /** Skills shown as the vitals bars, the core attributes, and the learned skills. */
@@ -202,7 +227,8 @@ export function layoutCharacterSheet(
       bar: { x: barX, y: top + 2 * scale, width: barW, height: rowHeight - 4 * scale },
     };
   };
-  const stack = (rows: SheetRow[], col: Rect, top: number): RowSlot[] => rows.map((r, i) => makeRow(r, col, top + i * rowHeight));
+  const stack = (rows: SheetRow[], col: Rect, top: number): RowSlot[] =>
+    rows.map((r, i) => makeRow(r, col, top + i * rowHeight));
 
   const vitals = stack(model.vitals, left, y);
   y += model.vitals.length * rowHeight + pad;
@@ -220,9 +246,7 @@ export function layoutCharacterSheet(
 }
 
 export type SheetEvent =
-  | { type: 'key'; key: string }
-  | { type: 'click'; x: number; y: number }
-  | { type: 'hover'; x: number; y: number };
+  { type: 'key'; key: string } | { type: 'click'; x: number; y: number } | { type: 'hover'; x: number; y: number };
 
 export interface SheetState {
   /** Selected tab (index into the active party). */
@@ -247,7 +271,10 @@ export function stepSheet(
 ): { state: SheetState; result: SheetResult } {
   const n = layout.tabs.length;
   const none: SheetResult = { kind: 'none' };
-  const go = (tab: number) => ({ state: { tab }, result: tab === state.tab ? none : ({ kind: 'select', tab } as SheetResult) });
+  const go = (tab: number) => ({
+    state: { tab },
+    result: tab === state.tab ? none : ({ kind: 'select', tab } as SheetResult),
+  });
   if (ev.type === 'hover') return { state, result: none };
   if (ev.type === 'click') {
     const i = tabAt(layout, ev.x, ev.y);
@@ -292,7 +319,16 @@ export const DEFAULT_SHEET_COLORS: SheetColors = {
   condition: '#e0a040',
 };
 
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string, spacing: number): void {
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+  spacing: number,
+): void {
   if (text === '') return;
   ctx.fillStyle = css;
   let gx = x;
@@ -307,7 +343,14 @@ function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: nu
   }
 }
 
-function drawRow(ctx: CanvasRenderingContext2D, font: Font, slot: RowSlot, layout: SheetLayout, c: SheetColors, spacing: number): void {
+function drawRow(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  slot: RowSlot,
+  layout: SheetLayout,
+  c: SheetColors,
+  spacing: number,
+): void {
   const { scale } = layout;
   const r = slot.row;
   const marker = r.unseenImprovement ? '*' : r.selected ? '+' : '';
@@ -342,17 +385,45 @@ export function drawCharacterSheet(
   for (const t of layout.tabs) {
     ctx.fillStyle = t.index === state.tab ? c.tabSelected : c.tab;
     ctx.fillRect(t.rect.x, t.rect.y, t.rect.width - scale, t.rect.height);
-    drawText(ctx, font, t.label, t.rect.x + 2 * scale, t.rect.y + 2 * scale, scale, t.index === state.tab ? c.text : c.dim, spacing);
+    drawText(
+      ctx,
+      font,
+      t.label,
+      t.rect.x + 2 * scale,
+      t.rect.y + 2 * scale,
+      scale,
+      t.index === state.tab ? c.text : c.dim,
+      spacing,
+    );
   }
 
   drawText(ctx, font, model.name, layout.title.x, layout.title.y, scale, c.text, spacing);
-  for (const slot of [...layout.vitals, ...layout.attributes, ...layout.skills]) drawRow(ctx, font, slot, layout, c, spacing);
+  for (const slot of [...layout.vitals, ...layout.attributes, ...layout.skills])
+    drawRow(ctx, font, slot, layout, c, spacing);
 
   drawText(ctx, font, 'Conditions', layout.conditionsHeader.x, layout.conditionsHeader.y, scale, c.dim, spacing);
   if (layout.conditions.length === 0) {
-    drawText(ctx, font, 'None', layout.conditionsHeader.x, layout.conditionsHeader.y + layout.rowHeight, scale, c.text, spacing);
+    drawText(
+      ctx,
+      font,
+      'None',
+      layout.conditionsHeader.x,
+      layout.conditionsHeader.y + layout.rowHeight,
+      scale,
+      c.text,
+      spacing,
+    );
   }
   for (const slot of layout.conditions) {
-    drawText(ctx, font, `${slot.condition.label} ${slot.condition.value}%`, slot.rect.x, slot.rect.y, scale, c.condition, spacing);
+    drawText(
+      ctx,
+      font,
+      `${slot.condition.label} ${slot.condition.value}%`,
+      slot.rect.x,
+      slot.rect.y,
+      scale,
+      c.condition,
+      spacing,
+    );
   }
 }

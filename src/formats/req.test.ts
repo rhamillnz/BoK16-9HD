@@ -32,7 +32,15 @@ describe('REQ layout', () => {
     const req = parseReq(bytes);
     expect(req).toMatchObject({ popup: true, x: 5, y: 6, width: 100, height: 50, offsetX: 2, offsetY: 3 });
     expect(req.widgets).toHaveLength(2);
-    expect(req.widgets[0]).toMatchObject({ x: 40, y: 20, width: 10, height: 8, teleport: 4, label: '#Sung', visible: true });
+    expect(req.widgets[0]).toMatchObject({
+      x: 40,
+      y: 20,
+      width: 10,
+      height: 8,
+      teleport: 4,
+      label: '#Sung',
+      visible: true,
+    });
     expect(req.widgets[1]!.label).toBe('');
   });
 

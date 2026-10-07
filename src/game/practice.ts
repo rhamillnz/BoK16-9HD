@@ -23,7 +23,13 @@ export function selectedSkillPool(c: Pick<Character, 'skills'>): number {
 }
 
 /** Experience points (256 per skill level) for one practice. */
-export function experienceGain(name: SkillName, skill: Skill, kind: PracticeKind, multiplier: number, pool: number): number {
+export function experienceGain(
+  name: SkillName,
+  skill: Skill,
+  kind: PracticeKind,
+  multiplier: number,
+  pool: number,
+): number {
   const i = SKILL_NAMES.indexOf(name);
   let xp: number;
   switch (kind) {
@@ -32,16 +38,26 @@ export function experienceGain(name: SkillName, skill: Skill, kind: PracticeKind
       if (multiplier !== 0) xp *= multiplier;
       break;
     }
-    case 'difference': xp = (100 - skill.trueSkill) * multiplier; break;
-    case 'fraction': xp = Math.trunc((skill.trueSkill * multiplier) / 100); break;
-    default: xp = multiplier;
+    case 'difference':
+      xp = (100 - skill.trueSkill) * multiplier;
+      break;
+    case 'fraction':
+      xp = Math.trunc((skill.trueSkill * multiplier) / 100);
+      break;
+    default:
+      xp = multiplier;
   }
   if (skill.selected) xp += Math.trunc((xp * pool) / (SELECTED_SKILL_POOL_TOTAL * 2));
   return xp;
 }
 
 /** Practise one skill of a character. Skills the character does not have (max 0) never improve. */
-export function practiceSkill(c: Character, name: SkillName, kind: PracticeKind = 'exercised', multiplier = 1): Character {
+export function practiceSkill(
+  c: Character,
+  name: SkillName,
+  kind: PracticeKind = 'exercised',
+  multiplier = 1,
+): Character {
   const skill = c.skills[name];
   if (skill.max === 0) return c;
   const i = SKILL_NAMES.indexOf(name);
@@ -61,6 +77,12 @@ export function practiceSkill(c: Character, name: SkillName, kind: PracticeKind 
 }
 
 /** Practise a skill of one party member by character index. */
-export function practiceCharacter(p: PartyState, index: number, name: SkillName, kind: PracticeKind = 'exercised', multiplier = 1): PartyState {
+export function practiceCharacter(
+  p: PartyState,
+  index: number,
+  name: SkillName,
+  kind: PracticeKind = 'exercised',
+  multiplier = 1,
+): PartyState {
   return updateCharacter(p, index, (c) => practiceSkill(c, name, kind, multiplier));
 }

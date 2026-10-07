@@ -26,7 +26,8 @@ export function parseSettings(json: string | null | undefined): GameSettings {
   }
   return {
     quality: parseQuality(typeof raw.quality === 'string' ? raw.quality : null, DEFAULT_SETTINGS.quality),
-    volume: typeof raw.volume === 'number' && Number.isFinite(raw.volume) ? clampVolume(raw.volume) : DEFAULT_SETTINGS.volume,
+    volume:
+      typeof raw.volume === 'number' && Number.isFinite(raw.volume) ? clampVolume(raw.volume) : DEFAULT_SETTINGS.volume,
     muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
   };
 }

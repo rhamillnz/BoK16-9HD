@@ -3,15 +3,40 @@ import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
 import { SHOPS_OFFSET } from '../formats/gdsContainers';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import type { ShopHudScreen, ShopView } from '../ui/shopHudScreen';
-import { SHOP_DIALOG, ANSWER_ACCEPT, ANSWER_HAGGLE, createShops, formatRoyals, type ShopDialogEnd } from './shopControls';
+import {
+  SHOP_DIALOG,
+  ANSWER_ACCEPT,
+  ANSWER_HAGGLE,
+  createShops,
+  formatRoyals,
+  type ShopDialogEnd,
+} from './shopControls';
 import type { PartyState } from './party';
 import { TownController } from './townController';
 import { HotspotAction, type Hotspot } from '../formats/gds';
 import type { TownScene } from './townScene';
 
 const DEFS = [] as ItemDef[];
-DEFS[2] = { index: 2, name: 'Plate', value: 500, stackSize: 1, defaultStackSize: 1, flags: 0, categories: 0x200, type: ItemType.Armor } as ItemDef;
-DEFS[1] = { index: 1, name: 'Sword', value: 100, stackSize: 1, defaultStackSize: 1, flags: 0, categories: 0x80, type: ItemType.Sword } as ItemDef;
+DEFS[2] = {
+  index: 2,
+  name: 'Plate',
+  value: 500,
+  stackSize: 1,
+  defaultStackSize: 1,
+  flags: 0,
+  categories: 0x200,
+  type: ItemType.Armor,
+} as ItemDef;
+DEFS[1] = {
+  index: 1,
+  name: 'Sword',
+  value: 100,
+  stackSize: 1,
+  defaultStackSize: 1,
+  flags: 0,
+  categories: 0x80,
+  type: ItemType.Sword,
+} as ItemDef;
 
 function skill(max: number, trueSkill: number): Skill {
   return { max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false };
@@ -21,37 +46,63 @@ function character(index: number): Character {
   skills.health = skill(60, 60);
   skills.haggling = skill(100, 90);
   return {
-    index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name: `C${index}`,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0 },
-    affectors: [], inventory: { capacity: 4, items: [] },
+    affectors: [],
+    inventory: { capacity: 4, items: [] },
   };
 }
 
 /** One shop container (scene 3B) with a sword in stock. */
 function saveBytes(): Uint8Array {
   const bytes = new Uint8Array(SHOPS_OFFSET + 200);
-  const shop = [0, 0, 0, 0, 3, 0, 0, 0, 2, 0, 0, 0, 7, 1, 2, 0x04, 1, 100, 0, 0, 0, 0, 0, 0,
-    /* stats */ 1, 20, 30, 50, 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0];
+  const shop = [
+    0, 0, 0, 0, 3, 0, 0, 0, 2, 0, 0, 0, 7, 1, 2, 0x04, 1, 100, 0, 0, 0, 0, 0, 0, /* stats */ 1, 20, 30, 50, 40, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0x80, 0,
+  ];
   bytes.set(shop, SHOPS_OFFSET);
   return bytes;
 }
 
 function setup(answers: (number | undefined)[], rng: (n: number) => number = () => 0) {
-  let party: PartyState = { gold: 500, characters: [character(0), character(1)], activeCharacters: [0, 1], partyKeys: { capacity: 4, items: [] } };
+  let party: PartyState = {
+    gold: 500,
+    characters: [character(0), character(1)],
+    activeCharacters: [0, 1],
+    partyKeys: { capacity: 4, items: [] },
+  };
   const played: number[] = [];
   const opened: string[] = [];
   const messages: string[] = [];
   let view: ShopView | undefined;
   const screen = {
-    setView: (v: ShopView | undefined) => { view = v; },
+    setView: (v: ShopView | undefined) => {
+      view = v;
+    },
     setMessage: (m: string) => messages.push(m),
   } as unknown as ShopHudScreen;
   const shops = createShops({
-    items: DEFS, scrollValues: [], saveBytes: saveBytes(), getParty: () => party, setParty: (p) => { party = p; },
-    getWorld: () => ({ chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [] }), zone: () => 1,
+    items: DEFS,
+    scrollValues: [],
+    saveBytes: saveBytes(),
+    getParty: () => party,
+    setParty: (p) => {
+      party = p;
+    },
+    getWorld: () => ({ chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [] }),
+    zone: () => 1,
     hud: { open: (id) => opened.push(id), screenHandler: () => screen as never },
-    playDialog: (key, done) => { played.push(key); done({ cancelled: false, choice: answers.shift() } as ShopDialogEnd); },
+    playDialog: (key, done) => {
+      played.push(key);
+      done({ cancelled: false, choice: answers.shift() } as ShopDialogEnd);
+    },
     rng,
   });
   return { shops, party: () => party, played, opened, messages, view: () => view! };
@@ -126,11 +177,22 @@ describe('createShops', () => {
     expect(t.party().characters[0]!.inventory.items).toHaveLength(0);
   });
 
-  it('refuses a sale the shop does not want with the won\'t-buy dialogue', async () => {
+  it("refuses a sale the shop does not want with the won't-buy dialogue", async () => {
     const t = setup([ANSWER_ACCEPT]);
     await t.shops.enter({ number: 3, letter: 'B' });
     const p = t.party();
-    p.characters[0]!.inventory.items.push({ itemIndex: 2, conditionOrQuantity: 100, status: 0, modifiers: 0, activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false });
+    p.characters[0]!.inventory.items.push({
+      itemIndex: 2,
+      conditionOrQuantity: 100,
+      status: 0,
+      modifiers: 0,
+      activated: false,
+      used: false,
+      broken: false,
+      repairable: false,
+      equipped: false,
+      poisoned: false,
+    });
     t.view().act({ kind: 'sell', pack: 0 }, 0);
     await settle();
     expect(t.played).toEqual([SHOP_DIALOG.wontBuy]);
@@ -152,14 +214,28 @@ describe('TownController shop hotspots', () => {
   const make = (shop: (() => boolean) | undefined) => {
     const calls: string[] = [];
     const c = new TownController({
-      load: async () => scene, show: () => {}, hide: () => {}, playDialog: () => {}, activeHotspots: () => [], left: () => {},
-      shop: shop && (() => { calls.push('shop'); return shop(); }),
+      load: async () => scene,
+      show: () => {},
+      hide: () => {},
+      playDialog: () => {},
+      activeHotspots: () => [],
+      left: () => {},
+      shop:
+        shop &&
+        (() => {
+          calls.push('shop');
+          return shop();
+        }),
       unsupported: () => calls.push('unsupported'),
     });
     return { c, calls };
   };
   it('opens the shop, falling back to unsupported when there is none', async () => {
-    for (const [shop, expected] of [[() => true, ['shop']], [() => false, ['shop', 'unsupported']], [undefined, ['unsupported']]] as const) {
+    for (const [shop, expected] of [
+      [() => true, ['shop']],
+      [() => false, ['shop', 'unsupported']],
+      [undefined, ['unsupported']],
+    ] as const) {
       const { c, calls } = make(shop);
       await c.enter(scene.ref);
       c.click(hotspot);

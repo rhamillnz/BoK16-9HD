@@ -21,7 +21,12 @@ function buildTable() {
     v.setUint32(p + 4, 0x1234, true);
     v.setUint32(p + 8, 0x5678, true);
     p += 16;
-    for (const [x, y, h] of [[10, 20, 0x40], [30, 40, 0x80], [50, 60, 0xc0], [70, 80, 0x00]]) {
+    for (const [x, y, h] of [
+      [10, 20, 0x40],
+      [30, 40, 0x80],
+      [50, 60, 0xc0],
+      [70, 80, 0x00],
+    ]) {
       v.setUint32(p, x!, true);
       v.setUint32(p + 4, y!, true);
       v.setUint16(p + 8, h! << 8, true);
@@ -39,7 +44,15 @@ function buildTable() {
     p += 7 * 48;
     v.setUint16(p + 2, ambush, true);
   };
-  rec(0, 7, [[18, 0, 1000, 2000, 5], [23, 1, 3000, 4000, 9]], 1);
+  rec(
+    0,
+    7,
+    [
+      [18, 0, 1000, 2000, 5],
+      [23, 1, 3000, 4000, 9],
+    ],
+    1,
+  );
   rec(1, 8, [], 0);
   return b;
 }

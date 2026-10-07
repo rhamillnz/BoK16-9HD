@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { decodeAds, parseTtmFrames, type TtmFrame } from '../src/formats/ttm';
 import {
-  CutscenePlayer, CutsceneRenderer, CutsceneRunner, FADE_SECONDS, SECONDS_PER_TICK,
-  chapterFinishCutscenes, chapterStartCutscenes, cutsceneResourceNames,
+  CutscenePlayer,
+  CutsceneRenderer,
+  CutsceneRunner,
+  FADE_SECONDS,
+  SECONDS_PER_TICK,
+  chapterFinishCutscenes,
+  chapterStartCutscenes,
+  cutsceneResourceNames,
 } from '../src/game/cutscene';
 import { SCENE_WIDTH } from '../src/game/townScene';
 
@@ -103,14 +109,27 @@ const LOAD_PALETTE = 0xf050;
 
 const files = new Map<string, Uint8Array>([
   ['T.PAL', palBytes({ 1: [63, 0, 0], 2: [0, 63, 0], 3: [0, 0, 63], 4: [63, 63, 0] })],
-  ['SPR.BMX', bmxBytes([{ width: 2, height: 1, pixels: [1, 3] }, { width: 2, height: 2, pixels: [1, 1, 1, 1] }])],
+  [
+    'SPR.BMX',
+    bmxBytes([
+      { width: 2, height: 1, pixels: [1, 3] },
+      { width: 2, height: 2, pixels: [1, 1, 1, 1] },
+    ]),
+  ],
   ['BACK.SCX', new Uint8Array(1)],
 ]);
 const read = (n: string) => files.get(n);
-const SETUP: Op[] = [[SLOT_PALETTE, 0], [LOAD_PALETTE, 'T.PAL'], [SLOT_IMAGE, 1], [LOAD_IMAGE, 'SPR.BMP']];
+const SETUP: Op[] = [
+  [SLOT_PALETTE, 0],
+  [LOAD_PALETTE, 'T.PAL'],
+  [SLOT_IMAGE, 1],
+  [LOAD_IMAGE, 'SPR.BMP'],
+];
 const frames = (...ops: Op[]) => parseTtmFrames(ttmBytes(ops));
 
-const px = (img: Uint8ClampedArray, x: number, y: number) => [...img.subarray((y * SCENE_WIDTH + x) * 4, (y * SCENE_WIDTH + x) * 4 + 4)];
+const px = (img: Uint8ClampedArray, x: number, y: number) => [
+  ...img.subarray((y * SCENE_WIDTH + x) * 4, (y * SCENE_WIDTH + x) * 4 + 4),
+];
 const RED = [255, 0, 0, 255];
 const BLUE = [0, 0, 255, 255];
 const GREEN = [0, 255, 0, 255];
@@ -120,7 +139,16 @@ const BLACK = [0, 0, 0, 255];
 
 describe('parseTtmFrames', () => {
   it('splits frames at 0x0ff0 and tags the frame that opens a script', () => {
-    const f = frames([SET_SCRIPT, 7], [SPRITE, 1, 2, 0, 1], [END_FRAME], [DELAY, 5], [END_FRAME], [SET_SCRIPT, 9], [END_SCRIPT], [END_FRAME]);
+    const f = frames(
+      [SET_SCRIPT, 7],
+      [SPRITE, 1, 2, 0, 1],
+      [END_FRAME],
+      [DELAY, 5],
+      [END_FRAME],
+      [SET_SCRIPT, 9],
+      [END_SCRIPT],
+      [END_FRAME],
+    );
     expect(f.map((x) => x.tag)).toEqual([7, undefined, 9]);
     expect(f.map((x) => x.ops.map((o) => o.op))).toEqual([['sprite'], ['delay'], ['endScript']]);
   });
@@ -130,30 +158,60 @@ describe('parseTtmFrames', () => {
   });
 
   it('decodes names, packed resource names and slot selection', () => {
-    const [f] = frames([SET_SCRIPT, 1], [SLOT_PALETTE, 2], [LOAD_PALETTE, 'a.pal'], [LOAD_IMAGE, 'b.bmp'], [LOAD_SCREEN, 'c.scr'], [END_FRAME]);
+    const [f] = frames(
+      [SET_SCRIPT, 1],
+      [SLOT_PALETTE, 2],
+      [LOAD_PALETTE, 'a.pal'],
+      [LOAD_IMAGE, 'b.bmp'],
+      [LOAD_SCREEN, 'c.scr'],
+      [END_FRAME],
+    );
     expect(f!.ops).toEqual([
-      { op: 'slotPalette', slot: 2 }, { op: 'loadPalette', name: 'A.PAL' }, { op: 'loadImage', name: 'B.BMX' }, { op: 'loadScreen', name: 'C.SCX' },
+      { op: 'slotPalette', slot: 2 },
+      { op: 'loadPalette', name: 'A.PAL' },
+      { op: 'loadImage', name: 'B.BMX' },
+      { op: 'loadScreen', name: 'C.SCX' },
     ]);
   });
 
   it('resolves rectangle colours per script and resets them at a script start', () => {
-    const f = frames([SET_SCRIPT, 1], [SET_COLOR, 3, 4], [RECT, 0, 0, 2, 2], [END_FRAME], [SET_SCRIPT, 2], [RECT, 0, 0, 2, 2], [END_FRAME]);
+    const f = frames(
+      [SET_SCRIPT, 1],
+      [SET_COLOR, 3, 4],
+      [RECT, 0, 0, 2, 2],
+      [END_FRAME],
+      [SET_SCRIPT, 2],
+      [RECT, 0, 0, 2, 2],
+      [END_FRAME],
+    );
     expect(f[0]!.ops[0]).toMatchObject({ op: 'rect', edge: 3, fill: 4, filled: true });
     expect(f[1]!.ops[0]).toMatchObject({ edge: 0xf, fill: 0xf });
   });
 
   it('decodes sprites, dialogue, sound, fades, goto and layer ops', () => {
     const [f] = frames(
-      [SET_SCRIPT, 1], [SPRITE_FLIP_X, 5, 6, 1, 1, 8, 4], [SPRITE_ROTATED, 1, 2, 3, 4, 5, 6, 90], [SHOW_DIALOG, -1, 3], [SHOW_DIALOG, 12, 0],
-      [SOUND, 4], [FADE_OUT, 0, 1, 2, 3], [FADE_IN, 16, 1, 2, 3], [GOTO, 1], [COPY_LAYER, 1, 2, 3, 4, 1, 2], [END_FRAME],
+      [SET_SCRIPT, 1],
+      [SPRITE_FLIP_X, 5, 6, 1, 1, 8, 4],
+      [SPRITE_ROTATED, 1, 2, 3, 4, 5, 6, 90],
+      [SHOW_DIALOG, -1, 3],
+      [SHOW_DIALOG, 12, 0],
+      [SOUND, 4],
+      [FADE_OUT, 0, 1, 2, 3],
+      [FADE_IN, 16, 1, 2, 3],
+      [GOTO, 1],
+      [COPY_LAYER, 1, 2, 3, 4, 1, 2],
+      [END_FRAME],
     );
     expect(f!.ops).toEqual([
       { op: 'sprite', x: 5, y: 6, index: 1, slot: 1, width: 8, height: 4, flipX: true, flipY: false },
       { op: 'spriteRotated', x: 1, y: 2, index: 3, slot: 4, width: 5, height: 6, angle: 90 },
-      { op: 'dialog', key: undefined, type: 3 }, { op: 'dialog', key: 12, type: 0 },
+      { op: 'dialog', key: undefined, type: 3 },
+      { op: 'dialog', key: 12, type: 0 },
       { op: 'sound', index: 4 },
-      { op: 'fadeOut', startColor: 0, steps: 1, endColor: 2, duration: 3 }, { op: 'fadeIn', startColor: 16, steps: 1, endColor: 2, duration: 3 },
-      { op: 'gotoTag', tag: 1 }, { op: 'copyLayer', x: 1, y: 2, width: 3, height: 4, source: 1, target: 2 },
+      { op: 'fadeOut', startColor: 0, steps: 1, endColor: 2, duration: 3 },
+      { op: 'fadeIn', startColor: 16, steps: 1, endColor: 2, duration: 3 },
+      { op: 'gotoTag', tag: 1 },
+      { op: 'copyLayer', x: 1, y: 2, width: 3, height: 4, source: 1, target: 2 },
     ]);
   });
 
@@ -173,13 +231,28 @@ const STOP = 0x2010;
 const IF_CHAP_GTE = 0x13b0;
 
 const tagFrames = (ids: number[][]): TtmFrame[] =>
-  ids.flatMap((script, s) => script.map((n, i): TtmFrame => ({
-    tag: i === 0 ? s + 1 : undefined,
-    ops: [{ op: 'delay', ticks: n }, ...(i === script.length - 1 ? [{ op: 'endScript' as const }] : [])],
-  })));
+  ids.flatMap((script, s) =>
+    script.map((n, i): TtmFrame => ({
+      tag: i === 0 ? s + 1 : undefined,
+      ops: [{ op: 'delay', ticks: n }, ...(i === script.length - 1 ? [{ op: 'endScript' as const }] : [])],
+    })),
+  );
 
 describe('CutsceneRunner', () => {
-  const ads = decodeAds(adsBody([[1], [IF_NOT_PLAYED, 0, 1], [START, 0, 1, 0, 0], [END_IF], [IF_PLAYED, 0, 1], [AND], [IF_NOT_PLAYED, 0, 2], [START, 0, 2, 0, 0], [END_IF], [0xffff]]));
+  const ads = decodeAds(
+    adsBody([
+      [1],
+      [IF_NOT_PLAYED, 0, 1],
+      [START, 0, 1, 0, 0],
+      [END_IF],
+      [IF_PLAYED, 0, 1],
+      [AND],
+      [IF_NOT_PLAYED, 0, 2],
+      [START, 0, 2, 0, 0],
+      [END_IF],
+      [0xffff],
+    ]),
+  );
   const ticks = (r: CutsceneRunner) => {
     const out: number[] = [];
     for (let f = r.next(); f; f = r.next()) out.push((f[0] as { ticks: number }).ticks);
@@ -187,27 +260,74 @@ describe('CutsceneRunner', () => {
   };
 
   it('runs a script, then the one that waits for it to finish', () => {
-    expect(ticks(new CutsceneRunner(ads, tagFrames([[10, 11, 12], [20, 21]])))).toEqual([10, 11, 12, 20, 21]);
+    expect(
+      ticks(
+        new CutsceneRunner(
+          ads,
+          tagFrames([
+            [10, 11, 12],
+            [20, 21],
+          ]),
+        ),
+      ),
+    ).toEqual([10, 11, 12, 20, 21]);
   });
 
   it('steps parallel scripts together in one frame', () => {
-    const parallel = decodeAds(adsBody([[1], [IF_NOT_PLAYED, 0, 1], [START, 0, 1, 0, 0], [START, 0, 2, 0, 0], [END_IF], [0xffff]]));
-    const r = new CutsceneRunner(parallel, tagFrames([[1, 2], [5, 6, 7]]));
-    expect(r.next()!.filter((o) => o.op === 'delay').map((o) => (o as { ticks: number }).ticks)).toEqual([1, 5]);
-    expect(r.next()!.filter((o) => o.op === 'delay').map((o) => (o as { ticks: number }).ticks)).toEqual([2, 6]);
-    expect(r.next()!.filter((o) => o.op === 'delay').map((o) => (o as { ticks: number }).ticks)).toEqual([7]);
+    const parallel = decodeAds(
+      adsBody([[1], [IF_NOT_PLAYED, 0, 1], [START, 0, 1, 0, 0], [START, 0, 2, 0, 0], [END_IF], [0xffff]]),
+    );
+    const r = new CutsceneRunner(
+      parallel,
+      tagFrames([
+        [1, 2],
+        [5, 6, 7],
+      ]),
+    );
+    expect(
+      r
+        .next()!
+        .filter((o) => o.op === 'delay')
+        .map((o) => (o as { ticks: number }).ticks),
+    ).toEqual([1, 5]);
+    expect(
+      r
+        .next()!
+        .filter((o) => o.op === 'delay')
+        .map((o) => (o as { ticks: number }).ticks),
+    ).toEqual([2, 6]);
+    expect(
+      r
+        .next()!
+        .filter((o) => o.op === 'delay')
+        .map((o) => (o as { ticks: number }).ticks),
+    ).toEqual([7]);
     expect(r.next()).toBeUndefined();
   });
 
   it('stops a script by number', () => {
-    const body = decodeAds(adsBody([[1], [IF_NOT_PLAYED, 0, 1], [START, 0, 1, 0, 0], [END_IF], [IF_PLAYED, 0, 9], [STOP, 0, 1, 0], [END_IF], [0xffff]]));
+    const body = decodeAds(
+      adsBody([
+        [1],
+        [IF_NOT_PLAYED, 0, 1],
+        [START, 0, 1, 0, 0],
+        [END_IF],
+        [IF_PLAYED, 0, 9],
+        [STOP, 0, 1, 0],
+        [END_IF],
+        [0xffff],
+      ]),
+    );
     const r = new CutsceneRunner(body, tagFrames([[1, 2, 3]]));
     expect(r.next()).toBeDefined();
     expect(r.next()).toBeDefined();
   });
 
   it('jumps to a tagged frame on gotoTag and loops until stopped', () => {
-    const loop: TtmFrame[] = [{ tag: 1, ops: [{ op: 'delay', ticks: 1 }] }, { tag: undefined, ops: [{ op: 'gotoTag', tag: 1 }] }];
+    const loop: TtmFrame[] = [
+      { tag: 1, ops: [{ op: 'delay', ticks: 1 }] },
+      { tag: undefined, ops: [{ op: 'gotoTag', tag: 1 }] },
+    ];
     const r = new CutsceneRunner(ads, loop);
     const seen = Array.from({ length: 6 }, () => r.next()![0]!.op);
     expect(seen).toEqual(['delay', 'gotoTag', 'delay', 'gotoTag', 'delay', 'gotoTag']);
@@ -258,7 +378,13 @@ describe('CutsceneRenderer', () => {
   });
 
   it('clips inclusively to the clip region, which persists', () => {
-    const { out } = render([CLIP, 0, 0, 10, 100], [SPRITE, 10, 20, 0, 1], [END_FRAME], [SPRITE, 10, 30, 0, 1], [END_FRAME]);
+    const { out } = render(
+      [CLIP, 0, 0, 10, 100],
+      [SPRITE, 10, 20, 0, 1],
+      [END_FRAME],
+      [SPRITE, 10, 30, 0, 1],
+      [END_FRAME],
+    );
     expect(px(out[0]!, 10, 20)).toEqual(RED);
     expect(px(out[0]!, 11, 20)).toEqual(BLACK);
     expect(px(out[1]!, 11, 30)).toEqual(BLACK);
@@ -283,7 +409,14 @@ describe('CutsceneRenderer', () => {
   });
 
   it('saves a region and draws it back later', () => {
-    const { out } = render([SPRITE, 0, 0, 0, 1], [SET_SAVE_LAYER, 2], [SAVE_REGION, 0, 0, 2, 1], [END_FRAME], [DRAW_SAVED, 2], [END_FRAME]);
+    const { out } = render(
+      [SPRITE, 0, 0, 0, 1],
+      [SET_SAVE_LAYER, 2],
+      [SAVE_REGION, 0, 0, 2, 1],
+      [END_FRAME],
+      [DRAW_SAVED, 2],
+      [END_FRAME],
+    );
     expect(px(out[1]!, 0, 0)).toEqual(RED);
     expect(px(out[1]!, 1, 0)).toEqual(BLUE);
   });
@@ -307,7 +440,11 @@ describe('CutsceneRenderer', () => {
   });
 
   it('lists the resources a cutscene loads', () => {
-    expect(cutsceneResourceNames(frames([SET_SCRIPT, 1], ...SETUP, [LOAD_SCREEN, 'BACK.SCR'], [END_FRAME]))).toEqual(['T.PAL', 'SPR.BMX', 'BACK.SCX']);
+    expect(cutsceneResourceNames(frames([SET_SCRIPT, 1], ...SETUP, [LOAD_SCREEN, 'BACK.SCR'], [END_FRAME]))).toEqual([
+      'T.PAL',
+      'SPR.BMX',
+      'BACK.SCX',
+    ]);
   });
 });
 
@@ -316,7 +453,12 @@ describe('CutsceneRenderer', () => {
 const ONE_SCRIPT = decodeAds(adsBody([[1], [IF_NOT_PLAYED, 0, 1], [START, 0, 1, 0, 0], [END_IF], [0xffff]]));
 
 function play(ops: Op[], host: ConstructorParameters<typeof CutscenePlayer>[0]['host'] = {}) {
-  const player = new CutscenePlayer({ ads: ONE_SCRIPT, frames: parseTtmFrames(ttmBytes([[SET_SCRIPT, 1], ...SETUP, ...ops])), read, host });
+  const player = new CutscenePlayer({
+    ads: ONE_SCRIPT,
+    frames: parseTtmFrames(ttmBytes([[SET_SCRIPT, 1], ...SETUP, ...ops])),
+    read,
+    host,
+  });
   const done = vi.fn();
   player.start(done);
   return { player, done };
@@ -324,7 +466,15 @@ function play(ops: Op[], host: ConstructorParameters<typeof CutscenePlayer>[0]['
 
 describe('CutscenePlayer', () => {
   it('shows the first frame at once and holds each frame for its delay', () => {
-    const { player, done } = play([[SPRITE, 0, 0, 0, 1], [DELAY, 100], [END_FRAME], [SPRITE, 0, 0, 1, 1], [END_FRAME], [END_SCRIPT], [END_FRAME]]);
+    const { player, done } = play([
+      [SPRITE, 0, 0, 0, 1],
+      [DELAY, 100],
+      [END_FRAME],
+      [SPRITE, 0, 0, 1, 1],
+      [END_FRAME],
+      [END_SCRIPT],
+      [END_FRAME],
+    ]);
     expect(px(player.image!, 0, 0)).toEqual(RED);
     player.update(100 * SECONDS_PER_TICK * 1000 - 1);
     expect(px(player.image!, 0, 0)).toEqual(RED);
@@ -346,7 +496,9 @@ describe('CutscenePlayer', () => {
 
   it('shows text, waits for a click and clears it when the frame ends', () => {
     const text = vi.fn((k: number) => (k === 5 ? 'Hello' : undefined));
-    const { player } = play([[SHOW_DIALOG, 5, 4], [SPRITE, 0, 0, 0, 1], [END_FRAME], [END_SCRIPT], [END_FRAME]], { text });
+    const { player } = play([[SHOW_DIALOG, 5, 4], [SPRITE, 0, 0, 0, 1], [END_FRAME], [END_SCRIPT], [END_FRAME]], {
+      text,
+    });
     expect(player.text).toBe('Hello');
     expect(player.waitingForClick).toBe(true);
     expect(player.image).toBeUndefined();
@@ -398,7 +550,11 @@ describe('CutscenePlayer', () => {
 
   it('pauses on a hooked dialogue until it reports done', () => {
     let finish = () => {};
-    const { player } = play([[SHOW_DIALOG, 3, 5], [END_FRAME], [END_SCRIPT], [END_FRAME]], { dialog: (_k, done) => { finish = done; } });
+    const { player } = play([[SHOW_DIALOG, 3, 5], [END_FRAME], [END_SCRIPT], [END_FRAME]], {
+      dialog: (_k, done) => {
+        finish = done;
+      },
+    });
     player.update(10000);
     expect(player.finished).toBe(false);
     finish();
@@ -420,14 +576,22 @@ describe('CutscenePlayer', () => {
 describe('chapter cutscene lists', () => {
   it('starts with the chapter animation, its book and the first scene', () => {
     expect(chapterStartCutscenes(3)).toEqual([
-      { kind: 'ttm', ads: 'CHAPTER3.ADS', ttm: 'CHAPTER3.TTM' }, { kind: 'book', file: 'C31.BOK' }, { kind: 'ttm', ads: 'C31.ADS', ttm: 'C31.TTM' },
+      { kind: 'ttm', ads: 'CHAPTER3.ADS', ttm: 'CHAPTER3.TTM' },
+      { kind: 'book', file: 'C31.BOK' },
+      { kind: 'ttm', ads: 'C31.ADS', ttm: 'C31.TTM' },
     ]);
   });
 
   it('finishes with a book (not in chapters 2, 4, 6, 7, 8) and an animation; chapter 9 uses scene 3; chapter 10 has none', () => {
-    expect(chapterFinishCutscenes(1)).toEqual([{ kind: 'book', file: 'C12.BOK' }, { kind: 'ttm', ads: 'C12.ADS', ttm: 'C12.TTM' }]);
+    expect(chapterFinishCutscenes(1)).toEqual([
+      { kind: 'book', file: 'C12.BOK' },
+      { kind: 'ttm', ads: 'C12.ADS', ttm: 'C12.TTM' },
+    ]);
     expect(chapterFinishCutscenes(2)).toEqual([{ kind: 'ttm', ads: 'C22.ADS', ttm: 'C22.TTM' }]);
-    expect(chapterFinishCutscenes(9)).toEqual([{ kind: 'book', file: 'C92.BOK' }, { kind: 'ttm', ads: 'C93.ADS', ttm: 'C93.TTM' }]);
+    expect(chapterFinishCutscenes(9)).toEqual([
+      { kind: 'book', file: 'C92.BOK' },
+      { kind: 'ttm', ads: 'C93.ADS', ttm: 'C93.TTM' },
+    ]);
     expect(chapterFinishCutscenes(10)).toEqual([]);
   });
 });

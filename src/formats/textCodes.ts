@@ -58,8 +58,14 @@ export const CODE_INACTIVE = 0xf9;
 
 export function sameStyle(a: TextStyle, b: TextStyle): boolean {
   return (
-    a.bold === b.bold && a.emphasis === b.emphasis && a.italic === b.italic && a.unbold === b.unbold &&
-    a.inactive === b.inactive && a.red === b.red && a.white === b.white && a.moredhel === b.moredhel
+    a.bold === b.bold &&
+    a.emphasis === b.emphasis &&
+    a.italic === b.italic &&
+    a.unbold === b.unbold &&
+    a.inactive === b.inactive &&
+    a.red === b.red &&
+    a.white === b.white &&
+    a.moredhel === b.moredhel
   );
 }
 
@@ -96,7 +102,16 @@ export function tokenizeText(text: string): StyledParagraph[] {
     const visible = runs.some((r) => r.text.trim() !== '');
     if (visible) paragraphs.push(trimRuns(runs));
     runs = [];
-    style = { ...style, emphasis: false, italic: false, unbold: false, inactive: false, red: false, white: false, moredhel: false };
+    style = {
+      ...style,
+      emphasis: false,
+      italic: false,
+      unbold: false,
+      inactive: false,
+      red: false,
+      white: false,
+      moredhel: false,
+    };
   };
   const set = (patch: Partial<TextStyle>) => {
     flush();
@@ -106,17 +121,37 @@ export function tokenizeText(text: string): StyledParagraph[] {
   for (let i = 0; i < text.length; i++) {
     const c = text.charCodeAt(i);
     switch (c) {
-      case CODE_PARAGRAPH: endParagraph(); break;
-      case CODE_BOLD: set({ bold: !style.bold }); break;
+      case CODE_PARAGRAPH:
+        endParagraph();
+        break;
+      case CODE_BOLD:
+        set({ bold: !style.bold });
+        break;
       case CODE_EMPHASIS_A:
-      case CODE_EMPHASIS_B: set({ emphasis: true }); break;
-      case CODE_ITALIC: set({ italic: true }); break;
-      case CODE_UNBOLD: set({ unbold: !style.unbold }); break;
-      case CODE_RED: set({ red: !style.red }); break;
-      case CODE_WHITE: set({ white: !style.white }); break;
-      case CODE_MOREDHEL: set({ moredhel: !style.moredhel }); break;
-      case CODE_INACTIVE: set({ inactive: !style.inactive }); break;
-      case CODE_HALF_LINE: buf += '\n'; break;
+      case CODE_EMPHASIS_B:
+        set({ emphasis: true });
+        break;
+      case CODE_ITALIC:
+        set({ italic: true });
+        break;
+      case CODE_UNBOLD:
+        set({ unbold: !style.unbold });
+        break;
+      case CODE_RED:
+        set({ red: !style.red });
+        break;
+      case CODE_WHITE:
+        set({ white: !style.white });
+        break;
+      case CODE_MOREDHEL:
+        set({ moredhel: !style.moredhel });
+        break;
+      case CODE_INACTIVE:
+        set({ inactive: !style.inactive });
+        break;
+      case CODE_HALF_LINE:
+        buf += '\n';
+        break;
       case 0x09:
         buf += '    ';
         set({ bold: false });
@@ -155,5 +190,7 @@ function trimRuns(runs: StyledRun[]): StyledRun[] {
 
 /** Text with every control code removed (what a plain-text consumer should show). */
 export function stripTextCodes(text: string): string {
-  return tokenizeText(text).map((p) => p.map((r) => r.text).join('')).join('\n');
+  return tokenizeText(text)
+    .map((p) => p.map((r) => r.text).join(''))
+    .join('\n');
 }

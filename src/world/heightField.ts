@@ -38,9 +38,15 @@ export function buildHeightField(triangles: ArrayLike<number>, cellSize = HEIGHT
 
   const heightAt = (t: number, px: number, py: number): number | undefined => {
     const o = t * 9;
-    const ax = triangles[o]!, ay = triangles[o + 1]!, az = triangles[o + 2]!;
-    const bx = triangles[o + 3]!, by = triangles[o + 4]!, bz = triangles[o + 5]!;
-    const cx = triangles[o + 6]!, cy = triangles[o + 7]!, cz = triangles[o + 8]!;
+    const ax = triangles[o]!,
+      ay = triangles[o + 1]!,
+      az = triangles[o + 2]!;
+    const bx = triangles[o + 3]!,
+      by = triangles[o + 4]!,
+      bz = triangles[o + 5]!;
+    const cx = triangles[o + 6]!,
+      cy = triangles[o + 7]!,
+      cz = triangles[o + 8]!;
     const det = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
     if (det === 0) return undefined; // vertical or degenerate in plan view
     const l1 = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / det;

@@ -1,7 +1,7 @@
 /** Pure helpers for splitting billboards into spatial chunks and culling chunks by distance. */
 
 /** Edge of a billboard chunk in render-space world units. */
-export const CHUNK_SIZE = 32;
+export const CHUNK_SIZE = 512;
 
 export const BILLBOARD_STRIDE = 5;
 

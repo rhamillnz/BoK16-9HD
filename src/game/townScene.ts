@@ -41,7 +41,7 @@ export function hotspotActive(h: Hotspot, world: WorldState, chapter: number): b
   const pointer = h.dialog & 0xffff;
   const expected = (h.dialog >>> 16) & 0xffff;
   if (h.checkEventState !== 0 && isFlagPointer(pointer)) return (getFlag(world, pointer) ? 1 : 0) === expected;
-  return (((h.chapterMask ^ 0xffff) & (1 << (chapter - 1))) & 0xffff) !== 0;
+  return ((h.chapterMask ^ 0xffff) & (1 << (chapter - 1)) & 0xffff) !== 0;
 }
 
 /** Hotspots flagged to run as soon as the scene opens (chapter mask bit 0x8000). */
@@ -71,7 +71,15 @@ interface Clip {
   y1: number;
 }
 
-function putPixel(out: Uint8ClampedArray, x: number, y: number, pal: Palette, index: number, clip: Clip, opaque: boolean): void {
+function putPixel(
+  out: Uint8ClampedArray,
+  x: number,
+  y: number,
+  pal: Palette,
+  index: number,
+  clip: Clip,
+  opaque: boolean,
+): void {
   if (x < clip.x0 || y < clip.y0 || x >= clip.x1 || y >= clip.y1) return;
   if (!opaque && index === 0) return;
   const o = (y * SCENE_WIDTH + x) * 4;
@@ -82,8 +90,16 @@ function putPixel(out: Uint8ClampedArray, x: number, y: number, pal: Palette, in
 }
 
 function blit(
-  out: Uint8ClampedArray, img: IndexedImage, pal: Palette, x: number, y: number,
-  targetW: number, targetH: number, flipX: boolean, flipY: boolean, clip: Clip,
+  out: Uint8ClampedArray,
+  img: IndexedImage,
+  pal: Palette,
+  x: number,
+  y: number,
+  targetW: number,
+  targetH: number,
+  flipX: boolean,
+  flipY: boolean,
+  clip: Clip,
 ): void {
   const w = targetW > 0 ? targetW : img.width;
   const h = targetH > 0 ? targetH : img.height;
@@ -114,7 +130,11 @@ export function composeScene(scripts: readonly TtmScript[], read: ReadResource):
     if (!palettes.has(name)) {
       const bytes = read(name);
       let pal: Palette | undefined;
-      try { pal = bytes ? parsePalette(bytes) : undefined; } catch { pal = undefined; }
+      try {
+        pal = bytes ? parsePalette(bytes) : undefined;
+      } catch {
+        pal = undefined;
+      }
       palettes.set(name, pal);
     }
     return palettes.get(name);
@@ -124,7 +144,11 @@ export function composeScene(scripts: readonly TtmScript[], read: ReadResource):
     if (!imageSets.has(name)) {
       const bytes = read(name);
       let set: IndexedImage[] | undefined;
-      try { set = bytes ? parseBMX(bytes) : undefined; } catch { set = undefined; }
+      try {
+        set = bytes ? parseBMX(bytes) : undefined;
+      } catch {
+        set = undefined;
+      }
       imageSets.set(name, set);
     }
     return imageSets.get(name);
@@ -140,9 +164,15 @@ export function composeScene(scripts: readonly TtmScript[], read: ReadResource):
       if (bytes && pal) {
         try {
           const screen = parseSCX(bytes);
-          const sclip: Clip = { x0: 0, y0: 0, x1: Math.min(SCENE_WIDTH, screen.width), y1: Math.min(SCENE_HEIGHT, screen.height) };
+          const sclip: Clip = {
+            x0: 0,
+            y0: 0,
+            x1: Math.min(SCENE_WIDTH, screen.width),
+            y1: Math.min(SCENE_HEIGHT, screen.height),
+          };
           for (let y = 0; y < sclip.y1; y++) {
-            for (let x = 0; x < sclip.x1; x++) putPixel(rgba, x, y, pal, screen.pixels[y * screen.width + x]!, sclip, true);
+            for (let x = 0; x < sclip.x1; x++)
+              putPixel(rgba, x, y, pal, screen.pixels[y * screen.width + x]!, sclip, true);
           }
         } catch {
           // an undecodable screen leaves the previous picture in place
@@ -153,8 +183,10 @@ export function composeScene(scripts: readonly TtmScript[], read: ReadResource):
     for (const op of script.ops) {
       if (op.op === 'clip') {
         clip = {
-          x0: Math.max(0, op.x), y0: Math.max(0, op.y),
-          x1: Math.min(SCENE_WIDTH, op.right), y1: Math.min(SCENE_HEIGHT, op.bottom),
+          x0: Math.max(0, op.x),
+          y0: Math.max(0, op.y),
+          x1: Math.min(SCENE_WIDTH, op.right),
+          y1: Math.min(SCENE_HEIGHT, op.bottom),
         };
       } else if (op.op === 'sprite') {
         const slot = script.images.get(op.slot);
@@ -176,7 +208,8 @@ export function composeScene(scripts: readonly TtmScript[], read: ReadResource):
         const slot = script.images.get(1);
         const sprite = slot && images(slot.name)?.[0];
         const pal = palFor(0);
-        if (sprite && pal) blit(rgba, sprite, pal, 160 - (sprite.width >> 1), 112 - sprite.height, 0, 0, false, false, clip);
+        if (sprite && pal)
+          blit(rgba, sprite, pal, 160 - (sprite.width >> 1), 112 - sprite.height, 0, 0, false, false, clip);
       }
     }
   }
@@ -202,7 +235,12 @@ export async function loadTownScene(fetch: FetchResources, ref: GdsRef, chapter:
   return { ref, gds, image: composeScene(scripts, read) };
 }
 
-function pickScripts(ttm: Map<number, TtmScript>, ads: ReturnType<typeof parseAds>, sceneIndices: readonly number[], chapter: number): TtmScript[] {
+function pickScripts(
+  ttm: Map<number, TtmScript>,
+  ads: ReturnType<typeof parseAds>,
+  sceneIndices: readonly number[],
+  chapter: number,
+): TtmScript[] {
   const out: TtmScript[] = [];
   for (const index of sceneIndices) {
     const id = selectScript(ads, index, chapter);

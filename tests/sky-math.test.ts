@@ -216,9 +216,7 @@ describe('computeSkyState', () => {
   it('never lights the ground less than at midnight (twilight is not darker than night)', () => {
     const ground = (m: number) => {
       const s = computeSkyState(m);
-      return (
-        s.keyIntensity * luma(s.keyColor) * Math.max(0, s.keyDir[1]) + s.hemiIntensity * luma(s.hemiSky)
-      );
+      return s.keyIntensity * luma(s.keyColor) * Math.max(0, s.keyDir[1]) + s.hemiIntensity * luma(s.hemiSky);
     };
     const midnight = ground(0);
     for (let m = 0; m < MINUTES_PER_DAY; m += 15) {

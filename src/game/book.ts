@@ -22,7 +22,22 @@ export function layoutBook(book: Book, font: Font): BookSpread[] {
   const rowH = font.height + 1;
   const first = book.pages[0]!;
   const width = Math.max(font.maxWidth, Math.floor(first.width / BOOK_UNIT));
-  const lines = text ? wrapText(font, text, width) : [];
+
+  // Use the first reserved area as a drop cap obstruction if present and at the top-left of the text box
+  let shape: number | ((i: number) => { indent: number; width: number }) = width;
+  const r = first.reservedAreas[0];
+  if (r && r.x < first.x + first.width && r.x + r.width > first.x && r.y < first.y + first.height) {
+    const bottomY = r.y + r.height;
+    const obstructedRows = Math.ceil(Math.max(0, bottomY - first.y) / BOOK_UNIT / rowH);
+    if (obstructedRows > 0) {
+      const indent = Math.floor(Math.max(0, r.x + r.width - first.x) / BOOK_UNIT);
+      if (indent > 0) {
+        shape = (i: number) => (i < obstructedRows ? { indent, width: width - indent } : { indent: 0, width });
+      }
+    }
+  }
+
+  const lines = text ? wrapText(font, text, shape) : [];
   if (lines.length === 0) return book.pages.map((page) => ({ page, lines: [] }));
 
   const spreads: BookSpread[] = [];

@@ -2,7 +2,15 @@ import type { SpellDef } from '../formats/spells';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
 import { formatTime, TICKS_PER_MINUTE } from './state';
 import {
-  canCast, castHeal, currentLight, isSpellcaster, knownSpells, maxPower, payCost, spellKind, spellTicks,
+  canCast,
+  castHeal,
+  currentLight,
+  isSpellcaster,
+  knownSpells,
+  maxPower,
+  payCost,
+  spellKind,
+  spellTicks,
   type ActiveLight,
 } from './spells';
 
@@ -47,7 +55,9 @@ export function powerChoices(min: number, max: number): number[] {
  */
 export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<string | undefined> {
   const party = host.getParty();
-  const casters = activeCharacters(party).filter((c) => isSpellcaster(c) && knownSpells(c, host.spells).some((s) => ['heal', 'light'].includes(spellKind(s))));
+  const casters = activeCharacters(party).filter(
+    (c) => isSpellcaster(c) && knownSpells(c, host.spells).some((s) => ['heal', 'light'].includes(spellKind(s))),
+  );
   if (casters.length === 0) {
     await host.menu('Nobody in the party knows a spell that works here.', []);
     return undefined;
@@ -56,25 +66,36 @@ export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<st
   const caster = casters[who];
   if (!caster) return undefined;
 
-  const options = knownSpells(caster, host.spells).filter((s) => ['heal', 'light'].includes(spellKind(s)) && canCast(caster, s));
+  const options = knownSpells(caster, host.spells).filter(
+    (s) => ['heal', 'light'].includes(spellKind(s)) && canCast(caster, s),
+  );
   if (options.length === 0) {
     await host.menu(`${caster.name} is too weary to cast.`, []);
     return undefined;
   }
-  const si = await host.menu(`${caster.name} (${caster.skills.stamina.trueSkill} St, ${caster.skills.health.trueSkill} HP)`, [...options.map((s) => `${s.name} (${s.minCost}-${s.maxCost})`), 'Cancel']);
+  const si = await host.menu(
+    `${caster.name} (${caster.skills.stamina.trueSkill} St, ${caster.skills.health.trueSkill} HP)`,
+    [...options.map((s) => `${s.name} (${s.minCost}-${s.maxCost})`), 'Cancel'],
+  );
   const spell = options[si];
   if (!spell) return undefined;
 
   const top = maxPower(caster, spell);
   const powers = powerChoices(spell.minCost, top);
-  const pi = powers.length === 1 ? 0 : await host.menu(`${spell.name}: how much power?`, [...powers.map((p) => `${p} points`), 'Cancel']);
+  const pi =
+    powers.length === 1
+      ? 0
+      : await host.menu(`${spell.name}: how much power?`, [...powers.map((p) => `${p} points`), 'Cancel']);
   const power = powers[pi];
   if (power === undefined) return undefined;
 
   let message: string;
   if (spellKind(spell) === 'heal') {
     const members = activeCharacters(party);
-    const ti = await host.menu(`Heal whom?`, [...members.map((m) => `${m.name} (${m.skills.health.trueSkill}/${m.skills.health.max})`), 'Cancel']);
+    const ti = await host.menu(`Heal whom?`, [
+      ...members.map((m) => `${m.name} (${m.skills.health.trueSkill}/${m.skills.health.max})`),
+      'Cancel',
+    ]);
     const target = members[ti];
     if (!target) return undefined;
     const r = castHeal(host.getParty(), caster.index, spell, power, target.index);
@@ -99,7 +120,9 @@ export function installCast(host: CastHost): { lights: readonly ActiveLight[] } 
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyV' || e.repeat || busy || !host.canCast()) return;
     busy = true;
-    runCast(host, lights).finally(() => { busy = false; });
+    runCast(host, lights).finally(() => {
+      busy = false;
+    });
   });
   return { lights };
 }

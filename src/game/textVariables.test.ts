@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { Character } from '../formats/gam';
-import { CHAR_GORATH, CHAR_JAMES, CHAR_LOCKLEAR, CHAR_OWYN, CHAR_PUG, TextVariables, moneyString } from './textVariables';
+import {
+  CHAR_GORATH,
+  CHAR_JAMES,
+  CHAR_LOCKLEAR,
+  CHAR_OWYN,
+  CHAR_PUG,
+  TextVariables,
+  moneyString,
+} from './textVariables';
 
 const names = ['Locklear', 'Gorath', 'Owyn', 'Pug', 'James', 'Patrus'];
 const party = (active: number[], gold = 0) => ({
@@ -59,8 +67,12 @@ describe('TextVariables', () => {
 
   it('fills money, item, monster, keeper and skill variables', () => {
     const v = new TextVariables({
-      party: party([0], 25), itemName: 'Sword', itemValue: 10, monsterName: 'Moredhel',
-      improvedSkill: 3, random: () => 0,
+      party: party([0], 25),
+      itemName: 'Sword',
+      itemValue: 10,
+      monsterName: 'Moredhel',
+      improvedSkill: 3,
+      random: () => 0,
     });
     v.set(0, 0x13);
     expect(v.substitute('costs @0')).toBe('costs ð1 ðsovereign');

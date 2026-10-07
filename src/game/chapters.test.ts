@@ -77,28 +77,88 @@ const FLAG_KEEP = 0x40;
 
 /** Root -> reset snippet; push -> table whose choice n is chapter n's script. Chapter 2's sets FLAG_NEW and teleports to 7. */
 const store = () =>
-  new DialogStore(new Map([[0, parseDDX(buildDDX([
-    { key: START_OF_CHAPTER_KEY, choices: [{ state: 0, target: 2 }], actions: [{ type: ActionType.PushNextDialog, target: 3 }] },
-    { actions: [{ type: ActionType.SetFlag, words: [FLAG_RESET, 0, 0, 1] }] },
-    { choices: [{ state: 0, target: 4 }, { state: 0, target: 5 }] },
-    { actions: [] },
-    { actions: [{ type: ActionType.SetFlag, words: [FLAG_NEW, 0, 0, 1] }, { type: ActionType.Teleport, words: [7, 0, 0, 0] }] },
-  ])) ]]));
+  new DialogStore(
+    new Map([
+      [
+        0,
+        parseDDX(
+          buildDDX([
+            {
+              key: START_OF_CHAPTER_KEY,
+              choices: [{ state: 0, target: 2 }],
+              actions: [{ type: ActionType.PushNextDialog, target: 3 }],
+            },
+            { actions: [{ type: ActionType.SetFlag, words: [FLAG_RESET, 0, 0, 1] }] },
+            {
+              choices: [
+                { state: 0, target: 4 },
+                { state: 0, target: 5 },
+              ],
+            },
+            { actions: [] },
+            {
+              actions: [
+                { type: ActionType.SetFlag, words: [FLAG_NEW, 0, 0, 1] },
+                { type: ActionType.Teleport, words: [7, 0, 0, 0] },
+              ],
+            },
+          ]),
+        ),
+      ],
+    ]),
+  );
 
-const skill = (max: number, trueSkill: number): Skill => ({ max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false });
+const skill = (max: number, trueSkill: number): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 0,
+  modifier: 0,
+  selected: false,
+  unseenImprovement: false,
+});
 function character(index: number): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(0, 0)])) as Character['skills'];
   skills.health = skill(50, 10);
   return {
-    index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name: `C${index}`,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 20, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 30 },
-    affectors: [], inventory: { capacity: 8, items: [] },
+    affectors: [],
+    inventory: { capacity: 8, items: [] },
   };
 }
-const party = (): PartyState => ({ gold: 0, characters: [character(0), character(1)], activeCharacters: [0], partyKeys: { capacity: 4, items: [] } });
-const world = (chapter = 1, ticks = 5000): WorldState => ({ chapter, ticks, ticksLastSlept: 0, bytes: new Uint8Array(GAM_OFFSETS.complexEventFlags + 0x800), expiringEvents: [] });
-const start = (chapter: number): ChapterStart => ({ chapter, zone: 2, tileX: 1, tileY: 1, cellX: 0, cellY: 0, heading: 64, timeElapsed: 100, x: 64800, y: 64800 });
+const party = (): PartyState => ({
+  gold: 0,
+  characters: [character(0), character(1)],
+  activeCharacters: [0],
+  partyKeys: { capacity: 4, items: [] },
+});
+const world = (chapter = 1, ticks = 5000): WorldState => ({
+  chapter,
+  ticks,
+  ticksLastSlept: 0,
+  bytes: new Uint8Array(GAM_OFFSETS.complexEventFlags + 0x800),
+  expiringEvents: [],
+});
+const start = (chapter: number): ChapterStart => ({
+  chapter,
+  zone: 2,
+  tileX: 1,
+  tileY: 1,
+  cellX: 0,
+  cellY: 0,
+  heading: 64,
+  timeElapsed: 100,
+  x: 64800,
+  y: 64800,
+});
 
 describe('keys', () => {
   it('keys the map caption by chapter', () => expect(chapterStartTextKey(3)).toBe(0x128));
@@ -114,7 +174,13 @@ describe('flags', () => {
   it('records the transition request instead of storing a bit', () => {
     clearTransitionRequest();
     expect(transitionRequested()).toBe(false);
-    const w = applySetFlag(world(), { type: ActionType.SetFlag, name: 'SetFlag', raw: new Uint8Array(8), words: [GAME_STATE_CHAPTER_TRANSITION, 0, 0, 1], fields: {} });
+    const w = applySetFlag(world(), {
+      type: ActionType.SetFlag,
+      name: 'SetFlag',
+      raw: new Uint8Array(8),
+      words: [GAME_STATE_CHAPTER_TRANSITION, 0, 0, 1],
+      fields: {},
+    });
     expect(w.bytes).toEqual(world().bytes);
     expect(transitionRequested()).toBe(true);
     clearTransitionRequest();
@@ -141,7 +207,14 @@ describe('start-of-chapter script', () => {
 });
 
 describe('transitionToChapter', () => {
-  const run = () => transitionToChapter({ world: setFlag(setFlag(world(1, 5000), FLAG_ENCOUNTER, true), FLAG_KEEP, true), party: party(), chapter: 2, start: start(2), store: store() });
+  const run = () =>
+    transitionToChapter({
+      world: setFlag(setFlag(world(1, 5000), FLAG_ENCOUNTER, true), FLAG_KEEP, true),
+      party: party(),
+      chapter: 2,
+      start: start(2),
+      store: store(),
+    });
   it('moves the clock to the next midnight plus the time change', () => {
     const r = run();
     expect(r.world.chapter).toBe(2);
@@ -171,14 +244,28 @@ describe('installChapters', () => {
     let p = party();
     const h = {
       items: [],
-      getParty: () => p, setParty: (x: PartyState) => { p = x; },
-      getWorld: () => w, setWorld: (x: WorldState) => { w = x; },
+      getParty: () => p,
+      setParty: (x: PartyState) => {
+        p = x;
+      },
+      getWorld: () => w,
+      setWorld: (x: WorldState) => {
+        w = x;
+      },
       loadStart: (n: number) => start(n),
       loadStore: async () => store(),
-      playCutscenes: async (a: number, b: number) => { log.push(`cutscenes ${a}-${b}`); },
-      showText: async (k: number) => { log.push(`text ${k.toString(16)}`); },
-      arrive: async (c: ChapterStart, t: number | undefined) => { log.push(`arrive ${c.chapter} ${t}`); },
-      onTransitioned: (c: number) => { log.push(`done ${c}`); },
+      playCutscenes: async (a: number, b: number) => {
+        log.push(`cutscenes ${a}-${b}`);
+      },
+      showText: async (k: number) => {
+        log.push(`text ${k.toString(16)}`);
+      },
+      arrive: async (c: ChapterStart, t: number | undefined) => {
+        log.push(`arrive ${c.chapter} ${t}`);
+      },
+      onTransitioned: (c: number) => {
+        log.push(`done ${c}`);
+      },
       ...over,
     };
     return { h, log, world: () => w };
@@ -216,7 +303,12 @@ describe('installChapters', () => {
   });
   it('refuses a second transition while one runs', async () => {
     let release!: () => void;
-    const t = host({ showText: () => new Promise<void>((r) => { release = r; }) });
+    const t = host({
+      showText: () =>
+        new Promise<void>((r) => {
+          release = r;
+        }),
+    });
     const c = installChapters(t.h);
     const first = c.begin();
     await Promise.resolve();

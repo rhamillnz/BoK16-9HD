@@ -2,7 +2,12 @@ import type * as THREE from 'three/webgpu';
 import { beyondFar } from './cullMath';
 import { FOG_FAR } from './sky';
 
-interface ChunkInfo { x: number; z: number; r: number; /** Own cull distance (default: the fog's far plane). */ far?: number }
+interface ChunkInfo {
+  x: number;
+  z: number;
+  r: number;
+  /** Own cull distance (default: the fog's far plane). */ far?: number;
+}
 
 /** Hide instanced billboard chunks that are fully inside the fog's far plane's shadow (beyond it). */
 export function cullChunks(root: THREE.Object3D, eyeX: number, eyeZ: number, far = FOG_FAR): number {
@@ -22,7 +27,8 @@ export function cullChunks(root: THREE.Object3D, eyeX: number, eyeZ: number, far
  */
 export function installPerf(renderer: THREE.WebGPURenderer, scene: THREE.Scene) {
   const el = document.createElement('pre');
-  el.style.cssText = 'position:fixed;right:8px;top:8px;margin:0;padding:6px 8px;background:#000a;color:#9f9;font:11px monospace;pointer-events:none;display:none;z-index:50';
+  el.style.cssText =
+    'position:fixed;right:8px;top:8px;margin:0;padding:6px 8px;background:#000a;color:#9f9;font:11px monospace;pointer-events:none;display:none;z-index:50';
   document.body.appendChild(el);
   let shown = false;
   window.addEventListener('keydown', (e) => {

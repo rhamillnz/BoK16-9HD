@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ActionType,
-  categoriseChoice,
-  parseDDX,
-  parseTarget,
-  snippetForKey,
-} from '../src/formats/ddx';
+import { ActionType, categoriseChoice, parseDDX, parseTarget, snippetForKey } from '../src/formats/ddx';
 
 const u16 = (v: number) => [v & 0xff, (v >> 8) & 0xff];
 const u32 = (v: number) => [...u16(v & 0xffff), ...u16(v >>> 16)];
@@ -76,10 +70,7 @@ describe('parseTarget', () => {
 
 describe('parseDDX', () => {
   it('parses index, header fields and text', () => {
-    const file = build(
-      [[0xabc, 0]],
-      [snippet({ style: 2, actor: 0xff, s2: 3, s3: 4, text: 'Hello' })],
-    );
+    const file = build([[0xabc, 0]], [snippet({ style: 2, actor: 0xff, s2: 3, s3: 4, text: 'Hello' })]);
     const dlg = parseDDX(file);
     expect(dlg.index.get(0xabc)).toBe(10);
     const s = snippetForKey(dlg, 0xabc)!;

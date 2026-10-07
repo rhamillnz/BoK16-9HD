@@ -218,8 +218,17 @@ function buildSmf(events: TimedEvent[]): Uint8Array {
   const u32 = (n: number) => [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff];
   const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
   return Uint8Array.from([
-    ...ascii('MThd'), ...u32(6), 0, 0, 0, 1, 0, MIDI_PPQN,
-    ...ascii('MTrk'), ...u32(track.length), ...track,
+    ...ascii('MThd'),
+    ...u32(6),
+    0,
+    0,
+    0,
+    1,
+    0,
+    MIDI_PPQN,
+    ...ascii('MTrk'),
+    ...u32(track.length),
+    ...track,
   ]);
 }
 

@@ -36,7 +36,8 @@ export interface CombatViewOptions {
   palette: Uint8Array;
 }
 
-const toRender = (x: number, h: number, y: number): THREE.Vector3 => new THREE.Vector3(x / WORLD_SCALE, h / WORLD_SCALE, -y / WORLD_SCALE);
+const toRender = (x: number, h: number, y: number): THREE.Vector3 =>
+  new THREE.Vector3(x / WORLD_SCALE, h / WORLD_SCALE, -y / WORLD_SCALE);
 
 /** Round coloured token with the first letter of the name, for fighters whose sprite is missing. */
 function markerTexture(name: string, party: boolean): THREE.Texture {
@@ -68,7 +69,8 @@ function spriteTexture(sprite: CombatSprite, palette: Uint8Array): THREE.DataTex
   const rgba = toRGBA(image, palette);
   const flipped = new Uint8ClampedArray(rgba.length);
   const row = image.width * 4;
-  for (let y = 0; y < image.height; y++) flipped.set(rgba.subarray(y * row, (y + 1) * row), (image.height - 1 - y) * row);
+  for (let y = 0; y < image.height; y++)
+    flipped.set(rgba.subarray(y * row, (y + 1) * row), (image.height - 1 - y) * row);
   const tex = new THREE.DataTexture(flipped, image.width, image.height, THREE.RGBAFormat);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.magFilter = THREE.NearestFilter;
@@ -99,7 +101,10 @@ export class CombatView {
   private readonly material: THREE.MeshBasicNodeMaterial;
   private readonly plan;
 
-  constructor(private readonly o: CombatViewOptions, fighters: readonly Fighter[]) {
+  constructor(
+    private readonly o: CombatViewOptions,
+    fighters: readonly Fighter[],
+  ) {
     this.group.name = 'combat';
     const { cols, rows } = o;
     const positions = new Float32Array(cols * rows * 4 * 3);
@@ -109,8 +114,10 @@ export class CombatView {
       for (let x = 0; x < cols; x++) {
         const cell = y * cols + x;
         const corners: [number, number][] = [
-          [x + CELL_INSET, y + CELL_INSET], [x + 1 - CELL_INSET, y + CELL_INSET],
-          [x + 1 - CELL_INSET, y + 1 - CELL_INSET], [x + CELL_INSET, y + 1 - CELL_INSET],
+          [x + CELL_INSET, y + CELL_INSET],
+          [x + 1 - CELL_INSET, y + CELL_INSET],
+          [x + 1 - CELL_INSET, y + 1 - CELL_INSET],
+          [x + CELL_INSET, y + 1 - CELL_INSET],
         ];
         corners.forEach(([gx, gy], k) => {
           const w = gridPointToWorld(o.party, o.heading, gx, gy);
@@ -126,7 +133,12 @@ export class CombatView {
     this.colorAttr = new THREE.BufferAttribute(this.colors, 4);
     this.geometry.setAttribute('color', this.colorAttr);
     this.geometry.setIndex(indices);
-    this.material = new THREE.MeshBasicNodeMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+    this.material = new THREE.MeshBasicNodeMaterial({
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
     const overlay = new THREE.Mesh(this.geometry, this.material);
     overlay.frustumCulled = false;
     overlay.renderOrder = 2;

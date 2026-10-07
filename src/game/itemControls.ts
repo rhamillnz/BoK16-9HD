@@ -24,14 +24,27 @@ export function installItemControls(host: ItemControlsHost): void {
       const p = host.getParty();
       let r: ItemUseResult;
       switch (action) {
-        case 'use': r = useItem(p, character, slot, host.items, {
-          spells: host.spells,
-          hasRead: (c, i) => read.has(`${c}:${i}`),
-          markRead: (c, i) => { read.add(`${c}:${i}`); },
-        }); break;
-        case 'equip': r = toggleEquip(p, character, slot, host.items); break;
-        case 'repair': r = repairItem(p, character, slot, host.items); break;
-        case 'give': r = target === undefined ? { party: p, message: 'Nobody to give it to.', ok: false } : giveToCharacter(p, character, slot, target, host.items); break;
+        case 'use':
+          r = useItem(p, character, slot, host.items, {
+            spells: host.spells,
+            hasRead: (c, i) => read.has(`${c}:${i}`),
+            markRead: (c, i) => {
+              read.add(`${c}:${i}`);
+            },
+          });
+          break;
+        case 'equip':
+          r = toggleEquip(p, character, slot, host.items);
+          break;
+        case 'repair':
+          r = repairItem(p, character, slot, host.items);
+          break;
+        case 'give':
+          r =
+            target === undefined
+              ? { party: p, message: 'Nobody to give it to.', ok: false }
+              : giveToCharacter(p, character, slot, target, host.items);
+          break;
       }
       if (r.ok || r.party !== p) host.setParty(r.party);
       if (r.ok) {

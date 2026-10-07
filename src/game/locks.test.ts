@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ITEM_PICKLOCK, attemptLock, canPickLock, classifyLock, describeLock, isKeyItem, keyBreakChance, keyItemForLock, picklockBreakChance,
+  ITEM_PICKLOCK,
+  attemptLock,
+  canPickLock,
+  classifyLock,
+  describeLock,
+  isKeyItem,
+  keyBreakChance,
+  keyItemForLock,
+  picklockBreakChance,
 } from './locks';
 
 const roll = (...values: number[]) => {
@@ -10,7 +18,14 @@ const roll = (...values: number[]) => {
 
 describe('locks', () => {
   it('classifies by rating', () => {
-    expect([0x32, 0x33, 0x50, 0x51, 0x64, 0x65].map(classifyLock)).toEqual(['easy', 'medium', 'medium', 'hard', 'hard', 'unpickable']);
+    expect([0x32, 0x33, 0x50, 0x51, 0x64, 0x65].map(classifyLock)).toEqual([
+      'easy',
+      'medium',
+      'medium',
+      'hard',
+      'hard',
+      'unpickable',
+    ]);
   });
 
   it('maps special ratings to their key items', () => {
@@ -30,7 +45,9 @@ describe('locks', () => {
   });
 
   it('describes locks', () => {
-    expect([describeLock(60, 50), describeLock(40, 50), describeLock(99, 103), describeLock(99, 107)]).toEqual([0, 1, 2, 3]);
+    expect([describeLock(60, 50), describeLock(40, 50), describeLock(99, 103), describeLock(99, 107)]).toEqual([
+      0, 1, 2, 3,
+    ]);
   });
 
   it('computes break chances', () => {
@@ -41,8 +58,15 @@ describe('locks', () => {
   });
 
   it('opens with the right key and with a good enough pick', () => {
-    expect(attemptLock(61, 10, 0x32, roll(99))).toMatchObject({ unlocked: true, attempt: { kind: 'opened', with: 'key' } });
-    expect(attemptLock(ITEM_PICKLOCK, 80, 0x32, roll(99))).toMatchObject({ unlocked: true, attempt: { kind: 'opened', with: 'picklock' }, learned: true });
+    expect(attemptLock(61, 10, 0x32, roll(99))).toMatchObject({
+      unlocked: true,
+      attempt: { kind: 'opened', with: 'key' },
+    });
+    expect(attemptLock(ITEM_PICKLOCK, 80, 0x32, roll(99))).toMatchObject({
+      unlocked: true,
+      attempt: { kind: 'opened', with: 'picklock' },
+      learned: true,
+    });
   });
 
   it('a failed pick may teach and may snap', () => {

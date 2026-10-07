@@ -64,15 +64,20 @@ export class CombatPanel {
   private readonly onKey: (e: KeyboardEvent) => void;
 
   constructor(parent: HTMLElement, h: CombatPanelHandlers) {
-    this.root.style.cssText = 'position:fixed;right:12px;top:12px;width:300px;font:14px/1.35 sans-serif;color:#f2ead8;background:rgba(18,14,10,.82);border:2px solid #7a5c2e;border-radius:6px;padding:10px;z-index:20;user-select:none';
+    this.root.style.cssText =
+      'position:fixed;right:12px;top:12px;width:300px;font:14px/1.35 sans-serif;color:#f2ead8;background:rgba(18,14,10,.82);border:2px solid #7a5c2e;border-radius:6px;padding:10px;z-index:20;user-select:none';
     this.buttons.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:8px 0';
     this.log.style.cssText = 'min-height:7.5em;font-size:13px;opacity:.95';
     this.status.style.cssText = 'font-weight:bold;margin-bottom:4px';
     const button = (label: string, on: () => void) => {
       const b = document.createElement('button');
       b.textContent = label;
-      b.style.cssText = 'flex:1;padding:4px 6px;background:#3a2c18;color:#f2ead8;border:1px solid #7a5c2e;border-radius:4px;cursor:pointer';
-      b.addEventListener('click', (e) => { e.stopPropagation(); on(); });
+      b.style.cssText =
+        'flex:1;padding:4px 6px;background:#3a2c18;color:#f2ead8;border:1px solid #7a5c2e;border-radius:4px;cursor:pointer';
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        on();
+      });
       this.buttons.append(b);
       return b;
     };
@@ -104,7 +109,10 @@ export class CombatPanel {
     window.addEventListener('keydown', this.onKey, true);
   }
 
-  render(state: BattleState, opts: { slash: boolean; shoot?: boolean; canShoot?: boolean; cast?: string; canCast?: boolean; yourTurn: boolean }): void {
+  render(
+    state: BattleState,
+    opts: { slash: boolean; shoot?: boolean; canShoot?: boolean; cast?: string; canCast?: boolean; yourTurn: boolean },
+  ): void {
     this.lines.push(...logLines(state));
     while (this.lines.length > 9) this.lines.shift();
     const rows = fighterRows(state);
@@ -119,9 +127,15 @@ export class CombatPanel {
         return row;
       }),
     );
-    this.log.replaceChildren(...this.lines.map((l) => Object.assign(document.createElement('div'), { textContent: l })));
+    this.log.replaceChildren(
+      ...this.lines.map((l) => Object.assign(document.createElement('div'), { textContent: l })),
+    );
     const outcome = state.turn.outcome;
-    this.status.textContent = outcome ? OUTCOME_TEXT[outcome] : opts.yourTurn ? `${currentFighter(state).name}: your move` : 'Enemy turn…';
+    this.status.textContent = outcome
+      ? OUTCOME_TEXT[outcome]
+      : opts.yourTurn
+        ? `${currentFighter(state).name}: your move`
+        : 'Enemy turn…';
     this.slashButton.textContent = `Slash: ${opts.slash ? 'on' : 'off'} (S)`;
     this.shootButton.textContent = `Shoot: ${opts.shoot ? 'on' : 'off'} (F)`;
     this.castButton.textContent = `Cast: ${opts.cast ?? 'off'} (C)`;
@@ -134,7 +148,9 @@ export class CombatPanel {
   note(text: string): void {
     this.lines.push(text);
     while (this.lines.length > 9) this.lines.shift();
-    this.log.replaceChildren(...this.lines.map((l) => Object.assign(document.createElement('div'), { textContent: l })));
+    this.log.replaceChildren(
+      ...this.lines.map((l) => Object.assign(document.createElement('div'), { textContent: l })),
+    );
   }
 
   dispose(): void {

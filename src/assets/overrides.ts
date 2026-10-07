@@ -35,22 +35,13 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function parseVec3(
-  value: unknown,
-  fallback: number,
-  where: string,
-  allowScalar: boolean,
-): [number, number, number] {
+function parseVec3(value: unknown, fallback: number, where: string, allowScalar: boolean): [number, number, number] {
   if (value === undefined) return [fallback, fallback, fallback];
   if (allowScalar && typeof value === 'number') {
     if (!Number.isFinite(value)) throw new ManifestError(`${where} must be finite`);
     return [value, value, value];
   }
-  if (
-    !Array.isArray(value) ||
-    value.length !== 3 ||
-    !value.every((n) => typeof n === 'number' && Number.isFinite(n))
-  ) {
+  if (!Array.isArray(value) || value.length !== 3 || !value.every((n) => typeof n === 'number' && Number.isFinite(n))) {
     throw new ManifestError(`${where} must be an array of 3 finite numbers`);
   }
   return [value[0] as number, value[1] as number, value[2] as number];
@@ -87,9 +78,7 @@ export function parseManifest(json: unknown): OverrideManifest {
   return { version: 1, models };
 }
 
-export type ResolvedModel =
-  | { fallback: false; name: string; scene: Group }
-  | { fallback: true; name: string };
+export type ResolvedModel = { fallback: false; name: string; scene: Group } | { fallback: true; name: string };
 
 /** Loads a .glb URL to a scene. Injectable so tests need no network or WebGL. */
 export type GlbLoadFn = (url: string) => Promise<Group>;
@@ -109,10 +98,7 @@ export class AssetOverrides {
   ) {}
 
   /** Fetches and parses a manifest; a missing manifest yields an empty one. */
-  static async fromUrl(
-    manifestUrl = '/models/manifest.json',
-    load?: GlbLoadFn,
-  ): Promise<AssetOverrides> {
+  static async fromUrl(manifestUrl = '/models/manifest.json', load?: GlbLoadFn): Promise<AssetOverrides> {
     const baseUrl = manifestUrl.slice(0, manifestUrl.lastIndexOf('/') + 1);
     const res = await fetch(manifestUrl);
     const manifest = res.ok ? parseManifest(await res.json()) : { version: 1 as const, models: new Map() };

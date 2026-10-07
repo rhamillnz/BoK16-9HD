@@ -26,9 +26,7 @@ export interface SaveScreenState {
   message: string;
 }
 
-export type SaveScreenEvent =
-  | { type: 'key'; key: string }
-  | { type: 'click' | 'hover'; x: number; y: number };
+export type SaveScreenEvent = { type: 'key'; key: string } | { type: 'click' | 'hover'; x: number; y: number };
 
 export type SaveScreenResult = { kind: 'none' } | { kind: 'save'; slot: string } | { kind: 'load'; slot: string };
 
@@ -38,7 +36,12 @@ export function layoutSaveScreen(rowCount: number, width = HUD_WIDTH, height = H
   const panelW = Math.min(width, 140 * unit);
   const rowH = unit * 1.6;
   const panelH = Math.ceil(unit * 5.5 + rowCount * rowH + unit * 3);
-  const panel: Rect = { x: Math.floor((width - panelW) / 2), y: Math.floor((height - panelH) / 2), width: panelW, height: panelH };
+  const panel: Rect = {
+    x: Math.floor((width - panelW) / 2),
+    y: Math.floor((height - panelH) / 2),
+    width: panelW,
+    height: panelH,
+  };
   const pad = unit;
   const title: Rect = { x: panel.x + pad, y: panel.y + pad, width: panelW - 2 * pad, height: unit };
   const tabW = 24 * unit;
@@ -57,17 +60,28 @@ export function layoutSaveScreen(rowCount: number, width = HUD_WIDTH, height = H
   return { scale, panel, title, tabs, rows, status };
 }
 
-export const initialSaveScreenState = (mode: SaveMode = 'save'): SaveScreenState => ({ mode, selected: 0, message: '' });
+export const initialSaveScreenState = (mode: SaveMode = 'save'): SaveScreenState => ({
+  mode,
+  selected: 0,
+  message: '',
+});
 
 const inside = (r: Rect, x: number, y: number) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
 
 /** Slot a use of the screen would act on, or a message saying why not. */
-function activate(state: SaveScreenState, slots: readonly SlotInfo[], index: number): { state: SaveScreenState; result: SaveScreenResult } {
+function activate(
+  state: SaveScreenState,
+  slots: readonly SlotInfo[],
+  index: number,
+): { state: SaveScreenState; result: SaveScreenResult } {
   const info = slots[index];
   if (!info) return { state, result: { kind: 'none' } };
-  if (state.mode === 'save') return { state: { ...state, selected: index, message: '' }, result: { kind: 'save', slot: info.slot } };
-  if (info.corrupt) return { state: { ...state, selected: index, message: 'That save cannot be read' }, result: { kind: 'none' } };
-  if (!info.summary) return { state: { ...state, selected: index, message: 'Slot is empty' }, result: { kind: 'none' } };
+  if (state.mode === 'save')
+    return { state: { ...state, selected: index, message: '' }, result: { kind: 'save', slot: info.slot } };
+  if (info.corrupt)
+    return { state: { ...state, selected: index, message: 'That save cannot be read' }, result: { kind: 'none' } };
+  if (!info.summary)
+    return { state: { ...state, selected: index, message: 'Slot is empty' }, result: { kind: 'none' } };
   return { state: { ...state, selected: index, message: '' }, result: { kind: 'load', slot: info.slot } };
 }
 
@@ -81,13 +95,24 @@ export function stepSaveScreen(
   const count = layout.rows.length;
   if (ev.type === 'key') {
     switch (ev.key) {
-      case 'ArrowUp': return { state: { ...state, selected: (state.selected + count - 1) % count, message: '' }, result: none };
-      case 'ArrowDown': return { state: { ...state, selected: (state.selected + 1) % count, message: '' }, result: none };
-      case 'ArrowLeft': case 'ArrowRight': return { state: { ...state, mode: state.mode === 'save' ? 'load' : 'save', message: '' }, result: none };
-      case 's': case 'S': return { state: { ...state, mode: 'save', message: '' }, result: none };
-      case 'l': case 'L': return { state: { ...state, mode: 'load', message: '' }, result: none };
-      case 'Enter': case ' ': return activate(state, slots, state.selected);
-      default: return { state, result: none };
+      case 'ArrowUp':
+        return { state: { ...state, selected: (state.selected + count - 1) % count, message: '' }, result: none };
+      case 'ArrowDown':
+        return { state: { ...state, selected: (state.selected + 1) % count, message: '' }, result: none };
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        return { state: { ...state, mode: state.mode === 'save' ? 'load' : 'save', message: '' }, result: none };
+      case 's':
+      case 'S':
+        return { state: { ...state, mode: 'save', message: '' }, result: none };
+      case 'l':
+      case 'L':
+        return { state: { ...state, mode: 'load', message: '' }, result: none };
+      case 'Enter':
+      case ' ':
+        return activate(state, slots, state.selected);
+      default:
+        return { state, result: none };
     }
   }
   const tab = layout.tabs.find((t) => inside(t.rect, ev.x, ev.y));
@@ -126,7 +151,15 @@ const COLORS = {
   message: '#e0a040',
 };
 
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+): void {
   if (text === '') return;
   ctx.fillStyle = css;
   let gx = x;
@@ -160,7 +193,15 @@ export function drawSaveScreen(
   for (const t of layout.tabs) {
     ctx.fillStyle = t.mode === state.mode ? c.tabSelected : c.tab;
     ctx.fillRect(t.rect.x, t.rect.y, t.rect.width, t.rect.height);
-    drawText(ctx, font, t.label, t.rect.x + 2 * scale, t.rect.y + 2 * scale, scale, t.mode === state.mode ? c.text : c.dim);
+    drawText(
+      ctx,
+      font,
+      t.label,
+      t.rect.x + 2 * scale,
+      t.rect.y + 2 * scale,
+      scale,
+      t.mode === state.mode ? c.text : c.dim,
+    );
   }
   for (const r of layout.rows) {
     const info = slots[r.index];
@@ -173,5 +214,13 @@ export function drawSaveScreen(
     const dx = r.rect.x + 2 * scale + (measureString(font, 'Quick save (F5)') + 6) * scale;
     drawText(ctx, font, detail, dx, ty, scale, info.summary ? c.text : c.dim);
   }
-  drawText(ctx, font, state.message || 'Arrows choose, Enter uses the slot, Esc closes', layout.status.x, layout.status.y, scale, state.message ? c.message : c.dim);
+  drawText(
+    ctx,
+    font,
+    state.message || 'Arrows choose, Enter uses the slot, Esc closes',
+    layout.status.x,
+    layout.status.y,
+    scale,
+    state.message ? c.message : c.dim,
+  );
 }

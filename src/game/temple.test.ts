@@ -24,21 +24,51 @@ import {
   canTeleportAnywhere,
 } from './temple';
 
-const skill = (max: number, trueSkill: number): Skill => ({ max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false });
+const skill = (max: number, trueSkill: number): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 0,
+  modifier: 0,
+  selected: false,
+  unseenImprovement: false,
+});
 
-function character(index: number, over: Partial<Character['conditions']> = {}, items: Character['inventory']['items'] = []): Character {
+function character(
+  index: number,
+  over: Partial<Character['conditions']> = {},
+  items: Character['inventory']['items'] = [],
+): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(0, 0)])) as Character['skills'];
   skills.health = skill(50, 10);
   skills.stamina = skill(40, 5);
   return {
-    index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name: `C${index}`,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0, ...over },
-    affectors: [], inventory: { capacity: 8, items },
+    affectors: [],
+    inventory: { capacity: 8, items },
   };
 }
 
-const item = (itemIndex: number, modifiers = 0) => ({ itemIndex, conditionOrQuantity: 100, status: 0, modifiers, activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false });
+const item = (itemIndex: number, modifiers = 0) => ({
+  itemIndex,
+  conditionOrQuantity: 100,
+  status: 0,
+  modifiers,
+  activated: false,
+  used: false,
+  broken: false,
+  repairable: false,
+  equipped: false,
+  poisoned: false,
+});
 
 const party = (gold = 1000): PartyState => ({
   gold,
@@ -47,7 +77,13 @@ const party = (gold = 1000): PartyState => ({
   partyKeys: { capacity: 4, items: [] },
 });
 
-const world = (chapter = 1): WorldState => ({ chapter, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [] });
+const world = (chapter = 1): WorldState => ({
+  chapter,
+  ticks: 0,
+  ticksLastSlept: 0,
+  bytes: new Uint8Array(0x4000),
+  expiringEvents: [],
+});
 
 const ITEMS = [] as ItemDef[];
 ITEMS[1] = { index: 1, name: 'Sword', type: ItemType.Sword, value: 100 } as ItemDef;
@@ -55,8 +91,22 @@ ITEMS[2] = { index: 2, name: 'Mail', type: ItemType.Armor, value: 200 } as ItemD
 ITEMS[3] = { index: 3, name: 'Ration', type: ItemType.Ration, value: 1 } as ItemDef;
 
 const shop = (over: Partial<ShopStats> = {}): ShopStats => ({
-  templeNumber: 1, sellFactor: 3, maxDiscount: 20, buyFactor: 3, haggleDifficulty: 65, haggleAnnoyance: 2, bardingSkill: 0, bardingReward: 0,
-  bardingMaxReward: 0, unknown: 0, innSleepUntilHour: 0, innCost: 0, repairTypes: 0, repairFactor: 0, categories: 5, ...over,
+  templeNumber: 1,
+  sellFactor: 3,
+  maxDiscount: 20,
+  buyFactor: 3,
+  haggleDifficulty: 65,
+  haggleAnnoyance: 2,
+  bardingSkill: 0,
+  bardingReward: 0,
+  bardingMaxReward: 0,
+  unknown: 0,
+  innSleepUntilHour: 0,
+  innCost: 0,
+  repairTypes: 0,
+  repairFactor: 0,
+  categories: 5,
+  ...over,
 });
 
 describe('cure', () => {
@@ -110,7 +160,7 @@ describe('blessing', () => {
     expect(blessPrice({ value: 0 }, shop({ sellFactor: 0 }))).toBe(1);
   });
 
-  it('replaces an earlier blessing with the temple\'s level', () => {
+  it("replaces an earlier blessing with the temple's level", () => {
     expect(isBlessed({ modifiers: 0x21 })).toBe(true);
     expect(blessedModifiers(0x21, shop({ buyFactor: 3 }))).toBe(0x81);
     expect(blessedModifiers(0, shop({ buyFactor: 1 }))).toBe(0x20);

@@ -77,18 +77,26 @@ export function battleRewards(fighters: readonly Fighter[], history: readonly Ba
     if (f.side !== 'party') continue;
     const t = tally.get(f.id);
     if (!t) continue;
-    const bounty = t.slain.reduce((sum, id) => sum + Math.max(1, Math.trunc((fighters.find((v) => v.id === id)?.maxHealth ?? 0) / KILL_XP_DIVISOR)), 0);
+    const bounty = t.slain.reduce(
+      (sum, id) => sum + Math.max(1, Math.trunc((fighters.find((v) => v.id === id)?.maxHealth ?? 0) / KILL_XP_DIVISOR)),
+      0,
+    );
     const xp: Partial<Record<SkillName, number>> = {};
     // A kill's bounty goes to the skill the killer leaned on more.
     const caster = t.casts > 0 && t.meleeHits === 0 && t.rangedHits === 0;
     const shooter = t.rangedHits > t.meleeHits;
-    if (t.meleeHits > 0 || (bounty > 0 && !shooter && !caster)) xp.melee = t.meleeHits * XP_PER_HIT + (shooter || caster ? 0 : bounty);
+    if (t.meleeHits > 0 || (bounty > 0 && !shooter && !caster))
+      xp.melee = t.meleeHits * XP_PER_HIT + (shooter || caster ? 0 : bounty);
     if (t.rangedHits > 0) xp.crossbow = t.rangedHits * XP_PER_HIT + (shooter ? bounty : 0);
     if (t.casts > 0) xp.casting = t.casts * XP_PER_HIT + (caster ? bounty : 0);
     if (t.hitsTaken > 0) xp.defense = t.hitsTaken * XP_PER_HIT_TAKEN;
     if (Object.keys(xp).length === 0) continue;
     experience.set(f.id, xp);
-    lines.push(`${f.name} gains ${Object.entries(xp).map(([k, v]) => `${v} ${k}`).join(', ')} experience.`);
+    lines.push(
+      `${f.name} gains ${Object.entries(xp)
+        .map(([k, v]) => `${v} ${k}`)
+        .join(', ')} experience.`,
+    );
   }
   let royals = 0;
   for (const f of fighters) if (f.side === 'enemy' && f.health <= 0) royals += roll(0, Math.trunc(f.maxHealth / 4));

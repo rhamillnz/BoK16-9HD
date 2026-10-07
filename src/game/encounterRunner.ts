@@ -67,7 +67,11 @@ export const QUERY_YES = 0x100;
 export const QUERY_NO = 0x101;
 /** Fallback labels for query choices when KEYWORD.DAT is unavailable. */
 const QUERY_LABELS = new Map<number, string>([
-  [0x100, 'Yes'], [0x101, 'No'], [0x104, 'Accept'], [0x105, 'Decline'], [0x106, 'Haggle'],
+  [0x100, 'Yes'],
+  [0x101, 'No'],
+  [0x104, 'Accept'],
+  [0x105, 'Decline'],
+  [0x106, 'Haggle'],
 ]);
 
 // ---- Dialogue store --------------------------------------------------------
@@ -121,7 +125,9 @@ const MAX_ENCOUNTERS_PER_TILE = 10;
 const COMPLEX_EVENT_THRESHOLD = 0xdac0;
 
 export function uniqueEncounterFlag(zone: number, tileIndex: number, encounterIndex: number): number {
-  return (zone - 1) * ENCOUNTER_STATE_OFFSET + tileIndex * MAX_ENCOUNTERS_PER_TILE + encounterIndex + ENCOUNTER_STATE_OFFSET;
+  return (
+    (zone - 1) * ENCOUNTER_STATE_OFFSET + tileIndex * MAX_ENCOUNTERS_PER_TILE + encounterIndex + ENCOUNTER_STATE_OFFSET
+  );
 }
 
 function readBits(s: WorldState, ptr: number): number {
@@ -186,17 +192,22 @@ export function choiceValue(c: DialogChoice, s: WorldState, env: DialogEnv): num
     case 'gameState': {
       const hour = hourOfDay(s.ticks);
       switch (c.state) {
-        case GAME_STATE_CHAPTER: return s.chapter;
-        case GAME_STATE_NIGHT: return hour < 4 || hour >= 20 ? 1 : 0;
-        case GAME_STATE_DAY: return hour >= 4 && hour < 20 ? 1 : 0;
-        case GAME_STATE_HOUR: return hour;
-        default: return env.gameState?.(c.state) ?? scriptedState.read(c.state) ?? 0;
+        case GAME_STATE_CHAPTER:
+          return s.chapter;
+        case GAME_STATE_NIGHT:
+          return hour < 4 || hour >= 20 ? 1 : 0;
+        case GAME_STATE_DAY:
+          return hour >= 4 && hour < 20 ? 1 : 0;
+        case GAME_STATE_HOUR:
+          return hour;
+        default:
+          return env.gameState?.(c.state) ?? scriptedState.read(c.state) ?? 0;
       }
     }
     case 'inventory':
       return env.haveItem?.((c.state + 0x3cb0) & 0xffff) ? 1 : 0;
     case 'customState':
-      return env.customState?.((c.state & ~0x9c40) & 0xffff) ?? 0;
+      return env.customState?.(c.state & ~0x9c40 & 0xffff) ?? 0;
     case 'haveNote':
       return env.haveNote?.((c.state + 0x38c8) & 0xffff) ? 1 : 0;
     case 'castSpell':
@@ -322,9 +333,12 @@ export class DialogSession {
     const snip = this.current?.snippet;
     if (this.finished || !this.viewNow || !snip) return;
     this.lastChoice = value;
-    const hit = snip.choices.find((c) => (c.category === 'conversation' || c.category === 'query') && c.state === value);
+    const hit = snip.choices.find(
+      (c) => (c.category === 'conversation' || c.category === 'query') && c.state === value,
+    );
     if (hit) {
-      if (hit.category === 'conversation') this.world = setFlag(this.world, CONVERSATION_CHOICE_MARKED + hit.state, true);
+      if (hit.category === 'conversation')
+        this.world = setFlag(this.world, CONVERSATION_CHOICE_MARKED + hit.state, true);
       this.stack.push({ target: hit.target, file: this.current!.file });
     } else if (snip.choices.length > 1) {
       this.stack.pop(); // leave the question loop
@@ -355,14 +369,18 @@ export class DialogSession {
         const rnd = this.env.random ?? ((n: number) => Math.floor(Math.random() * n));
         return { target: snippet.choices[rnd(snippet.choices.length)]!.target, file: cur.file };
       }
-      for (const c of snippet.choices) if (evaluateChoice(c, this.world, this.choiceEnv)) return { target: c.target, file: cur.file };
+      for (const c of snippet.choices)
+        if (evaluateChoice(c, this.world, this.choiceEnv)) return { target: c.target, file: cur.file };
     }
     return this.stack.pop();
   }
 
   /** The env choices are tested against: the caller's, plus the skill check this dialogue loaded. */
   private get choiceEnv(): DialogEnv {
-    return { ...this.env, gameState: (id) => (id === GAME_STATE_SKILL_CHECK ? this.skillCheck : this.env.gameState?.(id) ?? 0) };
+    return {
+      ...this.env,
+      gameState: (id) => (id === GAME_STATE_SKILL_CHECK ? this.skillCheck : (this.env.gameState?.(id) ?? 0)),
+    };
   }
 
   private runActions(ref: SnippetRef): void {

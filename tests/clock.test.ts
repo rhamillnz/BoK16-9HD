@@ -3,7 +3,13 @@ import type { GamSave } from '../src/formats/gam';
 import { DEBUG_TIME_STEP, GameClock, WALK_TICKS_PER_SECOND } from '../src/game/clock';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, createWorldState } from '../src/game/state';
 
-const save = { chapter: 0, time: { ticks: 100 }, timeLastSlept: { ticks: 0 }, bytes: new Uint8Array(16), expiringEvents: [] } as unknown as GamSave;
+const save = {
+  chapter: 0,
+  time: { ticks: 100 },
+  timeLastSlept: { ticks: 0 },
+  bytes: new Uint8Array(16),
+  expiringEvents: [],
+} as unknown as GamSave;
 
 describe('GameClock', () => {
   it('starts the chapter at the next midnight plus the chapter time change', () => {

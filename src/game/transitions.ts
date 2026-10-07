@@ -44,7 +44,8 @@ export function destinationAt(
 ): Destination {
   return {
     zone,
-    tileX, tileY,
+    tileX,
+    tileY,
     x: tileX * TILE_SIZE + cellX * CELL_SIZE + CELL_SIZE / 2,
     y: tileY * TILE_SIZE + cellY * CELL_SIZE + CELL_SIZE / 2,
     heading: (heading16 >> 8) & 0xff,
@@ -102,6 +103,13 @@ export interface TransitionPlan {
 
 export function planTransition(currentZone: number, d: Destination): TransitionPlan {
   const zone = d.zone ?? currentZone;
-  return { reload: zone !== currentZone, zone, x: d.x, y: d.y, heading: d.heading, hotspot: d.hotspot, hotspotChar: d.hotspotChar };
+  return {
+    reload: zone !== currentZone,
+    zone,
+    x: d.x,
+    y: d.y,
+    heading: d.heading,
+    hotspot: d.hotspot,
+    hotspotChar: d.hotspotChar,
+  };
 }
-

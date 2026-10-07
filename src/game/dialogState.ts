@@ -31,14 +31,21 @@ export class ScriptedState {
   /** The value of a scripted state id, or undefined when this holder does not know it. */
   read(id: number): number | undefined {
     switch (id) {
-      case GAME_STATE_CONTEXT: return this.context;
+      case GAME_STATE_CONTEXT:
+        return this.context;
       // Original names: "Money" is whole sovereigns, "CantAfford" is true when money exceeds the price.
-      case GAME_STATE_MONEY: return Math.floor(this.gold / ROYALS_PER_SOVEREIGN);
-      case GAME_STATE_CAN_AFFORD: return this.gold > this.itemValue ? 1 : 0;
-      case GAME_STATE_ITEM_VALUE: return this.itemValue;
-      case GAME_STATE_CONTEXT2: return this.context2;
-      case GAME_STATE_SHOP: return this.shopType;
-      default: return undefined;
+      case GAME_STATE_MONEY:
+        return Math.floor(this.gold / ROYALS_PER_SOVEREIGN);
+      case GAME_STATE_CAN_AFFORD:
+        return this.gold > this.itemValue ? 1 : 0;
+      case GAME_STATE_ITEM_VALUE:
+        return this.itemValue;
+      case GAME_STATE_CONTEXT2:
+        return this.context2;
+      case GAME_STATE_SHOP:
+        return this.shopType;
+      default:
+        return undefined;
     }
   }
 

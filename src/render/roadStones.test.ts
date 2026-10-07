@@ -21,7 +21,9 @@ describe('roadStonePlacements', () => {
     }
   });
   it('respects the cap and the set of loaded models', () => {
-    expect(roadStonePlacements(points, flat, all, { ...opts, keep: 1, maxInstances: 30 }).length).toBeLessThanOrEqual(60);
+    expect(roadStonePlacements(points, flat, all, { ...opts, keep: 1, maxInstances: 30 }).length).toBeLessThanOrEqual(
+      60,
+    );
     expect(roadStonePlacements(points, flat, new Set(), opts)).toEqual([]);
     const some = roadStonePlacements(points, flat, new Set(['scatter_stone2']), opts);
     expect(some.every((p) => p.name === 'scatter_stone2')).toBe(true);

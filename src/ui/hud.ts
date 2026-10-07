@@ -5,11 +5,28 @@ import type { ItemDef } from '../formats/objinfo';
 import type { ZoneMap } from '../formats/zoneMap';
 import { partyCharacters } from './characterSheet';
 import { HUD_HEIGHT, HUD_WIDTH, type DialogResult } from './dialogBox';
-import { buildPartyBar, drawPartyBar, layoutPartyBar, type PartyBarLayout, type PartyBarMember, type PortraitSet } from './partyBar';
+import {
+  buildPartyBar,
+  drawPartyBar,
+  layoutPartyBar,
+  type PartyBarLayout,
+  type PartyBarMember,
+  type PortraitSet,
+} from './partyBar';
 import { drawCompass, layoutCompass, layoutMap, type CompassLayout, type MapLayout, type PartyPose } from './mapScreen';
 import './builtinScreens'; // registers the built-in screens
 import type { DialogScreen, TownScreen, TownView } from './builtinScreens';
-import { registeredHudScreens, registerHudScreen, type HudEvent, type HudHost, type HudScreen, type HudScreenFactory, type HudScreenHandler, type SaveHandler, type ItemHandler } from './hudRegistry';
+import {
+  registeredHudScreens,
+  registerHudScreen,
+  type HudEvent,
+  type HudHost,
+  type HudScreen,
+  type HudScreenFactory,
+  type HudScreenHandler,
+  type SaveHandler,
+  type ItemHandler,
+} from './hudRegistry';
 
 export { registerHudScreen, type HudHost, type HudScreen, type HudScreenHandler, type SaveHandler, type ItemHandler };
 export type { TownView };
@@ -56,7 +73,10 @@ export class HudScreens implements HudHost {
     this.compass = layoutCompass(width, height);
     this.party = partyCharacters(data.save);
     const members = buildPartyBar(data.save);
-    this.partyBar = { members, layout: layoutPartyBar(data.font, members.length, { canvasWidth: width, canvasHeight: height }) };
+    this.partyBar = {
+      members,
+      layout: layoutPartyBar(data.font, members.length, { canvasWidth: width, canvasHeight: height }),
+    };
     for (const [id, factory] of registeredHudScreens()) this.register(id, factory);
   }
 
@@ -86,9 +106,10 @@ export class HudScreens implements HudHost {
   setParty(party: Pick<GamSave, 'characters' | 'activeCharacters'>): void {
     this.party = partyCharacters(party);
     const members = buildPartyBar(party);
-    const layout = members.length === this.partyBar.members.length
-      ? this.partyBar.layout
-      : layoutPartyBar(this.data.font, members.length, { canvasWidth: this.width, canvasHeight: this.height });
+    const layout =
+      members.length === this.partyBar.members.length
+        ? this.partyBar.layout
+        : layoutPartyBar(this.data.font, members.length, { canvasWidth: this.width, canvasHeight: this.height });
     this.partyBar = { members, layout };
     this.dirty = true;
   }
@@ -97,7 +118,11 @@ export class HudScreens implements HudHost {
   setPose(pose: PartyPose): void {
     const old = this.pose;
     this.pose = pose;
-    if (Math.floor(pose.heading) !== Math.floor(old.heading) || (this.screen === 'map' && (pose.x !== old.x || pose.y !== old.y))) this.dirty = true;
+    if (
+      Math.floor(pose.heading) !== Math.floor(old.heading) ||
+      (this.screen === 'map' && (pose.x !== old.x || pose.y !== old.y))
+    )
+      this.dirty = true;
   }
 
   /** Set the zone's map (ZxxMAP.DAT); Tab opens it. */
@@ -241,7 +266,8 @@ export function mountHud(parent: HTMLElement, data: HudData): HudScreens {
   const canvas = document.createElement('canvas');
   canvas.width = screens.width;
   canvas.height = screens.height;
-  canvas.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:16/9;width:min(100vw,177.78vh);pointer-events:none;image-rendering:pixelated';
+  canvas.style.cssText =
+    'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:16/9;width:min(100vw,177.78vh);pointer-events:none;image-rendering:pixelated';
   parent.appendChild(canvas);
   const ctx = canvas.getContext('2d')!;
 
@@ -254,7 +280,10 @@ export function mountHud(parent: HTMLElement, data: HudData): HudScreens {
     if (screens.keyDown(e.code, e.key)) e.preventDefault();
   });
   window.addEventListener('mousemove', (e) => screens.blocking && screens.hover(...toCanvas(e)));
-  window.addEventListener('mousedown', (e) => screens.blocking && (e.button === 2 ? screens.rightClick(...toCanvas(e)) : screens.click(...toCanvas(e))));
+  window.addEventListener(
+    'mousedown',
+    (e) => screens.blocking && (e.button === 2 ? screens.rightClick(...toCanvas(e)) : screens.click(...toCanvas(e))),
+  );
   window.addEventListener('contextmenu', (e) => screens.blocking && e.preventDefault());
 
   const render = () => {

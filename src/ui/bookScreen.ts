@@ -24,8 +24,14 @@ const INK_ITALIC = '#6b3a1c';
 
 /** Pure drawing of one spread: background, illustrations, text. `sizeOf` gives an image's pixel size. */
 export function drawBookSpread(
-  ctx: CanvasRenderingContext2D, font: Font, layout: TownLayout, view: Pick<BookScreenView, 'background' | 'images'>,
-  spread: BookSpread | undefined, sizeOf: (img: CanvasImageSource) => { width: number; height: number }, canvasWidth: number, canvasHeight: number,
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: TownLayout,
+  view: Pick<BookScreenView, 'background' | 'images'>,
+  spread: BookSpread | undefined,
+  sizeOf: (img: CanvasImageSource) => { width: number; height: number },
+  canvasWidth: number,
+  canvasHeight: number,
 ): void {
   ctx.fillStyle = '#1a120a';
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -59,7 +65,7 @@ export function drawBookSpread(
     let row = 0;
     for (const line of spread.lines) {
       if (line.blankBefore) row++;
-      let gx = x0;
+      let gx = x0 + (line.indent ?? 0) * s;
       const gy = y0 + row * (font.height + 1) * s;
       for (const run of line.runs ?? [{ text: line.text, style: { italic: false } }]) {
         drawText(ctx, font, run.text, gx, gy, s, run.style.italic ? INK_ITALIC : INK);
@@ -133,7 +139,16 @@ export class BookScreen implements HudScreenHandler {
     const v = this.view;
     if (!v) return;
     const sizeOf = (img: CanvasImageSource) => img as unknown as { width: number; height: number };
-    drawBookSpread(ctx, this.host.font, this.layout, v, this.spreads[this.index], sizeOf, this.host.width, this.host.height);
+    drawBookSpread(
+      ctx,
+      this.host.font,
+      this.layout,
+      v,
+      this.spreads[this.index],
+      sizeOf,
+      this.host.width,
+      this.host.height,
+    );
   }
 }
 

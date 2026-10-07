@@ -125,7 +125,9 @@ export function createSky(scene: THREE.Scene): Sky {
     const sd = dot(dir, uSunDir);
     const sunQ = float(1).sub(sd); // ≈ θ²/2
     const sunDisc = float(1).sub(smoothstep(SUN_RADIUS * SUN_RADIUS * 0.4, SUN_RADIUS * SUN_RADIUS * 0.6, sunQ));
-    const sunGlow = pow(saturate(sd), 48).mul(0.6).add(pow(saturate(sd), 6).mul(0.08));
+    const sunGlow = pow(saturate(sd), 48)
+      .mul(0.6)
+      .add(pow(saturate(sd), 6).mul(0.08));
     col.addAssign(uSunColor.mul(sunDisc.mul(8).add(sunGlow)).mul(uSunVis));
 
     // Moon: pale disc with a faint halo.
@@ -139,7 +141,9 @@ export function createSky(scene: THREE.Scene): Sky {
     const cell = floor(dir.mul(220).add(512));
     const seed = cell.x.add(cell.y.mul(1031)).add(cell.z.mul(1049));
     const dot2 = float(1).sub(smoothstep(0.08, 0.28, length(fract(dir.mul(220)).sub(0.5))));
-    const star = step(0.9965, hash(seed)).mul(hash(seed.add(7)).mul(0.6).add(0.4)).mul(dot2);
+    const star = step(0.9965, hash(seed))
+      .mul(hash(seed.add(7)).mul(0.6).add(0.4))
+      .mul(dot2);
     const starMask = saturate(h.mul(3).add(0.2)).mul(uStars).mul(float(1).sub(moonDisc));
     col.addAssign(vec3(1).mul(star).mul(starMask));
 
@@ -216,12 +220,14 @@ export function createSky(scene: THREE.Scene): Sky {
     followShadow(x: number, y: number, z: number): void {
       if (underground) {
         torch.position.set(x, y, z);
-        torch.intensity = MINE_LOOK.torchIntensity * (magic ? MINE_LOOK.magicBoost : 1) * torchFlicker(performance.now() / 1000);
+        torch.intensity =
+          MINE_LOOK.torchIntensity * (magic ? MINE_LOOK.magicBoost : 1) * torchFlicker(performance.now() / 1000);
         return;
       }
       if (torch.visible && sunVis < 1) {
         torch.position.set(x, y + 2, z);
-        torch.intensity = MINE_LOOK.outdoorIntensity * outdoorMagicStrength(sunVis) * torchFlicker(performance.now() / 1000);
+        torch.intensity =
+          MINE_LOOK.outdoorIntensity * outdoorMagicStrength(sunVis) * torchFlicker(performance.now() / 1000);
       }
       // Snap the target to the shadow texel grid in light space.
       const texel = (2 * SHADOW_EXTENT) / SHADOW_MAP_SIZE;
@@ -234,7 +240,11 @@ export function createSky(scene: THREE.Scene): Sky {
       const pl = x * lightDir.x + y * lightDir.y + z * lightDir.z;
       const sx = Math.round(px / texel) * texel;
       const sy = Math.round(py / texel) * texel;
-      key.target.position.set(0, 0, 0).addScaledVector(shadowRight, sx).addScaledVector(shadowUp, sy).addScaledVector(lightDir, pl);
+      key.target.position
+        .set(0, 0, 0)
+        .addScaledVector(shadowRight, sx)
+        .addScaledVector(shadowUp, sy)
+        .addScaledVector(lightDir, pl);
       key.position.copy(lightDir).multiplyScalar(LIGHT_DISTANCE).add(key.target.position);
       key.target.updateMatrixWorld();
     },

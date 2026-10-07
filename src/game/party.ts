@@ -1,10 +1,4 @@
-import {
-  CONDITION_NAMES,
-  type Character,
-  type ConditionName,
-  type GamSave,
-  type InventoryItem,
-} from '../formats/gam';
+import { CONDITION_NAMES, type Character, type ConditionName, type GamSave, type InventoryItem } from '../formats/gam';
 
 /**
  * Mutable-by-replacement party state: money, characters and their inventories. Every function
@@ -60,13 +54,24 @@ function newItem(itemIndex: number, quantity: number, rule: ItemRule | undefined
   return {
     itemIndex,
     conditionOrQuantity: stackable ? Math.min(quantity, 255) : 100,
-    status: 0, modifiers: 0,
-    activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false,
+    status: 0,
+    modifiers: 0,
+    activated: false,
+    used: false,
+    broken: false,
+    repairable: false,
+    equipped: false,
+    poisoned: false,
   };
 }
 
 /** Add to an existing stack of the same item first, then into a free slot. Returns undefined when full. */
-export function addToCharacter(c: Character, itemIndex: number, quantity: number, rule: ItemRule | undefined): Character | undefined {
+export function addToCharacter(
+  c: Character,
+  itemIndex: number,
+  quantity: number,
+  rule: ItemRule | undefined,
+): Character | undefined {
   const stackSize = rule?.stackSize ?? 1;
   let left = quantity;
   const items = c.inventory.items.map((it) => {

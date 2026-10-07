@@ -66,7 +66,8 @@ export function hillTriangles(loops: readonly THREE.Vector3[][]): HillCorner[][]
     const face = indices[f]!;
     if (face.length < 3) return;
     // The original faces wind clockwise from outside: reverse each fan triangle.
-    for (let k = 1; k + 1 < loop.length; k++) out.push([corner(loop, face, 0), corner(loop, face, k + 1), corner(loop, face, k)]);
+    for (let k = 1; k + 1 < loop.length; k++)
+      out.push([corner(loop, face, 0), corner(loop, face, k + 1), corner(loop, face, k)]);
   });
   return out;
 }

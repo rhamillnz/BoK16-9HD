@@ -12,31 +12,101 @@ import { ailments, formatRoyals, installTemples, type TempleDeps } from './templ
 import type { TownScene } from './townScene';
 import { TownController, type DialogEnd } from './townController';
 
-const skill = (max: number, trueSkill: number): Skill => ({ max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false });
-function character(index: number, cond: Partial<Character['conditions']> = {}, items: Character['inventory']['items'] = []): Character {
+const skill = (max: number, trueSkill: number): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 0,
+  modifier: 0,
+  selected: false,
+  unseenImprovement: false,
+});
+function character(
+  index: number,
+  cond: Partial<Character['conditions']> = {},
+  items: Character['inventory']['items'] = [],
+): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(0, 0)])) as Character['skills'];
   skills.health = skill(50, 10);
   skills.stamina = skill(40, 5);
   return {
-    index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name: `C${index}`,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0, ...cond },
-    affectors: [], inventory: { capacity: 8, items },
+    affectors: [],
+    inventory: { capacity: 8, items },
   };
 }
-const sword = { itemIndex: 1, conditionOrQuantity: 100, status: 0, modifiers: 0, activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false };
+const sword = {
+  itemIndex: 1,
+  conditionOrQuantity: 100,
+  status: 0,
+  modifiers: 0,
+  activated: false,
+  used: false,
+  broken: false,
+  repairable: false,
+  equipped: false,
+  poisoned: false,
+};
 const items = [] as ItemDef[];
 items[1] = { index: 1, name: 'Sword', type: ItemType.Sword, value: 100 } as ItemDef;
 
 const shop: ShopStats = {
-  templeNumber: 1, sellFactor: 3, maxDiscount: 20, buyFactor: 3, haggleDifficulty: 65, haggleAnnoyance: 2, bardingSkill: 0, bardingReward: 0,
-  bardingMaxReward: 0, unknown: 0, innSleepUntilHour: 0, innCost: 0, repairTypes: 0, repairFactor: 0, categories: 5,
+  templeNumber: 1,
+  sellFactor: 3,
+  maxDiscount: 20,
+  buyFactor: 3,
+  haggleDifficulty: 65,
+  haggleAnnoyance: 2,
+  bardingSkill: 0,
+  bardingReward: 0,
+  bardingMaxReward: 0,
+  unknown: 0,
+  innSleepUntilHour: 0,
+  innCost: 0,
+  repairTypes: 0,
+  repairFactor: 0,
+  categories: 5,
 };
-const container = (number: number): ShopContainer => ({ ref: { number, letter: 'A' }, capacity: 0, items: [], stats: shop, address: 0 });
+const container = (number: number): ShopContainer => ({
+  ref: { number, letter: 'A' },
+  capacity: 0,
+  items: [],
+  stats: shop,
+  address: 0,
+});
 
-const hotspot = (action: number, arg3 = 0x1000): Hotspot => ({ index: 0, x: 0, y: 0, width: 1, height: 1, chapterMask: 0, keyword: 0, action, unknownD: 0, arg1: 0, arg2: 0, arg3, tooltip: 0, dialog: 0, checkEventState: 0 }) as unknown as Hotspot;
+const hotspot = (action: number, arg3 = 0x1000): Hotspot =>
+  ({
+    index: 0,
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+    chapterMask: 0,
+    keyword: 0,
+    action,
+    unknownD: 0,
+    arg1: 0,
+    arg2: 0,
+    arg3,
+    tooltip: 0,
+    dialog: 0,
+    checkEventState: 0,
+  }) as unknown as Hotspot;
 const sceneOf = (number: number, templeIndex: number, hotspots: Hotspot[]): TownScene =>
-  ({ ref: { number, letter: 'A' }, gds: { templeIndex, hotspots }, image: { width: 1, height: 1, rgba: new Uint8ClampedArray(4) } }) as unknown as TownScene;
+  ({
+    ref: { number, letter: 'A' },
+    gds: { templeIndex, hotspots },
+    image: { width: 1, height: 1, rgba: new Uint8ClampedArray(4) },
+  }) as unknown as TownScene;
 
 interface Harness {
   town: TownController;
@@ -49,28 +119,59 @@ interface Harness {
 }
 
 function harness(scene: TownScene, party: PartyState, layout?: ReqLayout): Harness {
-  const state = { party, world: { chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [] } as WorldState, travelled: [] as number[] };
+  const state = {
+    party,
+    world: { chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [] } as WorldState,
+    travelled: [] as number[],
+  };
   const menus: MenuModel[] = [];
   const dialogs: number[] = [];
   const script: (DialogEnd | undefined)[] = [];
   let onPick: (id: string) => void = () => {};
   let onCancel: () => void = () => {};
   const town = new TownController({
-    load: async () => scene, show: () => {}, hide: () => {}, playDialog: () => {}, activeHotspots: (s) => s.gds.hotspots, left: () => {},
+    load: async () => scene,
+    show: () => {},
+    hide: () => {},
+    playDialog: () => {},
+    activeHotspots: (s) => s.gds.hotspots,
+    left: () => {},
   });
   const deps: TempleDeps = {
-    menu: { show: (m, p, c) => { menus.push(m); onPick = p; onCancel = c; }, close: () => {} },
-    playDialog: (key, done) => { dialogs.push(key); done(script.shift() ?? { cancelled: false, endState: 0 }); },
-    getParty: () => state.party, setParty: (p) => { state.party = p; },
-    getWorld: () => state.world, setWorld: (w) => { state.world = w; },
-    items, containers: () => [container(scene.ref.number)], teleportLayout: layout, travel: (i) => state.travelled.push(i),
+    menu: {
+      show: (m, p, c) => {
+        menus.push(m);
+        onPick = p;
+        onCancel = c;
+      },
+      close: () => {},
+    },
+    playDialog: (key, done) => {
+      dialogs.push(key);
+      done(script.shift() ?? { cancelled: false, endState: 0 });
+    },
+    getParty: () => state.party,
+    setParty: (p) => {
+      state.party = p;
+    },
+    getWorld: () => state.world,
+    setWorld: (w) => {
+      state.world = w;
+    },
+    items,
+    containers: () => [container(scene.ref.number)],
+    teleportLayout: layout,
+    travel: (i) => state.travelled.push(i),
   };
   installTemples(town, deps);
   return { town, menus, pick: (id) => onPick(id), cancel: () => onCancel(), dialogs, state, script };
 }
 
 const poorParty = (): PartyState => ({
-  gold: 1000, characters: [character(0, { sick: 20 }, [{ ...sword }]), character(1)], activeCharacters: [0, 1], partyKeys: { capacity: 4, items: [] },
+  gold: 1000,
+  characters: [character(0, { sick: 20 }, [{ ...sword }]), character(1)],
+  activeCharacters: [0, 1],
+  partyKeys: { capacity: 4, items: [] },
 });
 
 describe('temple hotspot', () => {

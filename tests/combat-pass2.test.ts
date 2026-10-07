@@ -8,12 +8,31 @@ import { ItemType, type ItemDef } from '../src/formats/objinfo';
 import type { PartyState } from '../src/game/party';
 
 const bolt = (over: Partial<WeaponStats> = {}): WeaponStats => ({
-  strengthSwing: 0, strengthThrust: 10, accuracySwing: 0, accuracyThrust: 10, condition: 100, race: RaceKind.None, ...over,
+  strengthSwing: 0,
+  strengthThrust: 10,
+  accuracySwing: 0,
+  accuracyThrust: 10,
+  condition: 100,
+  race: RaceKind.None,
+  ...over,
 });
 const fighter = (id: string, side: 'party' | 'enemy', x: number, y: number, over: Partial<Fighter> = {}): Fighter => ({
-  id, side, name: id, monster: 0, pos: { x, y }, facing: Direction.North,
-  health: 20, maxHealth: 20, stamina: 10, maxStamina: 10,
-  speed: 5, strength: 8, defense: 0, melee: 90, race: RaceKind.None, ...over,
+  id,
+  side,
+  name: id,
+  monster: 0,
+  pos: { x, y },
+  facing: Direction.North,
+  health: 20,
+  maxHealth: 20,
+  stamina: 10,
+  maxStamina: 10,
+  speed: 5,
+  strength: 8,
+  defense: 0,
+  melee: 90,
+  race: RaceKind.None,
+  ...over,
 });
 const low = (lo: number) => lo;
 const high = (_: number, hi: number) => hi;
@@ -49,14 +68,20 @@ describe('shoot', () => {
     const far = startBattle([shooter(), fighter('x', 'enemy', 3, 1 + RANGED_RANGE + 1, { speed: 1 })]);
     expect(shootTargets(far)).toHaveLength(0);
     expect(shoot(far, { x: 3, y: 10 }, low)).toBeUndefined();
-    const broken = startBattle([{ ...shooter(), ranged: { crossbow: 80, weapon: bolt({ condition: 0 }) } }, fighter('x', 'enemy', 3, 7, { speed: 1 })]);
+    const broken = startBattle([
+      { ...shooter(), ranged: { crossbow: 80, weapon: bolt({ condition: 0 }) } },
+      fighter('x', 'enemy', 3, 7, { speed: 1 }),
+    ]);
     expect(shootTargets(broken)).toHaveLength(0);
   });
 });
 
 describe('enemy AI', () => {
   it('shoots when it can shoot and nobody is next to it', () => {
-    const s = startBattle([fighter('a', 'party', 3, 1, { speed: 1 }), fighter('x', 'enemy', 3, 8, { speed: 9, ranged: { crossbow: 90, weapon: bolt() } })]);
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { speed: 1 }),
+      fighter('x', 'enemy', 3, 8, { speed: 9, ranged: { crossbow: 90, weapon: bolt() } }),
+    ]);
     expect(enemyTurn(rest(s)!, low).events[0]).toMatchObject({ type: 'shoot', attacker: 'x' });
   });
 
@@ -71,14 +96,23 @@ describe('enemy AI', () => {
   });
 
   it('defends when badly hurt with a foe adjacent', () => {
-    const s = startBattle([fighter('a', 'party', 3, 2, { speed: 1 }), fighter('x', 'enemy', 3, 3, { speed: 9, health: 4 })]);
+    const s = startBattle([
+      fighter('a', 'party', 3, 2, { speed: 1 }),
+      fighter('x', 'enemy', 3, 3, { speed: 9, health: 4 }),
+    ]);
     expect(enemyTurn(rest(s)!, low).events[0]).toMatchObject({ type: 'defend', id: 'x' });
   });
 
   it('slashes when adjacent with stamina to spare, otherwise thrusts', () => {
-    const adj = startBattle([fighter('a', 'party', 3, 2, { speed: 1 }), fighter('x', 'enemy', 3, 3, { speed: 9, stamina: 10 })]);
+    const adj = startBattle([
+      fighter('a', 'party', 3, 2, { speed: 1 }),
+      fighter('x', 'enemy', 3, 3, { speed: 9, stamina: 10 }),
+    ]);
     expect(enemyTurn(rest(adj)!, low).events.find((e) => e.type === 'attack')).toMatchObject({ kind: 'slash' });
-    const tired = startBattle([fighter('a', 'party', 3, 2, { speed: 1 }), fighter('x', 'enemy', 3, 3, { speed: 9, stamina: 2 })]);
+    const tired = startBattle([
+      fighter('a', 'party', 3, 2, { speed: 1 }),
+      fighter('x', 'enemy', 3, 3, { speed: 9, stamina: 2 }),
+    ]);
     expect(enemyTurn(rest(tired)!, low).events.find((e) => e.type === 'attack')).toMatchObject({ kind: 'thrust' });
   });
 });
@@ -108,8 +142,20 @@ describe('rewards', () => {
   });
 
   it('adds experience and royals to the party', () => {
-    const skill = { max: 50, trueSkill: 50, current: 50, experience: 3, modifier: 0, selected: false, unseenImprovement: false };
-    const party = { gold: 7, characters: [{ index: 0, skills: { crossbow: skill } }], activeCharacters: [0] } as unknown as PartyState;
+    const skill = {
+      max: 50,
+      trueSkill: 50,
+      current: 50,
+      experience: 3,
+      modifier: 0,
+      selected: false,
+      unseenImprovement: false,
+    };
+    const party = {
+      gold: 7,
+      characters: [{ index: 0, skills: { crossbow: skill } }],
+      activeCharacters: [0],
+    } as unknown as PartyState;
     const next = applyRewards(party, { experience: new Map([['party0', { crossbow: 6 }]]), royals: 5, lines: [] });
     expect(next.gold).toBe(12);
     expect(next.characters[0]!.skills.crossbow.experience).toBe(9);
@@ -117,9 +163,28 @@ describe('rewards', () => {
 });
 
 describe('wear', () => {
-  const def = (type: number, over: Partial<ItemDef> = {}) => ({ type, dullChance: 100, maxDullAmount: 4, ...over }) as ItemDef;
-  const item = (itemIndex: number, over = {}) => ({ itemIndex, conditionOrQuantity: 90, status: 0, modifiers: 0, activated: false, used: false, broken: false, repairable: false, equipped: true, poisoned: false, ...over });
-  const party = { gold: 0, activeCharacters: [0], characters: [{ index: 0, inventory: { capacity: 8, items: [item(0), item(1), item(2, { conditionOrQuantity: 5 })] } }] } as unknown as PartyState;
+  const def = (type: number, over: Partial<ItemDef> = {}) =>
+    ({ type, dullChance: 100, maxDullAmount: 4, ...over }) as ItemDef;
+  const item = (itemIndex: number, over = {}) => ({
+    itemIndex,
+    conditionOrQuantity: 90,
+    status: 0,
+    modifiers: 0,
+    activated: false,
+    used: false,
+    broken: false,
+    repairable: false,
+    equipped: true,
+    poisoned: false,
+    ...over,
+  });
+  const party = {
+    gold: 0,
+    activeCharacters: [0],
+    characters: [
+      { index: 0, inventory: { capacity: 8, items: [item(0), item(1), item(2, { conditionOrQuantity: 5 })] } },
+    ],
+  } as unknown as PartyState;
   const defs = [def(ItemType.Sword), def(ItemType.Armor), def(ItemType.Crossbow)];
 
   it('dulls the weapon per hit landed and wears armour per two hits taken', () => {
@@ -137,7 +202,15 @@ describe('wear', () => {
   });
 
   it('breaks a weapon dulled to nothing', () => {
-    const history = Array.from({ length: 3 }, () => ({ type: 'shoot', attacker: 'party0', target: 'e', hit: true, damage: 1, killed: false, distance: 1 })) as never[];
+    const history = Array.from({ length: 3 }, () => ({
+      type: 'shoot',
+      attacker: 'party0',
+      target: 'e',
+      hit: true,
+      damage: 1,
+      killed: false,
+      distance: 1,
+    })) as never[];
     const next = applyWear(party, history, defs, high);
     expect(next.characters[0]!.inventory.items[2]).toMatchObject({ conditionOrQuantity: 0, broken: true });
   });

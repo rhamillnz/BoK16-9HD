@@ -34,7 +34,8 @@ export function keyItemForLock(rating: number): number | undefined {
   return n === undefined ? undefined : KEY_ITEM_BASE + n;
 }
 
-export const isKeyItem = (itemIndex: number): boolean => itemIndex > KEY_ITEM_BASE && itemIndex <= KEY_ITEM_BASE + LOCK_RATINGS.length - 1;
+export const isKeyItem = (itemIndex: number): boolean =>
+  itemIndex > KEY_ITEM_BASE && itemIndex <= KEY_ITEM_BASE + LOCK_RATINGS.length - 1;
 
 /** The rating a key was cut for. */
 function keyRating(itemIndex: number): number {
@@ -93,14 +94,18 @@ export interface LockAttemptResult {
  */
 export function attemptLock(itemIndex: number, skill: number, rating: number, roll: () => number): LockAttemptResult {
   if (itemIndex === ITEM_PICKLOCK) {
-    if (canPickLock(skill, rating)) return { attempt: { kind: 'opened', with: 'picklock' }, unlocked: true, learned: true };
+    if (canPickLock(skill, rating))
+      return { attempt: { kind: 'opened', with: 'picklock' }, unlocked: true, learned: true };
     const learned = roll() < PICKLOCK_LEARN_CHANCE;
-    if (roll() < picklockBreakChance(skill, rating)) return { attempt: { kind: 'broke', item: itemIndex }, unlocked: false, consumed: itemIndex, learned };
+    if (roll() < picklockBreakChance(skill, rating))
+      return { attempt: { kind: 'broke', item: itemIndex }, unlocked: false, consumed: itemIndex, learned };
     return { attempt: { kind: 'failed' }, unlocked: false, learned };
   }
   if (!isKeyItem(itemIndex)) return { attempt: { kind: 'nothing' }, unlocked: false, learned: false };
-  if (keyOpensLock(itemIndex, rating)) return { attempt: { kind: 'opened', with: 'key' }, unlocked: true, learned: false };
-  if (roll() < keyBreakChance(itemIndex, skill)) return { attempt: { kind: 'broke', item: itemIndex }, unlocked: false, consumed: itemIndex, learned: false };
+  if (keyOpensLock(itemIndex, rating))
+    return { attempt: { kind: 'opened', with: 'key' }, unlocked: true, learned: false };
+  if (roll() < keyBreakChance(itemIndex, skill))
+    return { attempt: { kind: 'broke', item: itemIndex }, unlocked: false, consumed: itemIndex, learned: false };
   return { attempt: { kind: 'failed' }, unlocked: false, learned: false };
 }
 

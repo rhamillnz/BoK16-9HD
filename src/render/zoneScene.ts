@@ -1,6 +1,16 @@
 import * as THREE from 'three/webgpu';
 import { chunkBillboards } from './cullMath';
-import { Fn, attribute, cameraPosition, cross, float, instancedBufferAttribute, normalize, positionLocal, vec3 } from 'three/tsl';
+import {
+  Fn,
+  attribute,
+  cameraPosition,
+  cross,
+  float,
+  instancedBufferAttribute,
+  normalize,
+  positionLocal,
+  vec3,
+} from 'three/tsl';
 import { toRGBA, type IndexedImage } from '../formats/bmx';
 import { Terrain } from '../formats/scx';
 import { EF_2D_OBJECT, type Face, type Model } from '../formats/tbl';
@@ -43,9 +53,7 @@ const MAT_TEXTURE = new Set([0x90, 0x91, 0xd1, 0x11]);
 const MAT_TERRAIN = 0xc1;
 
 type FaceMaterial =
-  | { kind: 'color'; index: number }
-  | { kind: 'terrain'; strip: number }
-  | { kind: 'slot'; image: number };
+  { kind: 'color'; index: number } | { kind: 'terrain'; strip: number } | { kind: 'slot'; image: number };
 
 /** Mirrors the original engine's per-model rules for which faces use terrain/slot textures. */
 export function classifyFace(model: Model, face: Face): FaceMaterial {
@@ -53,12 +61,19 @@ export function classifyFace(model: Model, face: Face): FaceMaterial {
   const c = face.color;
   const color = { kind: 'color', index: c } as const;
   const terrain = (strip: number) => ({ kind: 'terrain', strip }) as const;
-  if (n.startsWith('t0')) return c === 1 ? terrain(Terrain.Road) : c === 2 ? terrain(Terrain.Path) : c === 3 ? terrain(Terrain.River) : color;
+  if (n.startsWith('t0'))
+    return c === 1 ? terrain(Terrain.Road) : c === 2 ? terrain(Terrain.Path) : c === 3 ? terrain(Terrain.River) : color;
   if (n.startsWith('r0')) return c === 3 ? terrain(Terrain.River) : c === 5 ? terrain(Terrain.Bank) : color;
   if (n.startsWith('g0')) return c === 0 ? terrain(Terrain.Ground) : c === 5 ? terrain(Terrain.River) : color;
   if (n.startsWith('field')) return c === 2 ? terrain(Terrain.Bank) : terrain(Terrain.Dirt);
   if (n.startsWith('fall') || n.startsWith('spring')) {
-    return c === 3 ? terrain(Terrain.River) : c === 5 ? terrain(Terrain.Bank) : c === 6 ? terrain(Terrain.Waterfall) : color;
+    return c === 3
+      ? terrain(Terrain.River)
+      : c === 5
+        ? terrain(Terrain.Bank)
+        : c === 6
+          ? terrain(Terrain.Waterfall)
+          : color;
   }
   if (face.material === MAT_TERRAIN) return terrain(Math.min(7, c));
   if (MAT_TEXTURE.has(face.material)) return { kind: 'slot', image: c };
@@ -69,7 +84,8 @@ function decalLift(model: Model): number {
   const n = model.name;
   if (n === 'ground' || n.startsWith('g0')) return DECAL_LIFT.ground;
   if (n.startsWith('field')) return DECAL_LIFT.field;
-  if (n.startsWith('t0') || n.startsWith('r0') || n.startsWith('fall') || n.startsWith('spring')) return DECAL_LIFT.road;
+  if (n.startsWith('t0') || n.startsWith('r0') || n.startsWith('fall') || n.startsWith('spring'))
+    return DECAL_LIFT.road;
   return 0;
 }
 
@@ -136,7 +152,7 @@ function tileableTerrain(strip: IndexedImage, seed: number): IndexedImage {
   const pool: number[] = [];
   for (let y = y0; y < y1; y++) for (let x = 0; x < strip.width; x++) pool.push(strip.pixels[y * strip.width + x]!);
   let s = seed * 9301 + 49297;
-  const rand = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  const rand = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const pixels = new Uint8Array(size * size);
   for (let i = 0; i < pixels.length; i++) pixels[i] = pool[Math.floor(rand() * pool.length)] ?? 0;
   return { width: size, height: size, pixels };
@@ -193,7 +209,14 @@ export function createBillboards(map: THREE.Texture, data: number[], name: strin
 export interface ZoneScene {
   group: THREE.Group;
   collision: CollisionPolygon[];
-  stats: { items: number; meshItems: number; sprites: number; overridden: number; triangles: number; drawCalls: number };
+  stats: {
+    items: number;
+    meshItems: number;
+    sprites: number;
+    overridden: number;
+    triangles: number;
+    drawCalls: number;
+  };
 }
 
 /** Indices of slot images the zone actually draws (billboards and textured faces). */
@@ -203,10 +226,11 @@ export function usedSlotImages(zone: ZoneData): number[] {
     const model = zone.table.models[item.type];
     if (!model) continue;
     if (model.sprite) used.add(model.sprite.index);
-    else for (const face of model.faces) {
-      const m = classifyFace(model, face);
-      if (m.kind === 'slot') used.add(m.image);
-    }
+    else
+      for (const face of model.faces) {
+        const m = classifyFace(model, face);
+        if (m.kind === 'slot') used.add(m.image);
+      }
   }
   return [...used].filter((i) => zone.slotImages[i]);
 }
@@ -296,7 +320,14 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
       const faces = model.faces.filter((f) => f.indices.length >= 3);
       const loops = faces.map((f) => f.indices.map((i) => world(i, new THREE.Vector3())));
       const faceOfTriangle = faces.flatMap((f, fi) => Array.from({ length: f.indices.length - 2 }, () => fi));
-      const colours = faces.map((f) => new THREE.Color().setRGB(palette[f.color * 4]! / 255, palette[f.color * 4 + 1]! / 255, palette[f.color * 4 + 2]! / 255, THREE.SRGBColorSpace));
+      const colours = faces.map((f) =>
+        new THREE.Color().setRGB(
+          palette[f.color * 4]! / 255,
+          palette[f.color * 4 + 1]! / 255,
+          palette[f.color * 4 + 2]! / 255,
+          THREE.SRGBColorSpace,
+        ),
+      );
       const detail = detailedHill(item, loops);
       for (const x of detail.positions) hillBatch.positions.push(x);
       for (const x of detail.normals) hillBatch.normals.push(x);
@@ -313,10 +344,26 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
       const batch = batchFor(mat);
       const loop = face.indices.map((i) => world(i, new THREE.Vector3()));
       n.subVectors(loop[1]!, loop[0]!).cross(c.subVectors(loop[2]!, loop[0]!)).normalize();
-      const rgb = mat.kind === 'color' ? new THREE.Color().setRGB(palette[face.color * 4]! / 255, palette[face.color * 4 + 1]! / 255, palette[face.color * 4 + 2]! / 255, THREE.SRGBColorSpace) : null;
+      const rgb =
+        mat.kind === 'color'
+          ? new THREE.Color().setRGB(
+              palette[face.color * 4]! / 255,
+              palette[face.color * 4 + 1]! / 255,
+              palette[face.color * 4 + 2]! / 255,
+              THREE.SRGBColorSpace,
+            )
+          : null;
       // Slot textures stretch over the face's first four corners, as in the original.
-      const corner = [[0, 0], [1, 0], [1, 1], [0, 1]] as const;
-      const across = mat.kind === 'terrain' && (mat.strip === Terrain.Road || mat.strip === Terrain.Path) ? stripAcross(loop) : undefined;
+      const corner = [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [0, 1],
+      ] as const;
+      const across =
+        mat.kind === 'terrain' && (mat.strip === Terrain.Road || mat.strip === Terrain.Path)
+          ? stripAcross(loop)
+          : undefined;
       for (let k = 1; k + 1 < loop.length; k++) {
         for (const idx of [0, k, k + 1]) {
           const p = loop[idx]!;
@@ -349,22 +396,32 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
     drawCalls++;
   };
 
-  addMesh(colorBatch, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, side: THREE.DoubleSide }), 'flat');
+  addMesh(
+    colorBatch,
+    new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, side: THREE.DoubleSide }),
+    'flat',
+  );
   addMesh(hillBatch, createHillMaterial(), 'hills');
   for (const [strip, batch] of terrainBatches) {
     const src = zone.terrain[strip];
     if (!src) continue;
     const map = imageTexture(tileableTerrain(src, strip + 1), palette, true);
     const material =
-      strip === Terrain.Road ? createRoadMaterial(map, ROAD_STYLE)
-      : strip === Terrain.Path ? createRoadMaterial(map, PATH_STYLE)
-      : createTerrainMaterial(map, strip);
+      strip === Terrain.Road
+        ? createRoadMaterial(map, ROAD_STYLE)
+        : strip === Terrain.Path
+          ? createRoadMaterial(map, PATH_STYLE)
+          : createTerrainMaterial(map, strip);
     addMesh(batch, material, `terrain${strip}`);
   }
   for (const [image, batch] of slotBatches) {
     const src = slotImages[image];
     const map = overrides?.slotTextures.get(image) ?? (src ? imageTexture(src, palette, false) : null);
-    addMesh(batch, new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.9, side: THREE.DoubleSide }), `slot${image}`);
+    addMesh(
+      batch,
+      new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.9, side: THREE.DoubleSide }),
+      `slot${image}`,
+    );
   }
   for (const [index, data] of billboards) {
     const img = slotImages[index]!;
@@ -397,9 +454,21 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
   }
 
   // Terrain pieces (entity flags without EF_2D_OBJECT) are floor, not obstacles.
-  const clips = table.clips.map((clip, i) => (table.models[i] && table.models[i]!.flags & EF_2D_OBJECT ? clip : undefined));
+  const clips = table.clips.map((clip, i) =>
+    table.models[i] && table.models[i]!.flags & EF_2D_OBJECT ? clip : undefined,
+  );
   const scales = table.models.map((m) => m?.scale ?? 1);
   const collision = buildCollisionPolygons(items, clips, {}, scales);
+
+  if (zone.zone >= 10 && zone.zone <= 12) {
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(2000, 2000),
+      new THREE.MeshStandardMaterial({ color: 0x221a11, roughness: 1, side: THREE.DoubleSide }),
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    group.add(floor);
+  }
 
   return { group, collision, stats: { items: items.length, meshItems, sprites, overridden, triangles, drawCalls } };
 }
@@ -426,10 +495,14 @@ export function collectTerrainTriangles(zone: ZoneData): number[] {
     };
     if (isHillModel(model.name)) {
       // Walk on the same sculpted surface that is drawn (render space back to BaK units).
-      const toRender = (p: readonly [number, number, number]) => new THREE.Vector3(p[0] / WORLD_SCALE, p[2] / WORLD_SCALE, -p[1] / WORLD_SCALE);
-      const loops = model.faces.filter((f) => f.indices.length >= 3).map((f) => f.indices.map((i) => toRender(world(i))));
+      const toRender = (p: readonly [number, number, number]) =>
+        new THREE.Vector3(p[0] / WORLD_SCALE, p[2] / WORLD_SCALE, -p[1] / WORLD_SCALE);
+      const loops = model.faces
+        .filter((f) => f.indices.length >= 3)
+        .map((f) => f.indices.map((i) => toRender(world(i))));
       const r = detailedHill(item, loops).positions;
-      for (let i = 0; i < r.length; i += 3) out.push(r[i]! * WORLD_SCALE, -r[i + 2]! * WORLD_SCALE, r[i + 1]! * WORLD_SCALE);
+      for (let i = 0; i < r.length; i += 3)
+        out.push(r[i]! * WORLD_SCALE, -r[i + 2]! * WORLD_SCALE, r[i + 1]! * WORLD_SCALE);
       continue;
     }
     for (const face of model.faces) {

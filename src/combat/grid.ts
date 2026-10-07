@@ -58,7 +58,7 @@ export function oppositeDirection(d: Direction): Direction {
 
 /** 8-bit heading (0 = north, 128 = south) to the nearest of the 8 directions. */
 export function headingToDirection(heading: number): Direction {
-  return (Math.floor((((heading & 0xff) + 144) % 256) / 32)) as Direction;
+  return Math.floor((((heading & 0xff) + 144) % 256) / 32) as Direction;
 }
 
 export function directionToHeading(d: Direction): number {
@@ -90,7 +90,7 @@ export function samePos(a: GridPos, b: GridPos): boolean {
 
 /** Heading snapped to the nearest `snap` units (BaKGL snaps combat orientation to 64, a quarter turn). */
 export function snapHeading(heading: number, snap = 64): number {
-  return Math.floor(((heading & 0xff) + snap / 2) / snap) * snap & 0xff;
+  return (Math.floor(((heading & 0xff) + snap / 2) / snap) * snap) & 0xff;
 }
 
 function rotate(x: number, y: number, heading: number): { x: number; y: number } {
@@ -344,4 +344,3 @@ export function planAttack(
   if (opts.maxSteps !== undefined && moves.length > opts.maxSteps) return undefined;
   return { moves, attack: { target, type: opts.slash ? 'slash' : 'thrust' } };
 }
-

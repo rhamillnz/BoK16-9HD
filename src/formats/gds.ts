@@ -113,11 +113,22 @@ export function parseGds(bytes: Uint8Array): GdsScene {
       checkEventState: r.u16(),
     });
   }
-  return { resource, ttm: `${resource}.TTM`, ads: `${resource}.ADS`, templeIndex, song, sceneIndex1, sceneIndex2, flavourText, hotspots };
+  return {
+    resource,
+    ttm: `${resource}.TTM`,
+    ads: `${resource}.ADS`,
+    templeIndex,
+    song,
+    sceneIndex1,
+    sceneIndex2,
+    flavourText,
+    hotspots,
+  };
 }
 
 /** Temple number of a scene, or undefined when it is not a temple. */
-export const templeNumber = (s: GdsScene): number | undefined => (s.templeIndex & 0x80 ? s.templeIndex & 0x7f : undefined);
+export const templeNumber = (s: GdsScene): number | undefined =>
+  s.templeIndex & 0x80 ? s.templeIndex & 0x7f : undefined;
 
 /** `GDS` scene letter for an index: 0 and 1 are both 'A', then B, C... (BaKGL `MakeHotspotChar`). */
 export function gdsLetter(n: number): string {

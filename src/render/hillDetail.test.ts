@@ -6,7 +6,12 @@ const c = (id: number, x: number, y: number, z: number, n = up): HillCorner => (
 
 // A square pyramid: apex 5 up, base corners on the ground. Counter-clockwise from outside.
 const apex = c(0, 0, 8, 0, [0, 1, 0]);
-const base = [c(1, -10, 0, -10, [-0.6, 0.5, -0.6]), c(2, 10, 0, -10, [0.6, 0.5, -0.6]), c(3, 10, 0, 10, [0.6, 0.5, 0.6]), c(4, -10, 0, 10, [-0.6, 0.5, 0.6])];
+const base = [
+  c(1, -10, 0, -10, [-0.6, 0.5, -0.6]),
+  c(2, 10, 0, -10, [0.6, 0.5, -0.6]),
+  c(3, 10, 0, 10, [0.6, 0.5, 0.6]),
+  c(4, -10, 0, 10, [-0.6, 0.5, 0.6]),
+];
 const pyramid: HillCorner[][] = [0, 1, 2, 3].map((i) => [apex, base[(i + 1) % 4]!, base[i]!]);
 
 const key = (x: number, y: number, z: number) => `${x.toFixed(6)},${y.toFixed(6)},${z.toFixed(6)}`;
@@ -23,7 +28,9 @@ describe('detailHill', () => {
   it('leaves no cracks: every edge is shared by exactly two triangles (closed surface apart from the base)', () => {
     const edges = new Map<string, number>();
     for (let t = 0; t < d.positions.length; t += 9) {
-      const v = [0, 1, 2].map((k) => key(d.positions[t + k * 3]!, d.positions[t + k * 3 + 1]!, d.positions[t + k * 3 + 2]!));
+      const v = [0, 1, 2].map((k) =>
+        key(d.positions[t + k * 3]!, d.positions[t + k * 3 + 1]!, d.positions[t + k * 3 + 2]!),
+      );
       for (let k = 0; k < 3; k++) {
         const e = [v[k]!, v[(k + 1) % 3]!].sort().join('|');
         edges.set(e, (edges.get(e) ?? 0) + 1);
@@ -43,7 +50,8 @@ describe('detailHill', () => {
   it('keeps faces pointing outwards', () => {
     let outward = 0;
     for (let i = 0; i < d.normals.length; i += 3) {
-      const px = d.positions[i]!, pz = d.positions[i + 2]!;
+      const px = d.positions[i]!,
+        pz = d.positions[i + 2]!;
       if (d.normals[i]! * px + d.normals[i + 2]! * pz + d.normals[i + 1]! > 0) outward++;
     }
     expect(outward / (d.normals.length / 3)).toBeGreaterThan(0.95);

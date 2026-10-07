@@ -2,7 +2,15 @@ import * as THREE from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
 import { createSky, FOG_FAR, FOG_NEAR } from '../src/render/sky';
 import { installUnderground } from '../src/game/undergroundMode';
-import { MINE_LOOK, isUndergroundZone, speedScaleForZone, torchFlicker, outdoorMagicStrength, undergroundModelName, undergroundTableName } from '../src/world/underground';
+import {
+  MINE_LOOK,
+  isUndergroundZone,
+  speedScaleForZone,
+  torchFlicker,
+  outdoorMagicStrength,
+  undergroundModelName,
+  undergroundTableName,
+} from '../src/world/underground';
 import { PartyController, WALK_SPEED } from '../src/world/partyController';
 
 describe('underground zones', () => {

@@ -7,10 +7,13 @@ import { Fn, abs, cross, dFdx, dFdy, dot, normalView, normalize, positionView, s
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const bumpedNormal = Fn(([height]: [any]) => {
-  const dpdx = dFdx(positionView), dpdy = dFdy(positionView);
-  const dhdx = dFdx(height), dhdy = dFdy(height);
+  const dpdx = dFdx(positionView),
+    dpdy = dFdy(positionView);
+  const dhdx = dFdx(height),
+    dhdy = dFdy(height);
   const n = normalView;
-  const r1 = cross(dpdy, n), r2 = cross(n, dpdx);
+  const r1 = cross(dpdy, n),
+    r2 = cross(n, dpdx);
   const det = dot(dpdx, r1);
   const grad = sign(det).mul(r1.mul(dhdx).add(r2.mul(dhdy)));
   return normalize(abs(det).mul(n).sub(grad));

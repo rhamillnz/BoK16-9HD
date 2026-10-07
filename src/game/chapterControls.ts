@@ -65,7 +65,14 @@ export function installChapters(host: ChapterHost): ChapterControls {
       const store = await host.loadStore();
       const start = host.loadStart(chapter);
       const result = transitionToChapter({
-        world: host.getWorld(), party: host.getParty(), chapter, start, store, items: host.items, containers: host.containers, towns: host.towns,
+        world: host.getWorld(),
+        party: host.getParty(),
+        chapter,
+        start,
+        store,
+        items: host.items,
+        containers: host.containers,
+        towns: host.towns,
       });
       for (const w of result.warnings) console.warn('chapter transition:', w);
       host.setWorld(result.world);

@@ -7,7 +7,11 @@ export const SFX_URL = '/bak/frp.sx';
 export const MAX_VOICES = 8;
 
 export interface SfxContextLike extends AudioContextLike, Partial<Pick<SynthContextLike, 'createOscillator'>> {
-  createBuffer(channels: number, length: number, sampleRate: number): { copyToChannel(data: Float32Array, channel: number): void };
+  createBuffer(
+    channels: number,
+    length: number,
+    sampleRate: number,
+  ): { copyToChannel(data: Float32Array, channel: number): void };
 }
 
 export interface SfxDeps {
@@ -30,7 +34,10 @@ export class SfxPlayer {
   private vol: number;
   private muted = false;
 
-  constructor(private readonly deps: SfxDeps, volume = 1) {
+  constructor(
+    private readonly deps: SfxDeps,
+    volume = 1,
+  ) {
     this.ctx = deps.context;
     this.vol = Math.min(1, Math.max(0, volume));
     this.master = this.ctx.createGain();

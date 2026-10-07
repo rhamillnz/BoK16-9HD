@@ -30,10 +30,15 @@ export interface TileBounds {
 /** Bounding box of tiles, padded by `margin` tiles and clamped to the 50x50 grid. Empty input shows the whole grid. */
 export function tileBounds(tiles: readonly (readonly [number, number])[], margin = 0): TileBounds {
   if (tiles.length === 0) return { minX: 0, minY: 0, maxX: MAP_GRID - 1, maxY: MAP_GRID - 1 };
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   for (const [x, y] of tiles) {
-    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
   }
   return {
     minX: Math.max(0, minX - margin),
@@ -53,7 +58,10 @@ export interface MapViewport {
 }
 
 /** Fit the bounds into `area` (centred) at the largest integer pixels-per-tile. */
-export function fitViewport(bounds: TileBounds, area: { x: number; y: number; width: number; height: number }): MapViewport {
+export function fitViewport(
+  bounds: TileBounds,
+  area: { x: number; y: number; width: number; height: number },
+): MapViewport {
   const cols = bounds.maxX - bounds.minX + 1;
   const rows = bounds.maxY - bounds.minY + 1;
   const cell = Math.max(1, Math.floor(Math.min(area.width / cols, area.height / rows)));
@@ -88,6 +96,7 @@ export function headingToMapDir(heading: number): { x: number; y: number } {
 
 /** True when the world position lies inside the viewport's tile bounds. */
 export function insideBounds(b: TileBounds, x: number, y: number): boolean {
-  const tx = worldToTile(x), ty = worldToTile(y);
+  const tx = worldToTile(x),
+    ty = worldToTile(y);
   return tx >= b.minX && tx < b.maxX + 1 && ty >= b.minY && ty < b.maxY + 1;
 }

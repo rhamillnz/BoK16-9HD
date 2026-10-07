@@ -107,6 +107,7 @@ export function parseClips(gid: Uint8Array, count: number, warnings?: string[]):
     try {
       return parseClip(gid, start);
     } catch (err) {
+       
       const message = `clip ${i}: ${(err as Error).message}`;
       if (!warnings) throw new Error(message);
       warnings.push(message);
@@ -142,7 +143,7 @@ function parseClip(gid: Uint8Array, start: number): ModelClip {
     const points: number[] = [];
     const normals: number[] = [];
     for (let p = 0; p < h.entries; p++) {
-      normals.push(pr.u8() << 24 >> 24, pr.u8() << 24 >> 24);
+      normals.push((pr.u8() << 24) >> 24, (pr.u8() << 24) >> 24);
       points.push(pr.i16(), pr.i16());
     }
     let heightPoint: ClipElement['heightPoint'];
@@ -226,7 +227,13 @@ function parseModel(dat: Uint8Array, offset: number, name: string): Model {
   const scale = 1 << scaleExp;
 
   // Mesh headers. Consecutive meshes may share one vertex set (same count and offset).
-  interface MeshHeader { vertexCount: number; vertexOffset: number; base: number; faceCount: number; faceOffset: number }
+  interface MeshHeader {
+    vertexCount: number;
+    vertexOffset: number;
+    base: number;
+    faceCount: number;
+    faceOffset: number;
+  }
   const meshes: MeshHeader[] = [];
   const vertexSets: { count: number; offset: number }[] = [];
   let base = 0;

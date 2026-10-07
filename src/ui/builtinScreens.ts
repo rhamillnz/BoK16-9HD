@@ -1,9 +1,50 @@
-import { buildSheetModel, defaultSheetOptions, drawCharacterSheet, layoutCharacterSheet, stepSheet, type SheetLayout, type SheetModel, type SheetState } from './characterSheet';
-import { defaultBoxOptions, drawDialog, initialState, layoutDialog, step as stepDialog, type DialogLayout, type DialogResult, type DialogState } from './dialogBox';
-import { defaultLayoutOptions, drawInventory, initialInventoryState, layoutInventory, slotCountFor, stepInventory, type InventoryLayout, type InventoryState } from './inventory';
+import {
+  buildSheetModel,
+  defaultSheetOptions,
+  drawCharacterSheet,
+  layoutCharacterSheet,
+  stepSheet,
+  type SheetLayout,
+  type SheetModel,
+  type SheetState,
+} from './characterSheet';
+import {
+  defaultBoxOptions,
+  drawDialog,
+  initialState,
+  layoutDialog,
+  step as stepDialog,
+  type DialogLayout,
+  type DialogResult,
+  type DialogState,
+} from './dialogBox';
+import {
+  defaultLayoutOptions,
+  drawInventory,
+  initialInventoryState,
+  layoutInventory,
+  slotCountFor,
+  stepInventory,
+  type InventoryLayout,
+  type InventoryState,
+} from './inventory';
 import { drawMap } from './mapScreen';
-import { drawSaveScreen, initialSaveScreenState, layoutSaveScreen, stepSaveScreen, type SaveScreenLayout, type SaveScreenState } from './saveScreen';
-import { drawTownScreen, initialTownState, layoutTownScreen, stepTown, type TownLayout, type TownState } from './townScreen';
+import {
+  drawSaveScreen,
+  initialSaveScreenState,
+  layoutSaveScreen,
+  stepSaveScreen,
+  type SaveScreenLayout,
+  type SaveScreenState,
+} from './saveScreen';
+import {
+  drawTownScreen,
+  initialTownState,
+  layoutTownScreen,
+  stepTown,
+  type TownLayout,
+  type TownState,
+} from './townScreen';
 import type { SlotInfo } from '../game/saveGame';
 import type { Hotspot } from '../formats/gds';
 import { registerHudScreen, type HudEvent, type HudHost, type HudScreenHandler } from './hudRegistry';
@@ -26,14 +67,19 @@ class InventoryScreen implements HudScreenHandler {
   constructor(private readonly host: HudHost) {}
   open(): void {
     const h = this.host;
-    this.s = { layout: layoutInventory(defaultLayoutOptions(h.party.length, slotCountFor(h.party), h.width, h.height)), state: initialInventoryState(), message: '' };
+    this.s = {
+      layout: layoutInventory(defaultLayoutOptions(h.party.length, slotCountFor(h.party), h.width, h.height)),
+      state: initialInventoryState(),
+      message: '',
+    };
   }
   private act(action: 'use' | 'equip' | 'give' | 'repair'): void {
     const s = this.s;
     const h = this.host;
     const c = h.party[s!.state.tab];
     if (!s || !c || !h.itemHandler) return;
-    const target = action === 'give' && h.party.length > 1 ? h.party[(s.state.tab + 1) % h.party.length]?.index : undefined;
+    const target =
+      action === 'give' && h.party.length > 1 ? h.party[(s.state.tab + 1) % h.party.length]?.index : undefined;
     s.message = h.itemHandler.act(action, c.index, s.state.selected, target);
     h.invalidate();
   }
@@ -47,15 +93,28 @@ class InventoryScreen implements HudScreenHandler {
     }
     if (ev.type === 'key') {
       const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
-      const action = key === 'Enter' || key === 'u' ? 'use' : key === 'x' ? 'equip' : key === 't' ? 'give' : key === 'r' ? 'repair' : undefined;
-      if (action) { this.act(action); return; }
+      const action =
+        key === 'Enter' || key === 'u'
+          ? 'use'
+          : key === 'x'
+            ? 'equip'
+            : key === 't'
+              ? 'give'
+              : key === 'r'
+                ? 'repair'
+                : undefined;
+      if (action) {
+        this.act(action);
+        return;
+      }
     }
     s.state = stepInventory(s.layout, s.state, ev as Parameters<typeof stepInventory>[2]);
     s.message = '';
   }
   draw(ctx: CanvasRenderingContext2D): void {
     const h = this.host;
-    if (this.s) drawInventory(ctx, h.font, this.s.layout, this.s.state, h.party, h.items, undefined, h.icons, this.s.message);
+    if (this.s)
+      drawInventory(ctx, h.font, this.s.layout, this.s.state, h.party, h.items, undefined, h.icons, this.s.message);
   }
 }
 
@@ -66,7 +125,12 @@ class SheetScreen implements HudScreenHandler {
   open(): void {
     const h = this.host;
     const models = h.party.map(buildSheetModel);
-    const layout = layoutCharacterSheet(h.font, models[0]!, h.party.map((c) => c.name), defaultSheetOptions(h.width, h.height));
+    const layout = layoutCharacterSheet(
+      h.font,
+      models[0]!,
+      h.party.map((c) => c.name),
+      defaultSheetOptions(h.width, h.height),
+    );
     this.s = { layout, models, state: { tab: 0 } };
   }
   event(ev: Parameters<typeof stepSheet>[2]): void {
@@ -109,7 +173,11 @@ class SavesScreen implements HudScreenHandler {
     if (!this.host.saveHandler) return false;
     const mode = (arg as { mode?: 'save' | 'load' } | undefined)?.mode ?? 'save';
     const slots = this.pending;
-    this.s = { layout: layoutSaveScreen(slots.length, this.host.width, this.host.height), state: initialSaveScreenState(mode), slots };
+    this.s = {
+      layout: layoutSaveScreen(slots.length, this.host.width, this.host.height),
+      state: initialSaveScreenState(mode),
+      slots,
+    };
     return true;
   }
   close(): void {

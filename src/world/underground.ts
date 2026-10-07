@@ -51,5 +51,7 @@ export function outdoorMagicStrength(sunVisibility: number): number {
 
 /** Lantern flicker multiplier (about 0.9-1.1) for a time in seconds; smooth and deterministic. */
 export function torchFlicker(seconds: number): number {
-  return 1 + 0.05 * Math.sin(seconds * 7.3) + 0.03 * Math.sin(seconds * 17.9 + 1.3) + 0.02 * Math.sin(seconds * 3.1 + 0.4);
+  return (
+    1 + 0.05 * Math.sin(seconds * 7.3) + 0.03 * Math.sin(seconds * 17.9 + 1.3) + 0.02 * Math.sin(seconds * 3.1 + 0.4)
+  );
 }

@@ -105,7 +105,10 @@ export function scatterOnTriangles(
           p.addScaledVector(upNormal, -0.8 * s);
         }
         scale.set(s, s * (0.85 + rand() * 0.3), s);
-        out.push({ name: names[Math.floor(rand() * names.length)]!, matrix: new THREE.Matrix4().compose(p.clone(), q.clone(), scale.clone()) });
+        out.push({
+          name: names[Math.floor(rand() * names.length)]!,
+          matrix: new THREE.Matrix4().compose(p.clone(), q.clone(), scale.clone()),
+        });
       }
     };
 

@@ -16,18 +16,20 @@ function u16(n: number): number[] {
 }
 
 /** Build a synthetic FNT: glyph bitmaps already encoded; widths per glyph. */
-function buildFNT(version: number, height: number, firstChar: number, glyphs: { width: number; data: number[] }[], rle?: number[]) {
+function buildFNT(
+  version: number,
+  height: number,
+  firstChar: number,
+  glyphs: { width: number; data: number[] }[],
+  rle?: number[],
+) {
   const offsets: number[] = [];
   let off = 0;
   for (const g of glyphs) {
     offsets.push(off);
     off += g.data.length;
   }
-  const raw = [
-    ...offsets.flatMap(u16),
-    ...glyphs.map((g) => g.width),
-    ...glyphs.flatMap((g) => g.data),
-  ];
+  const raw = [...offsets.flatMap(u16), ...glyphs.map((g) => g.width), ...glyphs.flatMap((g) => g.data)];
   const payload = rle ?? rleLiteral(raw);
   const chunk = [
     version,
@@ -38,13 +40,20 @@ function buildFNT(version: number, height: number, firstChar: number, glyphs: { 
     glyphs.length,
     ...u16(payload.length),
     0x01,
-    raw.length & 0xff, (raw.length >> 8) & 0xff, 0, 0,
+    raw.length & 0xff,
+    (raw.length >> 8) & 0xff,
+    0,
+    0,
     ...payload,
   ];
   return Uint8Array.from([
-    0xde, 0xad, // leading junk: tag search must skip it
+    0xde,
+    0xad, // leading junk: tag search must skip it
     ...'FNT:'.split('').map((c) => c.charCodeAt(0)),
-    chunk.length & 0xff, (chunk.length >> 8) & 0xff, 0, 0,
+    chunk.length & 0xff,
+    (chunk.length >> 8) & 0xff,
+    0,
+    0,
     ...chunk,
   ]);
 }
@@ -57,7 +66,14 @@ const monoGlyphs = [
 
 describe('parseFNT (src/formats/fnt.ts)', () => {
   it('parses header fields and 1bpp glyphs, including >8px wide rows', () => {
-    const font = parseFNT(buildFNT(FNT_VERSION_MONO, 3, 65, monoGlyphs.map((g, i) => (i === 1 ? { ...g, data: [0x80, 0x40, 0x7f, 0xc0, 0, 0] } : g))));
+    const font = parseFNT(
+      buildFNT(
+        FNT_VERSION_MONO,
+        3,
+        65,
+        monoGlyphs.map((g, i) => (i === 1 ? { ...g, data: [0x80, 0x40, 0x7f, 0xc0, 0, 0] } : g)),
+      ),
+    );
     expect(font.height).toBe(3);
     expect(font.firstChar).toBe(65);
     expect(font.glyphs.map((g) => g.width)).toEqual([3, 10]);
@@ -78,7 +94,18 @@ describe('parseFNT (src/formats/fnt.ts)', () => {
     // two glyphs, 2 tall, 4 wide: offsets (0,2), widths (4,4), data 4 bytes all 0xF0 via a repeat run
     const raw = [0, 0, 2, 0, 4, 4, 0xf0, 0xf0, 0xf0, 0xf0];
     const rle = [...rleLiteral(raw.slice(0, 6)), 0x84, 0xf0];
-    const font = parseFNT(buildFNT(FNT_VERSION_MONO, 2, 32, [{ width: 4, data: [0xf0, 0xf0] }, { width: 4, data: [0xf0, 0xf0] }], rle));
+    const font = parseFNT(
+      buildFNT(
+        FNT_VERSION_MONO,
+        2,
+        32,
+        [
+          { width: 4, data: [0xf0, 0xf0] },
+          { width: 4, data: [0xf0, 0xf0] },
+        ],
+        rle,
+      ),
+    );
     expect([...font.glyphs[1]!.pixels]).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
   });
 

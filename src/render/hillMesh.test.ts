@@ -21,7 +21,13 @@ describe('smoothNormals', () => {
     // Ridge along z: face A slopes up towards +x, face B down; they share vertices 2 and 3.
     const A = [v(0, 0, 0), v(0, 0, -1), v(1, 1, -1), v(1, 1, 0)];
     const B = [v(1, 1, 0), v(1, 1, -1), v(2, 0, -1), v(2, 0, 0)];
-    const n = smoothNormals([[0, 1, 2, 3], [3, 2, 4, 5]], [A, B]);
+    const n = smoothNormals(
+      [
+        [0, 1, 2, 3],
+        [3, 2, 4, 5],
+      ],
+      [A, B],
+    );
     expect(n.get(3)!.x).toBeCloseTo(0);
     expect(n.get(3)!.y).toBeCloseTo(1);
     expect(n.get(0)!.x).toBeLessThan(0);
@@ -33,10 +39,17 @@ describe('hillTriangles', () => {
   it('welds corners at the same position and fans faces counter-clockwise', () => {
     const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
     // Two faces sharing an edge, given as separate vertex copies.
-    const tris = hillTriangles([[v(0, 0, 0), v(0, 1, 1), v(1, 0, 1), v(1, 0, 0)], [v(1, 0, 0), v(1, 0, 1), v(2, 0, 1)]]);
+    const tris = hillTriangles([
+      [v(0, 0, 0), v(0, 1, 1), v(1, 0, 1), v(1, 0, 0)],
+      [v(1, 0, 0), v(1, 0, 1), v(2, 0, 1)],
+    ]);
     expect(tris).toHaveLength(3);
     const ids = new Set(tris.flat().map((c) => c.id));
     expect(ids.size).toBe(5);
-    expect(tris[0]!.map((c) => c.p)).toEqual([[0, 0, 0], [1, 0, 1], [0, 1, 1]]);
+    expect(tris[0]!.map((c) => c.p)).toEqual([
+      [0, 0, 0],
+      [1, 0, 1],
+      [0, 1, 1],
+    ]);
   });
 });

@@ -7,7 +7,15 @@ const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 const chunk = (tag: string, body: number[]) => [...ascii(tag), ...u32(body.length), ...body];
 
 /** Voice: code, 1 unknown byte, rate, size, 2 unknown bytes, samples. */
-const waveVoice = (rate: number, samples: number[]) => [0xfe, 0, ...u16(rate), ...u32(samples.length), 0, 0, ...samples];
+const waveVoice = (rate: number, samples: number[]) => [
+  0xfe,
+  0,
+  ...u16(rate),
+  ...u32(samples.length),
+  0,
+  0,
+  ...samples,
+];
 /** Voice on channel 3: code, 1 unknown byte, then { delta, [status], data } events, 0xFC. */
 const midiVoice = (events: number[]) => [0x93, 0, ...events, 0, 0xfc];
 

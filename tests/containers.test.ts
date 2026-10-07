@@ -1,19 +1,49 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ContainerFlag, SAVE_ZONE_CONTAINERS, isTrapped, isWordLock, parseFixedObjects, parseSaveZoneContainers, presentInChapter,
-  readContainer, writeContainer, type ContainerRecord,
+  ContainerFlag,
+  SAVE_ZONE_CONTAINERS,
+  isTrapped,
+  isWordLock,
+  parseFixedObjects,
+  parseSaveZoneContainers,
+  presentInChapter,
+  readContainer,
+  writeContainer,
+  type ContainerRecord,
 } from '../src/formats/containers';
 import { Reader } from '../src/formats/reader';
 
-const world = (over: Partial<ContainerRecord> = {}, loc: Partial<Extract<ContainerRecord['location'], { kind: 'world' }>> = {}): ContainerRecord => ({
+const world = (
+  over: Partial<ContainerRecord> = {},
+  loc: Partial<Extract<ContainerRecord['location'], { kind: 'world' }>> = {},
+): ContainerRecord => ({
   address: 0,
-  location: { kind: 'world', zone: 3, fromChapter: 1, toChapter: 9, model: 7, unknown: 0, x: 1308000, y: 1002400, ...loc },
-  locationType: 4, capacity: 5, flags: 0, items: [], ...over,
+  location: {
+    kind: 'world',
+    zone: 3,
+    fromChapter: 1,
+    toChapter: 9,
+    model: 7,
+    unknown: 0,
+    x: 1308000,
+    y: 1002400,
+    ...loc,
+  },
+  locationType: 4,
+  capacity: 5,
+  flags: 0,
+  items: [],
+  ...over,
 });
 
 describe('container records', () => {
   it('round-trips a plain bag with free slots', () => {
-    const rec = world({ items: [{ itemIndex: 30, conditionOrQuantity: 99, status: 0x40, modifiers: 1 }, { itemIndex: 54, conditionOrQuantity: 12, status: 0, modifiers: 0 }] });
+    const rec = world({
+      items: [
+        { itemIndex: 30, conditionOrQuantity: 99, status: 0x40, modifiers: 1 },
+        { itemIndex: 54, conditionOrQuantity: 12, status: 0, modifiers: 0 },
+      ],
+    });
     const bytes = writeContainer(rec);
     expect(bytes.length).toBe(16 + 5 * 4);
     const r = new Reader(bytes);
@@ -22,7 +52,13 @@ describe('container records', () => {
   });
 
   it('reads every optional section in the order lock, door, dialog, shop, encounter, time', () => {
-    const flags = ContainerFlag.Lock | ContainerFlag.Door | ContainerFlag.Dialog | ContainerFlag.Shop | ContainerFlag.Encounter | ContainerFlag.Time;
+    const flags =
+      ContainerFlag.Lock |
+      ContainerFlag.Door |
+      ContainerFlag.Dialog |
+      ContainerFlag.Shop |
+      ContainerFlag.Encounter |
+      ContainerFlag.Time;
     const shop = Uint8Array.from({ length: 16 }, (_, i) => i + 1);
     const rec = world({
       flags,
@@ -31,7 +67,12 @@ describe('container records', () => {
       door: 0x1234,
       dialog: { contextVar: 3, dialogOrder: 1, key: 0x19f0a1 },
       shop,
-      encounter: { requireEventFlag: 0x10, setEventFlag: 0x20, hotspot: { gds: 12, letter: 'C' }, encounterCell: { x: 3, y: 4 } },
+      encounter: {
+        requireEventFlag: 0x10,
+        setEventFlag: 0x20,
+        hotspot: { gds: 12, letter: 'C' },
+        encounterCell: { x: 3, y: 4 },
+      },
       lastAccessed: 0xdeadbeef,
     });
     const r = new Reader(writeContainer(rec));
@@ -41,14 +82,30 @@ describe('container records', () => {
   });
 
   it('reads shop and combat headers', () => {
-    const gds: ContainerRecord = { address: 0, location: { kind: 'gds', gds: 60, letter: 'C' }, locationType: 0, capacity: 2, flags: 0, items: [] };
+    const gds: ContainerRecord = {
+      address: 0,
+      location: { kind: 'gds', gds: 60, letter: 'C' },
+      locationType: 0,
+      capacity: 2,
+      flags: 0,
+      items: [],
+    };
     expect(readContainer(new Reader(writeContainer(gds)), 'gds')).toEqual(gds);
-    const combat: ContainerRecord = { address: 0, location: { kind: 'combat', combat: 11, combatant: 2 }, locationType: 7, capacity: 3, flags: 0, items: [] };
+    const combat: ContainerRecord = {
+      address: 0,
+      location: { kind: 'combat', combat: 11, combatant: 2 },
+      locationType: 7,
+      capacity: 3,
+      flags: 0,
+      items: [],
+    };
     expect(readContainer(new Reader(writeContainer(combat)), 'combat')).toEqual(combat);
   });
 
   it('rejects a record with more items than capacity', () => {
-    const bytes = writeContainer(world({ capacity: 2, items: [{ itemIndex: 1, conditionOrQuantity: 1, status: 0, modifiers: 0 }] }));
+    const bytes = writeContainer(
+      world({ capacity: 2, items: [{ itemIndex: 1, conditionOrQuantity: 1, status: 0, modifiers: 0 }] }),
+    );
     bytes[13] = 3; // item count
     expect(() => readContainer(new Reader(bytes), 'world')).toThrow(/capacity/);
   });
@@ -75,7 +132,11 @@ describe('container files', () => {
     const c = writeContainer(world({}, { zone: 2, x: 6 }));
     const file = Uint8Array.from([0xaa, 0xbb, 1, 0, ...a, 2, 0, ...b, ...c]);
     const list = parseFixedObjects(file);
-    expect(list.map((r) => (r.location.kind === 'world' ? [r.location.zone, r.location.x] : []))).toEqual([[1, 1308000], [2, 5], [2, 6]]);
+    expect(list.map((r) => (r.location.kind === 'world' ? [r.location.zone, r.location.x] : []))).toEqual([
+      [1, 1308000],
+      [2, 5],
+      [2, 6],
+    ]);
   });
 
   it('parses a zone block of a save image at its fixed offset', () => {

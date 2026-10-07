@@ -23,7 +23,10 @@ export function parseWordLock(text: string): WordLockPuzzle | undefined {
   const parts = text.replace(/\r/g, '').split('\n#');
   if (parts.length !== 3) return undefined;
   const answer = parts[0]!.trim();
-  const options = parts[1]!.split('\n').map((o) => o.trim()).filter((o) => o.length > 0);
+  const options = parts[1]!
+    .split('\n')
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0);
   if (answer.length === 0 || answer.length > MAX_TUMBLERS || options.length === 0) return undefined;
   if (options.some((o) => o.length !== answer.length)) return undefined;
   return { answer, options, hint: parts[2]!.trim() };

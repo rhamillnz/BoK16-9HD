@@ -39,7 +39,12 @@ export interface InventoryLayout {
   scale: number;
 }
 
-export function defaultLayoutOptions(tabCount: number, slotCount: number, width = HUD_WIDTH, height = HUD_HEIGHT): InventoryLayoutOptions {
+export function defaultLayoutOptions(
+  tabCount: number,
+  slotCount: number,
+  width = HUD_WIDTH,
+  height = HUD_HEIGHT,
+): InventoryLayoutOptions {
   return { width, height, scale: chooseScale(height), tabCount, slotCount };
 }
 
@@ -54,7 +59,10 @@ export function layoutInventory(opts: InventoryLayoutOptions): InventoryLayout {
   const tabWidth = Math.min(64 * scale, Math.floor((panel.width - pad * 2) / tabCount));
   const tabs: TabSlot[] = [];
   for (let i = 0; i < opts.tabCount; i++) {
-    tabs.push({ index: i, rect: { x: panel.x + pad + i * tabWidth, y: panel.y + pad, width: tabWidth, height: tabHeight } });
+    tabs.push({
+      index: i,
+      rect: { x: panel.x + pad + i * tabWidth, y: panel.y + pad, width: tabWidth, height: tabHeight },
+    });
   }
 
   const bodyTop = panel.y + pad + tabHeight + pad;
@@ -75,7 +83,11 @@ export function layoutInventory(opts: InventoryLayoutOptions): InventoryLayout {
       width: cellWidth - 2 * scale,
       height: cellHeight - 2 * scale,
     };
-    slots.push({ index: i, rect, icon: { x: rect.x + 2 * scale, y: rect.y + 2 * scale, width: iconSize, height: iconSize } });
+    slots.push({
+      index: i,
+      rect,
+      icon: { x: rect.x + 2 * scale, y: rect.y + 2 * scale, width: iconSize, height: iconSize },
+    });
   }
   return { panel, tabs, slots, info, scale };
 }
@@ -111,12 +123,26 @@ export interface ItemSummary {
 export function summarizeItem(item: InventoryItem, defs: ItemDef[]): ItemSummary {
   const def = defs[item.itemIndex];
   if (!def) {
-    return { name: `Item ${item.itemIndex}`, imageIndex: item.itemIndex, amount: '', equipped: item.equipped, broken: item.broken, poisoned: item.poisoned };
+    return {
+      name: `Item ${item.itemIndex}`,
+      imageIndex: item.itemIndex,
+      amount: '',
+      equipped: item.equipped,
+      broken: item.broken,
+      poisoned: item.poisoned,
+    };
   }
   let amount = '';
   if (CONDITION_TYPES.includes(def.type)) amount = `${item.conditionOrQuantity}%`;
   else if (def.stackSize > 1) amount = `x${item.conditionOrQuantity}`;
-  return { name: def.name, imageIndex: def.imageIndex, amount, equipped: item.equipped, broken: item.broken, poisoned: item.poisoned };
+  return {
+    name: def.name,
+    imageIndex: def.imageIndex,
+    amount,
+    equipped: item.equipped,
+    broken: item.broken,
+    poisoned: item.poisoned,
+  };
 }
 
 /** Info-panel lines for the selected item. OBJINFO has no weight field, so value and stats are shown. */
@@ -157,9 +183,7 @@ export interface InventoryState {
 }
 
 export type InventoryEvent =
-  | { type: 'key'; key: string }
-  | { type: 'click'; x: number; y: number }
-  | { type: 'hover'; x: number; y: number };
+  { type: 'key'; key: string } | { type: 'click'; x: number; y: number } | { type: 'hover'; x: number; y: number };
 
 export function initialInventoryState(): InventoryState {
   return { tab: 0, selected: 0 };
@@ -180,13 +204,25 @@ export function stepInventory(layout: InventoryLayout, state: InventoryState, ev
   const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
   const sel = state.selected < 0 ? 0 : state.selected;
   switch (key) {
-    case 'ArrowLeft': case 'a': return { ...state, selected: Math.max(0, sel - 1) };
-    case 'ArrowRight': case 'd': return { ...state, selected: Math.min(n - 1, sel + 1) };
-    case 'ArrowUp': case 'w': return { ...state, selected: sel - SLOT_COLUMNS >= 0 ? sel - SLOT_COLUMNS : sel };
-    case 'ArrowDown': case 's': return { ...state, selected: sel + SLOT_COLUMNS < n ? sel + SLOT_COLUMNS : sel };
-    case 'q': return tabs > 0 ? { tab: (state.tab + tabs - 1) % tabs, selected: 0 } : state;
-    case 'e': case 'Tab': return tabs > 0 ? { tab: (state.tab + 1) % tabs, selected: 0 } : state;
-    default: return state;
+    case 'ArrowLeft':
+    case 'a':
+      return { ...state, selected: Math.max(0, sel - 1) };
+    case 'ArrowRight':
+    case 'd':
+      return { ...state, selected: Math.min(n - 1, sel + 1) };
+    case 'ArrowUp':
+    case 'w':
+      return { ...state, selected: sel - SLOT_COLUMNS >= 0 ? sel - SLOT_COLUMNS : sel };
+    case 'ArrowDown':
+    case 's':
+      return { ...state, selected: sel + SLOT_COLUMNS < n ? sel + SLOT_COLUMNS : sel };
+    case 'q':
+      return tabs > 0 ? { tab: (state.tab + tabs - 1) % tabs, selected: 0 } : state;
+    case 'e':
+    case 'Tab':
+      return tabs > 0 ? { tab: (state.tab + 1) % tabs, selected: 0 } : state;
+    default:
+      return state;
   }
 }
 
@@ -235,7 +271,16 @@ export function fitText(font: Font, text: string, scale: number, maxWidth: numbe
 }
 
 /** Draw glyph pixels with fillRect so unset pixels stay transparent (putImageData would overwrite the background). */
-export function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string, maxWidth?: number) {
+export function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+  maxWidth?: number,
+) {
   if (text === '') return;
   const t = maxWidth === undefined ? text : fitText(font, text, scale, maxWidth);
   ctx.fillStyle = css;
@@ -262,7 +307,13 @@ export function drawIcon(ctx: CanvasRenderingContext2D, icons: ItemIconSet, imag
   canvas.getContext('2d')!.putImageData(new ImageData(icon.rgba, icon.width, icon.height), 0, 0);
   const prev = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(canvas, box.x + Math.floor((box.width - icon.width * k) / 2), box.y + Math.floor((box.height - icon.height * k) / 2), icon.width * k, icon.height * k);
+  ctx.drawImage(
+    canvas,
+    box.x + Math.floor((box.width - icon.width * k) / 2),
+    box.y + Math.floor((box.height - icon.height * k) / 2),
+    icon.width * k,
+    icon.height * k,
+  );
   ctx.imageSmoothingEnabled = prev;
   return true;
 }
@@ -289,7 +340,16 @@ export function drawInventory(
   for (const tab of layout.tabs) {
     ctx.fillStyle = tab.index === state.tab ? colors.tabActive : colors.tab;
     ctx.fillRect(tab.rect.x, tab.rect.y, tab.rect.width, tab.rect.height);
-    drawText(ctx, font, party[tab.index]?.name ?? '', tab.rect.x + 2 * scale, tab.rect.y + 2 * scale, scale, colors.text, tab.rect.width - 4 * scale);
+    drawText(
+      ctx,
+      font,
+      party[tab.index]?.name ?? '',
+      tab.rect.x + 2 * scale,
+      tab.rect.y + 2 * scale,
+      scale,
+      colors.text,
+      tab.rect.width - 4 * scale,
+    );
   }
 
   const character = party[state.tab];
@@ -303,26 +363,62 @@ export function drawInventory(
     if (!icons || !drawIcon(ctx, icons, s.imageIndex, slot.icon)) {
       ctx.fillStyle = colors.icon;
       ctx.fillRect(slot.icon.x, slot.icon.y, slot.icon.width, slot.icon.height);
-      drawText(ctx, font, String(s.imageIndex), slot.icon.x + scale, slot.icon.y + scale, scale, colors.text, slot.icon.width);
+      drawText(
+        ctx,
+        font,
+        String(s.imageIndex),
+        slot.icon.x + scale,
+        slot.icon.y + scale,
+        scale,
+        colors.text,
+        slot.icon.width,
+      );
     }
     const tx = slot.icon.x + slot.icon.width + 2 * scale;
     const tw = slot.rect.x + slot.rect.width - tx - scale;
     const nameWidth = s.equipped ? tw - (font.maxWidth + 3) * scale : tw;
     drawText(ctx, font, s.name, tx, slot.rect.y + 2 * scale, scale, colors.text, nameWidth);
     drawText(ctx, font, s.amount, tx, slot.rect.y + 2 * scale + (font.height + 2) * scale, scale, colors.text, tw);
-    if (s.equipped) drawText(ctx, font, 'E', slot.rect.x + slot.rect.width - (font.maxWidth + 2) * scale, slot.rect.y + 2 * scale, scale, colors.equipped);
+    if (s.equipped)
+      drawText(
+        ctx,
+        font,
+        'E',
+        slot.rect.x + slot.rect.width - (font.maxWidth + 2) * scale,
+        slot.rect.y + 2 * scale,
+        scale,
+        colors.equipped,
+      );
   }
 
   ctx.fillStyle = colors.slot;
   ctx.fillRect(layout.info.x, layout.info.y, layout.info.width, layout.info.height);
   const lines = [itemCountLine(character), ...itemInfoLines(items[state.selected], defs)];
   lines.forEach((line, i) => {
-    drawText(ctx, font, line, layout.info.x + 4 * scale, layout.info.y + 4 * scale + i * (font.height + 3) * scale, scale, colors.text, layout.info.width - 8 * scale);
+    drawText(
+      ctx,
+      font,
+      line,
+      layout.info.x + 4 * scale,
+      layout.info.y + 4 * scale + i * (font.height + 3) * scale,
+      scale,
+      colors.text,
+      layout.info.width - 8 * scale,
+    );
   });
   const lineHeight = (font.height + 3) * scale;
   const bottom = layout.info.y + layout.info.height - 4 * scale;
   const footer = [...(message ? [message] : []), ...INVENTORY_HELP];
   footer.forEach((line, i) => {
-    drawText(ctx, font, line, layout.info.x + 4 * scale, bottom - (footer.length - i) * lineHeight, scale, i === 0 && message ? colors.equipped : colors.text, layout.info.width - 8 * scale);
+    drawText(
+      ctx,
+      font,
+      line,
+      layout.info.x + 4 * scale,
+      bottom - (footer.length - i) * lineHeight,
+      scale,
+      i === 0 && message ? colors.equipped : colors.text,
+      layout.info.width - 8 * scale,
+    );
   });
 }

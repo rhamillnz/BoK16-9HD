@@ -56,7 +56,15 @@ export function parseSpells(bytes: Uint8Array): SpellDef[] {
     const damage = r.i16();
     const duration = r.i16();
     spells.push({
-      index: i, name: '', minCost, maxCost, combat, targeting, calc, damage, duration,
+      index: i,
+      name: '',
+      minCost,
+      maxCost,
+      combat,
+      targeting,
+      calc,
+      damage,
+      duration,
       ...(color !== NONE ? { color } : {}),
       ...(animation !== NONE ? { animation } : {}),
       ...(objectRequired !== NONE ? { objectRequired } : {}),

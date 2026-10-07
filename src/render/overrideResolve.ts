@@ -45,7 +45,11 @@ export function placementMatrix(item: WorldItem, out = new THREE.Matrix4()): THR
 }
 
 /** One InstancedMesh per mesh node of the override scene, instanced over `placements`. */
-export function buildOverrideMeshes(name: string, scene: Group, placements: readonly THREE.Matrix4[]): THREE.InstancedMesh[] {
+export function buildOverrideMeshes(
+  name: string,
+  scene: Group,
+  placements: readonly THREE.Matrix4[],
+): THREE.InstancedMesh[] {
   scene.updateMatrixWorld(true);
   const out: THREE.InstancedMesh[] = [];
   const m = new THREE.Matrix4();

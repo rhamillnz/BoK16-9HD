@@ -150,21 +150,16 @@ export function resolveCircleVsPolygon(poly: CollisionPolygon, x: number, y: num
  * Moves a circle from `from` by `delta`, sliding along any polygons in the way. The move is
  * split into steps of at most half a radius so fast movement cannot tunnel through thin walls.
  */
-export function slideMove(
-  from: Vec2,
-  delta: Vec2,
-  radius: number,
-  polygons: readonly CollisionPolygon[],
-): Vec2 {
+export function slideMove(from: Vec2, delta: Vec2, radius: number, polygons: readonly CollisionPolygon[]): Vec2 {
   const dist = Math.hypot(delta.x, delta.y);
   const steps = Math.max(1, Math.ceil(dist / Math.max(radius * 0.5, EPSILON)));
-  
+
   const searchRadius = radius + dist;
   const minX = from.x - searchRadius;
   const maxX = from.x + searchRadius;
   const minY = from.y - searchRadius;
   const maxY = from.y + searchRadius;
-  const nearPolys = polygons.filter(p => p.maxX >= minX && p.minX <= maxX && p.maxY >= minY && p.minY <= maxY);
+  const nearPolys = polygons.filter((p) => p.maxX >= minX && p.minX <= maxX && p.maxY >= minY && p.minY <= maxY);
 
   let x = from.x;
   let y = from.y;

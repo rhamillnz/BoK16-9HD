@@ -3,48 +3,114 @@ import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import type { ContainerRecord } from '../formats/containers';
 import {
-  ContainerStore, bestLockpicker, disarmChance, isArmed, needsKey, needsWordLock, nearestContainer, putItem, springTrap, takeAll, takeItem,
-  worldContainersFromRecords, type WorldContainer,
+  ContainerStore,
+  bestLockpicker,
+  disarmChance,
+  isArmed,
+  needsKey,
+  needsWordLock,
+  nearestContainer,
+  putItem,
+  springTrap,
+  takeAll,
+  takeItem,
+  worldContainersFromRecords,
+  type WorldContainer,
 } from './containers';
 import type { PartyState } from './party';
 import { setFlag, type WorldState } from './state';
 
-const skill = (max: number, trueSkill: number): Skill => ({ max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false });
+const skill = (max: number, trueSkill: number): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 0,
+  modifier: 0,
+  selected: false,
+  unseenImprovement: false,
+});
 function character(index: number, capacity = 4, lockpick = 0): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(0, 0)])) as Character['skills'];
   skills.health = skill(50, 30);
   skills.stamina = skill(40, 10);
   skills.lockpick = skill(100, lockpick);
   return {
-    index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name: `C${index}`,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0 },
-    affectors: [], inventory: { capacity, items: [] },
+    affectors: [],
+    inventory: { capacity, items: [] },
   };
 }
-const party = (...chars: Character[]): PartyState => ({ gold: 0, characters: chars, activeCharacters: chars.map((c) => c.index), partyKeys: { capacity: 8, items: [] } });
-const world = (): WorldState => ({ chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [] });
-const def = (name: string, type: number, stackSize = 1): ItemDef => ({ name, type, stackSize, defaultStackSize: stackSize } as unknown as ItemDef);
+const party = (...chars: Character[]): PartyState => ({
+  gold: 0,
+  characters: chars,
+  activeCharacters: chars.map((c) => c.index),
+  partyKeys: { capacity: 8, items: [] },
+});
+const world = (): WorldState => ({
+  chapter: 1,
+  ticks: 0,
+  ticksLastSlept: 0,
+  bytes: new Uint8Array(0x4000),
+  expiringEvents: [],
+});
+const def = (name: string, type: number, stackSize = 1): ItemDef =>
+  ({ name, type, stackSize, defaultStackSize: stackSize }) as unknown as ItemDef;
 const defs: ItemDef[] = [];
 defs[10] = def('Sword', ItemType.Sword);
 defs[20] = def('Arrow', ItemType.Other, 10);
 defs[61] = def('Peasant key', ItemType.Key);
 defs[54] = def('Royals', ItemType.Other, 255);
-const item = (itemIndex: number, conditionOrQuantity = 100, status = 0) => ({ itemIndex, conditionOrQuantity, status, modifiers: 0 });
+const item = (itemIndex: number, conditionOrQuantity = 100, status = 0) => ({
+  itemIndex,
+  conditionOrQuantity,
+  status,
+  modifiers: 0,
+});
 const chest = (over: Partial<WorldContainer> = {}): WorldContainer => ({
-  id: '1:0', zone: 1, x: 1000, y: 1000, model: 3, fromChapter: 1, toChapter: 9, capacity: 3, items: [], unlocked: false, trapSpent: false, ...over,
+  id: '1:0',
+  zone: 1,
+  x: 1000,
+  y: 1000,
+  model: 3,
+  fromChapter: 1,
+  toChapter: 9,
+  capacity: 3,
+  items: [],
+  unlocked: false,
+  trapSpent: false,
+  ...over,
 });
 
 describe('container discovery', () => {
   it('builds world containers and skips doors, shops and empty placeholders', () => {
     const loc = { kind: 'world' as const, zone: 1, fromChapter: 1, toChapter: 9, model: 2, unknown: 0, x: 5, y: 6 };
-    const base: ContainerRecord = { address: 0, location: loc, locationType: 0, capacity: 4, flags: 0, items: [item(10)] };
+    const base: ContainerRecord = {
+      address: 0,
+      location: loc,
+      locationType: 0,
+      capacity: 4,
+      flags: 0,
+      items: [item(10)],
+    };
     const list = worldContainersFromRecords(1, [
       base,
       { ...base, capacity: 0 },
       { ...base, door: 3 },
       { ...base, shop: new Uint8Array(16) },
-      { ...base, lock: { flag: 0, rating: 50, fairyChestIndex: 0, trapDamage: 0 }, dialog: { contextVar: 0, dialogOrder: 0, key: 77 }, encounter: { requireEventFlag: 0x20, setEventFlag: 0x21 } },
+      {
+        ...base,
+        lock: { flag: 0, rating: 50, fairyChestIndex: 0, trapDamage: 0 },
+        dialog: { contextVar: 0, dialogOrder: 0, key: 77 },
+        encounter: { requireEventFlag: 0x20, setEventFlag: 0x21 },
+      },
     ]);
     expect(list.map((c) => c.id)).toEqual(['1:0', '1:4']);
     expect(list[1]).toMatchObject({ dialogKey: 77, requireFlag: 0x20, setFlag: 0x21, lock: { rating: 50 } });
@@ -63,7 +129,9 @@ describe('container discovery', () => {
 
   it('tells how a container is shut', () => {
     expect(needsWordLock(chest({ lock: { flag: 0, rating: 0, fairyChestIndex: 2, trapDamage: 0 } }))).toBe(true);
-    expect(needsWordLock(chest({ unlocked: true, lock: { flag: 0, rating: 0, fairyChestIndex: 2, trapDamage: 0 } }))).toBe(false);
+    expect(
+      needsWordLock(chest({ unlocked: true, lock: { flag: 0, rating: 0, fairyChestIndex: 2, trapDamage: 0 } })),
+    ).toBe(false);
     expect(needsKey(chest({ lock: { flag: 0, rating: 40, fairyChestIndex: 0, trapDamage: 0 } }))).toBe(true);
     expect(needsKey(chest({ lock: { flag: 0, rating: 0, fairyChestIndex: 0, trapDamage: 0 } }))).toBe(false);
     expect(needsKey(chest({ lock: { flag: 1, rating: 40, fairyChestIndex: 0, trapDamage: 5 } }))).toBe(false);
@@ -81,7 +149,11 @@ describe('taking and putting', () => {
     expect(r.moved).toBe(true);
     expect(r.container.items).toEqual([]);
     expect(r.party.characters[0]!.inventory.items).toHaveLength(1);
-    expect(r.party.characters[0]!.inventory.items[0]).toMatchObject({ itemIndex: 10, conditionOrQuantity: 63, broken: true });
+    expect(r.party.characters[0]!.inventory.items[0]).toMatchObject({
+      itemIndex: 10,
+      conditionOrQuantity: 63,
+      broken: true,
+    });
   });
 
   it('falls through to the next character and then refuses when everyone is full', () => {
@@ -108,8 +180,24 @@ describe('taking and putting', () => {
     const ch = character(0, 4);
     ch.inventory.items = [
       { ...item(10), activated: false, used: false, broken: false, repairable: false, equipped: true, poisoned: false },
-      { ...item(20, 8), activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false },
-      { ...item(10, 50), activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false },
+      {
+        ...item(20, 8),
+        activated: false,
+        used: false,
+        broken: false,
+        repairable: false,
+        equipped: false,
+        poisoned: false,
+      },
+      {
+        ...item(10, 50),
+        activated: false,
+        used: false,
+        broken: false,
+        repairable: false,
+        equipped: false,
+        poisoned: false,
+      },
     ];
     const p = party(ch);
     const c = chest({ capacity: 2, items: [item(20, 5)] });
@@ -147,7 +235,11 @@ describe('traps and lockpicking', () => {
 });
 
 describe('ContainerStore', () => {
-  const make = () => new ContainerStore((zone) => [chest({ id: `${zone}:0`, zone, items: [item(10)] }), chest({ id: `${zone}:1`, zone })]);
+  const make = () =>
+    new ContainerStore((zone) => [
+      chest({ id: `${zone}:0`, zone, items: [item(10)] }),
+      chest({ id: `${zone}:1`, zone }),
+    ]);
 
   it('loads a zone once and reports only changed containers', () => {
     const s = make();

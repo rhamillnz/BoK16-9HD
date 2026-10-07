@@ -8,8 +8,17 @@
  */
 
 import {
-  attack, currentFighter, defend, gridFor, isOver, moveTo, rest, shoot, shootTargets,
-  type BattleState, type Fighter,
+  attack,
+  currentFighter,
+  defend,
+  gridFor,
+  isOver,
+  moveTo,
+  rest,
+  shoot,
+  shootTargets,
+  type BattleState,
+  type Fighter,
 } from './battle';
 import { isDead, type Roll } from './rules';
 import { isAdjacent, type GridPos } from './grid';
@@ -25,7 +34,9 @@ export function enemyTurn(s: BattleState, roll: Roll): BattleState {
   const me = currentFighter(s);
   const foes = s.fighters.filter((f) => f.side !== me.side && !isDead(f));
   const nearest = [...foes].sort((a, b) => manhattan(me.pos, a.pos) - manhattan(me.pos, b.pos));
-  const weakest = [...foes].sort((a, b) => toughness(a) - toughness(b) || manhattan(me.pos, a.pos) - manhattan(me.pos, b.pos));
+  const weakest = [...foes].sort(
+    (a, b) => toughness(a) - toughness(b) || manhattan(me.pos, a.pos) - manhattan(me.pos, b.pos),
+  );
   const touching = foes.some((f) => isAdjacent(me.pos, f.pos));
 
   if (touching && me.maxHealth > 0 && me.health <= me.maxHealth * WOUNDED_FRACTION) {

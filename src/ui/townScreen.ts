@@ -20,7 +20,10 @@ export function layoutTownScreen(canvasWidth: number, canvasHeight: number): Tow
 }
 
 /** Canvas pixel -> scene pixel (may fall outside 0..320 x 0..200). */
-export const toScenePoint = (l: TownLayout, x: number, y: number): [number, number] => [(x - l.x) / l.scale, (y - l.y) / l.scale];
+export const toScenePoint = (l: TownLayout, x: number, y: number): [number, number] => [
+  (x - l.x) / l.scale,
+  (y - l.y) / l.scale,
+];
 
 /** The first hotspot whose rectangle contains the canvas point. */
 export function hotspotAt(l: TownLayout, hotspots: readonly Hotspot[], x: number, y: number): Hotspot | undefined {
@@ -32,13 +35,9 @@ export interface TownState {
   hover: Hotspot | undefined;
 }
 
-export type TownResult =
-  | { kind: 'none' }
-  | { kind: 'click' | 'describe'; hotspot: Hotspot };
+export type TownResult = { kind: 'none' } | { kind: 'click' | 'describe'; hotspot: Hotspot };
 
-export type TownEvent =
-  | { type: 'hover' | 'click' | 'rightClick'; x: number; y: number }
-  | { type: 'key'; key: string };
+export type TownEvent = { type: 'hover' | 'click' | 'rightClick'; x: number; y: number } | { type: 'key'; key: string };
 
 export const initialTownState = (): TownState => ({ hover: undefined });
 
@@ -82,7 +81,15 @@ export function sceneCanvas(image: SceneImage): HTMLCanvasElement {
   return canvas;
 }
 
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+): void {
   ctx.fillStyle = css;
   let gx = x;
   for (let i = 0; i < text.length; i++) {

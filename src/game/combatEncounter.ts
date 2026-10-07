@@ -9,7 +9,12 @@ import type { ItemDef } from '../formats/objinfo';
 import type { PlacedEncounter } from '../world/encounters';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
 import {
-  CombatController, enemiesOf, loadSheets, spriteLookup, type CombatResult, type CombatSupport,
+  CombatController,
+  enemiesOf,
+  loadSheets,
+  spriteLookup,
+  type CombatResult,
+  type CombatSupport,
 } from './combatController';
 
 export interface CombatEncounterDeps {
@@ -36,7 +41,10 @@ function revive(party: PartyState): PartyState {
   let next = party;
   for (const c of party.characters) {
     if (c.skills.health.trueSkill > 0) continue;
-    next = updateCharacter(next, c.index, (ch) => ({ ...ch, skills: { ...ch.skills, health: { ...ch.skills.health, trueSkill: 1 } } }));
+    next = updateCharacter(next, c.index, (ch) => ({
+      ...ch,
+      skills: { ...ch.skills, health: { ...ch.skills.health, trueSkill: 1 } },
+    }));
   }
   return next;
 }
@@ -51,7 +59,12 @@ export class CombatEncounters {
   private starting = false;
 
   constructor(private readonly d: CombatEncounterDeps) {
-    this.controller = new CombatController({ scene: d.scene, camera: d.camera, canvas: d.canvas, getHeight: d.getHeight });
+    this.controller = new CombatController({
+      scene: d.scene,
+      camera: d.camera,
+      canvas: d.canvas,
+      getHeight: d.getHeight,
+    });
   }
 
   /** True from the moment a fight is requested until its result is applied. */
@@ -80,13 +93,24 @@ export class CombatEncounters {
     try {
       const enemies = enemiesOf(s, def);
       const fighters = buildFighters({
-        def, enemies, party: activeCharacters(this.d.getParty()), partyGrid: s.partyGrid, monsterNames: s.monsterNames, items, spells: this.d.spells,
+        def,
+        enemies,
+        party: activeCharacters(this.d.getParty()),
+        partyGrid: s.partyGrid,
+        monsterNames: s.monsterNames,
+        items,
+        spells: this.d.spells,
       });
-      const sheets = await loadSheets(s, fighters.map((f) => f.monster));
+      const sheets = await loadSheets(
+        s,
+        fighters.map((f) => f.monster),
+      );
       const pos = this.d.position();
       this.controller.begin(
         {
-          fighters, party: pos, heading: pos.heading,
+          fighters,
+          party: pos,
+          heading: pos.heading,
           spriteFor: spriteLookup(s, sheets),
           palette: s.palette ?? new Uint8Array(1024).fill(255),
         },

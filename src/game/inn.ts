@@ -44,7 +44,12 @@ export function sleepAtInn(
 ): NightResult {
   const r = rest(world, party, { inInn: true, untilHour: stats.innSleepUntilHour, rule });
   const paid = loseRoyals(r.party, cost);
-  return { world: r.world, party: paid, hours: r.hours, anotherNight: activeCharacters(paid).some((c) => canHeal(c, true)) };
+  return {
+    world: r.world,
+    party: paid,
+    hours: r.hours,
+    anotherNight: activeCharacters(paid).some((c) => canHeal(c, true)),
+  };
 }
 
 export interface InnDeps {

@@ -38,11 +38,19 @@ const defTable = (key: number) => {
 };
 
 const world = (): WorldState => ({
-  chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(GAM_OFFSETS.complexEventFlags + 0x800), expiringEvents: [],
+  chapter: 1,
+  ticks: 0,
+  ticksLastSlept: 0,
+  bytes: new Uint8Array(GAM_OFFSETS.complexEventFlags + 0x800),
+  expiringEvents: [],
 });
 
 function files(extra: Record<string, Uint8Array>) {
-  const all: Record<string, Uint8Array> = { 'DEF_DIAL.DAT': defTable(7), [dialogFileName(1)]: ddx('Hello', 7), ...extra };
+  const all: Record<string, Uint8Array> = {
+    'DEF_DIAL.DAT': defTable(7),
+    [dialogFileName(1)]: ddx('Hello', 7),
+    ...extra,
+  };
   return (name: string) => all[name];
 }
 
@@ -84,7 +92,11 @@ describe('loadEncounterRunner and EncounterDriver', () => {
       (_view, done) => {
         pending = () => done({ kind: 'finish' });
       },
-      { blocked: () => seen.push('blocked'), other: () => seen.push('other'), finished: (_e, c) => seen.push(`finished:${c}`) },
+      {
+        blocked: () => seen.push('blocked'),
+        other: () => seen.push('other'),
+        finished: (_e, c) => seen.push(`finished:${c}`),
+      },
     );
     driver.update(1600 + 5, 1600 + 5);
     expect(driver.busy).toBe(true);
@@ -99,7 +111,10 @@ describe('loadEncounterRunner and EncounterDriver', () => {
     const runner = loadEncounterRunner({
       read: (n) => (n === 'T010000.DAT' ? tile(EncounterType.Combat) : undefined),
       zone: 1,
-      tiles: [[0, 0], [5, 5]],
+      tiles: [
+        [0, 0],
+        [5, 5],
+      ],
       chapter: 1,
       world: world(),
     });

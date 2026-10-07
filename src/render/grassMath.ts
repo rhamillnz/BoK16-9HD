@@ -52,7 +52,13 @@ export const VERGE_SCALE_BOOST = 1.35;
  * who asks. Each clump gets a `lodKey` in [0, 1) so callers can thin the cell by distance.
  * Output is CLUMP_STRIDE floats per clump followed by the key, i.e. CLUMP_STRIDE + 1 per entry.
  */
-export function scatterCell(cx: number, cz: number, cellSize: number, density: number, sample: GroundSampler): Float32Array {
+export function scatterCell(
+  cx: number,
+  cz: number,
+  cellSize: number,
+  density: number,
+  sample: GroundSampler,
+): Float32Array {
   const count = Math.max(0, Math.round(cellSize * cellSize * density));
   const out: number[] = [];
   for (let i = 0; i < count; i++) {
@@ -104,7 +110,12 @@ export function lodKeep(distCells: number, radius: number, farKeep: number): num
 }
 
 /** Cells within the ring radius, nearest first, as [cx, cz, distance in cells]. */
-export function cellsAround(centreX: number, centreZ: number, cellSize: number, radius: number): [number, number, number][] {
+export function cellsAround(
+  centreX: number,
+  centreZ: number,
+  cellSize: number,
+  radius: number,
+): [number, number, number][] {
   const ccx = Math.floor(centreX / cellSize);
   const ccz = Math.floor(centreZ / cellSize);
   const out: [number, number, number][] = [];
@@ -152,7 +163,10 @@ export interface GroundMask {
  * `ground` triangles switch cells on, `cover` triangles (roads, rivers, fields...) switch them off again.
  */
 export function buildGroundMask(ground: ArrayLike<number>, cover: ArrayLike<number>, cell = 100): GroundMask {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   for (let i = 0; i < ground.length; i += 3) {
     minX = Math.min(minX, ground[i]!);
     maxX = Math.max(maxX, ground[i]!);
@@ -165,7 +179,12 @@ export function buildGroundMask(ground: ArrayLike<number>, cover: ArrayLike<numb
   const grid = new Uint8Array(w * h);
   const fill = (tris: ArrayLike<number>, value: number) => {
     for (let o = 0; o + 8 < tris.length; o += 9) {
-      const ax = tris[o]!, ay = tris[o + 1]!, bx = tris[o + 3]!, by = tris[o + 4]!, cx = tris[o + 6]!, cy = tris[o + 7]!;
+      const ax = tris[o]!,
+        ay = tris[o + 1]!,
+        bx = tris[o + 3]!,
+        by = tris[o + 4]!,
+        cx = tris[o + 6]!,
+        cy = tris[o + 7]!;
       const det = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
       if (det === 0) continue;
       const gx0 = Math.max(0, Math.floor((Math.min(ax, bx, cx) - minX) / cell));
@@ -192,7 +211,9 @@ export function buildGroundMask(ground: ArrayLike<number>, cover: ArrayLike<numb
       return gx >= 0 && gy >= 0 && gx < w && gy < h && grid[gy * w + gx] === 1;
     },
     forEachSet(visit) {
-      for (let gy = 0; gy < h; gy++) for (let gx = 0; gx < w; gx++) if (grid[gy * w + gx] === 1) visit(minX + (gx + 0.5) * cell, minY + (gy + 0.5) * cell);
+      for (let gy = 0; gy < h; gy++)
+        for (let gx = 0; gx < w; gx++)
+          if (grid[gy * w + gx] === 1) visit(minX + (gx + 0.5) * cell, minY + (gy + 0.5) * cell);
     },
   };
 }

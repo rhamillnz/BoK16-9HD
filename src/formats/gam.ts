@@ -46,14 +46,26 @@ const SKILLS_PER_CHARACTER_FLAGS = 0x11;
 const COMPLEX_EVENT_THRESHOLD = 0xdac0;
 
 export const SKILL_NAMES = [
-  'health', 'stamina', 'speed', 'strength', 'defense', 'crossbow', 'melee', 'casting',
-  'assessment', 'armorcraft', 'weaponcraft', 'barding', 'haggling', 'lockpick', 'scouting', 'stealth',
+  'health',
+  'stamina',
+  'speed',
+  'strength',
+  'defense',
+  'crossbow',
+  'melee',
+  'casting',
+  'assessment',
+  'armorcraft',
+  'weaponcraft',
+  'barding',
+  'haggling',
+  'lockpick',
+  'scouting',
+  'stealth',
 ] as const;
 export type SkillName = (typeof SKILL_NAMES)[number];
 
-export const CONDITION_NAMES = [
-  'sick', 'plagued', 'poisoned', 'drunk', 'healing', 'starving', 'nearDeath',
-] as const;
+export const CONDITION_NAMES = ['sick', 'plagued', 'poisoned', 'drunk', 'healing', 'starving', 'nearDeath'] as const;
 export type ConditionName = (typeof CONDITION_NAMES)[number];
 
 /** Item status bit indices (bit n of the status byte). */
@@ -214,9 +226,7 @@ export function effectiveSkill(
   if (skill.max !== 0) {
     for (const a of character.affectors) {
       if (a.skill !== index) continue;
-      value = a.type & 0xc00
-        ? Math.trunc((value * (a.adjustment + 100)) / 100)
-        : value + a.adjustment;
+      value = a.type & 0xc00 ? Math.trunc((value * (a.adjustment + 100)) / 100) : value + a.adjustment;
     }
   }
 
@@ -229,7 +239,8 @@ export function effectiveSkill(
   const healthEffect = SKILL_HEALTH_EFFECT[index]!;
   if (healthEffect !== 0 && read !== 'noHealthEffect') {
     const { max: maxHealth, trueSkill } = character.skills.health;
-    const health = healthEffect > 1 ? Math.trunc(((healthEffect - 1) * trueSkill + maxHealth) / healthEffect) : trueSkill;
+    const health =
+      healthEffect > 1 ? Math.trunc(((healthEffect - 1) * trueSkill + maxHealth) / healthEffect) : trueSkill;
     value = maxHealth === 0 ? 0 : Math.trunc((value * health + maxHealth - 1) / maxHealth);
   }
 
@@ -362,8 +373,17 @@ function readCharacter(bytes: Uint8Array, r: Reader, index: number): Character {
 
   const inventory = readInventory(r, GAM_OFFSETS.characterInventory + index * CHARACTER_INVENTORY_STRIDE);
   return {
-    index, name, unknownHeader, spellBytes, spells, skills, combatCharIndex,
-    unknownTrailer, conditions, affectors, inventory,
+    index,
+    name,
+    unknownHeader,
+    spellBytes,
+    spells,
+    skills,
+    combatCharIndex,
+    unknownTrailer,
+    conditions,
+    affectors,
+    inventory,
   };
 }
 
@@ -414,8 +434,19 @@ export function parseGam(bytes: Uint8Array): GamSave {
   const activeSpells = r.u16();
 
   return {
-    chapter, chapterCopy, mapPosition, gold, time, timeLastSlept,
+    chapter,
+    chapterCopy,
+    mapPosition,
+    gold,
+    time,
+    timeLastSlept,
     location: { zone, tileX, tileY, x, y, unknown, heading },
-    followRoad, characters, activeCharacters, partyKeys, expiringEvents, activeSpells, bytes,
+    followRoad,
+    characters,
+    activeCharacters,
+    partyKeys,
+    expiringEvents,
+    activeSpells,
+    bytes,
   };
 }

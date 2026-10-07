@@ -1,4 +1,13 @@
-import { drawMenuScreen, initialMenuState, layoutMenu, stepMenu, type MenuEvent, type MenuLayout, type MenuModel, type MenuState } from './menuScreen';
+import {
+  drawMenuScreen,
+  initialMenuState,
+  layoutMenu,
+  stepMenu,
+  type MenuEvent,
+  type MenuLayout,
+  type MenuModel,
+  type MenuState,
+} from './menuScreen';
 import { registerHudScreen, type HudEvent, type HudHost, type HudScreenHandler } from './hudRegistry';
 
 export const MENU_SCREEN_ID = 'menuPanel';
@@ -10,7 +19,9 @@ export const MENU_SCREEN_ID = 'menuPanel';
  */
 export class MenuPanelScreen implements HudScreenHandler {
   modal = true;
-  private s: { model: MenuModel; layout: MenuLayout; state: MenuState; onPick: (id: string) => void; onCancel: () => void } | undefined;
+  private s:
+    | { model: MenuModel; layout: MenuLayout; state: MenuState; onPick: (id: string) => void; onCancel: () => void }
+    | undefined;
   constructor(private readonly host: HudHost) {}
 
   /** Replace what the panel shows. Open it with `HudScreens.open(MENU_SCREEN_ID)` when it is not already up. */

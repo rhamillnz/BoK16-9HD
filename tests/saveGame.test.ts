@@ -1,23 +1,62 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ALL_SLOTS, IndexedDbSaveStore, LocalStorageSaveStore, MemorySaveStore, QUICK_SLOT, SAVE_VERSION, SaveFormatError, SaveGames,
-  createSaveStore, deserializeSave, serializeSave, slotName, summarize, type SaveGameData,
+  ALL_SLOTS,
+  IndexedDbSaveStore,
+  LocalStorageSaveStore,
+  MemorySaveStore,
+  QUICK_SLOT,
+  SAVE_VERSION,
+  SaveFormatError,
+  SaveGames,
+  createSaveStore,
+  deserializeSave,
+  serializeSave,
+  slotName,
+  summarize,
+  type SaveGameData,
 } from '../src/game/saveGame';
 import { setFlag } from '../src/game/state';
 import { SKILL_NAMES, type Character, type Skill } from '../src/formats/gam';
 
-const skill = (max: number, trueSkill: number): Skill => ({ max, trueSkill, current: 0, experience: 3, modifier: -2, selected: true, unseenImprovement: false });
+const skill = (max: number, trueSkill: number): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 3,
+  modifier: -2,
+  selected: true,
+  unseenImprovement: false,
+});
 
 function character(index: number, name: string): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(50, 20)])) as Character['skills'];
   return {
-    index, name, unknownHeader: new Uint8Array([1, 2]), spellBytes: new Uint8Array([0x81, 0, 0, 0, 0, 0xff]), spells: [0, 7, 40, 41],
-    skills, combatCharIndex: 3, unknownTrailer: new Uint8Array([9, 8, 7, 6, 5, 4]),
+    index,
+    name,
+    unknownHeader: new Uint8Array([1, 2]),
+    spellBytes: new Uint8Array([0x81, 0, 0, 0, 0, 0xff]),
+    spells: [0, 7, 40, 41],
+    skills,
+    combatCharIndex: 3,
+    unknownTrailer: new Uint8Array([9, 8, 7, 6, 5, 4]),
     conditions: { sick: 0, plagued: 0, poisoned: 12, drunk: 0, healing: 0, starving: 0, nearDeath: 0 },
     affectors: [{ type: 1, skill: 2, skillMask: 4, adjustment: -5, startTime: 10, endTime: 99 }],
     inventory: {
       capacity: 16,
-      items: [{ itemIndex: 7, conditionOrQuantity: 5, status: 0x42, modifiers: 1, activated: false, used: true, broken: false, repairable: true, equipped: true, poisoned: false }],
+      items: [
+        {
+          itemIndex: 7,
+          conditionOrQuantity: 5,
+          status: 0x42,
+          modifiers: 1,
+          activated: false,
+          used: true,
+          broken: false,
+          repairable: true,
+          equipped: true,
+          poisoned: false,
+        },
+      ],
     },
   };
 }
@@ -25,16 +64,45 @@ function character(index: number, name: string): Character {
 function game(): SaveGameData {
   const bytes = new Uint8Array(0x4000);
   bytes[100] = 0xab;
-  const world = setFlag({ chapter: 2, ticks: 0xa8c0 * 3 + 500, ticksLastSlept: 77, bytes, expiringEvents: [{ type: 3, flags: 0, data: 0x1234, duration: 600 }] }, 0x2710, true);
+  const world = setFlag(
+    {
+      chapter: 2,
+      ticks: 0xa8c0 * 3 + 500,
+      ticksLastSlept: 77,
+      bytes,
+      expiringEvents: [{ type: 3, flags: 0, data: 0x1234, duration: 600 }],
+    },
+    0x2710,
+    true,
+  );
   return {
     savedAt: Date.UTC(2026, 9, 7, 12, 30),
-    zone: 2, x: 123456.5, y: 654321, heading: 200.25,
+    zone: 2,
+    x: 123456.5,
+    y: 654321,
+    heading: 200.25,
     world,
     party: {
       gold: 321,
       characters: [character(0, 'Owyn'), character(1, 'Locklear')],
       activeCharacters: [1, 0],
-      partyKeys: { capacity: 8, items: [{ itemIndex: 9, conditionOrQuantity: 100, status: 0, modifiers: 0, activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false }] },
+      partyKeys: {
+        capacity: 8,
+        items: [
+          {
+            itemIndex: 9,
+            conditionOrQuantity: 100,
+            status: 0,
+            modifiers: 0,
+            activated: false,
+            used: false,
+            broken: false,
+            repairable: false,
+            equipped: false,
+            poisoned: false,
+          },
+        ],
+      },
     },
   };
 }
@@ -60,13 +128,21 @@ describe('save format', () => {
     expect(() => deserializeSave('{"format":"other","version":1}')).toThrow(SaveFormatError);
     const newer = JSON.stringify({ ...JSON.parse(serializeSave(game())), version: SAVE_VERSION + 1 });
     expect(() => deserializeSave(newer)).toThrow(/newer/);
-    expect(() => deserializeSave(JSON.stringify({ format: 'bok-save', version: 1, data: { zone: 1 } }))).toThrow(SaveFormatError);
+    expect(() => deserializeSave(JSON.stringify({ format: 'bok-save', version: 1, data: { zone: 1 } }))).toThrow(
+      SaveFormatError,
+    );
     const badHex = serializeSave(game()).replace(/"\$u8":"[0-9a-f]{2}/, '"$u8":"zz');
     expect(() => deserializeSave(badHex)).toThrow(SaveFormatError);
   });
 
   it('summarises the slot in the order of the active party', () => {
-    expect(summarize(game())).toEqual({ savedAt: game().savedAt, zone: 2, gameTime: 'day 3 00:16', gold: 321, members: ['Locklear', 'Owyn'] });
+    expect(summarize(game())).toEqual({
+      savedAt: game().savedAt,
+      zone: 2,
+      gameTime: 'day 3 00:16',
+      gold: 321,
+      members: ['Locklear', 'Owyn'],
+    });
   });
 });
 
@@ -95,7 +171,9 @@ describe('save storage', () => {
   it('round-trips through localStorage', async () => {
     const data = new Map<string, string>();
     const storage = {
-      get length() { return data.size; },
+      get length() {
+        return data.size;
+      },
       key: (i: number) => [...data.keys()][i] ?? null,
       getItem: (k: string) => data.get(k) ?? null,
       setItem: (k: string, v: string) => void data.set(k, v),
@@ -109,11 +187,25 @@ describe('save storage', () => {
   });
 
   it('falls back from IndexedDB to localStorage to memory', async () => {
-    const brokenIdb = { open: () => { throw new Error('denied'); } } as unknown as IDBFactory;
+    const brokenIdb = {
+      open: () => {
+        throw new Error('denied');
+      },
+    } as unknown as IDBFactory;
     const data = new Map<string, string>();
-    const ls = { setItem: (k: string, v: string) => void data.set(k, v), removeItem: (k: string) => void data.delete(k), length: 0, key: () => null, getItem: () => null } as unknown as Storage;
+    const ls = {
+      setItem: (k: string, v: string) => void data.set(k, v),
+      removeItem: (k: string) => void data.delete(k),
+      length: 0,
+      key: () => null,
+      getItem: () => null,
+    } as unknown as Storage;
     expect((await createSaveStore({ indexedDB: brokenIdb, localStorage: ls })).kind).toBe('localStorage');
-    const throwingLs = { setItem: () => { throw new Error('quota'); } } as unknown as Storage;
+    const throwingLs = {
+      setItem: () => {
+        throw new Error('quota');
+      },
+    } as unknown as Storage;
     expect((await createSaveStore({ indexedDB: brokenIdb, localStorage: throwingLs })).kind).toBe('memory');
     expect((await createSaveStore({})).kind).toBe('memory');
   });
@@ -128,15 +220,24 @@ describe('save storage', () => {
     };
     const objectStore = {
       get: (k: string) => req(rows.get(k)),
-      put: (v: unknown, k: string) => { rows.set(k, v); return req(k); },
-      delete: (k: string) => { rows.delete(k); return req(undefined); },
+      put: (v: unknown, k: string) => {
+        rows.set(k, v);
+        return req(k);
+      },
+      delete: (k: string) => {
+        rows.delete(k);
+        return req(undefined);
+      },
       getAllKeys: () => req([...rows.keys()]),
     };
     const db = { transaction: () => ({ objectStore: () => objectStore }), createObjectStore: () => objectStore };
     const factory = {
       open: () => {
         const r: { result: typeof db; onsuccess?: () => void; onupgradeneeded?: () => void } = { result: db };
-        queueMicrotask(() => { r.onupgradeneeded?.(); r.onsuccess?.(); });
+        queueMicrotask(() => {
+          r.onupgradeneeded?.();
+          r.onsuccess?.();
+        });
         return r;
       },
     } as unknown as IDBFactory;

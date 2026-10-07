@@ -67,9 +67,16 @@ function readItems(r: Reader, count: number, capacity: number): InventoryItem[] 
     const modifiers = r.u8();
     const bit = (n: number) => (status & (1 << n)) !== 0;
     items.push({
-      itemIndex, conditionOrQuantity, status, modifiers,
-      activated: bit(ITEM_STATUS_BITS.activated), used: bit(ITEM_STATUS_BITS.used), broken: bit(ITEM_STATUS_BITS.broken),
-      repairable: bit(ITEM_STATUS_BITS.repairable), equipped: bit(ITEM_STATUS_BITS.equipped), poisoned: bit(ITEM_STATUS_BITS.poisoned),
+      itemIndex,
+      conditionOrQuantity,
+      status,
+      modifiers,
+      activated: bit(ITEM_STATUS_BITS.activated),
+      used: bit(ITEM_STATUS_BITS.used),
+      broken: bit(ITEM_STATUS_BITS.broken),
+      repairable: bit(ITEM_STATUS_BITS.repairable),
+      equipped: bit(ITEM_STATUS_BITS.equipped),
+      poisoned: bit(ITEM_STATUS_BITS.poisoned),
     });
   }
   r.skip(Math.max(0, capacity - count) * 4);
@@ -78,10 +85,20 @@ function readItems(r: Reader, count: number, capacity: number): InventoryItem[] 
 
 export function readShopStats(r: Reader): ShopStats {
   return {
-    templeNumber: r.u8(), sellFactor: r.u8(), maxDiscount: r.u8(), buyFactor: r.u8(),
-    haggleDifficulty: r.u8(), haggleAnnoyance: r.u8(),
-    bardingSkill: r.u8(), bardingReward: r.u8(), bardingMaxReward: r.u8(), unknown: r.u8(),
-    innSleepUntilHour: r.u8(), innCost: r.u8(), repairTypes: r.u8(), repairFactor: r.u8(),
+    templeNumber: r.u8(),
+    sellFactor: r.u8(),
+    maxDiscount: r.u8(),
+    buyFactor: r.u8(),
+    haggleDifficulty: r.u8(),
+    haggleAnnoyance: r.u8(),
+    bardingSkill: r.u8(),
+    bardingReward: r.u8(),
+    bardingMaxReward: r.u8(),
+    unknown: r.u8(),
+    innSleepUntilHour: r.u8(),
+    innCost: r.u8(),
+    repairTypes: r.u8(),
+    repairFactor: r.u8(),
     categories: r.u16(),
   };
 }

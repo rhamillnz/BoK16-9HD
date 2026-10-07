@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import type { Font, Glyph } from '../src/formats/fnt';
-import { CONDITION_NAMES, SKILL_NAMES, type Character, type ConditionName, type Skill, type SkillName } from '../src/formats/gam';
-import { buildPartyBar, buildPartyBarMember, ellipsize, fraction, layoutPartyBar, partySlotAt } from '../src/ui/partyBar';
+import {
+  CONDITION_NAMES,
+  SKILL_NAMES,
+  type Character,
+  type ConditionName,
+  type Skill,
+  type SkillName,
+} from '../src/formats/gam';
+import {
+  buildPartyBar,
+  buildPartyBarMember,
+  ellipsize,
+  fraction,
+  layoutPartyBar,
+  partySlotAt,
+} from '../src/ui/partyBar';
 
 const glyphs: Glyph[] = [];
 for (let code = 32; code < 127; code++) glyphs.push({ code, width: 4, height: 6, pixels: new Uint8Array(24).fill(1) });
@@ -9,15 +23,39 @@ const font: Font = { version: 0xff, maxWidth: 4, height: 6, baseline: 5, firstCh
 
 function character(index: number, name: string, over: Partial<Record<SkillName, Partial<Skill>>> = {}): Character {
   const skills = {} as Record<SkillName, Skill>;
-  for (const s of SKILL_NAMES) skills[s] = { max: 50, trueSkill: 50, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false, ...over[s] };
+  for (const s of SKILL_NAMES)
+    skills[s] = {
+      max: 50,
+      trueSkill: 50,
+      current: 0,
+      experience: 0,
+      modifier: 0,
+      selected: false,
+      unseenImprovement: false,
+      ...over[s],
+    };
   const conditions = {} as Record<ConditionName, number>;
   for (const c of CONDITION_NAMES) conditions[c] = 0;
-  return { index, name, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills, combatCharIndex: 0, unknownTrailer: new Uint8Array(6), conditions, affectors: [], inventory: { capacity: 0, items: [] } };
+  return {
+    index,
+    name,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
+    conditions,
+    affectors: [],
+    inventory: { capacity: 0, items: [] },
+  };
 }
 
 describe('party bar model', () => {
   it('reads current values through effectiveSkill, not the cached current byte', () => {
-    const m = buildPartyBarMember(character(2, 'Owyn', { health: { max: 60, trueSkill: 45 }, stamina: { max: 80, trueSkill: 20 } }));
+    const m = buildPartyBarMember(
+      character(2, 'Owyn', { health: { max: 60, trueSkill: 45 }, stamina: { max: 80, trueSkill: 20 } }),
+    );
     expect(m.health).toBe(45);
     expect(m.stamina).toBe(20);
     expect(m.healthFraction).toBeCloseTo(0.75);

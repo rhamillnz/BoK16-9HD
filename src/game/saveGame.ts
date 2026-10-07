@@ -40,7 +40,9 @@ export interface SaveSummary {
 }
 
 export function summarize(d: SaveGameData): SaveSummary {
-  const members = d.party.activeCharacters.flatMap((i) => d.party.characters.filter((c) => c.index === i).map((c) => c.name));
+  const members = d.party.activeCharacters.flatMap((i) =>
+    d.party.characters.filter((c) => c.index === i).map((c) => c.name),
+  );
   return { savedAt: d.savedAt, zone: d.zone, gameTime: formatTime(d.world.ticks), gold: d.party.gold, members };
 }
 
@@ -81,13 +83,29 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 function validate(d: unknown): SaveGameData {
   if (!isObj(d)) throw new SaveFormatError('save has no data');
   const { world, party } = d;
-  if (typeof d.zone !== 'number' || typeof d.x !== 'number' || typeof d.y !== 'number' || typeof d.heading !== 'number') {
+  if (
+    typeof d.zone !== 'number' ||
+    typeof d.x !== 'number' ||
+    typeof d.y !== 'number' ||
+    typeof d.heading !== 'number'
+  ) {
     throw new SaveFormatError('save is missing its position');
   }
-  if (!isObj(world) || !(world.bytes instanceof Uint8Array) || typeof world.ticks !== 'number' || !Array.isArray(world.expiringEvents)) {
+  if (
+    !isObj(world) ||
+    !(world.bytes instanceof Uint8Array) ||
+    typeof world.ticks !== 'number' ||
+    !Array.isArray(world.expiringEvents)
+  ) {
     throw new SaveFormatError('save is missing the world state');
   }
-  if (!isObj(party) || typeof party.gold !== 'number' || !Array.isArray(party.characters) || !Array.isArray(party.activeCharacters) || !isObj(party.partyKeys)) {
+  if (
+    !isObj(party) ||
+    typeof party.gold !== 'number' ||
+    !Array.isArray(party.characters) ||
+    !Array.isArray(party.activeCharacters) ||
+    !isObj(party.partyKeys)
+  ) {
     throw new SaveFormatError('save is missing the party');
   }
   return d as unknown as SaveGameData;
@@ -100,7 +118,8 @@ export function deserializeSave(text: string): SaveGameData {
   } catch (e) {
     throw new SaveFormatError(`save is not readable: ${(e as Error).message}`);
   }
-  if (!isObj(doc) || doc.format !== SAVE_FORMAT || typeof doc.version !== 'number') throw new SaveFormatError('not a save file');
+  if (!isObj(doc) || doc.format !== SAVE_FORMAT || typeof doc.version !== 'number')
+    throw new SaveFormatError('not a save file');
   let version = doc.version;
   if (version > SAVE_VERSION) throw new SaveFormatError(`save is from a newer version (${version})`);
   let data = doc.data;
@@ -119,7 +138,10 @@ export function deserializeSave(text: string): SaveGameData {
 export const QUICK_SLOT = 'quick';
 export const NUMBERED_SLOTS = 8;
 export const slotName = (n: number): string => `slot${n}`;
-export const ALL_SLOTS: readonly string[] = [QUICK_SLOT, ...Array.from({ length: NUMBERED_SLOTS }, (_, i) => slotName(i + 1))];
+export const ALL_SLOTS: readonly string[] = [
+  QUICK_SLOT,
+  ...Array.from({ length: NUMBERED_SLOTS }, (_, i) => slotName(i + 1)),
+];
 
 /** Raw key-value storage for serialised saves. */
 export interface SaveStore {
@@ -133,10 +155,18 @@ export interface SaveStore {
 export class MemorySaveStore implements SaveStore {
   readonly kind = 'memory';
   private readonly map = new Map<string, string>();
-  async get(slot: string) { return this.map.get(slot); }
-  async put(slot: string, text: string) { this.map.set(slot, text); }
-  async remove(slot: string) { this.map.delete(slot); }
-  async slots() { return [...this.map.keys()]; }
+  async get(slot: string) {
+    return this.map.get(slot);
+  }
+  async put(slot: string, text: string) {
+    this.map.set(slot, text);
+  }
+  async remove(slot: string) {
+    this.map.delete(slot);
+  }
+  async slots() {
+    return [...this.map.keys()];
+  }
 }
 
 const LS_PREFIX = 'bok.save.';
@@ -144,9 +174,15 @@ const LS_PREFIX = 'bok.save.';
 export class LocalStorageSaveStore implements SaveStore {
   readonly kind = 'localStorage';
   constructor(private readonly storage: Storage) {}
-  async get(slot: string) { return this.storage.getItem(LS_PREFIX + slot) ?? undefined; }
-  async put(slot: string, text: string) { this.storage.setItem(LS_PREFIX + slot, text); }
-  async remove(slot: string) { this.storage.removeItem(LS_PREFIX + slot); }
+  async get(slot: string) {
+    return this.storage.getItem(LS_PREFIX + slot) ?? undefined;
+  }
+  async put(slot: string, text: string) {
+    this.storage.setItem(LS_PREFIX + slot, text);
+  }
+  async remove(slot: string) {
+    this.storage.removeItem(LS_PREFIX + slot);
+  }
   async slots() {
     const out: string[] = [];
     for (let i = 0; i < this.storage.length; i++) {
@@ -187,13 +223,21 @@ export class IndexedDbSaveStore implements SaveStore {
     const v = await request(this.store('readonly').get(slot));
     return typeof v === 'string' ? v : undefined;
   }
-  async put(slot: string, text: string) { await request(this.store('readwrite').put(text, slot)); }
-  async remove(slot: string) { await request(this.store('readwrite').delete(slot)); }
-  async slots() { return (await request(this.store('readonly').getAllKeys())).map(String); }
+  async put(slot: string, text: string) {
+    await request(this.store('readwrite').put(text, slot));
+  }
+  async remove(slot: string) {
+    await request(this.store('readwrite').delete(slot));
+  }
+  async slots() {
+    return (await request(this.store('readonly').getAllKeys())).map(String);
+  }
 }
 
 /** IndexedDB when it opens, else localStorage, else memory (saves then last until the page closes). */
-export async function createSaveStore(env: { indexedDB?: IDBFactory; localStorage?: Storage } = globalThis): Promise<SaveStore> {
+export async function createSaveStore(
+  env: { indexedDB?: IDBFactory; localStorage?: Storage } = globalThis,
+): Promise<SaveStore> {
   try {
     if (env.indexedDB) return await IndexedDbSaveStore.open(env.indexedDB);
   } catch (err) {
@@ -242,13 +286,15 @@ export class SaveGames {
 
   /** The quick slot followed by the numbered ones, each with its summary. */
   async list(): Promise<SlotInfo[]> {
-    return Promise.all(ALL_SLOTS.map(async (slot): Promise<SlotInfo> => {
-      try {
-        const d = await this.load(slot);
-        return d ? { slot, summary: summarize(d) } : { slot };
-      } catch {
-        return { slot, corrupt: true };
-      }
-    }));
+    return Promise.all(
+      ALL_SLOTS.map(async (slot): Promise<SlotInfo> => {
+        try {
+          const d = await this.load(slot);
+          return d ? { slot, summary: summarize(d) } : { slot };
+        } catch {
+          return { slot, corrupt: true };
+        }
+      }),
+    );
   }
 }

@@ -14,7 +14,13 @@ import {
   walkDelta,
 } from './partyController';
 
-const wall: CollisionPolygon = { points: [-500, 1000, 500, 1000, 500, 1100, -500, 1100], minX: -500, minY: 1000, maxX: 500, maxY: 1100 };
+const wall: CollisionPolygon = {
+  points: [-500, 1000, 500, 1000, 500, 1100, -500, 1100],
+  minX: -500,
+  minY: 1000,
+  maxX: 500,
+  maxY: 1100,
+};
 
 describe('heading maths', () => {
   it('wraps into [0, 256)', () => {

@@ -66,7 +66,26 @@ describe('cellInView', () => {
 
 describe('buildGroundMask', () => {
   // Ground square (0..1000)^2 as two triangles, with a road strip x in 400..600 covering it.
-  const quad = (x0: number, y0: number, x1: number, y1: number) => [x0, y0, 0, x1, y0, 0, x1, y1, 0, x0, y0, 0, x1, y1, 0, x0, y1, 0];
+  const quad = (x0: number, y0: number, x1: number, y1: number) => [
+    x0,
+    y0,
+    0,
+    x1,
+    y0,
+    0,
+    x1,
+    y1,
+    0,
+    x0,
+    y0,
+    0,
+    x1,
+    y1,
+    0,
+    x0,
+    y1,
+    0,
+  ];
   const mask = buildGroundMask(quad(0, 0, 1000, 1000), quad(400, 0, 600, 1000));
   it('is on over ground and off over cover and outside', () => {
     expect(mask.get(100, 500)).toBe(true);

@@ -34,7 +34,8 @@ export function spellKind(s: SpellDef): SpellKind {
 export const isSpellcaster = (c: Character): boolean => c.skills.casting.max !== 0;
 
 /** Stamina plus Health: what casting can spend. */
-export const castingPool = (c: Pick<Character, 'skills'>): number => c.skills.health.trueSkill + c.skills.stamina.trueSkill;
+export const castingPool = (c: Pick<Character, 'skills'>): number =>
+  c.skills.health.trueSkill + c.skills.stamina.trueSkill;
 
 /** The spells a character knows that are in `defs`. */
 export function knownSpells(c: Character, defs: readonly SpellDef[]): SpellDef[] {
@@ -55,9 +56,12 @@ export function maxPower(c: Character, s: SpellDef): number {
 export function spellAmount(s: SpellDef, power: number): number {
   const d = Math.abs(s.damage);
   switch (s.calc) {
-    case SpellCalc.CostTimesDamage: return power * d;
-    case SpellCalc.CostTimesDuration: return power * d;
-    default: return d;
+    case SpellCalc.CostTimesDamage:
+      return power * d;
+    case SpellCalc.CostTimesDuration:
+      return power * d;
+    default:
+      return d;
   }
 }
 
@@ -70,7 +74,11 @@ export function payCost(c: Character, power: number): Character {
   const health = Math.max(1, pool.health);
   return {
     ...c,
-    skills: { ...c.skills, health: { ...c.skills.health, trueSkill: health }, stamina: { ...c.skills.stamina, trueSkill: pool.stamina } },
+    skills: {
+      ...c.skills,
+      health: { ...c.skills.health, trueSkill: health },
+      stamina: { ...c.skills.stamina, trueSkill: pool.stamina },
+    },
   };
 }
 
@@ -81,7 +89,13 @@ export interface CastResult {
 }
 
 /** Cast a healing spell from `caster` on `target` (party indices) outside combat. */
-export function castHeal(p: PartyState, casterIndex: number, spell: SpellDef, power: number, targetIndex: number): CastResult {
+export function castHeal(
+  p: PartyState,
+  casterIndex: number,
+  spell: SpellDef,
+  power: number,
+  targetIndex: number,
+): CastResult {
   const caster = p.characters.find((c) => c.index === casterIndex);
   const target = p.characters.find((c) => c.index === targetIndex);
   if (!caster || !target) return { party: p, message: 'Nobody there.', ok: false };
@@ -98,13 +112,22 @@ export function castHeal(p: PartyState, casterIndex: number, spell: SpellDef, po
 }
 
 /** Learn the spell on a scroll. Magic-users only; fails when the spell is already known. */
-export function learnFromScroll(p: PartyState, charIndex: number, spellIndex: number, defs: readonly SpellDef[]): CastResult {
+export function learnFromScroll(
+  p: PartyState,
+  charIndex: number,
+  spellIndex: number,
+  defs: readonly SpellDef[],
+): CastResult {
   const c = p.characters.find((x) => x.index === charIndex);
   if (!c) return { party: p, message: 'Nobody there.', ok: false };
   const name = defs[spellIndex]?.name ?? `spell ${spellIndex}`;
   if (!isSpellcaster(c)) return { party: p, message: `${c.name} cannot read magic.`, ok: false };
   if (c.spells.includes(spellIndex)) return { party: p, message: `${c.name} already knows ${name}.`, ok: false };
-  return { party: updateCharacter(p, charIndex, (x) => learnSpell(x, spellIndex)), message: `${c.name} learns ${name}.`, ok: true };
+  return {
+    party: updateCharacter(p, charIndex, (x) => learnSpell(x, spellIndex)),
+    message: `${c.name} learns ${name}.`,
+    ok: true,
+  };
 }
 
 /** Skill whose bit is set in an item's effect mask (the lowest set bit), if any. */
@@ -114,7 +137,10 @@ export function skillOfMask(mask: number): (typeof SKILL_NAMES)[number] | undefi
 }
 
 /** A timed light. */
-export interface ActiveLight { spell: number; endTicks: number }
+export interface ActiveLight {
+  spell: number;
+  endTicks: number;
+}
 
 /** Light in force at `ticks`: the longest-lasting spell not yet expired. */
 export function currentLight(lights: readonly ActiveLight[], ticks: number): ActiveLight | undefined {

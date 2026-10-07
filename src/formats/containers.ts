@@ -57,7 +57,16 @@ export interface ContainerEncounterRef {
 }
 
 export type ContainerLocation =
-  | { kind: 'world'; zone: number; fromChapter: number; toChapter: number; model: number; unknown: number; x: number; y: number }
+  | {
+      kind: 'world';
+      zone: number;
+      fromChapter: number;
+      toChapter: number;
+      model: number;
+      unknown: number;
+      x: number;
+      y: number;
+    }
   | { kind: 'gds'; gds: number; letter: string }
   | { kind: 'combat'; combat: number; combatant: number };
 
@@ -125,14 +134,17 @@ export function readContainer(r: Reader, kind: HeaderKind): ContainerRecord {
   const count = r.u8();
   const capacity = r.u8();
   const flags = r.u8();
-  if (count > capacity) throw new RangeError(`container at 0x${address.toString(16)} holds ${count} items for capacity ${capacity}`);
+  if (count > capacity)
+    throw new RangeError(`container at 0x${address.toString(16)} holds ${count} items for capacity ${capacity}`);
 
   const items: ContainerItem[] = [];
-  for (let i = 0; i < count; i++) items.push({ itemIndex: r.u8(), conditionOrQuantity: r.u8(), status: r.u8(), modifiers: r.u8() });
+  for (let i = 0; i < count; i++)
+    items.push({ itemIndex: r.u8(), conditionOrQuantity: r.u8(), status: r.u8(), modifiers: r.u8() });
   r.skip((capacity - count) * ITEM_RECORD_BYTES);
 
   const rec: ContainerRecord = { address, location, locationType, capacity, flags, items };
-  if (flags & ContainerFlag.Lock) rec.lock = { flag: r.u8(), rating: r.u8(), fairyChestIndex: r.u8(), trapDamage: r.u8() };
+  if (flags & ContainerFlag.Lock)
+    rec.lock = { flag: r.u8(), rating: r.u8(), fairyChestIndex: r.u8(), trapDamage: r.u8() };
   if (flags & ContainerFlag.Door) rec.door = r.u16();
   if (flags & ContainerFlag.Dialog) rec.dialog = { contextVar: r.u8(), dialogOrder: r.u8(), key: r.u32() };
   if (flags & ContainerFlag.Shop) {
@@ -171,8 +183,19 @@ export function parseFixedObjects(bytes: Uint8Array): ContainerRecord[] {
 
 /** Where each zone's world containers sit in a save image: [offset, count], indexed by zone number (0 = first block). */
 export const SAVE_ZONE_CONTAINERS: readonly (readonly [number, number])[] = [
-  [0x3ab4f, 15], [0x3b621, 36], [0x3be55, 25], [0x3c55f, 54], [0x3d0b4, 65], [0x3dc07, 63], [0x3e708, 131],
-  [0x3f8b2, 115], [0x40c97, 67], [0x416b7, 110], [0x42868, 25], [0x43012, 30], [0x4378f, 60],
+  [0x3ab4f, 15],
+  [0x3b621, 36],
+  [0x3be55, 25],
+  [0x3c55f, 54],
+  [0x3d0b4, 65],
+  [0x3dc07, 63],
+  [0x3e708, 131],
+  [0x3f8b2, 115],
+  [0x40c97, 67],
+  [0x416b7, 110],
+  [0x42868, 25],
+  [0x43012, 30],
+  [0x4378f, 60],
 ];
 
 /** The world containers of `zone` as stored in a save image (the live state). Empty for unknown zones or short images. */

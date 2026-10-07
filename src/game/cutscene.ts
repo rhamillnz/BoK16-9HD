@@ -1,7 +1,15 @@
 import { parseBMX, type IndexedImage } from '../formats/bmx';
 import { parsePalette, type Palette } from '../formats/palette';
 import { parseSCX } from '../formats/scx';
-import { parseAds, parseTtmFrames, type AdsAction, type AdsCondition, type AdsScene, type TtmFrame, type TtmFrameOp } from '../formats/ttm';
+import {
+  parseAds,
+  parseTtmFrames,
+  type AdsAction,
+  type AdsCondition,
+  type AdsScene,
+  type TtmFrame,
+  type TtmFrameOp,
+} from '../formats/ttm';
 import type { ReadResource } from './encounterDriver';
 import { SCENE_HEIGHT, SCENE_WIDTH, type FetchResources } from './townScene';
 
@@ -88,10 +96,14 @@ export class CutsceneRunner {
 
   private holds(c: AdsCondition): boolean {
     switch (c.kind) {
-      case 'notStarted': return !this.started.has(c.script);
-      case 'finished': return this.finished.has(c.script);
-      case 'chapterGte': return this.chapter >= c.chapter;
-      case 'chapterLte': return this.chapter <= c.chapter;
+      case 'notStarted':
+        return !this.started.has(c.script);
+      case 'finished':
+        return this.finished.has(c.script);
+      case 'chapterGte':
+        return this.chapter >= c.chapter;
+      case 'chapterLte':
+        return this.chapter <= c.chapter;
     }
   }
 
@@ -172,18 +184,30 @@ export class CutsceneRenderer {
   private run(op: TtmFrameOp): void {
     const screen = this.layers[LAYER_SCREEN]!;
     switch (op.op) {
-      case 'slotImage': this.imageSlot = op.slot; break;
-      case 'slotPalette': this.paletteSlot = op.slot; break;
+      case 'slotImage':
+        this.imageSlot = op.slot;
+        break;
+      case 'slotPalette':
+        this.paletteSlot = op.slot;
+        break;
       case 'loadPalette': {
         this.palettes.delete(this.paletteSlot);
         const bytes = this.read(op.name);
-        try { if (bytes) this.palettes.set(this.paletteSlot, parsePalette(bytes)); } catch { /* palette stays unset */ }
+        try {
+          if (bytes) this.palettes.set(this.paletteSlot, parsePalette(bytes));
+        } catch {
+          /* palette stays unset */
+        }
         break;
       }
       case 'loadImage': {
         this.images.delete(this.imageSlot);
         const bytes = this.read(op.name);
-        try { if (bytes) this.images.set(this.imageSlot, parseBMX(bytes)); } catch { /* slot stays empty */ }
+        try {
+          if (bytes) this.images.set(this.imageSlot, parseBMX(bytes));
+        } catch {
+          /* slot stays empty */
+        }
         break;
       }
       case 'loadScreen': {
@@ -195,21 +219,40 @@ export class CutsceneRenderer {
           const noClip = this.clip;
           this.clip = undefined;
           for (let y = 0; y < Math.min(SCENE_HEIGHT, picture.height); y++) {
-            for (let x = 0; x < Math.min(SCENE_WIDTH, picture.width); x++) this.put(screen, x, y, pal, picture.pixels[y * picture.width + x]!);
+            for (let x = 0; x < Math.min(SCENE_WIDTH, picture.width); x++)
+              this.put(screen, x, y, pal, picture.pixels[y * picture.width + x]!);
           }
           this.clip = noClip;
           this.layers[LAYER_BACKGROUND]!.set(screen);
-        } catch { /* an undecodable screen leaves the picture as it was */ }
+        } catch {
+          /* an undecodable screen leaves the picture as it was */
+        }
         break;
       }
-      case 'clip': this.clip = { x0: op.x, y0: op.y, x1: op.right, y1: op.bottom }; break;
-      case 'sprite': this.sprite(op); break;
-      case 'spriteRotated': this.spriteRotated(op); break;
-      case 'rect': this.rect(op); break;
-      case 'saveBackground': this.layers[LAYER_BACKGROUND]!.set(screen); break;
-      case 'saveRect': this.copyRect(op.x, op.y, op.width, op.height, screen, this.layers[LAYER_BACKGROUND]!); break;
-      case 'copyLayer': this.copyRect(op.x, op.y, op.width, op.height, this.layer(op.source), this.layer(op.target)); break;
-      case 'setSaveLayer': this.saveLayer = op.layer; break;
+      case 'clip':
+        this.clip = { x0: op.x, y0: op.y, x1: op.right, y1: op.bottom };
+        break;
+      case 'sprite':
+        this.sprite(op);
+        break;
+      case 'spriteRotated':
+        this.spriteRotated(op);
+        break;
+      case 'rect':
+        this.rect(op);
+        break;
+      case 'saveBackground':
+        this.layers[LAYER_BACKGROUND]!.set(screen);
+        break;
+      case 'saveRect':
+        this.copyRect(op.x, op.y, op.width, op.height, screen, this.layers[LAYER_BACKGROUND]!);
+        break;
+      case 'copyLayer':
+        this.copyRect(op.x, op.y, op.width, op.height, this.layer(op.source), this.layer(op.target));
+        break;
+      case 'setSaveLayer':
+        this.saveLayer = op.layer;
+        break;
       case 'saveRegion': {
         const rgba = new Uint8ClampedArray(Math.max(0, op.width) * Math.max(0, op.height) * 4);
         for (let y = 0; y < op.height; y++) {
@@ -217,7 +260,10 @@ export class CutsceneRenderer {
             const sx = op.x + x;
             const sy = op.y + y;
             if (sx < 0 || sy < 0 || sx >= SCENE_WIDTH || sy >= SCENE_HEIGHT) continue;
-            rgba.set(screen.subarray((sy * SCENE_WIDTH + sx) * 4, (sy * SCENE_WIDTH + sx) * 4 + 4), (y * op.width + x) * 4);
+            rgba.set(
+              screen.subarray((sy * SCENE_WIDTH + sx) * 4, (sy * SCENE_WIDTH + sx) * 4 + 4),
+              (y * op.width + x) * 4,
+            );
           }
         }
         this.saved.set(this.saveLayer, { x: op.x, y: op.y, width: op.width, height: op.height, rgba });
@@ -258,7 +304,14 @@ export class CutsceneRenderer {
     this.putRgba(layer, x, y, pal[index * 4]!, pal[index * 4 + 1]!, pal[index * 4 + 2]!);
   }
 
-  private copyRect(x: number, y: number, width: number, height: number, from: Uint8ClampedArray, to: Uint8ClampedArray): void {
+  private copyRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    from: Uint8ClampedArray,
+    to: Uint8ClampedArray,
+  ): void {
     for (let py = Math.max(0, y); py < Math.min(SCENE_HEIGHT, y + height); py++) {
       for (let px = Math.max(0, x); px < Math.min(SCENE_WIDTH, x + width); px++) {
         const o = (py * SCENE_WIDTH + px) * 4;
@@ -284,8 +337,14 @@ export class CutsceneRenderer {
       // A scaled draw samples the source across the target size; negative sizes mirror.
       w = op.width;
       h = op.height;
-      if (w < 0) { w = -w; flipX = !flipX; }
-      if (h < 0) { h = -h; flipY = !flipY; }
+      if (w < 0) {
+        w = -w;
+        flipX = !flipX;
+      }
+      if (h < 0) {
+        h = -h;
+        flipY = !flipY;
+      }
     }
     const scaled = op.width !== 0;
     const sample = (i: number, steps: number, max: number, flip: boolean) => {
@@ -404,7 +463,15 @@ export class CutscenePlayer {
   private fadeAnim: { from: number; to: number; duration: number; elapsed: number } | undefined;
   private delayMs = 0;
   private dialogType = 0;
-  private frame: { ops: TtmFrameOp[]; next: number; picture: Uint8ClampedArray<ArrayBuffer>; presented: boolean; scriptEnded: boolean } | undefined;
+  private frame:
+    | {
+        ops: TtmFrameOp[];
+        next: number;
+        picture: Uint8ClampedArray<ArrayBuffer>;
+        presented: boolean;
+        scriptEnded: boolean;
+      }
+    | undefined;
   private onFinished: (() => void) | undefined;
 
   constructor(opts: CutsceneOptions) {
@@ -498,9 +565,15 @@ export class CutscenePlayer {
     while (f.next < f.ops.length) {
       const op = f.ops[f.next++]!;
       switch (op.op) {
-        case 'delay': this.delayMs = op.ticks * SECONDS_PER_TICK * 1000; break;
-        case 'sound': this.host.sound?.(op.index); break;
-        case 'endScript': f.scriptEnded = true; break;
+        case 'delay':
+          this.delayMs = op.ticks * SECONDS_PER_TICK * 1000;
+          break;
+        case 'sound':
+          this.host.sound?.(op.index);
+          break;
+        case 'endScript':
+          f.scriptEnded = true;
+          break;
         case 'dialog':
           if (this.showDialog(op.key, op.type)) return;
           break;
@@ -508,7 +581,8 @@ export class CutscenePlayer {
         case 'fadeOut':
           if (this.startFade(op)) return;
           break;
-        default: break;
+        default:
+          break;
       }
     }
     this.present();
@@ -580,13 +654,19 @@ export class CutscenePlayer {
 export function cutsceneResourceNames(frames: readonly TtmFrame[]): string[] {
   const names = new Set<string>();
   for (const f of frames) {
-    for (const op of f.ops) if (op.op === 'loadPalette' || op.op === 'loadImage' || op.op === 'loadScreen') names.add(op.name);
+    for (const op of f.ops)
+      if (op.op === 'loadPalette' || op.op === 'loadImage' || op.op === 'loadScreen') names.add(op.name);
   }
   return [...names];
 }
 
 /** Load a cutscene's scripts and resources and return a player for them (not yet started). */
-export async function loadCutscene(fetch: FetchResources, adsName: string, ttmName: string, opts: { chapter?: number; host?: CutsceneHost } = {}): Promise<CutscenePlayer> {
+export async function loadCutscene(
+  fetch: FetchResources,
+  adsName: string,
+  ttmName: string,
+  opts: { chapter?: number; host?: CutsceneHost } = {},
+): Promise<CutscenePlayer> {
   const scripts = await fetch([adsName, ttmName]);
   const adsBytes = scripts(adsName);
   const ttmBytes = scripts(ttmName);

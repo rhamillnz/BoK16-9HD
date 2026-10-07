@@ -68,7 +68,12 @@ export function scheduleNotes(smf: Uint8Array): Note[] {
       const id = channel * 128 + key;
       if (kind === 0x90 && velocity > 0) {
         const note: Note = {
-          channel, key, velocity, program: programs.get(channel) ?? 0, start: now, duration: -1,
+          channel,
+          key,
+          velocity,
+          program: programs.get(channel) ?? 0,
+          start: now,
+          duration: -1,
           bend: bends.get(channel) ?? 0,
         };
         notes.push(note);
@@ -92,7 +97,10 @@ export function scheduleNotes(smf: Uint8Array): Note[] {
   const last = tick * secondsPerTick;
   // A note never released rings to the end of the stream.
   for (const n of notes) if (n.duration < 0) n.duration = Math.max(0.05, last - n.start);
-  return notes.filter((n) => n.start < MAX_NOTE_SECONDS).slice(0, MAX_NOTES).map((n) => ({ ...n, duration: Math.min(n.duration, MAX_NOTE_SECONDS - n.start) }));
+  return notes
+    .filter((n) => n.start < MAX_NOTE_SECONDS)
+    .slice(0, MAX_NOTES)
+    .map((n) => ({ ...n, duration: Math.min(n.duration, MAX_NOTE_SECONDS - n.start) }));
 }
 
 export function midiFrequency(key: number, bendSemitones = 0): number {
@@ -130,7 +138,10 @@ export interface SynthHandle {
 }
 
 export class NoteSynth {
-  constructor(private readonly ctx: SynthContextLike, private readonly output: unknown) {}
+  constructor(
+    private readonly ctx: SynthContextLike,
+    private readonly output: unknown,
+  ) {}
 
   /** Plays the notes of an SMF voice into the output; `onEnd` fires once after the last note. */
   play(smf: Uint8Array, onEnd?: () => void): SynthHandle | undefined {

@@ -3,8 +3,17 @@ import type { HudScreens } from '../ui/hud';
 import { MENU_SCREEN_ID, type MenuPanelScreen } from '../ui/menuHud';
 import type { MusicPlayer } from '../audio/music';
 import {
-  keyHelpModel, mainMenuModel, optionsModel, parseSettings, serializeSettings, SETTINGS_KEY, stepQuality, stepVolume,
-  type GameSettings, type MainMenuId, type OptionsId,
+  keyHelpModel,
+  mainMenuModel,
+  optionsModel,
+  parseSettings,
+  serializeSettings,
+  SETTINGS_KEY,
+  stepQuality,
+  stepVolume,
+  type GameSettings,
+  type MainMenuId,
+  type OptionsId,
 } from './mainMenu';
 
 export interface MainMenuHost {
@@ -48,7 +57,8 @@ export function installMainMenu(h: MainMenuHost): void {
   };
   h.music.setVolume(settings.volume);
   h.music.setMuted(settings.muted);
-  if (h.post.quality !== settings.quality && !new URLSearchParams(location.search).has('post')) h.post.setQuality(settings.quality);
+  if (h.post.quality !== settings.quality && !new URLSearchParams(location.search).has('post'))
+    h.post.setQuality(settings.quality);
 
   const close = () => {
     panel.dismiss();
@@ -118,7 +128,11 @@ export function installMainMenu(h: MainMenuHost): void {
         h.music.setMuted(settings.muted);
         break;
       case 'keys':
-        panel.show(keyHelpModel(), () => showOptions('keys'), () => showOptions('keys'));
+        panel.show(
+          keyHelpModel(),
+          () => showOptions('keys'),
+          () => showOptions('keys'),
+        );
         return;
       case 'back':
         showMain(undefined, 'options');

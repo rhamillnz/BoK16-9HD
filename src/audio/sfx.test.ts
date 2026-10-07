@@ -28,13 +28,32 @@ function fakeContext() {
     destination: {},
     createGain: gain,
     createBufferSource: () => {
-      const s = { started: 0, stopped: 0, onended: null as (() => void) | null, buffer: null as unknown, loop: false,
-        connect: () => {}, disconnect: () => {}, start() { s.started++; }, stop() { s.stopped++; } };
+      const s = {
+        started: 0,
+        stopped: 0,
+        onended: null as (() => void) | null,
+        buffer: null as unknown,
+        loop: false,
+        connect: () => {},
+        disconnect: () => {},
+        start() {
+          s.started++;
+        },
+        stop() {
+          s.stopped++;
+        },
+      };
       sources.push(s);
       return s;
     },
-    createBuffer: (_c: number, length: number, rate: number) => ({ length, rate, data: undefined as Float32Array | undefined,
-      copyToChannel(d: Float32Array) { this.data = d; } }),
+    createBuffer: (_c: number, length: number, rate: number) => ({
+      length,
+      rate,
+      data: undefined as Float32Array | undefined,
+      copyToChannel(d: Float32Array) {
+        this.data = d;
+      },
+    }),
     resume: async () => {},
   };
   return { ctx: ctx as unknown as SfxContextLike, sources };
@@ -62,7 +81,12 @@ describe('SfxPlayer', () => {
     expect(sources).toHaveLength(0);
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const broken = new SfxPlayer({ context: fakeContext().ctx, fetchBytes: async () => { throw new Error('nope'); } });
+    const broken = new SfxPlayer({
+      context: fakeContext().ctx,
+      fetchBytes: async () => {
+        throw new Error('nope');
+      },
+    });
     await expect(broken.play(60)).resolves.toBeUndefined();
     warn.mockRestore();
   });

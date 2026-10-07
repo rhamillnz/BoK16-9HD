@@ -15,7 +15,8 @@ import { registerHudScreen, type HudHost, type HudScreenHandler } from './hudReg
  * state when the view's callbacks fire and calls `host.invalidate()`.
  */
 
-const inside = (r: Rect, x: number, y: number): boolean => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
+const inside = (r: Rect, x: number, y: number): boolean =>
+  x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
 
 // ---- Container screen ------------------------------------------------------------
 
@@ -56,7 +57,13 @@ export interface ContainerLayout {
 
 export const CONTAINER_COLUMNS = 2;
 
-export function defaultContainerLayoutOptions(tabCount: number, containerSlots: number, characterSlots: number, width = HUD_WIDTH, height = HUD_HEIGHT): ContainerLayoutOptions {
+export function defaultContainerLayoutOptions(
+  tabCount: number,
+  containerSlots: number,
+  characterSlots: number,
+  width = HUD_WIDTH,
+  height = HUD_HEIGHT,
+): ContainerLayoutOptions {
   return { width, height, scale: chooseScale(height), tabCount, containerSlots, characterSlots };
 }
 
@@ -66,8 +73,17 @@ function slotGrid(count: number, area: Rect, scale: number): { index: number; re
   const cellH = Math.min(Math.floor(area.height / rows), 40 * scale);
   const iconSize = cellH - 4 * scale;
   return Array.from({ length: count }, (_, i) => {
-    const rect: Rect = { x: area.x + (i % CONTAINER_COLUMNS) * cellW, y: area.y + Math.floor(i / CONTAINER_COLUMNS) * cellH, width: cellW - 2 * scale, height: cellH - 2 * scale };
-    return { index: i, rect, icon: { x: rect.x + 2 * scale, y: rect.y + 2 * scale, width: iconSize, height: iconSize } };
+    const rect: Rect = {
+      x: area.x + (i % CONTAINER_COLUMNS) * cellW,
+      y: area.y + Math.floor(i / CONTAINER_COLUMNS) * cellH,
+      width: cellW - 2 * scale,
+      height: cellH - 2 * scale,
+    };
+    return {
+      index: i,
+      rect,
+      icon: { x: rect.x + 2 * scale, y: rect.y + 2 * scale, width: iconSize, height: iconSize },
+    };
   });
 }
 
@@ -88,11 +104,22 @@ export function layoutContainerScreen(o: ContainerLayoutOptions): ContainerLayou
 
   const tabCount = Math.max(1, o.tabCount);
   const tabW = Math.min(64 * scale, Math.floor(colW / tabCount));
-  const tabs = Array.from({ length: o.tabCount }, (_, i) => ({ index: i, rect: { x: right + i * tabW, y: bodyTop, width: tabW, height: rowH } }));
+  const tabs = Array.from({ length: o.tabCount }, (_, i) => ({
+    index: i,
+    rect: { x: right + i * tabW, y: bodyTop, width: tabW, height: rowH },
+  }));
 
-  const containerSlots = slotGrid(o.containerSlots, { x: left, y: bodyTop, width: colW, height: bodyBottom - bodyTop }, scale);
+  const containerSlots = slotGrid(
+    o.containerSlots,
+    { x: left, y: bodyTop, width: colW, height: bodyBottom - bodyTop },
+    scale,
+  );
   const gridTop = bodyTop + rowH + pad;
-  const characterSlots = slotGrid(o.characterSlots, { x: right, y: gridTop, width: colW, height: bodyBottom - gridTop }, scale);
+  const characterSlots = slotGrid(
+    o.characterSlots,
+    { x: right, y: gridTop, width: colW, height: bodyBottom - gridTop },
+    scale,
+  );
 
   const footerTop = bodyBottom + pad;
   const info: Rect = { x: left, y: footerTop, width: colW, height: footerH };
@@ -120,21 +147,30 @@ export type ContainerEvent = { type: 'key'; key: string } | { type: 'click' | 'h
 export const initialContainerState = (): ContainerScreenState => ({ tab: 0, hover: undefined });
 
 /** Pure input reducer: click a container slot to take, a character slot to put, tabs to switch, T takes all, Q/E cycle characters. */
-export function stepContainerScreen(layout: ContainerLayout, state: ContainerScreenState, ev: ContainerEvent): { state: ContainerScreenState; action: ContainerAction } {
+export function stepContainerScreen(
+  layout: ContainerLayout,
+  state: ContainerScreenState,
+  ev: ContainerEvent,
+): { state: ContainerScreenState; action: ContainerAction } {
   const none: ContainerAction = { kind: 'none' };
   if (ev.type === 'key') {
     const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
     const n = layout.tabs.length;
     if (key === 't') return { state, action: { kind: 'takeAll' } };
     if (key === 'q' && n > 0) return { state: { tab: (state.tab + n - 1) % n, hover: undefined }, action: none };
-    if ((key === 'e' || key === 'Tab') && n > 0) return { state: { tab: (state.tab + 1) % n, hover: undefined }, action: none };
+    if ((key === 'e' || key === 'Tab') && n > 0)
+      return { state: { tab: (state.tab + 1) % n, hover: undefined }, action: none };
     return { state, action: none };
   }
   const { x, y } = ev;
   const cs = layout.containerSlots.find((s) => inside(s.rect, x, y));
   const ps = layout.characterSlots.find((s) => inside(s.rect, x, y));
   if (ev.type === 'hover') {
-    const hover = cs ? { side: 'container' as const, slot: cs.index } : ps ? { side: 'party' as const, slot: ps.index } : undefined;
+    const hover = cs
+      ? { side: 'container' as const, slot: cs.index }
+      : ps
+        ? { side: 'party' as const, slot: ps.index }
+        : undefined;
     return { state: { ...state, hover }, action: none };
   }
   const tab = layout.tabs.find((t) => inside(t.rect, x, y));
@@ -153,7 +189,15 @@ function drawButton(ctx: CanvasRenderingContext2D, font: Font, r: Rect, label: s
   drawText(ctx, font, label, r.x + Math.floor((r.width - w) / 2), r.y + 2 * scale, scale, INVENTORY_COLORS.text);
 }
 
-function drawSlot(ctx: CanvasRenderingContext2D, font: Font, slot: { rect: Rect; icon: Rect }, item: ItemSummary | undefined, selected: boolean, scale: number, icons: ItemIconSet | undefined): void {
+function drawSlot(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  slot: { rect: Rect; icon: Rect },
+  item: ItemSummary | undefined,
+  selected: boolean,
+  scale: number,
+  icons: ItemIconSet | undefined,
+): void {
   const c = INVENTORY_COLORS;
   ctx.fillStyle = selected ? c.slotSelected : c.slot;
   ctx.fillRect(slot.rect.x, slot.rect.y, slot.rect.width, slot.rect.height);
@@ -179,8 +223,14 @@ function drawSlot(ctx: CanvasRenderingContext2D, font: Font, slot: { rect: Rect;
 }
 
 export function drawContainerScreen(
-  ctx: CanvasRenderingContext2D, font: Font, layout: ContainerLayout, state: ContainerScreenState,
-  view: ContainerView, party: Character[], defs: ItemDef[], icons?: ItemIconSet,
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: ContainerLayout,
+  state: ContainerScreenState,
+  view: ContainerView,
+  party: Character[],
+  defs: ItemDef[],
+  icons?: ItemIconSet,
 ): void {
   const { scale, panel } = layout;
   const c = INVENTORY_COLORS;
@@ -195,26 +245,69 @@ export function drawContainerScreen(
   const items = view.items();
   for (const s of layout.containerSlots) {
     const it = items[s.index];
-    drawSlot(ctx, font, s, it && inv(it), state.hover?.side === 'container' && state.hover.slot === s.index, scale, icons);
+    drawSlot(
+      ctx,
+      font,
+      s,
+      it && inv(it),
+      state.hover?.side === 'container' && state.hover.slot === s.index,
+      scale,
+      icons,
+    );
   }
   for (const t of layout.tabs) {
     ctx.fillStyle = t.index === state.tab ? c.tabActive : c.tab;
     ctx.fillRect(t.rect.x, t.rect.y, t.rect.width, t.rect.height);
-    drawText(ctx, font, party[t.index]?.name ?? '', t.rect.x + 2 * scale, t.rect.y + 2 * scale, scale, c.text, t.rect.width - 4 * scale);
+    drawText(
+      ctx,
+      font,
+      party[t.index]?.name ?? '',
+      t.rect.x + 2 * scale,
+      t.rect.y + 2 * scale,
+      scale,
+      c.text,
+      t.rect.width - 4 * scale,
+    );
   }
   const mine = party[state.tab]?.inventory.items ?? [];
   for (const s of layout.characterSlots) {
     const it = mine[s.index];
-    drawSlot(ctx, font, s, it && summarizeItem(it, defs), state.hover?.side === 'party' && state.hover.slot === s.index, scale, icons);
+    drawSlot(
+      ctx,
+      font,
+      s,
+      it && summarizeItem(it, defs),
+      state.hover?.side === 'party' && state.hover.slot === s.index,
+      scale,
+      icons,
+    );
   }
 
   ctx.fillStyle = c.slot;
   ctx.fillRect(layout.info.x, layout.info.y, layout.info.width, layout.info.height);
-  const hovered = state.hover?.side === 'container' ? items[state.hover.slot] && toInventoryItem(items[state.hover.slot]!) : state.hover ? mine[state.hover.slot] : undefined;
+  const hovered =
+    state.hover?.side === 'container'
+      ? items[state.hover.slot] && toInventoryItem(items[state.hover.slot]!)
+      : state.hover
+        ? mine[state.hover.slot]
+        : undefined;
   const lines = itemInfoLines(hovered, defs);
   const msg = view.message();
   if (msg) lines.push(msg);
-  lines.slice(0, 4).forEach((line, i) => drawText(ctx, font, line, layout.info.x + 4 * scale, layout.info.y + 3 * scale + i * (font.height + 3) * scale, scale, c.text, layout.info.width - 8 * scale));
+  lines
+    .slice(0, 4)
+    .forEach((line, i) =>
+      drawText(
+        ctx,
+        font,
+        line,
+        layout.info.x + 4 * scale,
+        layout.info.y + 3 * scale + i * (font.height + 3) * scale,
+        scale,
+        c.text,
+        layout.info.width - 8 * scale,
+      ),
+    );
   drawButton(ctx, font, layout.takeAll, 'Take all', scale);
   drawButton(ctx, font, layout.close, 'Close', scale);
 }
@@ -229,7 +322,9 @@ export class ContainerScreen implements HudScreenHandler {
   show(view: ContainerView): void {
     const h = this.host;
     const slots = Math.max(0, ...h.party.map((c) => c.inventory.capacity));
-    const layout = layoutContainerScreen(defaultContainerLayoutOptions(h.party.length, view.capacity(), slots, h.width, h.height));
+    const layout = layoutContainerScreen(
+      defaultContainerLayoutOptions(h.party.length, view.capacity(), slots, h.width, h.height),
+    );
     this.s = { layout, state: initialContainerState(), view };
   }
   open(): boolean {
@@ -247,10 +342,18 @@ export class ContainerScreen implements HudScreenHandler {
     const r = stepContainerScreen(s.layout, s.state, ev);
     s.state = r.state;
     switch (r.action.kind) {
-      case 'take': s.view.onTake(r.action.slot); break;
-      case 'takeAll': s.view.onTakeAll(); break;
-      case 'put': s.view.onPut(r.action.tab, r.action.slot); break;
-      case 'close': this.escape(); break;
+      case 'take':
+        s.view.onTake(r.action.slot);
+        break;
+      case 'takeAll':
+        s.view.onTakeAll();
+        break;
+      case 'put':
+        s.view.onPut(r.action.tab, r.action.slot);
+        break;
+      case 'close':
+        this.escape();
+        break;
     }
   }
   escape(): void {
@@ -286,19 +389,36 @@ export function layoutWordLock(tumblerCount: number, width = HUD_WIDTH, height =
   const margin = Math.floor(height * 0.12);
   const panel: Rect = { x: margin, y: margin, width: width - margin * 2, height: height - margin * 2 };
   const pad = 8 * scale;
-  const hint: Rect = { x: panel.x + pad * 2, y: panel.y + pad * 2, width: panel.width - pad * 4, height: Math.floor(panel.height * 0.4) };
+  const hint: Rect = {
+    x: panel.x + pad * 2,
+    y: panel.y + pad * 2,
+    width: panel.width - pad * 4,
+    height: Math.floor(panel.height * 0.4),
+  };
   const size = Math.min(28 * scale, Math.floor((panel.width - pad * 4) / Math.max(1, tumblerCount)) - 2 * scale);
   const total = tumblerCount * (size + 2 * scale);
   const x0 = panel.x + Math.floor((panel.width - total) / 2);
   const y0 = hint.y + hint.height + pad * 2;
-  const tumblers = Array.from({ length: tumblerCount }, (_, i) => ({ index: i, rect: { x: x0 + i * (size + 2 * scale), y: y0, width: size, height: size + 8 * scale } }));
-  const leave: Rect = { x: panel.x + Math.floor((panel.width - 70 * scale) / 2), y: panel.y + panel.height - pad - 14 * scale, width: 70 * scale, height: 14 * scale };
+  const tumblers = Array.from({ length: tumblerCount }, (_, i) => ({
+    index: i,
+    rect: { x: x0 + i * (size + 2 * scale), y: y0, width: size, height: size + 8 * scale },
+  }));
+  const leave: Rect = {
+    x: panel.x + Math.floor((panel.width - 70 * scale) / 2),
+    y: panel.y + panel.height - pad - 14 * scale,
+    width: 70 * scale,
+    height: 14 * scale,
+  };
   return { panel, hint, tumblers, leave, scale };
 }
 
 export type WordLockAction = { kind: 'none' } | { kind: 'turn'; tumbler: number } | { kind: 'leave' };
 
-export function stepWordLock(layout: WordLockLayout, ev: { type: 'key'; key: string } | { type: 'click' | 'hover'; x: number; y: number }, tumblerCount: number): WordLockAction {
+export function stepWordLock(
+  layout: WordLockLayout,
+  ev: { type: 'key'; key: string } | { type: 'click' | 'hover'; x: number; y: number },
+  tumblerCount: number,
+): WordLockAction {
   if (ev.type === 'key') {
     const n = Number(ev.key);
     return ev.key.length === 1 && n >= 1 && n <= tumblerCount ? { kind: 'turn', tumbler: n - 1 } : { kind: 'none' };
@@ -309,7 +429,12 @@ export function stepWordLock(layout: WordLockLayout, ev: { type: 'key'; key: str
   return inside(layout.leave, ev.x, ev.y) ? { kind: 'leave' } : { kind: 'none' };
 }
 
-export function drawWordLock(ctx: CanvasRenderingContext2D, font: Font, layout: WordLockLayout, state: WordLockState): void {
+export function drawWordLock(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: WordLockLayout,
+  state: WordLockState,
+): void {
   const { scale, panel } = layout;
   const c = INVENTORY_COLORS;
   ctx.fillStyle = c.background;
@@ -318,7 +443,9 @@ export function drawWordLock(ctx: CanvasRenderingContext2D, font: Font, layout: 
   ctx.lineWidth = scale;
   ctx.strokeRect(panel.x + scale / 2, panel.y + scale / 2, panel.width - scale, panel.height - scale);
   const lines = wrapParagraph(font, state.puzzle.hint, Math.floor(layout.hint.width / scale));
-  lines.forEach((line, i) => drawText(ctx, font, line, layout.hint.x, layout.hint.y + i * (font.height + 3) * scale, scale, c.text));
+  lines.forEach((line, i) =>
+    drawText(ctx, font, line, layout.hint.x, layout.hint.y + i * (font.height + 3) * scale, scale, c.text),
+  );
   const guess = wordLockGuess(state);
   for (const t of layout.tumblers) {
     ctx.fillStyle = c.slotSelected;

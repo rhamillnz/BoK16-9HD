@@ -47,7 +47,10 @@ function collectGroundTriangles(zone: ZoneData): GroundTriangles {
 
 /** Distance (BaK units) at which a road counts as adjacent, probed in 8 directions. */
 const VERGE_REACH = 160;
-const VERGE_PROBES = Array.from({ length: 8 }, (_, i) => [Math.cos((i * Math.PI) / 4) * VERGE_REACH, Math.sin((i * Math.PI) / 4) * VERGE_REACH] as const);
+const VERGE_PROBES = Array.from(
+  { length: 8 },
+  (_, i) => [Math.cos((i * Math.PI) / 4) * VERGE_REACH, Math.sin((i * Math.PI) / 4) * VERGE_REACH] as const,
+);
 
 /** Average colour of the zone's Ground terrain strip, 0..1 sRGB. */
 function groundColor(zone: ZoneData): [number, number, number] {
@@ -99,7 +102,13 @@ export function roadEdgePoints(zone: ZoneData): [number, number][] {
   const roadMask = buildGroundMask(road, []);
   const out: [number, number][] = [];
   roadMask.forEachSet((x, y) => {
-    if (groundMask.get(x + 100, y) || groundMask.get(x - 100, y) || groundMask.get(x, y + 100) || groundMask.get(x, y - 100)) out.push([x / WORLD_SCALE, -y / WORLD_SCALE]);
+    if (
+      groundMask.get(x + 100, y) ||
+      groundMask.get(x - 100, y) ||
+      groundMask.get(x, y + 100) ||
+      groundMask.get(x, y - 100)
+    )
+      out.push([x / WORLD_SCALE, -y / WORLD_SCALE]);
   });
   return out;
 }
