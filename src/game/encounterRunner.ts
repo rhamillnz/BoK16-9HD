@@ -156,6 +156,14 @@ export interface DialogEnv {
   gameState?: (id: number) => number;
   /** Party inventory and spell checks. Default false. */
   haveItem?: (item: number) => boolean;
+  /** The party holds note `n` (haveNote choices). Default false. */
+  haveNote?: (note: number) => boolean;
+  /** The player just cast spell `n` (castSpell choices). Default false. */
+  castSpell?: (spell: number) => boolean;
+  /** Value of scripted scenario state `id` (customState choices). Default 0. */
+  customState?: (id: number) => number;
+  /** Best active character's value of a skill (index into SKILL_NAMES), for LoadSkillValue. */
+  skillValue?: (skill: number) => { value: number; character: number } | undefined;
   /** Party and context for `@N` text variables, read when a dialogue starts. Without it text is shown as written. */
   textContext?: () => TextVariableContext;
 }
@@ -164,6 +172,8 @@ const GAME_STATE_CHAPTER = 0x7537;
 const GAME_STATE_NIGHT = 0x7539;
 const GAME_STATE_DAY = 0x753a;
 const GAME_STATE_HOUR = 0x753c;
+/** Value LoadSkillValue stored last; choices on this state compare it with min/max. */
+export const GAME_STATE_SKILL_CHECK = 0x753d;
 
 /** The value a choice's `state` selects; compared against the choice's min/max. */
 export function choiceValue(c: DialogChoice, s: WorldState, env: DialogEnv): number {
@@ -185,12 +195,18 @@ export function choiceValue(c: DialogChoice, s: WorldState, env: DialogEnv): num
     }
     case 'inventory':
       return env.haveItem?.((c.state + 0x3cb0) & 0xffff) ? 1 : 0;
+    case 'customState':
+      return env.customState?.((c.state & ~0x9c40) & 0xffff) ?? 0;
+    case 'haveNote':
+      return env.haveNote?.((c.state + 0x38c8) & 0xffff) ? 1 : 0;
+    case 'castSpell':
+      return env.castSpell?.(c.state - 0xcb21) ? 1 : 0;
     case 'random': {
       const range = (c.state + 0x30f8) & 0xffff;
       return range === 0 ? 0 : rnd(0x1000) % range;
     }
     default:
-      // conversation, query, customState, haveNote, castSpell, unknown: not evaluated outside the UI
+      // conversation, query, unknown: picked by the player, not evaluated on their own
       return 0;
   }
 }
@@ -246,6 +262,8 @@ export class DialogSession {
   readonly pendingActions: DialogAction[] = [];
   /** Zone teleport index requested by the dialogue. */
   teleport: number | undefined;
+  /** Skill value LoadSkillValue stored last (game state 0x753d). */
+  skillCheck = 0;
   /** Non-fatal problems, such as keys that do not resolve. */
   readonly warnings: string[] = [];
 
@@ -337,9 +355,14 @@ export class DialogSession {
         const rnd = this.env.random ?? ((n: number) => Math.floor(Math.random() * n));
         return { target: snippet.choices[rnd(snippet.choices.length)]!.target, file: cur.file };
       }
-      for (const c of snippet.choices) if (evaluateChoice(c, this.world, this.env)) return { target: c.target, file: cur.file };
+      for (const c of snippet.choices) if (evaluateChoice(c, this.world, this.choiceEnv)) return { target: c.target, file: cur.file };
     }
     return this.stack.pop();
+  }
+
+  /** The env choices are tested against: the caller's, plus the skill check this dialogue loaded. */
+  private get choiceEnv(): DialogEnv {
+    return { ...this.env, gameState: (id) => (id === GAME_STATE_SKILL_CHECK ? this.skillCheck : this.env.gameState?.(id) ?? 0) };
   }
 
   private runActions(ref: SnippetRef): void {
@@ -360,7 +383,18 @@ export class DialogSession {
         case ActionType.SetTextVariable:
           this.textVars?.set(a.words[0]!, a.words[1]!);
           break;
+        case ActionType.LoadSkillValue: {
+          const r = this.env.skillValue?.(a.words[1]!);
+          if (!r) {
+            this.pendingActions.push(a);
+            break;
+          }
+          this.skillCheck = r.value;
+          this.textVars?.setSkillChecked(r.character);
+          break;
+        }
         case ActionType.FreeMemory:
+        case ActionType.SetPopupDimensions:
         case 0xff:
           break;
         default:

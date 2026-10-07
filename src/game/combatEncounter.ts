@@ -4,6 +4,7 @@ import { rollFrom } from '../combat/rules';
 import { buildFighters, applyBattleToParty, retreatDestination } from '../combat/setup';
 import type { Fighter } from '../combat/battle';
 import type { CombatOutcome } from '../combat/turns';
+import type { SpellDef } from '../formats/spells';
 import type { ItemDef } from '../formats/objinfo';
 import type { PlacedEncounter } from '../world/encounters';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
@@ -18,6 +19,8 @@ export interface CombatEncounterDeps {
   getHeight: (x: number, y: number) => number;
   support: CombatSupport;
   items: readonly ItemDef[];
+  /** SPELLS.DAT, so magic-users can cast. */
+  spells?: readonly SpellDef[];
   /** The party's current position and 8-bit heading. */
   position: () => { x: number; y: number; heading: number };
   /** Move the party (after a retreat) without firing the encounters it lands in. */
@@ -77,7 +80,7 @@ export class CombatEncounters {
     try {
       const enemies = enemiesOf(s, def);
       const fighters = buildFighters({
-        def, enemies, party: activeCharacters(this.d.getParty()), partyGrid: s.partyGrid, monsterNames: s.monsterNames, items,
+        def, enemies, party: activeCharacters(this.d.getParty()), partyGrid: s.partyGrid, monsterNames: s.monsterNames, items, spells: this.d.spells,
       });
       const sheets = await loadSheets(s, fighters.map((f) => f.monster));
       const pos = this.d.position();
