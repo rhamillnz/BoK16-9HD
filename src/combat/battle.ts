@@ -6,6 +6,7 @@
 
 import {
   buildGrid,
+  chebyshevDistance,
   calculatePath,
   directionBetween,
   planAttack,
@@ -23,7 +24,11 @@ import {
   rollToHit,
   type AttackKind,
   type MeleeStats,
+  type RangedStats,
   type Roll,
+  RANGED_RANGE,
+  rangedDamage,
+  rollToHitRanged,
 } from './rules';
 import {
   beginCombat,
@@ -47,11 +52,14 @@ export interface Fighter extends MeleeStats {
   stamina: number;
   maxStamina: number;
   speed: number;
+  /** A crossbow and the shooter's Crossbow skill; absent when the fighter cannot shoot. */
+  ranged?: RangedStats;
 }
 
 export type BattleEvent =
   | { type: 'move'; id: string; from: GridPos; path: GridPos[] }
   | { type: 'attack'; attacker: string; target: string; kind: AttackKind; hit: boolean; damage: number; killed: boolean }
+  | { type: 'shoot'; attacker: string; target: string; hit: boolean; damage: number; killed: boolean; distance: number }
   | { type: 'defend'; id: string }
   | { type: 'rest'; id: string }
   | { type: 'flee'; success: boolean }
@@ -65,13 +73,15 @@ export interface BattleState {
   disabled: GridPos[];
   /** Events produced by the last action, oldest first. */
   events: BattleEvent[];
+  /** Every event of the fight so far (what rewards and wear are worked out from). */
+  history: BattleEvent[];
 }
 
 /** Starts a fight: the fastest party member goes first. */
 export function startBattle(fighters: readonly Fighter[], disabled: readonly GridPos[] = []): BattleState {
   const list = fighters.map((f) => ({ ...f }));
   const turn = beginCombat(list.map((f) => ({ ...newCombatant(f.id, f.side, f.speed, f.health), dead: isDead(f) })));
-  return { fighters: list, turn, disabled: [...disabled], events: [] };
+  return { fighters: list, turn, disabled: [...disabled], events: [], history: [] };
 }
 
 export const currentIndex = (s: BattleState): number => s.turn.current;
@@ -96,7 +106,7 @@ export function gridFor(s: BattleState, index = s.turn.current): CombatGrid {
 function sync(s: BattleState, fighters: Fighter[], turn: TurnState, events: BattleEvent[]): BattleState {
   const combatants = turn.combatants.map((c, i) => ({ ...c, dead: isDead(fighters[i]!), health: fighters[i]!.health }));
   const synced = fighters.map((f, i) => (f.defending === combatants[i]!.defending ? f : { ...f, defending: combatants[i]!.defending }));
-  return { ...s, fighters: synced, turn: { ...turn, combatants }, events };
+  return { ...s, fighters: synced, turn: { ...turn, combatants }, events, history: [...s.history, ...events] };
 }
 
 /** Ends the current turn, reporting a new round or the end of the fight. */
@@ -168,6 +178,34 @@ export function attack(s: BattleState, target: GridPos, roll: Roll, opts: Attack
   return endTurn(s, fighters, events);
 }
 
+/** Fighters a ranged shooter could hit from where it stands: living enemies within range. */
+export function shootTargets(s: BattleState, index = s.turn.current): Fighter[] {
+  const me = s.fighters[index]!;
+  if (!me.ranged || me.ranged.weapon.condition <= 0) return [];
+  return s.fighters.filter((f) => f.side !== me.side && !isDead(f) && chebyshevDistance(me.pos, f.pos) <= RANGED_RANGE);
+}
+
+/** Fire the crossbow at the enemy on `target` without moving; the shot uses the turn. */
+export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState | undefined {
+  if (isOver(s)) return undefined;
+  const me = currentFighter(s);
+  if (!shootTargets(s).some((f) => samePos(f.pos, target))) return undefined;
+  const victimIndex = s.fighters.findIndex((f) => !isDead(f) && samePos(f.pos, target));
+  const fighters = s.fighters.map((f) => ({ ...f }));
+  const shooter = fighters[s.turn.current]!;
+  const victim = fighters[victimIndex]!;
+  shooter.facing = directionBetween(shooter.pos, victim.pos);
+  const distance = chebyshevDistance(shooter.pos, victim.pos);
+  const hit = rollToHitRanged(me.ranged!, victim, distance, roll);
+  let damage = 0;
+  if (hit) {
+    damage = reduceDamage(rangedDamage(me.ranged!), victim, roll);
+    Object.assign(victim, applyDamage(victim, damage));
+  }
+  const killed = isDead(victim);
+  return endTurn(s, fighters, [{ type: 'shoot', attacker: me.id, target: victim.id, hit, damage, killed, distance }]);
+}
+
 /** Defending ends the turn; attackers add 20 to their hit roll against the defender until the next round. */
 export function defend(s: BattleState): BattleState | undefined {
   if (isOver(s)) return undefined;
@@ -191,7 +229,7 @@ export function flee(s: BattleState): BattleState | undefined {
   const success = turn.outcome === 'fled';
   const events: BattleEvent[] = [{ type: 'flee', success }];
   if (success) events.push({ type: 'end', outcome: 'fled' });
-  return { ...s, turn, events };
+  return { ...s, turn, events, history: [...s.history, ...events] };
 }
 
 /** Plain-text line for the combat log. */
@@ -204,6 +242,9 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
       if (!e.hit) return `${name(e.attacker)} ${verb} ${name(e.target)} and misses.`;
       return `${name(e.attacker)} ${verb} ${name(e.target)} for ${e.damage}${e.killed ? ' and fells them' : ''}.`;
     }
+    case 'shoot':
+      if (!e.hit) return `${name(e.attacker)} fires at ${name(e.target)} and misses.`;
+      return `${name(e.attacker)} shoots ${name(e.target)} for ${e.damage}${e.killed ? ' and fells them' : ''}.`;
     case 'defend': return `${name(e.id)} defends.`;
     case 'rest': return `${name(e.id)} waits.`;
     case 'flee': return e.success ? 'The party retreats.' : 'The party cannot retreat.';

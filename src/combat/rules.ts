@@ -130,3 +130,37 @@ export function applyDamage(pool: VitalPool, damage: number): VitalPool {
 }
 
 export const isDead = (pool: VitalPool): boolean => pool.health <= 0;
+
+// --- Ranged attacks ------------------------------------------------------------------------
+// BaKGL's grid code has no ranged attacks, so the numbers below are our own (**unverified**).
+// Crossbows use no ammunition in BaK; a shot dulls the weapon like a melee hit does.
+
+/** Farthest target, in cells (Chebyshev distance), a crossbow can reach. */
+export const RANGED_RANGE = 8;
+/** Hit-score points lost per cell beyond the first. */
+export const RANGE_PENALTY = 3;
+
+/** What the ranged rules need to know about a shooter. */
+export interface RangedStats {
+  /** Crossbow skill. */
+  crossbow: number;
+  weapon: WeaponStats;
+}
+
+/** Crossbow skill + weapon accuracy - range penalty - the target's parry, clamped to 2..98. */
+export function rangedHitScore(shooter: RangedStats, defender: MeleeStats, distance: number): number {
+  const bonus = accuracyBonus(shooter.weapon, RaceKind.None, 'thrust');
+  const penalty = Math.max(0, distance - 1) * RANGE_PENALTY;
+  return Math.max(2, Math.min(98, shooter.crossbow + bonus - penalty - parryValue(defender)));
+}
+
+export function rollToHitRanged(shooter: RangedStats, defender: MeleeStats, distance: number, roll: Roll): boolean {
+  const r = roll(0, 99) + (defender.defending ? 20 : 0);
+  return r < rangedHitScore(shooter, defender, distance);
+}
+
+/** The bolt's strength scaled by the crossbow's condition; Strength does not add. At least 1. */
+export function rangedDamage(shooter: RangedStats): number {
+  const w = shooter.weapon;
+  return Math.max(1, trunc((Math.max(w.strengthThrust, w.strengthSwing) * w.condition) / 100));
+}

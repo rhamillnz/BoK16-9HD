@@ -44,10 +44,11 @@ export interface CombatPanelHandlers {
   wait(): void;
   flee(): void;
   toggleSlash(): void;
+  toggleShoot(): void;
   finish(): void;
 }
 
-/** DOM overlay for a fight: fighter list, buttons and a short log. Keyboard: D defend, W wait, Q retreat, S slash, Enter continue. */
+/** DOM overlay for a fight: fighter list, buttons and a short log. Keyboard: D defend, W wait, Q retreat, S slash, F shoot, Enter continue. */
 export class CombatPanel {
   private readonly root = document.createElement('div');
   private readonly list = document.createElement('div');
@@ -55,6 +56,7 @@ export class CombatPanel {
   private readonly log = document.createElement('div');
   private readonly status = document.createElement('div');
   private readonly slashButton: HTMLButtonElement;
+  private readonly shootButton: HTMLButtonElement;
   private readonly lines: string[] = [];
   private readonly onKey: (e: KeyboardEvent) => void;
 
@@ -75,6 +77,7 @@ export class CombatPanel {
     button('Wait (W)', h.wait);
     button('Retreat (Q)', h.flee);
     this.slashButton = button('Slash: off (S)', h.toggleSlash);
+    this.shootButton = button('Shoot: off (F)', h.toggleShoot);
     const hint = document.createElement('div');
     hint.style.cssText = 'font-size:12px;opacity:.7;margin-bottom:6px';
     hint.textContent = 'Click a blue cell to move, a red one to attack.';
@@ -87,6 +90,7 @@ export class CombatPanel {
       else if (k === 'KeyW') h.wait();
       else if (k === 'KeyQ') h.flee();
       else if (k === 'KeyS') h.toggleSlash();
+      else if (k === 'KeyF') h.toggleShoot();
       else if (k === 'Enter' || k === 'Space') h.finish();
       else return;
       e.preventDefault();
@@ -95,7 +99,7 @@ export class CombatPanel {
     window.addEventListener('keydown', this.onKey, true);
   }
 
-  render(state: BattleState, opts: { slash: boolean; yourTurn: boolean }): void {
+  render(state: BattleState, opts: { slash: boolean; shoot?: boolean; canShoot?: boolean; yourTurn: boolean }): void {
     this.lines.push(...logLines(state));
     while (this.lines.length > 9) this.lines.shift();
     const rows = fighterRows(state);
@@ -114,6 +118,8 @@ export class CombatPanel {
     const outcome = state.turn.outcome;
     this.status.textContent = outcome ? OUTCOME_TEXT[outcome] : opts.yourTurn ? `${currentFighter(state).name}: your move` : 'Enemy turn…';
     this.slashButton.textContent = `Slash: ${opts.slash ? 'on' : 'off'} (S)`;
+    this.shootButton.textContent = `Shoot: ${opts.shoot ? 'on' : 'off'} (F)`;
+    this.shootButton.style.opacity = opts.canShoot ? '1' : '0.4';
     this.buttons.style.opacity = opts.yourTurn && !outcome ? '1' : '0.5';
   }
 

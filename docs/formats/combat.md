@@ -90,16 +90,24 @@ How `src/game/combatEncounter.ts` turns a combat encounter into a fight. Everyth
 - **Damage**: Strength + `weaponStrength * condition / 100` (thrust or swing), at least 1. Sword modifiers (bonus damage vs monsters, Guarda Revanche's double damage vs moredhel) are not modelled.
 - **Armour**: reduction % = `Defense / 4 + condition * armourRating / 100`, scaled by the race effect, capped at 98; damage = `damage * (100 - reduction) / 100`, and when that is 0 or less a roll of 1-2 is dealt instead. The armour rating is the item's accuracy-swing field.
 - **Applying damage**: Stamina is drained first, the excess comes off Health; at 0 Health the combatant is dead. A slash (swing) costs the attacker 1 damage (BaKGL deals it with no armour reduction) and needs more than 1 Stamina; a thrust is free.
-- Weapon dulling, skill improvement from fighting, poison, spells, shields and crossbows are not modelled.
+- Poison, spells and shields are not modelled; crossbows, weapon dulling and fight experience are the second-pass additions below.
 
 ### What the first pass does differently
 
 - **Movement and attacks are limited to Speed steps** per turn, including the approach to an attacker's target (BaKGL does not limit the approach; **unverified** for the original). Moving without attacking uses the turn.
-- **Enemy AI** is a stand-in: strike the nearest party member that can be reached this turn, otherwise step to the reachable cell closest to the nearest one, otherwise wait. BaKGL's AI and `retreatFactor` use were not read.
+- **Enemy AI** is our own stand-in (`src/combat/ai.ts`; BaKGL's AI and `retreatFactor` use were not read): a fighter at a quarter of its Health or less with a foe next to it defends; a shooter with no foe next to it shoots the weakest foe in range; otherwise it strikes the weakest foe it can reach (a slash when already adjacent with more than half its Stamina and over 3), then shoots if it can, otherwise steps toward the nearest foe, otherwise waits.
 - **Retreat point**: the side is picked from the party's offset from the encounter's centre (`retreatSide`); BaKGL's `CalculateRetreatDirection` was not read (**unverified**). A retreat does not mark the encounter done, so it fires again when re-entered.
-- **Win**: the encounter's completion flag and "seen" state are set, as for dialogue encounters. The post-fight dialogue (including the "someone died" and Makala dialogues), entry and scout dialogues, loot and experience are not run.
+- **Win**: the encounter's completion flag and "seen" state are set, as for dialogue encounters, and rewards are applied (below). The post-fight dialogue (including the "someone died" and Makala dialogues) and the entry and scout dialogues are not run.
 - **Defeat**: no game-over flow yet; the fallen get 1 Health back and the party retreats as if it had fled.
 - **Wounds** are written back to Health and Stamina; anyone who fell gets Near Death 100.
+
+### Second pass (all numbers our own, **unverified**; BaKGL has no data for them)
+
+- **Crossbow** (`shoot` in battle.ts, formulas in rules.ts): a party member with an equipped, unbroken Crossbow item can shoot (key F or the Shoot toggle, then click an enemy). It needs no move and no ammunition (BaK crossbows use none; bowstrings are repair items), reaches `RANGED_RANGE` = 8 cells (Chebyshev distance, no line of sight) and uses the turn. Hit score = Crossbow skill + weapon thrust accuracy (by condition) - 3 per cell beyond the first - the target's parry, clamped to 2..98; the same 0-99 roll (+20 against a defender) is used. Damage = the larger of the item's two strengths scaled by condition (Strength does not add), then the usual armour reduction. Monsters with a Crossbow skill of 30 or more get a stand-in bolt of strength 8, since monster inventories are not parsed.
+- **History**: `BattleState.history` keeps every event of the fight; rewards and wear are computed from it (`src/combat/rewards.ts`).
+- **Experience** (win only): every hit landed gives 2 experience in Melee or Crossbow, every hit taken gives 1 in Defense, and each kill gives its victim's maximum Health / 5 (at least 1) to Melee or, for a mostly-shooting killer, Crossbow. This only adds to each skill's `experience` field; turning experience into skill levels is backlog item 8.
+- **Loot** (win only): each slain enemy drops 0 to a quarter of its maximum Health in royals, added to the purse. Real drops come from the monsters' combat inventories, which are not parsed.
+- **Wear** (any outcome): each hit a character lands rolls the weapon's `dullChance` percent to lose 1 to `maxDullAmount` condition (a weapon at 0 is broken); every second hit a character takes costs their armour 1 condition.
 
 ### Camera and grid
 
