@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
-import { Fn, float, mix, mx_noise_float, normalWorld, positionWorld, pow, smoothstep, vec3, vertexColor } from 'three/tsl';
+import { Fn, abs, float, mix, mx_noise_float, normalWorld, positionWorld, pow, smoothstep, vec3, vertexColor } from 'three/tsl';
+import { bumpedNormal } from './bump';
 import { SLOPE_END, SLOPE_START, TERRAIN_MACRO_SCALE, TERRAIN_PATCH_SCALE } from './terrainMaterial';
 
 /** Rock colour (linear) the steep and high parts of hills fade towards. */
@@ -11,6 +12,19 @@ export const HILL_GAMMA = 0.55;
 /** Fraction of the albedo added as unlit bounce light. */
 export const HILL_BOUNCE = 0.35;
 export const HILL_ROCK_ALTITUDE = [10, 28] as const;
+/** Height (render units) of the fine shader relief; the mesh carries the large shapes (hillDetail.ts). */
+export const HILL_BUMP = 0.18;
+
+/** Small-scale relief: lumps, gullies and rocky grain, in world space so it never swims. */
+const relief = Fn(() => {
+  const p = positionWorld;
+  const lumps = mx_noise_float(p.mul(0.32)).mul(0.6);
+  const grain = mx_noise_float(p.mul(1.3).add(11.1)).mul(0.28);
+  const fine = mx_noise_float(p.mul(4.1).add(3.7)).mul(0.12);
+  const gully = float(1).sub(abs(mx_noise_float(vec3(p.x.mul(0.18), p.y.mul(0.5), p.z.mul(0.18)).add(5.5)))).pow(3).mul(-0.5);
+  return lumps.add(grain).add(fine).add(gully).mul(HILL_BUMP);
+});
+
 
 /**
  * Stylised hills: the original palette colour per face (kept for recognisability), lifted by
@@ -39,6 +53,7 @@ export function createHillMaterial(): THREE.MeshStandardNodeMaterial {
     return mix(lit, rock, rockAmt);
   })();
   material.colorNode = albedo;
+  material.normalNode = bumpedNormal(relief());
   // The scene's ambient light is weak, so slopes facing away from the sun would go black: fake some bounce light.
   material.emissiveNode = albedo.mul(HILL_BOUNCE);
   return material;

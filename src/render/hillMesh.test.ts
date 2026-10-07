@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three/webgpu';
-import { isHillModel, smoothNormals } from './hillMesh';
+import { hillTriangles, isHillModel, smoothNormals } from './hillMesh';
 
 describe('isHillModel', () => {
   it('matches landscape models only', () => {
@@ -26,5 +26,17 @@ describe('smoothNormals', () => {
     expect(n.get(3)!.y).toBeCloseTo(1);
     expect(n.get(0)!.x).toBeLessThan(0);
     expect(n.get(5)!.x).toBeGreaterThan(0);
+  });
+});
+
+describe('hillTriangles', () => {
+  it('welds corners at the same position and fans faces counter-clockwise', () => {
+    const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+    // Two faces sharing an edge, given as separate vertex copies.
+    const tris = hillTriangles([[v(0, 0, 0), v(0, 1, 1), v(1, 0, 1), v(1, 0, 0)], [v(1, 0, 0), v(1, 0, 1), v(2, 0, 1)]]);
+    expect(tris).toHaveLength(3);
+    const ids = new Set(tris.flat().map((c) => c.id));
+    expect(ids.size).toBe(5);
+    expect(tris[0]!.map((c) => c.p)).toEqual([[0, 0, 0], [1, 0, 1], [0, 1, 1]]);
   });
 });

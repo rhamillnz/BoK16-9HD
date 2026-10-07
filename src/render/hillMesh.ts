@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import type { HillCorner } from './hillDetail';
 
 /** Original landscape/mountain models: palette-coloured, flat-shaded faces (zero1..9, one1..3, landscp1..4, genmtn, stonemtn). */
 const HILL_NAME = /^(zero\d|one\d|landscp\d|genmtn|stonemtn)/i;
@@ -39,4 +40,33 @@ export function smoothNormals(indices: number[][], corners: THREE.Vector3[][]): 
     else v.set(0, 1, 0);
   }
   return acc;
+}
+
+/**
+ * A placed hill as counter-clockwise (from outside) triangles of welded corners with smooth normals,
+ * ready for `detailHill`. Vertices at the same position count as one, so the surface has no seams.
+ * `loops` are the faces' corner positions in render space.
+ */
+export function hillTriangles(loops: readonly THREE.Vector3[][]): HillCorner[][] {
+  const ids = new Map<string, number>();
+  const weld = (p: THREE.Vector3) => {
+    const key = `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)},${Math.round(p.z * 1000)}`;
+    let id = ids.get(key);
+    if (id === undefined) ids.set(key, (id = ids.size));
+    return id;
+  };
+  const indices = loops.map((loop) => loop.map(weld));
+  const normals = smoothNormals(indices, loops as THREE.Vector3[][]);
+  const corner = (loop: readonly THREE.Vector3[], face: number[], k: number): HillCorner => {
+    const n = normals.get(face[k]!)!;
+    return { id: face[k]!, p: [loop[k]!.x, loop[k]!.y, loop[k]!.z], n: [n.x, n.y, n.z] };
+  };
+  const out: HillCorner[][] = [];
+  loops.forEach((loop, f) => {
+    const face = indices[f]!;
+    if (face.length < 3) return;
+    // The original faces wind clockwise from outside: reverse each fan triangle.
+    for (let k = 1; k + 1 < loop.length; k++) out.push([corner(loop, face, 0), corner(loop, face, k + 1), corner(loop, face, k)]);
+  });
+  return out;
 }
