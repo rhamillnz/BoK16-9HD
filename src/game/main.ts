@@ -1,3 +1,4 @@
+import { makeDialogEnv } from './dialogEnv';
 import * as THREE from 'three/webgpu';
 import { createStage } from '../render/stage';
 import { FlyCamera } from '../render/flyCamera';
@@ -42,7 +43,7 @@ import { installCamp } from './campControls';
 import { installContainers } from './containerControls';
 import { installItemControls } from './itemControls';
 import { installTempleControls } from './templeControls';
-import { installCast } from './castControls';
+import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 
@@ -228,7 +229,7 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
   const table = read('TELEPORT.DAT');
   teleports = table ? parseTeleports(table) : [];
   return new EncounterDriver(
-    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter, ...shops.textExtras() }) } }),
+    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: makeDialogEnv({ getParty: () => partyState, zone: zoneNumber, chapter: start.chapter, extras: shops.textExtras, castSpell: (n) => justCast(n, clock.state.ticks) }) }),
     showView,
     {
       other: (e) => {

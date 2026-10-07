@@ -61,6 +61,11 @@ export class TextVariables {
     this.setDefaults();
   }
 
+  /** The character a skill check just picked (what `@` source 12 reads). */
+  setSkillChecked(index: number): void {
+    this.ctx.skillCheckedCharacter = index;
+  }
+
   private rnd(n: number): number {
     return (this.ctx.random ?? ((k: number) => Math.floor(Math.random() * k)))(n);
   }

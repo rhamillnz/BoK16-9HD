@@ -11,6 +11,7 @@ export interface DialogOutcome {
   /** Where the party goes next, if the dialogue or the zone encounter sends it somewhere. */
   destination: Destination | undefined;
   lostItems: { itemIndex: number; quantity: number }[];
+  improvedSkills: number[];
   unhandled: DialogAction[];
   warnings: string[];
 }
@@ -54,6 +55,7 @@ export function resolveDialogOutcome(o: DialogOutcomeOptions): DialogOutcome {
     ticksElapsed: effects.ticksElapsed,
     destination,
     lostItems: effects.lostItems,
+    improvedSkills: effects.improvedSkills,
     unhandled: effects.unhandled,
     warnings,
   };

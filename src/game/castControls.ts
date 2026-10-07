@@ -1,6 +1,6 @@
 import type { SpellDef } from '../formats/spells';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
-import { formatTime } from './state';
+import { formatTime, TICKS_PER_MINUTE } from './state';
 import {
   canCast, castHeal, currentLight, isSpellcaster, knownSpells, maxPower, payCost, spellKind, spellTicks,
   type ActiveLight,
@@ -19,6 +19,21 @@ export interface CastHost {
   menu(text: string, choices: string[]): Promise<number>;
   /** The light in force changed (undefined: dark). Lets the renderer brighten the party's surroundings. */
   onLight?(light: ActiveLight | undefined): void;
+}
+
+/** The last spell cast in the world, so dialogue choices that ask "did the player just cast X?" can see it. */
+const recent = { spell: -1, ticks: 0 };
+/** Game time (ticks) a cast stays "just cast": five minutes. */
+export const JUST_CAST_TICKS = 5 * TICKS_PER_MINUTE;
+
+export function noteCast(spell: number, ticks: number): void {
+  recent.spell = spell;
+  recent.ticks = ticks;
+}
+
+/** Whether `spell` was cast within the last few game minutes (feeds the dialogue `castSpell` hook). */
+export function justCast(spell: number, nowTicks: number): boolean {
+  return recent.spell === spell && nowTicks >= recent.ticks && nowTicks - recent.ticks <= JUST_CAST_TICKS;
 }
 
 /** Powers offered for a spell: its cheapest, middle and strongest affordable. */
@@ -65,9 +80,11 @@ export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<st
     const r = castHeal(host.getParty(), caster.index, spell, power, target.index);
     host.setParty(r.party);
     message = r.message;
+    if (r.ok) noteCast(spell.index, host.getTicks());
   } else {
     host.setParty(updateCharacter(host.getParty(), caster.index, (c) => payCost(c, power)));
     lights.push({ spell: spell.index, endTicks: host.getTicks() + spellTicks(power) });
+    noteCast(spell.index, host.getTicks());
     host.onLight?.(currentLight(lights, host.getTicks()));
     message = `${caster.name} casts ${spell.name}. The light will last until ${formatTime(host.getTicks() + spellTicks(power))}.`;
   }

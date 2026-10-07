@@ -98,3 +98,13 @@ describe('casting in combat', () => {
     expect(rewards.experience.get('party0')).toMatchObject({ casting: 6 });
   });
 });
+
+describe('dialogue castSpell hook', () => {
+  it('remembers a cast for a few game minutes', async () => {
+    const { noteCast, justCast, JUST_CAST_TICKS } = await import('../src/game/castControls');
+    noteCast(4, 1000);
+    expect(justCast(4, 1000 + JUST_CAST_TICKS)).toBe(true);
+    expect(justCast(4, 1001 + JUST_CAST_TICKS)).toBe(false);
+    expect(justCast(5, 1000)).toBe(false);
+  });
+});
