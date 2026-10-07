@@ -50,6 +50,7 @@ import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
 import { installPerf } from '../render/perf';
 import { installCutscenes } from './cutsceneControls';
+import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
 import { installMainMenu } from './mainMenuControls';
@@ -125,7 +126,7 @@ const screens = mountHud(document.body, {
   portraits: portraitCanvases(parseBMX(archive.get('HEADS.BMX')), parsePalette(archive.get('OPTIONS.PAL'))),
 });
 
-screens.setMap(loadZoneMap(archive, start.zone, zoneHost.current.data.tiles), start.zone); // Tab: map screen + compass
+screens.setMap(loadZoneMap(archive, start.zone, zoneHost.current.data.tiles), start.zone, overheadPolygons(zoneHost.current.data)); // Tab: map screen + compass
 
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
 const music = createBrowserMusicPlayer({ volume: 0.7 });
@@ -270,7 +271,7 @@ async function travelTo(d: Destination): Promise<void> {
       const next = await zoneHost.switchTo(plan.zone);
       party.polygons = next.scene.collision;
       next.grass.setQuality(post.quality);
-      screens.setMap(loadZoneMap(archive, plan.zone, next.data.tiles), plan.zone);
+      screens.setMap(loadZoneMap(archive, plan.zone, next.data.tiles), plan.zone, overheadPolygons(next.data));
       encounters = await makeEncounters(plan.zone, next.data.tiles, clock.state);
       void music.play(songForZone(plan.zone)).catch((err) => console.warn('Music unavailable:', err));
     }

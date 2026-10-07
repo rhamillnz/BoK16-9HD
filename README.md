@@ -54,7 +54,7 @@ The same list is in the game: press **Esc** and choose Options, then Keys.
 | Esc | Open the main menu (new game, continue, load, options); closes any open screen |
 | I | Inventory. Arrows or WASD move the selection, E or Tab switches character; Enter or U uses an item, X equips, T gives it to the next character, R repairs |
 | C | Character sheet |
-| Tab | Map and compass |
+| Tab | Map and compass (in mines the map shows the overhead tunnel plan) |
 | E | Open the chest or container beside you |
 | R | Camp and rest in the wild |
 | V | Cast a healing or light spell |
