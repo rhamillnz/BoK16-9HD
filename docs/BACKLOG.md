@@ -50,5 +50,5 @@ Backlog 5 (from Opus, 2026-10-08; start after open PRs and Backlog 4):
 - [ ] 3 Combat and rules audit against BaKGL: hit chance, damage, armour, wounds, spell costs, skill gains; fix discrepancies; table-driven tests
 - [ ] 4 Chapter 1 critical-path e2e test with synthetic data: start, first dialogue, a town, a shop purchase, a combat, a chest, a zone transition, save and load
 - [ ] 5 Loading and error screens: zone-load progress, friendly errors for missing/wrong game data, WebGPU-not-available message noting the WebGL2 fallback
-- [ ] 6 Code health: ESLint + Prettier in CI, split src/game/main.ts into feature modules (mostly composition), remove dead code and stale probe scripts
+- [x] 6 Code health: ESLint + Prettier in CI, split src/game/main.ts into feature modules (mostly composition), remove dead code and stale probe scripts
 - [ ] 7 Journal/notes screen: research BaKGL for a bookmark or quest log; otherwise a simple notes screen of key dialogue lines seen
