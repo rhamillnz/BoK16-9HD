@@ -178,7 +178,8 @@ export function createSky(scene: THREE.Scene): Sky {
   const refreshOutdoorGlow = () => {
     if (underground) return;
     const k = magic ? outdoorMagicStrength(sunVis) : 0;
-    torch.visible = k > 0.001;
+    // Stay visible while the spell lasts (intensity 0 by day): toggling visibility changes the light count and recompiles every lit material.
+    torch.visible = magic;
     torch.intensity = MINE_LOOK.outdoorIntensity * k;
     torch.distance = MINE_LOOK.outdoorDistance;
   };
@@ -218,7 +219,7 @@ export function createSky(scene: THREE.Scene): Sky {
         torch.intensity = MINE_LOOK.torchIntensity * (magic ? MINE_LOOK.magicBoost : 1) * torchFlicker(performance.now() / 1000);
         return;
       }
-      if (torch.visible) {
+      if (torch.visible && sunVis < 1) {
         torch.position.set(x, y + 2, z);
         torch.intensity = MINE_LOOK.outdoorIntensity * outdoorMagicStrength(sunVis) * torchFlicker(performance.now() / 1000);
       }

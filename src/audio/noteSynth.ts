@@ -10,6 +10,8 @@ import type { AudioNodeLike, AudioParamLike, GainNodeLike } from './music';
 const MICROS_PER_QUARTER = 500_000;
 /** Longest an effect may ring, in seconds; a runaway stream is cut here. */
 export const MAX_NOTE_SECONDS = 12;
+/** Most notes one effect may schedule (each is an oscillator and a gain node); a runaway stream is cut here. */
+export const MAX_NOTES = 256;
 const RELEASE = 0.06;
 const ATTACK = 0.004;
 
@@ -90,7 +92,7 @@ export function scheduleNotes(smf: Uint8Array): Note[] {
   const last = tick * secondsPerTick;
   // A note never released rings to the end of the stream.
   for (const n of notes) if (n.duration < 0) n.duration = Math.max(0.05, last - n.start);
-  return notes.filter((n) => n.start < MAX_NOTE_SECONDS).map((n) => ({ ...n, duration: Math.min(n.duration, MAX_NOTE_SECONDS - n.start) }));
+  return notes.filter((n) => n.start < MAX_NOTE_SECONDS).slice(0, MAX_NOTES).map((n) => ({ ...n, duration: Math.min(n.duration, MAX_NOTE_SECONDS - n.start) }));
 }
 
 export function midiFrequency(key: number, bendSemitones = 0): number {
