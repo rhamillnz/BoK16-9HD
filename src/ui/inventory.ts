@@ -235,7 +235,7 @@ export function fitText(font: Font, text: string, scale: number, maxWidth: numbe
 }
 
 /** Draw glyph pixels with fillRect so unset pixels stay transparent (putImageData would overwrite the background). */
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string, maxWidth?: number) {
+export function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string, maxWidth?: number) {
   if (text === '') return;
   const t = maxWidth === undefined ? text : fitText(font, text, scale, maxWidth);
   ctx.fillStyle = css;
@@ -252,7 +252,7 @@ function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: nu
 }
 
 /** Draw an item icon centred in `box`, scaled by an integer factor with nearest-neighbour sampling. */
-function drawIcon(ctx: CanvasRenderingContext2D, icons: ItemIconSet, imageIndex: number, box: Rect): boolean {
+export function drawIcon(ctx: CanvasRenderingContext2D, icons: ItemIconSet, imageIndex: number, box: Rect): boolean {
   const icon = resolveItemIcon(icons, imageIndex);
   if (!icon) return false;
   const k = fitScale(icon.width, icon.height, box.width, box.height);

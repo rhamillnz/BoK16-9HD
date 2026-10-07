@@ -24,6 +24,8 @@ export interface SaveGameData {
   heading: number;
   world: WorldState;
   party: PartyState;
+  /** Sections owned by feature modules (see saveExtras.ts); absent in older saves. */
+  extras?: Record<string, unknown>;
   /** Shop stock changes (sold items); absent in saves from before shops. */
   shops?: ShopSave;
 }

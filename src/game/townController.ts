@@ -10,6 +10,16 @@ export interface DialogEnd {
   choice?: number;
 }
 
+/** What a feature handler gets when a hotspot's action is one it registered for. */
+export interface ActionContext {
+  scene: TownScene;
+  hotspot: Hotspot;
+  /** The feature is finished: clicks work again and the scene stays up. */
+  done(): void;
+}
+export type ActionHandler = (ctx: ActionContext) => void;
+export type SceneEnterListener = (scene: TownScene, active: readonly Hotspot[]) => void;
+
 export interface TownHooks {
   load(ref: GdsRef): Promise<TownScene>;
   /** Put the scene on screen (or replace the one shown). */
@@ -22,6 +32,8 @@ export interface TownHooks {
   activeHotspots(scene: TownScene): Hotspot[];
   /** The party left the scene. */
   left(): void;
+  /** The party clicked an inn hotspot (or a dialogue sent it there). */
+  inn?(ref: GdsRef): void;
   /** A shop hotspot was clicked; return false when the scene has no shop (it is then reported as unsupported). */
   shop?(ref: GdsRef, hotspot: Hotspot): boolean;
   /** An action that is not implemented yet (shops, inns, temples, bards...). */
@@ -50,6 +62,8 @@ export function actionAfterDialog(endState: number | undefined, clicked: number)
 export class TownController {
   private scene: TownScene | undefined;
   private busy = false;
+  private readonly handlers = new Map<number, ActionHandler>();
+  private readonly enterListeners: SceneEnterListener[] = [];
 
   constructor(private readonly hooks: TownHooks) {}
 
@@ -62,13 +76,25 @@ export class TownController {
     return this.scene;
   }
 
+  /** Let a feature (temples, shops, inns...) take over a hotspot action. Replaces an earlier handler. */
+  handle(action: number, handler: ActionHandler): void {
+    this.handlers.set(action, handler);
+  }
+
+  /** Call `listener` whenever a scene has opened, with the hotspots that are available in it. */
+  onEnter(listener: SceneEnterListener): void {
+    this.enterListeners.push(listener);
+  }
+
   /** Open a scene; hotspots flagged to run immediately are clicked at once. */
   async enter(ref: GdsRef): Promise<void> {
     const scene = await this.hooks.load(ref);
     this.scene = scene;
     this.busy = false;
     this.hooks.show(scene);
-    const auto = this.hooks.activeHotspots(scene).find(runsImmediately);
+    const active = this.hooks.activeHotspots(scene);
+    for (const l of this.enterListeners) l(scene, active);
+    const auto = active.find(runsImmediately);
     if (auto) this.click(auto);
   }
 
@@ -124,12 +150,23 @@ export class TownController {
       case HotspotAction.Unknown1:
       case HotspotAction.Dialog:
         break; // the dialogue was the whole action
+      case HotspotAction.Inn:
+        if (this.hooks.inn) this.hooks.inn(scene.ref);
+        else this.hooks.unsupported?.(action, h);
+        break;
       case HotspotAction.Shop:
         if (this.hooks.shop?.(scene.ref, h)) break;
         this.hooks.unsupported?.(action, h);
         break;
-      default:
-        this.hooks.unsupported?.(action, h);
+      default: {
+        const handler = this.handlers.get(action);
+        if (!handler) {
+          this.hooks.unsupported?.(action, h);
+          break;
+        }
+        this.busy = true;
+        handler({ scene, hotspot: h, done: () => { this.busy = false; } });
+      }
     }
   }
 }

@@ -65,7 +65,7 @@ export interface DialogEffectsResult {
   unhandled: DialogAction[];
 }
 
-function ruleFor(items: readonly ItemDef[] | undefined, index: number): ItemRule | undefined {
+export function ruleFor(items: readonly ItemDef[] | undefined, index: number): ItemRule | undefined {
   const def = items?.[index];
   return def && { stackSize: def.stackSize, defaultStackSize: def.defaultStackSize, isKey: def.type === ItemType.Key };
 }
