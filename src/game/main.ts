@@ -1,6 +1,8 @@
 import * as THREE from 'three/webgpu';
 import { createStage } from '../render/stage';
 import { FlyCamera } from '../render/flyCamera';
+import { createPost } from '../render/post';
+import { parseQuality } from '../render/postSettings';
 import { createSky, DOME_RADIUS } from '../render/sky';
 import { buildHeightField } from '../world/heightField';
 import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
@@ -118,6 +120,10 @@ const encounters = new EncounterDriver(
   },
 );
 
+// Post-processing: P cycles low/medium/high (?post=low|medium|high sets the start).
+const post = createPost(renderer, scene, camera, parseQuality(new URLSearchParams(location.search).get('post'), 'medium'));
+window.addEventListener('keydown', (e) => { if (e.code === 'KeyP' && !e.repeat) post.cycle(); });
+
 let last = performance.now();
 let frames = 0;
 let fpsTime = 0;
@@ -146,7 +152,7 @@ renderer.setAnimationLoop(() => {
     }
   }
   sky.followShadow(camera.position.x, camera.position.y, camera.position.z);
-  renderer.render(scene, camera);
+  post.render();
 
   frames++;
   fpsTime += dt;
@@ -156,5 +162,5 @@ renderer.setAnimationLoop(() => {
     fpsTime = 0;
   }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneInfo}\n${backend}  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
+  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneInfo}\n${backend}  post ${post.quality} (P)  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
 });
