@@ -549,3 +549,33 @@ describe('EncounterRunner', () => {
     });
   });
 });
+
+describe('DialogSession text variables', () => {
+  const party = {
+    gold: 0,
+    characters: ['Locklear', 'Gorath'].map((name, index) => ({ index, name }) as never),
+    activeCharacters: [0, 1],
+  };
+  const env = { random: () => 0, textContext: () => ({ party, chapter: 1 }) };
+
+  it('replaces @N in the text with names set by SetTextVariable and by default', () => {
+    const s = store([1, [
+      { key: 1, text: '@4 remarked to @1.', choices: [{ state: 0, target: 2 }], actions: [{ type: ActionType.SetTextVariable, words: [1, 2] }] },
+      { text: '@4 nodded.' },
+    ]]);
+    const d = new DialogSession(s, world(), [], env);
+    d.start(1);
+    expect(d.view?.snippet.text).toBe('Locklear remarked to Gorath.');
+    expect(d.dialogCharacters?.[1]).toBe(1);
+    d.advance();
+    expect(d.view?.snippet.text).toBe('Locklear nodded.');
+    expect(d.pendingActions).toEqual([]);
+  });
+
+  it('leaves text alone without a text context', () => {
+    const s = store([1, [{ key: 1, text: '@4 remarked' }]]);
+    const d = new DialogSession(s, world());
+    d.start(1);
+    expect(d.view?.snippet.text).toBe('@4 remarked');
+  });
+});

@@ -12,6 +12,7 @@ import { eventFlagLocation } from '../formats/gam';
 import { Reader } from '../formats/reader';
 import { isEncounterActive, type EncounterMap, type PlacedEncounter } from '../world/encounters';
 import { getFlag, hourOfDay, setFlag, type WorldState } from './state';
+import { TextVariables, type TextVariableContext } from './textVariables';
 import type { ZoneTransition } from './transitions';
 
 /**
@@ -149,6 +150,8 @@ export interface DialogEnv {
   gameState?: (id: number) => number;
   /** Party inventory and spell checks. Default false. */
   haveItem?: (item: number) => boolean;
+  /** Party and context for `@N` text variables, read when a dialogue starts. Without it text is shown as written. */
+  textContext?: () => TextVariableContext;
 }
 
 const GAME_STATE_CHAPTER = 0x7537;
@@ -245,6 +248,8 @@ export class DialogSession {
   private viewNow: DialogView | undefined;
   private endState: number | undefined;
   private finished = false;
+  /** `@N` placeholder values of this dialogue; absent when the env gives no party. */
+  readonly textVars: TextVariables | undefined;
 
   constructor(
     private readonly store: DialogStore,
@@ -253,6 +258,13 @@ export class DialogSession {
     private readonly env: DialogEnv = {},
   ) {
     this.world = world;
+    const ctx = env.textContext?.();
+    this.textVars = ctx && new TextVariables({ random: env.random, ...ctx });
+  }
+
+  /** Characters the dialogue picked for `@N`, by variable (what "who" values of later actions address). */
+  get dialogCharacters(): readonly number[] | undefined {
+    return this.textVars?.characters;
   }
 
   get done(): boolean {
@@ -293,7 +305,13 @@ export class DialogSession {
   }
 
   private label(value: number): string {
-    return this.keywords[value] ?? QUERY_LABELS.get(value) ?? `#${value.toString(16)}`;
+    const text = this.keywords[value] ?? QUERY_LABELS.get(value) ?? `#${value.toString(16)}`;
+    return this.textVars ? this.textVars.substitute(text) : text;
+  }
+
+  /** The snippet with its `@N` placeholders replaced. */
+  private shown(snippet: DialogSnippet): DialogSnippet {
+    return this.textVars ? { ...snippet, text: this.textVars.substitute(snippet.text) } : snippet;
   }
 
   private conversationAvailable(ptr: number): boolean {
@@ -327,6 +345,9 @@ export class DialogSession {
           break;
         case ActionType.SetEndOfDialogState:
           this.endState = (a.words[0] << 16) >> 16;
+          break;
+        case ActionType.SetTextVariable:
+          this.textVars?.set(a.words[0]!, a.words[1]!);
           break;
         case ActionType.FreeMemory:
         case 0xff:
@@ -373,15 +394,15 @@ export class DialogSession {
         }
       }
       options.push({ value: GOODBYE, label: 'Goodbye' });
-      return { snippet, options, mode: 'conversation' };
+      return { snippet: this.shown(snippet), options, mode: 'conversation' };
     }
     if (isQuery(snippet)) {
       const options = snippet.choices
         .filter((c) => c.category === 'query')
         .map((c) => ({ value: c.state, label: this.label(c.state) }));
-      if (options.length > 0) return { snippet, options, mode: 'query' };
+      if (options.length > 0) return { snippet: this.shown(snippet), options, mode: 'query' };
     }
-    return { snippet, options: [], mode: 'text' };
+    return { snippet: this.shown(snippet), options: [], mode: 'text' };
   }
 }
 

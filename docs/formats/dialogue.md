@@ -129,6 +129,34 @@ Derived from BaKGL's text box (`gui/textBox.cpp`) for understanding only; tokeni
 
 At a paragraph end emphasis, italic, unbold, inactive, red, white and Moredhel reset; bold carries over. Other bytes below 0x20, `0x7F`, `0xF2` and `0xFA`-`0xFF` are unknown and silently dropped. Printable Latin-1 above 0x7F is left alone. Centring and the bold-text bottom box come from the snippet's `displayStyle`, not from in-text codes. The word-wrapper measures glyph widths only, so styles never change line breaking (faux-bold is drawn with a 1px offset).
 
+### 6.1 Text variables (`@N`, `@`)
+
+Derived from BaKGL (`bak/textVariableStore.cpp`, `bak/gameState.cpp` `SetDialogTextVariable`, `bak/dialogAction.hpp`) for understanding only; our code is `src/game/textVariables.ts`. Substitution runs on snippet text (and choice labels) after the control codes are in place, before tokenising.
+
+- `@` followed by a digit is variable N (BaKGL stores variables by their `@N` text and replaces each in turn, so only one digit is meaningful). A bare `@` is the active character's name, replaced last.
+- A dialogue starts with defaults: `@4` is the party leader, then `@5`, `@3`, `@0` are random party members. The leader is Pug if he is in the party, else by chapter 1-9: Locklear, James, James, Gorath, James, Owyn, James, Owyn, Pug.
+- Action 0x01 SetTextVariable (w0 variable, w1 source) refills a variable. The source is an attribute code (the original switches on `what - 1`):
+
+| `what` | Value |
+| --- | --- |
+| 1-6 | character 0-5 (Locklear, Gorath, Owyn, Pug, James, Patrus) |
+| 7 | party leader |
+| 11 | active character |
+| 12 | character picked by the last skill check |
+| 13-16, 31 | random party member not already picked (14 magicians: Owyn, Pug, Patrus; 15 swordsmen: Locklear, Gorath, James; 16 Gorath or Patrus; 31 anyone but the leader) |
+| 17 | monster name |
+| 18 | chosen item's name |
+| 19 | item value, as money text |
+| 20 | party gold, as money text |
+| 21, 22, 10, 30 | empty (health left, unknown contexts) |
+| 28 | "shopkeeper" (a tavern keeper in an inn) |
+| 29 | the skill that just improved |
+
+- Money text is `<n> sovereign(s)` and `<n> royal(s)` joined by "and", each number and unit led by the emphasis byte 0xF0 (ten royals per sovereign).
+- Characters picked for a variable are also what the "who" of later actions (item, condition, heal) addresses; `DialogSession.dialogCharacters` carries them (0xFF means none).
+- Unset variables (the original leaves a literal `@N`) show the active character here. Unknown sources are ignored.
+- Deviation: the original only avoids repeating characters among lower-numbered variables; we avoid every variable already filled.
+
 ## 7. Encounters and running a conversation
 
 Derived from BaKGL (`bak/encounter/dialog.cpp`, `block.cpp`, `bak/state/encounter.cpp`, `gui/dialogRunner.cpp`) for understanding only; our code is `src/game/encounterRunner.ts`.
@@ -156,7 +184,7 @@ Derived from BaKGL (`bak/encounter/dialog.cpp`, `block.cpp`, `bak/state/encounte
 - `ElapseTime`, `SetAddResetState` (sets the flag now and queues a reset-state timer with flags 0x40), `SetTimeExpiringState`: world clock and expiring events.
 - `SpecialAction` 0 / 1: lose / gain the "item value" game state (0x753e) in royals. Other specials are not applied.
 
-Not applied (returned as `unhandled`): skills (`GainSkill`, `LoadSkillValue`), sounds, text variables, actor loading, popup sizes, combat specials and the rest of `SpecialAction`. "Who" selection by text variable (`SetTextVariable`) is not tracked, so those actions fall back to the whole active party.
+Not applied (returned as `unhandled`): skills (`GainSkill`, `LoadSkillValue`), sounds, actor loading, popup sizes, combat specials and the rest of `SpecialAction`. "Who" selection follows the characters the text variables picked (section 6.1); without a text context those actions fall back to the whole active party.
 
 ### 7.2 Teleports and zone transitions
 

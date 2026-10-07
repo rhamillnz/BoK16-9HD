@@ -117,7 +117,7 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
   const table = read('TELEPORT.DAT');
   teleports = table ? parseTeleports(table) : [];
   return new EncounterDriver(
-    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world }),
+    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter }) } }),
     (view, done) => screens.showDialog(view.snippet, view.options.map((o) => o.label), (r) => r.kind !== 'none' && done(r)),
     {
       other: (e) => console.log('encounter (not run yet):', e.encounter.record.action, e.encounter.record),
