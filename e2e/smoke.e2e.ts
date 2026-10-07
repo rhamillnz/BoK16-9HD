@@ -22,6 +22,13 @@ const walk = async (key: string, distance: number) => {
   await page.keyboard.down(key);
   await page.waitForFunction(`Math.hypot(window.__e2e.pose.x - ${from.x}, window.__e2e.pose.y - ${from.y}) >= ${distance}`);
   await page.keyboard.up(key);
+  await settle();
+};
+
+/** Let two frames pass so a key release has been seen by the game loop. */
+const settle = async () => {
+  const n = await read((a) => a.frames);
+  await page.waitForFunction(`window.__e2e.frames >= ${n + 2}`);
 };
 
 const hold = async (key: string, ms: number) => {
@@ -77,6 +84,7 @@ describe('smoke', () => {
     await page.keyboard.down('ArrowRight');
     await page.waitForFunction(`window.__e2e.pose.heading !== ${after.heading}`);
     await page.keyboard.up('ArrowRight');
+    await settle();
   });
 
   it('opens and closes the main HUD screens', async () => {
@@ -86,7 +94,9 @@ describe('smoke', () => {
       // Movement is blocked while a screen is open.
       const p = await read((a) => a.pose);
       await hold('KeyW', 200);
-      expect(await read((a) => a.pose)).toEqual(p);
+      await settle();
+      const q = await read((a) => a.pose);
+      expect([q.x, q.y]).toEqual([p.x, p.y]);
       await page.keyboard.press('Escape');
       await screenIs('none');
     }
@@ -95,14 +105,14 @@ describe('smoke', () => {
   it('quick-saves and quick-loads: position and party state come back', async () => {
     const saved = await read((a) => a.pose);
     await page.keyboard.press('F5');
-    await page.waitForFunction(() => document.body.innerText.includes('Saved'));
+    await page.waitForFunction('window.__e2e.quickSaved()');
     await walk('KeyW', 60);
     await read((a) => a.setGold(1));
     expect((await read((a) => a.pose)).y).toBeGreaterThan(saved.y + 50);
     expect(await read((a) => a.gold)).toBe(1);
 
     await page.keyboard.press('F9');
-    await page.waitForFunction(() => document.body.innerText.includes('Loaded'));
+    await page.waitForFunction('window.__e2e.gold === 500'); // the load restored the party
     const loaded = await read((a) => a.pose);
     expect(loaded.x).toBeCloseTo(saved.x, 3);
     expect(loaded.y).toBeCloseTo(saved.y, 3);

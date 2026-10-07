@@ -82,6 +82,8 @@ const api = {
   get ticks() { return clock.state.ticks; },
   /** Change something that is part of the save so a load visibly undoes it. */
   setGold(gold: number) { partyState = { ...partyState, gold }; },
+  /** True once the quick-save slot holds a save. */
+  async quickSaved() { return (await screens.saveHandler!.list()).some((s) => s.slot === 'quick' && !!s.summary); },
   start: START,
 };
 (window as unknown as { __e2e: typeof api }).__e2e = api;
