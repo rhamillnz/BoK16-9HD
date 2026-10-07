@@ -23,4 +23,4 @@ HUD screens: register through `registerHudScreen` (src/ui/hudRegistry.ts); the b
 - [x] 15 Main menu: new game, continue, load, options
 - [x] 16 Performance: billboard chunk culling (frustum + fog distance), F3 perf overlay (trees were already instanced impostors)
 - [ ] 17 End-to-end smoke tests in CI with synthetic zone data
-- [ ] 18 Player README: controls, pointing the game at your own BaK install
+- [x] 18 Player README: controls, pointing the game at your own BaK install
