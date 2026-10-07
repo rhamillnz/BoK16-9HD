@@ -229,6 +229,12 @@ export function firstWave(entry: SxEntry): WaveVoice | undefined {
   return undefined;
 }
 
+/** The first note-stream voice of an entry, played by the oscillator synth when it has no sampled voice. */
+export function firstMidi(entry: SxEntry): MidiVoice | undefined {
+  for (const s of entry.sounds) for (const v of s.voices) if (v.kind === 'midi') return v;
+  return undefined;
+}
+
 /** 8-bit unsigned PCM to floats in [-1, 1). */
 export function waveToFloat(samples: Uint8Array): Float32Array {
   const out = new Float32Array(samples.length);

@@ -1,11 +1,12 @@
-import { firstWave, parseSx, waveToFloat, type SxFile } from '../formats/sx';
-import type { AudioContextLike, GainNodeLike, GestureTarget, SourceNodeLike } from './music';
+import { firstWave, firstMidi, parseSx, waveToFloat, type SxFile } from '../formats/sx';
+import { NoteSynth, type SynthContextLike } from './noteSynth';
+import type { AudioContextLike, GainNodeLike, GestureTarget } from './music';
 
 export const SFX_URL = '/bak/frp.sx';
 /** Effects playing at once; the oldest is cut when a new one would exceed this. */
 export const MAX_VOICES = 8;
 
-export interface SfxContextLike extends AudioContextLike {
+export interface SfxContextLike extends AudioContextLike, Partial<Pick<SynthContextLike, 'createOscillator'>> {
   createBuffer(channels: number, length: number, sampleRate: number): { copyToChannel(data: Float32Array, channel: number): void };
 }
 
@@ -16,10 +17,10 @@ export interface SfxDeps {
 }
 
 interface Playing {
-  source: SourceNodeLike;
+  stop(): void;
 }
 
-/** Plays the sampled effects of FRP.SX. Note-only (MIDI) effects have no synth here and are skipped. */
+/** Plays the effects of FRP.SX: sampled waves directly, note-only (MIDI-style) effects through a small oscillator synth. */
 export class SfxPlayer {
   private readonly ctx: SfxContextLike;
   private readonly master: GainNodeLike;
@@ -77,14 +78,27 @@ export class SfxPlayer {
     const sx = await this.preload();
     if (!sx) return;
     const buffer = this.bufferFor(sx, soundId);
-    if (!buffer) return;
+    const entry = sx.entries.get(soundId);
+    const midi = !buffer && entry ? firstMidi(entry) : undefined;
+    if (!buffer && !midi) return;
     if (this.ctx.state === 'suspended') void this.ctx.resume();
 
-    while (this.playing.length >= MAX_VOICES) this.playing.shift()!.source.stop();
+    while (this.playing.length >= MAX_VOICES) this.playing.shift()!.stop();
+    if (midi) {
+      const synth = this.noteSynth();
+      if (!synth) return;
+      const voice: Playing = { stop: () => handle?.stop() };
+      const handle = synth.play(midi.smf, () => {
+        const i = this.playing.indexOf(voice);
+        if (i >= 0) this.playing.splice(i, 1);
+      });
+      if (handle) this.playing.push(voice);
+      return;
+    }
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(this.master);
-    const voice = { source };
+    const voice: Playing = { stop: () => source.stop() };
     this.playing.push(voice);
     source.onended = () => {
       const i = this.playing.indexOf(voice);
@@ -92,6 +106,13 @@ export class SfxPlayer {
       source.disconnect();
     };
     source.start();
+  }
+
+  private synth: NoteSynth | undefined;
+
+  private noteSynth(): NoteSynth | undefined {
+    if (!this.synth && this.ctx.createOscillator) this.synth = new NoteSynth(this.ctx as SynthContextLike, this.master);
+    return this.synth;
   }
 
   private bufferFor(sx: SxFile, soundId: number): unknown | undefined {
