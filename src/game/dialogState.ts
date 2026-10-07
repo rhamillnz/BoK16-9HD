@@ -11,6 +11,8 @@ export const GAME_STATE_CAN_AFFORD = 0x7533;
 export const GAME_STATE_ITEM_VALUE = 0x753e;
 export const GAME_STATE_CONTEXT2 = 0x753f;
 export const GAME_STATE_SHOP = 0x7542;
+/** Event pointer a dialogue sets to end the chapter; it has no saved bit, so it lives here. */
+export const GAME_STATE_CHAPTER_TRANSITION = 0x7541;
 
 export class ScriptedState {
   /** 0x7530: what the scene's dialogue is about (an inn: 1 once the party has slept). */
@@ -23,6 +25,8 @@ export class ScriptedState {
   shopType = 0;
   /** 0x753f. */
   context2 = 0;
+  /** 0x7541: a dialogue asked for the next chapter (see chapters.ts). */
+  chapterTransition = false;
 
   /** The value of a scripted state id, or undefined when this holder does not know it. */
   read(id: number): number | undefined {

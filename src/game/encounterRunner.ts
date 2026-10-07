@@ -13,7 +13,7 @@ import type { TownEntry } from '../formats/gds';
 import { Reader } from '../formats/reader';
 import { isEncounterActive, type EncounterMap, type PlacedEncounter } from '../world/encounters';
 import { getFlag, hourOfDay, setFlag, type WorldState } from './state';
-import { scriptedState } from './dialogState';
+import { GAME_STATE_CHAPTER_TRANSITION, scriptedState } from './dialogState';
 import { TextVariables, type TextVariableContext } from './textVariables';
 import type { ZoneTransition } from './transitions';
 
@@ -132,6 +132,10 @@ function readBits(s: WorldState, ptr: number): number {
 /** A dialogue SetFlag action: plain pointers set bits, complex pointers rewrite a byte. */
 export function applySetFlag(s: WorldState, a: DialogAction): WorldState {
   const [ptr, maskData, zero, value] = a.words;
+  if (ptr === GAME_STATE_CHAPTER_TRANSITION) {
+    scriptedState.chapterTransition = value !== 0;
+    return s;
+  }
   if (ptr >= COMPLEX_EVENT_THRESHOLD && ptr % 10 === 0) {
     const { byte } = eventFlagLocation(ptr);
     const bytes = s.bytes.slice();
