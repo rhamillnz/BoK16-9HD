@@ -27,3 +27,14 @@ original data, so it is gitignored and must never be committed.
 
 Preferred licences: **CC0** (no attribution needed), then CC-BY (credit in
 `CREDITS.md`). Avoid "NC" (non-commercial) and editorial-only licences.
+
+## Overrides in the game
+
+`public/models/manifest.json` entries are drawn in the world instead of the original
+geometry, instanced per name, placed at the item's position and yaw plus the manifest
+transform (the .glb is in render units with its origin at the placement point, see above).
+This also replaces sprite models.
+
+Upscaled sprite textures: put `art/reference/Z<zone>/slots-4x/<slot index>.png` in place; the
+dev server serves it as `/art/Z<zone>/slots-4x/<index>.png` and it replaces the original slot
+image (billboards and textured faces) at the same world size. Missing files fall back.

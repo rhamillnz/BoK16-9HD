@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { resolveArtPath } from './src/assets/artServe';
 
 // Original game files are never copied into the repo. In dev they are served
 // read-only from the user's install directory under /bak/.
@@ -24,8 +25,29 @@ function serveGameData(): Plugin {
   };
 }
 
+// Upscaled sprite replacements live in the gitignored art/reference folder and are served
+// from /art/ in dev (e.g. /art/Z01/slots-4x/3.png). Misses are real 404s, not the SPA fallback.
+function serveArt(): Plugin {
+  const root = path.resolve('art/reference');
+  return {
+    name: 'serve-art-reference',
+    configureServer(server) {
+      server.middlewares.use('/art/', (req, res, next) => {
+        const file = resolveArtPath(root, req.url ?? '');
+        if (!file) return next();
+        if (!existsSync(file) || !statSync(file).isFile()) {
+          res.statusCode = 404;
+          return res.end();
+        }
+        res.setHeader('Content-Type', 'image/png');
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [serveGameData()],
+  plugins: [serveGameData(), serveArt()],
   build: {
     target: 'es2022',
     rollupOptions: {
