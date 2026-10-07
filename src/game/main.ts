@@ -2,6 +2,8 @@ import * as THREE from 'three/webgpu';
 import { createStage } from '../render/stage';
 import { FlyCamera } from '../render/flyCamera';
 import { createSky, DOME_RADIUS } from '../render/sky';
+import { createGrass } from '../render/grass';
+import { createGroundSampler } from '../render/grassGround';
 import { buildHeightField } from '../world/heightField';
 import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
 import { DEBUG_TIME_STEP, GameClock } from './clock';
@@ -43,6 +45,7 @@ const zoneData = loadZone(archive, start.zone);
 const zone = buildZoneScene(zoneData);
 const heightField = buildHeightField(collectTerrainTriangles(zoneData));
 scene.add(zone.group);
+createGrass(scene, createGroundSampler(zoneData, heightField));
 const zoneInfo = `zone ${start.zone}: ${zone.stats.meshItems} meshes, ${zone.stats.sprites} sprites, ${Math.round(zone.stats.triangles / 1000)}k tris, ${zone.collision.length} colliders`;
 
 // Game clock: the world state starts at the chapter's CHAP time; [ and ] step it by 30 minutes.
