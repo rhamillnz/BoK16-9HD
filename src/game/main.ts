@@ -5,7 +5,7 @@ import { FlyCamera } from '../render/flyCamera';
 import { createPost } from '../render/post';
 import { parseQuality } from '../render/postSettings';
 import { createSky, DOME_RADIUS } from '../render/sky';
-import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
+import { PartyController, NO_INPUT } from '../world/partyController';
 import { DEBUG_TIME_STEP, GameClock } from './clock';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
@@ -49,6 +49,7 @@ import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
 import { LAST_CHAPTER } from './chapters';
+import { installJournal } from './journalControls';
 import { installPerf } from '../render/perf';
 import { installBookPlayer } from './bookControls';
 import { installCutscenes } from './cutsceneControls';
@@ -57,6 +58,7 @@ import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
 import { installMainMenu } from './mainMenuControls';
 import { GameDataError, installBootScreen } from '../ui/bootScreen';
+import { installInput } from './inputControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -112,10 +114,11 @@ const party = new PartyController(num('x', start.x), num('y', start.y), num('h',
 party.polygons = zoneHost.current.scene.collision;
 const tickPerf = installPerf(renderer, scene);
 const updateUnderground = installUnderground(sky, party);
-const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
 let flyMode = false;
+// Rebindable keys, gamepad, mouse-look, field of view and UI scale (Options in the main menu).
+const partyKeys = installInput({ party, camera, canvas: renderer.domElement, blocking: () => screens.blocking, combatActive: () => combat.active, flyMode: () => flyMode });
 party.applyToCamera(camera);
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'KeyF' || e.repeat) return;
@@ -146,6 +149,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
 });
 installSfx(); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
+installJournal({ hud: screens, zone: () => zoneHost.current.zone }); // J: dialogue lines seen
 
 let prevX = party.x;
 let prevY = party.y;
