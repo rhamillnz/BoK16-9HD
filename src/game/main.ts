@@ -338,7 +338,7 @@ installTempleControls({
 });
 
 // Chests and containers: E opens the one the party stands next to (locks, riddles, traps, take and put).
-await installContainers({
+const containerStore = await installContainers({
   archive, items: objectItems, get chapter() { return start.chapter; }, saveBytes: save.bytes, hud: screens,
   zone: () => zoneHost.current.zone,
   position: () => ({ x: party.x, y: party.y }),
@@ -359,7 +359,7 @@ const cutscenes = installCutscenes({ fetch: (names) => prefetchResources(archive
 
 // Chapter transitions: a dialogue or chapter-end hotspot ends the chapter (cutscenes, reset, start script, new start).
 const chapters = installChapters({
-  items: objectItems,
+  items: objectItems, containers: containerStore,
   getParty: () => partyState,
   setParty: (p) => { partyState = p; screens.setParty(p); },
   getWorld: () => clock.state,

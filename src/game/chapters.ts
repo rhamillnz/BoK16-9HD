@@ -7,6 +7,7 @@ import { type DialogStore, type SnippetRef, applySetFlag, evaluateChoice, type D
 import { activeCharacters, healCharacter, updateCharacter, type PartyState } from './party';
 import { startChapter, type WorldState } from './state';
 import type { ItemDef } from '../formats/objinfo';
+import { applyChapterHandover, type StashSource } from './chapterHandover';
 
 /**
  * Chapter transitions. See docs/formats/chapters.md. A chapter ends when a dialogue sets event
@@ -122,6 +123,8 @@ export interface ChapterTransitionInput {
   start: ChapterStart;
   store: DialogStore;
   items?: readonly ItemDef[];
+  /** Stash chests for the chapter 4 and 5 inventory swaps; without it only money is handed over. */
+  containers?: StashSource;
   env?: DialogEnv;
 }
 
@@ -138,7 +141,7 @@ export interface ChapterTransitionResult {
 /**
  * Enter `chapter`: skip to the next midnight plus the chapter's time change, forget which encounters
  * were done, restore every active character to full health with no conditions, then run the
- * chapter's start script. Inventory hand-overs between chapters and per-chapter gold are not done here.
+ * chapter's hand-over of money and inventories (chapterHandover.ts), then the chapter's start script.
  */
 export function transitionToChapter(i: ChapterTransitionInput): ChapterTransitionResult {
   let world = startChapter(i.world, i.chapter, i.start.timeElapsed);
@@ -147,6 +150,10 @@ export function transitionToChapter(i: ChapterTransitionInput): ChapterTransitio
 
   let party = i.party;
   for (const c of activeCharacters(party)) party = updateCharacter(party, c.index, (x) => healCharacter(x, 100));
+
+  const handover = applyChapterHandover({ world, party, chapter: i.chapter, items: i.items ?? [], containers: i.containers });
+  world = handover.world;
+  party = handover.party;
 
   const script = startOfChapterActions(i.store, world, i.chapter, i.env);
   const effects = applyDialogEffects({ world: script.world, party, items: i.items }, script.pending);

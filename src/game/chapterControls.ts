@@ -10,12 +10,15 @@ import {
 import { parseDDX, type DialogFile } from '../formats/ddx';
 import { DIALOG_FILE_COUNT, dialogFileName, type ReadResource } from './encounterDriver';
 import { DialogStore } from './encounterRunner';
+import type { StashSource } from './chapterHandover';
 import type { PartyState } from './party';
 import type { WorldState } from './state';
 
 /** What chapter transitions need from the running game. */
 export interface ChapterHost {
   items: readonly ItemDef[];
+  /** Container store for the inventory swaps between chapters; money is handed over without it. */
+  containers?: StashSource;
   getParty(): PartyState;
   setParty(p: PartyState): void;
   getWorld(): WorldState;
@@ -59,7 +62,7 @@ export function installChapters(host: ChapterHost): ChapterControls {
       const store = await host.loadStore();
       const start = host.loadStart(chapter);
       const result = transitionToChapter({
-        world: host.getWorld(), party: host.getParty(), chapter, start, store, items: host.items,
+        world: host.getWorld(), party: host.getParty(), chapter, start, store, items: host.items, containers: host.containers,
       });
       for (const w of result.warnings) console.warn('chapter transition:', w);
       host.setWorld(result.world);
