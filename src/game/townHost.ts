@@ -15,6 +15,8 @@ export interface TownHostOptions {
   playDialog(key: number, done: (end: DialogEnd) => void): void;
   /** The party clicked an inn hotspot in this scene. */
   inn?(ref: GdsRef): void;
+  /** Open the shop of a scene (false when it has none). */
+  shop?(ref: GdsRef): boolean;
 }
 
 /** Where the party stands outside a town encounter's door: the entry's exit cell in the encounter's tile. */
@@ -46,6 +48,7 @@ export function createTownHost(o: TownHostOptions) {
       exitDialog = 0;
       if (key !== 0) o.playDialog(key, () => {});
     },
+    shop: o.shop && ((ref) => o.shop!(ref)),
     unsupported: (action, h) => {
       const name = Object.entries(HotspotAction).find(([, v]) => v === action)?.[0] ?? `0x${action.toString(16)}`;
       console.log(`town hotspot ${h.index}: ${name} is not implemented yet`);
@@ -57,6 +60,8 @@ export function createTownHost(o: TownHostOptions) {
     get active(): boolean {
       return controller.active;
     },
+    /** Play a dialogue through the host's dialogue player (shops use this for their talk). */
+    playDialog: o.playDialog,
     /** Open a scene; `exit` is the dialogue key to play when the party leaves it (0 = none). */
     async enter(ref: GdsRef, exit = 0): Promise<void> {
       exitDialog = exit;

@@ -1,6 +1,6 @@
 # Inns and resting
 
-Read from xavieran/BaKGL (`gui/camp/campScreen.cpp`, `bak/time.cpp`, `bak/container.cpp`, `bak/shop.cpp`, `bak/save/containers.cpp`) to understand them, and described here in our own words. Our code: `src/formats/gdsContainers.ts`, `src/game/inn.ts`, `src/game/rest.ts`, `src/game/dialogState.ts`.
+Read from xavieran/BaKGL (`gui/camp/campScreen.cpp`, `bak/time.cpp`, `bak/container.cpp`, `bak/shop.cpp`, `bak/save/containers.cpp`) to understand them, and described here in our own words. Our code: `src/formats/gdsContainers.ts` (from the shops work), `src/game/inn.ts`, `src/game/rest.ts`, `src/game/dialogState.ts`.
 
 ## Where an inn's data lives
 
@@ -21,9 +21,9 @@ Record layout (all little-endian):
 
 Optional blocks follow in this order when their flag is set: lock (4 bytes), door (2), dialogue (6), **shop stats** (16), encounter (9), last-accessed time (4).
 
-Shop stats (shops, inns, temples and bards share the block): `templeNumber`, `sellFactor`, `maxDiscount`, `buyFactor`, `haggleDifficulty`, `haggleAnnoyanceFactor`, `bardingSkill`, `bardingReward`, `bardingMaxReward`, one unknown byte, **`innSleepTilHour`**, **`innCost`** (sovereigns), `repairTypes`, `repairFactor`, `u16 categories`.
+Shop stats (shops, inns, temples and bards share the block): `templeNumber`, `sellFactor`, `maxDiscount`, `buyFactor`, `haggleDifficulty`, `haggleAnnoyanceFactor`, `bardingSkill`, `bardingReward`, `bardingMaxReward`, one unknown byte, **`innSleepUntilHour`**, **`innCost`** (sovereigns), `repairTypes`, `repairFactor`, `u16 categories`.
 
-`parseGdsContainers` walks the records and `findShop(containers, number, letter)` looks a scene up. Not verified against real data in the cloud (synthetic fixtures only).
+`parseShopContainers` walks the records and `findShop(shops, ref)` looks a scene up (`src/formats/gdsContainers.ts`, see shops.md). Not verified against real data in the cloud (synthetic fixtures only).
 
 ## The visit
 
@@ -31,7 +31,7 @@ Shop stats (shops, inns, temples and bards share the block): `templeNumber`, `se
 2. Chapter 5 only: the cost is overridden before the screen opens, 0x48 sovereigns until event flag `0xdb1c` is set, then 0xa.
 3. The innkeeper's dialogue is the fixed key `0x13d672` for every inn. Before it plays the game sets scripted state it reads: context `0x7530` is 0 on arrival and 1 once the party has slept, `0x753e` item value is the price in royals (also the money text variable), `0x7531` money is the party's whole sovereigns, `0x7533` is 1 when the party's money is strictly greater than the price, `0x7542` shop type. These live in `ScriptedState` (`src/game/dialogState.ts`) and `choiceValue` falls back to it.
 4. The player accepts unless the dialogue ended with end state -1 or the last answer was No.
-5. Accepting sleeps until `innSleepTilHour` (a whole day if it is already that hour), one hour at a time, with the inn heal parameters. The price is charged **after** the night.
+5. Accepting sleeps until `innSleepUntilHour` (a whole day if it is already that hour), one hour at a time, with the inn heal parameters. The price is charged **after** the night.
 6. Afterwards, if anybody can still heal (health + stamina below the full pool), the dialogue is offered again with context 1; otherwise the scene closes. Declining ends it.
 
 Our version has no sleep screen yet: the night is applied at once and a short notice reports the hours slept. (The original draws a clock with the party's health and rations while time passes, and can interrupt for events.)

@@ -1,4 +1,5 @@
 import type { ShopStats } from '../formats/gdsContainers';
+import type { GdsRef } from '../formats/gds';
 import { QUERY_NO } from './encounterRunner';
 import { scriptedState } from './dialogState';
 import { activeCharacters, loseRoyals, ROYALS_PER_SOVEREIGN, type ItemRule, type PartyState } from './party';
@@ -20,7 +21,7 @@ export function innCostRoyals(stats: Pick<ShopStats, 'innCost'>, chapter: number
 
 /** The party took the offer: the dialogue did not end the scene (-1) and the last answer was not No. */
 export function acceptedOffer(end: DialogEnd): boolean {
-  return !end.cancelled && end.endState !== -1 && end.lastChoice !== QUERY_NO;
+  return !end.cancelled && end.endState !== -1 && end.choice !== QUERY_NO;
 }
 
 export interface NightResult {
@@ -35,18 +36,18 @@ export interface NightResult {
 export function sleepAtInn(
   world: WorldState,
   party: PartyState,
-  stats: Pick<ShopStats, 'innSleepTilHour'>,
+  stats: Pick<ShopStats, 'innSleepUntilHour'>,
   cost: number,
   rule?: (item: number) => ItemRule | undefined,
 ): NightResult {
-  const r = rest(world, party, { inInn: true, untilHour: stats.innSleepTilHour, rule });
+  const r = rest(world, party, { inInn: true, untilHour: stats.innSleepUntilHour, rule });
   const paid = loseRoyals(r.party, cost);
   return { world: r.world, party: paid, hours: r.hours, anotherNight: activeCharacters(paid).some((c) => canHeal(c, true)) };
 }
 
 export interface InnDeps {
   /** Stats of the inn at a scene, if it has any. */
-  stats(number: number, letter: string): ShopStats | undefined;
+  stats(ref: GdsRef): ShopStats | undefined;
   chapter(): number;
   world(): WorldState;
   setWorld(w: WorldState): void;
@@ -81,9 +82,9 @@ export function createInnHost(d: InnDeps) {
     });
   };
   return {
-    /** The party clicked an inn hotspot in scene `number`/`letter`. */
-    enter(number: number, letter: string): void {
-      const stats = d.stats(number, letter);
+    /** The party clicked an inn hotspot in this scene. */
+    enter(ref: GdsRef): void {
+      const stats = d.stats(ref);
       if (!stats) {
         d.notify('This inn has no rooms.');
         return;

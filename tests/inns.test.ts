@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SKILL_NAMES, type Character, type Skill } from '../src/formats/gam';
-import { GDS_CONTAINERS_OFFSET, findShop, parseGdsContainers } from '../src/formats/gdsContainers';
+import { SHOPS_OFFSET, parseShopContainers } from '../src/formats/gdsContainers';
 import { HotspotAction, type Hotspot } from '../src/formats/gds';
 import { ScriptedState, scriptedState } from '../src/game/dialogState';
 import { createInnHost, innCostRoyals, INN_DIALOG_KEY, sleepAtInn } from '../src/game/inn';
@@ -53,37 +53,10 @@ const innShop = (sleepTil: number, cost: number) => [0, 0, 0, 0, 0, 0, 0, 0, 0, 
 
 function saveWith(records: number[][]): Uint8Array {
   const flat = records.flat();
-  const bytes = new Uint8Array(GDS_CONTAINERS_OFFSET + flat.length + 4);
-  bytes.set(flat, GDS_CONTAINERS_OFFSET);
+  const bytes = new Uint8Array(SHOPS_OFFSET + flat.length + 4);
+  bytes.set(flat, SHOPS_OFFSET);
   return bytes;
 }
-
-// ---- parsing ---------------------------------------------------------------
-
-describe('GDS containers', () => {
-  const save = saveWith([
-    containerBytes({ number: 2, letterIndex: 2, flags: 0x01 | 0x02 }), // a locked chest with a dialogue, no shop
-    containerBytes({ number: 2, letterIndex: 2, flags: 0x04 | 0x08 | 0x10, shop: innShop(8, 3) }),
-    containerBytes({ number: 60, letterIndex: 0, shop: innShop(7, 2), capacity: 0 }),
-  ]);
-
-  it('walks variable-length records and reads shop stats', () => {
-    const all = parseGdsContainers(save, 3);
-    expect(all.map((c) => [c.number, c.letter, c.shop?.innCost])).toEqual([[2, 'B', undefined], [2, 'B', 3], [60, 'A', 2]]);
-    expect(all[1]!.shop).toMatchObject({ innSleepTilHour: 8, innCost: 3, categories: 0x10 });
-  });
-
-  it('finds a shop by scene number and letter', () => {
-    const all = parseGdsContainers(save, 3);
-    expect(findShop(all, 2, 'B')?.innCost).toBe(3);
-    expect(findShop(all, 60, 'A')?.innSleepTilHour).toBe(7);
-    expect(findShop(all, 9, 'A')).toBeUndefined();
-  });
-
-  it('stops quietly when the image is short', () => {
-    expect(parseGdsContainers(new Uint8Array(GDS_CONTAINERS_OFFSET + 5))).toEqual([]);
-  });
-});
 
 // ---- rest maths ------------------------------------------------------------
 
@@ -172,7 +145,7 @@ describe('inn', () => {
   });
 
   it('pays after the night and offers another while someone can heal', () => {
-    const night = sleepAtInn(world(20), party(500), { innSleepTilHour: 8 }, 30);
+    const night = sleepAtInn(world(20), party(500), { innSleepUntilHour: 8 }, 30);
     expect(night.hours).toBe(12);
     expect(night.party.gold).toBe(470);
     expect(night.anotherNight).toBe(true);
@@ -185,7 +158,7 @@ describe('inn', () => {
     const notes: string[] = [];
     const answers = [...opts.answers];
     const inn = createInnHost({
-      stats: (n, l) => (n === 2 && l === 'C' ? { ...parseGdsContainers(saveWith([containerBytes({ number: 2, letterIndex: 3, shop: innShop(8, 3) })]), 1)[0]!.shop! } : undefined),
+      stats: (ref) => (ref.number === 2 && ref.letter === 'C' ? parseShopContainers(saveWith([containerBytes({ number: 2, letterIndex: 3, shop: innShop(8, 3) })]), SHOPS_OFFSET, 1)[0]!.stats : undefined),
       chapter: () => 1,
       world: () => w, setWorld: (x) => { w = x; },
       party: () => p, setParty: (x) => { p = x; },
@@ -199,18 +172,18 @@ describe('inn', () => {
   }
 
   it('does nothing when the offer is refused or has no inn stats', () => {
-    const h = host({ answers: [{ cancelled: false, endState: undefined, lastChoice: QUERY_NO }] });
-    h.inn.enter(2, 'C');
+    const h = host({ answers: [{ cancelled: false, endState: undefined, choice: QUERY_NO }] });
+    h.inn.enter({ number: 2, letter: 'C' });
     expect(h.calls).toEqual([{ key: INN_DIALOG_KEY, context: 0, value: 30 }]);
     expect(h.party.gold).toBe(500);
-    h.inn.enter(9, 'A');
+    h.inn.enter({ number: 9, letter: 'A' });
     expect(h.notes).toEqual(['This inn has no rooms.']);
   });
 
   it('sleeps on Yes, then offers again with the slept context until the party is healed', () => {
-    const yes: DialogEnd = { cancelled: false, endState: undefined, lastChoice: QUERY_YES };
+    const yes: DialogEnd = { cancelled: false, endState: undefined, choice: QUERY_YES };
     const h = host({ answers: [yes, yes, { cancelled: false, endState: -1 }] });
-    h.inn.enter(2, 'C');
+    h.inn.enter({ number: 2, letter: 'C' });
     expect(h.calls.map((c) => c.context)).toEqual([0, 1, 1]);
     expect(h.party.gold).toBeLessThan(500 - 30);
     expect(h.notes[0]).toBe('You slept for 12 hours.');
@@ -218,8 +191,8 @@ describe('inn', () => {
   });
 
   it('refuses a night the party cannot pay for', () => {
-    const h = host({ gold: 10, answers: [{ cancelled: false, endState: undefined, lastChoice: QUERY_YES }] });
-    h.inn.enter(2, 'C');
+    const h = host({ gold: 10, answers: [{ cancelled: false, endState: undefined, choice: QUERY_YES }] });
+    h.inn.enter({ number: 2, letter: 'C' });
     expect(h.notes).toEqual(['You cannot afford a room.']);
     expect(h.party.gold).toBe(10);
   });
