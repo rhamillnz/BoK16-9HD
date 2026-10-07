@@ -15,6 +15,7 @@ import { parseBMX, type IndexedImage } from '../formats/bmx';
 import type { ResourceArchive } from '../formats/archive';
 import { parsePalette, type Palette } from '../formats/palette';
 import { parseTBL, type ModelTable } from '../formats/tbl';
+import { playBattleSounds } from '../audio/combatSfx';
 import { CombatView } from '../render/combatView';
 import { CombatPanel } from '../ui/combatPanel';
 import { spellKind } from './spells';
@@ -211,7 +212,10 @@ export class CombatController {
       this.rewards = battleRewards(s.fighters, s.history, this.roll);
       for (const line of this.rewards.lines) this.panel.note(line);
     }
-    if (withLog) s.events = [];
+    if (withLog) {
+      playBattleSounds(s.events, s.fighters);
+      s.events = [];
+    }
   }
 
   private canShoot(): boolean {

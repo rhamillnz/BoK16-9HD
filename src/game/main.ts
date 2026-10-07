@@ -18,6 +18,7 @@ import { EncounterDriver, encounterResourceNames, loadEncounterRunner, prefetchR
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
+import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { loadChapterStart } from '../world/zone';
 import { TILE_SIZE } from '../formats/world';
@@ -47,8 +48,10 @@ import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installPerf } from '../render/perf';
+import { installCutscenes } from './cutsceneControls';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
+import { installMainMenu } from './mainMenuControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -129,6 +132,7 @@ void music.play(num('song', songForZone(start.zone))).catch((err) => console.war
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
 });
+installSfx(); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
 
 let prevX = party.x;
 let prevY = party.y;
@@ -347,6 +351,9 @@ await installContainers({
   }),
 });
 
+// Cutscenes: ADS/TTM animations full screen (?cutscene=CHAPTER1.ADS,CHAPTER1.TTM plays one at start).
+installCutscenes({ fetch: (names) => prefetchResources(archive, names), hud: screens, chapter: () => start.chapter });
+
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
 const post = createPost(renderer, scene, camera, parseQuality(new URLSearchParams(location.search).get('post'), 'medium'));
@@ -376,6 +383,9 @@ window.addEventListener('keydown', (e) => {
     applyGraphics(true);
   }
 });
+
+// Main menu: shown at start and on Escape (new game, continue, load, options).
+installMainMenu({ screens, music, post, applyGraphics, canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode });
 
 let last = performance.now();
 let frames = 0;
