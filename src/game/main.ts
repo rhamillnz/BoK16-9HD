@@ -39,6 +39,8 @@ import { createInnHost } from './inn';
 import { ruleFor } from './dialogEffects';
 import { findShop, parseGdsContainers } from '../formats/gdsContainers';
 import { createNotice } from '../ui/notice';
+import { installCamp } from './campControls';
+import { installItemControls } from './itemControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -271,6 +273,19 @@ await installSaveControls({
   canQuickSave: () => !screens.blocking && !encounters.busy && !travelling,
   setSaveHandler: (h) => { screens.saveHandler = h; },
 });
+
+// Camping: R rests with healing, rations and time passing.
+installCamp({
+  items: objectItems,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  canCamp: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
+  menu: (text, choices) => new Promise((resolve) => screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
+  onTimePassed: () => sky.update(clock.minutes),
+});
+installItemControls({ items: objectItems, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
