@@ -148,6 +148,9 @@ export function installMainMenu(h: MainMenuHost): void {
   } catch {
     // no session storage: always show the menu
   }
+  // Debug start options (README table) go straight to what they name.
+  const params = new URLSearchParams(location.search);
+  if (['book', 'cutscene', 'chapter', 'zone'].some((k) => params.has(k))) skip = true;
   if (skip) started = true;
   else void open();
 }
