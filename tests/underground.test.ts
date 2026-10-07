@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
 import { createSky, FOG_FAR, FOG_NEAR } from '../src/render/sky';
 import { installUnderground } from '../src/game/undergroundMode';
-import { MINE_LOOK, isUndergroundZone, speedScaleForZone, torchFlicker, undergroundModelName, undergroundTableName } from '../src/world/underground';
+import { MINE_LOOK, isUndergroundZone, speedScaleForZone, torchFlicker, outdoorMagicStrength, undergroundModelName, undergroundTableName } from '../src/world/underground';
 import { PartyController, WALK_SPEED } from '../src/world/partyController';
 
 describe('underground zones', () => {
@@ -62,6 +62,25 @@ describe('underground zones', () => {
     expect(torch.intensity).toBeGreaterThan(plain * 1.5);
     update(10, false);
     expect(torch.distance).toBe(MINE_LOOK.torchDistance);
+  });
+
+  it('a light spell glows outdoors at night but not in daylight', () => {
+    const scene = new THREE.Scene();
+    const sky = createSky(scene);
+    const torch = scene.children.find((o): o is THREE.PointLight => o instanceof THREE.PointLight)!;
+    sky.update(0);
+    sky.setMagicLight(true);
+    sky.followShadow(3, 1, 4);
+    expect(torch.visible).toBe(true);
+    expect(torch.intensity).toBeGreaterThan(100);
+    expect(torch.position.x).toBe(3);
+    sky.update(12 * 60);
+    expect(torch.visible).toBe(false);
+    sky.update(0);
+    sky.setMagicLight(false);
+    expect(torch.visible).toBe(false);
+    expect(outdoorMagicStrength(1)).toBe(0);
+    expect(outdoorMagicStrength(0)).toBe(1);
   });
 
   it('halves walking speed in mines when the zone changes', () => {
