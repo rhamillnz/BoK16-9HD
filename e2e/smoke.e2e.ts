@@ -131,6 +131,44 @@ describe('smoke', () => {
     expect((await read((a) => a.pose)).y).toBeLessThan(moved.y - 50);
   });
 
+  it('shows the light spell glow outdoors at night and not by day', async () => {
+    await read((a) => a.setMinutes(0)); // midnight
+    await read((a) => a.setMagicLight(true));
+    await settle();
+    const night = await read((a) => a.lights);
+    expect(night.visible).toBe(1);
+    expect(night.intensity).toBeGreaterThan(0);
+    await read((a) => a.setMinutes(12 * 60)); // noon: the light stays registered but gives nothing
+    await settle();
+    const noon = await read((a) => a.lights);
+    expect(noon.visible).toBe(night.visible); // no light-count change, so no shader recompile at dawn
+    expect(noon.intensity).toBe(0);
+    await read((a) => a.setMagicLight(false));
+    await settle();
+    expect((await read((a) => a.lights)).visible).toBe(0);
+  });
+
+  it('plays a book: pages turn with Space and Escape skips', async () => {
+    await read((a) => a.openBook());
+    await screenIs('book');
+    expect(await read((a) => a.bookSpreads)).toBeGreaterThan(0);
+    // Movement is blocked while the book is open.
+    const p = await read((a) => a.pose);
+    await hold('KeyW', 200);
+    await settle();
+    expect(await read((a) => [a.pose.x, a.pose.y])).toEqual([p.x, p.y]);
+    const spreads = await read((a) => a.bookSpreads);
+    for (let i = 0; i < spreads; i++) await page.keyboard.press('Space');
+    await screenIs('none'); // the last page finishes the book
+    expect(await read((a) => a.bookDone)).toBe(1);
+
+    await read((a) => a.openBook());
+    await screenIs('book');
+    await page.keyboard.press('Escape');
+    await screenIs('none');
+    expect(await read((a) => a.bookDone)).toBe(2);
+  });
+
   it('logged no errors', () => {
     expect(errors.filter((e) => !/favicon/.test(e))).toEqual([]);
   });

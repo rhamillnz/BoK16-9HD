@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SfxPlayer, type SfxContextLike } from './sfx';
-import { midiFrequency, NoteSynth, scheduleNotes, waveFor } from './noteSynth';
+import { MAX_NOTES, midiFrequency, NoteSynth, scheduleNotes, waveFor } from './noteSynth';
 
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 const u16 = (n: number) => [n & 0xff, (n >> 8) & 0xff];
@@ -28,6 +28,11 @@ describe('scheduleNotes', () => {
     const notes = scheduleNotes(smf([0, 0x90, 60, 90, 32, 0xb0, 7, 100]));
     expect(notes[0]!.duration).toBeCloseTo(0.5);
     expect(scheduleNotes(new Uint8Array([1, 2, 3]))).toEqual([]);
+  });
+
+  it('caps the number of notes in a runaway stream', () => {
+    const track = Array.from({ length: MAX_NOTES + 50 }, () => [0, 0x90, 60, 90, 1, 0x80, 60, 0]).flat();
+    expect(scheduleNotes(smf(track))).toHaveLength(MAX_NOTES);
   });
 
   it('applies the pitch wheel at note start', () => {

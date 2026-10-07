@@ -8,6 +8,9 @@ import { GameClock } from '../game/clock';
 import { partyFromSave } from '../game/party';
 import { installSaveControls } from '../game/saveControls';
 import { ZONE_MAP_BYTES, parseZoneMap } from '../formats/zoneMap';
+import { layoutBook } from '../game/book';
+import type { Book } from '../formats/book';
+import '../ui/bookScreen'; // registers the book screen
 import { mountHud } from '../ui/hud';
 import { syntheticFont, syntheticSave, syntheticZone } from './syntheticData';
 
@@ -57,6 +60,8 @@ await installSaveControls({
   setSaveHandler: (h) => { screens.saveHandler = h; },
 });
 
+let bookSpreads = 0;
+let bookDone = 0;
 let frames = 0;
 let last = performance.now();
 renderer.setAnimationLoop(() => {
@@ -85,6 +90,31 @@ const api = {
   /** True once the quick-save slot holds a save. */
   async quickSaved() { return (await screens.saveHandler!.list()).some((s) => s.slot === 'quick' && !!s.summary); },
   start: START,
+  /** Time of day and the light spell, as the game's clock and spell effects drive them. */
+  setMinutes(m: number) { sky.update(m); },
+  setMagicLight(on: boolean) { sky.setMagicLight(on); },
+  /** Point lights in the scene: how many are visible, and the strongest intensity. */
+  get lights() {
+    let visible = 0;
+    let intensity = 0;
+    scene.traverse((o) => {
+      if (o instanceof THREE.PointLight && o.visible) { visible++; intensity = Math.max(intensity, o.intensity); }
+    });
+    return { visible, intensity };
+  },
+  /** Open the cutscene book viewer on a two-page synthetic book; `bookDone` counts finished readings. */
+  openBook() {
+    const page = (text: string) => ({
+      x: 0, y: 0, width: 160, height: 32, displayNumber: 1, pageNumber: 1, previousPage: 0, nextPage: 0, showPageNumber: 0,
+      reservedAreas: [], images: [],
+      paragraphs: [{ x: 0, y: 0, width: 100, lineSpacing: 0, wordSpacing: 0, startIndent: 0, alignment: 'left' as const, segments: [{ font: 1, yOffset: 0, color: 0, style: 1, text }] }],
+    });
+    const book: Book = { pages: [page('AAAA BBBB'), page('CCCC DDDD')] };
+    bookSpreads = layoutBook(book, syntheticFont()).length;
+    screens.open('book', { book, images: [], done: () => { bookDone++; screens.end('book'); } });
+  },
+  get bookSpreads() { return bookSpreads; },
+  get bookDone() { return bookDone; },
 };
 (window as unknown as { __e2e: typeof api }).__e2e = api;
 export type E2eApi = typeof api;
