@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGroundMask, cellInView, cellsAround, hash2, lodKeep, scatterCell } from './grassMath';
+import { buildGroundMask, cellInView, cellsAround, hash2, lodKeep, scatterCell, type GroundSampler } from './grassMath';
 
 describe('hash2', () => {
   it('is deterministic and within [0, 1)', () => {
@@ -77,5 +77,17 @@ describe('buildGroundMask', () => {
   });
   it('handles an empty ground set', () => {
     expect(buildGroundMask([], []).get(0, 0)).toBe(false);
+  });
+});
+
+describe('verge clumps', () => {
+  const flat: GroundSampler = Object.assign((_x: number, _z: number) => 0, {});
+  it('adds extra, larger clumps only where the verge predicate holds', () => {
+    const plain = scatterCell(0, 0, 8, 2, flat);
+    const sample: GroundSampler = Object.assign((_x: number, _z: number) => 0, { verge: (x: number) => x < 4 });
+    const withVerge = scatterCell(0, 0, 8, 2, sample);
+    expect(withVerge.length).toBeGreaterThan(plain.length);
+    const extra = withVerge.subarray(plain.length);
+    for (let i = 0; i < extra.length; i += 8) expect(extra[i]!).toBeLessThan(4);
   });
 });

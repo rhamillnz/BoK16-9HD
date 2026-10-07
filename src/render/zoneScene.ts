@@ -6,6 +6,9 @@ import { Terrain } from '../formats/scx';
 import { EF_2D_OBJECT, type Face, type Model } from '../formats/tbl';
 import { angleToRadians } from '../formats/world';
 import { createTerrainMaterial } from './terrainMaterial';
+import { createHillMaterial } from './hillMaterial';
+import { isHillModel, smoothNormals } from './hillMesh';
+import { DEFAULT_SCATTER, SCATTER_MODELS, scatterOnTriangles } from './scatter';
 import { PATH_STYLE, ROAD_STYLE, createRoadMaterial } from './roadMaterial';
 import { buildCollisionPolygons, type CollisionPolygon } from '../world/collision';
 import type { ZoneData } from '../world/zone';
@@ -194,6 +197,7 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
   group.name = `zone${zone.zone}`;
 
   const colorBatch = new Batch();
+  const hillBatch = new Batch();
   const terrainBatches = new Map<number, Batch>();
   const slotBatches = new Map<number, Batch>();
   const batchFor = (m: FaceMaterial): Batch => {
@@ -263,6 +267,28 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
       return out.set(wx / WORLD_SCALE, wz / WORLD_SCALE, -wy / WORLD_SCALE);
     };
 
+    if (isHillModel(model.name)) {
+      // Smooth normals across the model's shared vertices; palette colour per face.
+      const faces = model.faces.filter((f) => f.indices.length >= 3);
+      const loops = faces.map((f) => f.indices.map((i) => world(i, new THREE.Vector3())));
+      const normals = smoothNormals(faces.map((f) => f.indices), loops);
+      faces.forEach((face, fi) => {
+        const loop = loops[fi]!;
+        const rgb = new THREE.Color().setRGB(palette[face.color * 4]! / 255, palette[face.color * 4 + 1]! / 255, palette[face.color * 4 + 2]! / 255, THREE.SRGBColorSpace);
+        for (let k = 1; k + 1 < loop.length; k++) {
+          // Reversed to counter-clockwise from outside, so the scatter step sees real upward normals.
+          for (const idx of [0, k + 1, k]) {
+            const p = loop[idx]!;
+            const nn = normals.get(face.indices[idx]!)!;
+            hillBatch.positions.push(p.x, p.y, p.z);
+            hillBatch.normals.push(nn.x, nn.y, nn.z);
+            hillBatch.colors.push(rgb.r, rgb.g, rgb.b);
+          }
+        }
+      });
+      continue;
+    }
+
     for (const face of model.faces) {
       if (face.indices.length < 3) continue;
       const mat = classifyFace(model, face);
@@ -304,6 +330,7 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
   };
 
   addMesh(colorBatch, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, side: THREE.DoubleSide }), 'flat');
+  addMesh(hillBatch, createHillMaterial(), 'hills');
   for (const [strip, batch] of terrainBatches) {
     const src = zone.terrain[strip];
     if (!src) continue;
@@ -329,6 +356,16 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
       mesh.userData.chunk = { x: bs.center.x, z: bs.center.z, r: bs.radius };
       group.add(mesh);
       drawCalls++;
+    }
+  }
+
+  // Rocks and bushes on the hills, from the models the zone's overrides loaded.
+  if (overrides && hillBatch.positions.length) {
+    const available = new Set(SCATTER_MODELS.filter((n) => overrides.models.has(n)));
+    for (const p of scatterOnTriangles(hillBatch.positions, available, { ...DEFAULT_SCATTER, seed: zone.zone })) {
+      let list = overridePlacements.get(p.name);
+      if (!list) overridePlacements.set(p.name, (list = []));
+      list.push(p.matrix);
     }
   }
 

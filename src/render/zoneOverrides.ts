@@ -3,6 +3,9 @@ import { AssetOverrides } from '../assets/overrides';
 import type { ZoneData } from '../world/zone';
 import { overriddenModelNames, slotTextureUrl, type ZoneOverridePlan } from './overrideResolve';
 import { usedSlotImages } from './zoneScene';
+import { isHillModel } from './hillMesh';
+import { SCATTER_MODELS } from './scatter';
+import { ROAD_STONES } from './roadStones';
 
 export type { ZoneOverridePlan };
 
@@ -29,8 +32,21 @@ export async function prepareZoneOverrides(zone: ZoneData, overrides?: AssetOver
     console.warn('Override manifest unavailable, using original assets', err);
   }
 
+  // Rocks and bushes scattered over the zone's hills (not tied to any item).
+  const hasHills = zone.items.some((item) => {
+    const model = zone.table.models[item.type];
+    return model && isHillModel(model.name);
+  });
+  const scatterNames = overrides ? [...(hasHills ? SCATTER_MODELS : []), ...ROAD_STONES].filter((n) => overrides.has(n)) : [];
+
   const loader = new THREE.TextureLoader();
   await Promise.all([
+    ...(overrides
+      ? scatterNames.map(async (name) => {
+          const r = await overrides.resolve(name);
+          if (!r.fallback) plan.models.set(name, r.scene);
+        })
+      : []),
     ...(overrides
       ? [...overriddenModelNames(zone.items, zone.table, (n) => overrides.has(n))].map(async (name) => {
           const r = await overrides.resolve(name);

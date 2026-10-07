@@ -39,7 +39,13 @@ export const CLUMP_HEIGHT = 0.3;
 export type GroundSampler = ((x: number, z: number) => number | null) & {
   /** Average ground colour (linear-ish 0..1 rgb) so the grass can match the terrain palette. */
   color?: [number, number, number];
+  /** True on grass next to a road or path: gets extra, taller clumps so the edge blends into the verge. */
+  verge?: (x: number, z: number) => boolean;
 };
+
+/** Extra verge clumps as a multiple of the normal density, and how much bigger they grow. */
+export const VERGE_EXTRA_DENSITY = 1.6;
+export const VERGE_SCALE_BOOST = 1.35;
 
 /**
  * Scatters the clumps of one cell: stable for a given (cx, cz, settings.density), independent of
@@ -65,6 +71,28 @@ export function scatterCell(cx: number, cz: number, cellSize: number, density: n
       // Spatially random but index-independent so thinning keeps an even spread.
       hash2(i, cx * 17 + cz * 31, 7),
     );
+  }
+  const verge = sample.verge;
+  if (verge) {
+    const extra = Math.round(cellSize * cellSize * density * VERGE_EXTRA_DENSITY);
+    for (let j = 0; j < extra; j++) {
+      const i = count + j;
+      const x = (cx + hash2(cx * 131 + i, cz, 1)) * cellSize;
+      const z = (cz + hash2(cx, cz * 137 + i, 2)) * cellSize;
+      if (!verge(x, z)) continue;
+      const y = sample(x, z);
+      if (y === null) continue;
+      out.push(
+        x,
+        y,
+        z,
+        hash2(i, cx + cz * 7, 3) * Math.PI * 2,
+        (0.7 + hash2(i, cz, 4) * 0.7) * VERGE_SCALE_BOOST,
+        hash2(cx, i + cz * 5, 5) * Math.PI * 2,
+        hash2(i + cx * 3, cz, 6),
+        hash2(i, cx * 17 + cz * 31, 7),
+      );
+    }
   }
   return Float32Array.from(out);
 }
@@ -115,6 +143,8 @@ export function cellInView(
 /** Coarse 2D occupancy grid in BaK units: 1 = ground-terrain grass area, 0 = anything else. */
 export interface GroundMask {
   get(x: number, y: number): boolean;
+  /** Visits the centre (BaK units) of every set cell. */
+  forEachSet(visit: (x: number, y: number) => void): void;
 }
 
 /**
@@ -129,7 +159,7 @@ export function buildGroundMask(ground: ArrayLike<number>, cover: ArrayLike<numb
     minY = Math.min(minY, ground[i + 1]!);
     maxY = Math.max(maxY, ground[i + 1]!);
   }
-  if (!isFinite(minX)) return { get: () => false };
+  if (!isFinite(minX)) return { get: () => false, forEachSet: () => {} };
   const w = Math.ceil((maxX - minX) / cell) + 1;
   const h = Math.ceil((maxY - minY) / cell) + 1;
   const grid = new Uint8Array(w * h);
@@ -160,6 +190,9 @@ export function buildGroundMask(ground: ArrayLike<number>, cover: ArrayLike<numb
       const gx = Math.floor((x - minX) / cell);
       const gy = Math.floor((y - minY) / cell);
       return gx >= 0 && gy >= 0 && gx < w && gy < h && grid[gy * w + gx] === 1;
+    },
+    forEachSet(visit) {
+      for (let gy = 0; gy < h; gy++) for (let gx = 0; gx < w; gx++) if (grid[gy * w + gx] === 1) visit(minX + (gx + 0.5) * cell, minY + (gy + 0.5) * cell);
     },
   };
 }

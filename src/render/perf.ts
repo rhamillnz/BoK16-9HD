@@ -2,7 +2,7 @@ import type * as THREE from 'three/webgpu';
 import { beyondFar } from './cullMath';
 import { FOG_FAR } from './sky';
 
-interface ChunkInfo { x: number; z: number; r: number }
+interface ChunkInfo { x: number; z: number; r: number; /** Own cull distance (default: the fog's far plane). */ far?: number }
 
 /** Hide instanced billboard chunks that are fully inside the fog's far plane's shadow (beyond it). */
 export function cullChunks(root: THREE.Object3D, eyeX: number, eyeZ: number, far = FOG_FAR): number {
@@ -10,7 +10,7 @@ export function cullChunks(root: THREE.Object3D, eyeX: number, eyeZ: number, far
   for (const child of root.children) {
     const c = child.userData.chunk as ChunkInfo | undefined;
     if (!c) continue;
-    child.visible = !beyondFar(eyeX, eyeZ, c.x, c.z, c.r, far);
+    child.visible = !beyondFar(eyeX, eyeZ, c.x, c.z, c.r, c.far ?? far);
     if (!child.visible) hidden++;
   }
   return hidden;

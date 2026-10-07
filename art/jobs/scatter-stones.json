@@ -1,0 +1,6 @@
+[
+  { "src": "art/incoming/stylized-nature-megakit/glTF/RockPath_Round_Small_1.gltf", "out": "public/models/nature/scatter_stone1.glb", "height": 0.09 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/RockPath_Round_Small_2.gltf", "out": "public/models/nature/scatter_stone2.glb", "height": 0.1 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/RockPath_Square_Small_1.gltf", "out": "public/models/nature/scatter_stone3.glb", "height": 0.14 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/RockPath_Round_Thin.gltf", "out": "public/models/nature/scatter_stone4.glb", "height": 0.06 }
+]
