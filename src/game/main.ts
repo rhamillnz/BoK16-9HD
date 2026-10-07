@@ -21,6 +21,9 @@ import { portraitCanvases } from '../ui/partyBar';
 import { loadChapterStart } from '../world/zone';
 import { TILE_SIZE } from '../formats/world';
 import { ZoneHost } from './zoneHost';
+import { CombatEncounters } from './combatEncounter';
+import { loadCombatSupport } from './combatController';
+import { EncounterType } from '../formats/encounters';
 import { partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
 import { parseTeleports, planTransition, type Destination } from './transitions';
@@ -112,6 +115,18 @@ let partyState = partyFromSave(save);
 let teleports: Destination[] = [];
 let travelling = false;
 
+// Combat encounters: a fight on the combat grid, then wounds applied and the encounter marked done (or a retreat).
+const combat = new CombatEncounters({
+  scene, camera, canvas: renderer.domElement, getHeight: zoneHost.getHeight,
+  support: await loadCombatSupport(archive, save.bytes),
+  items: objectItems,
+  position: () => ({ x: party.x, y: party.y, heading: party.heading8 }),
+  placeParty: (x, y, h) => { party.setPosition(x, y, h); prevX = x; prevY = y; encounters.runner.enterAt(x, y); },
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  markDone: (e) => { encounters.runner.setWorld(clock.state); encounters.runner.complete(e); clock.state = encounters.runner.world; },
+});
+
 const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [number, number])[], world: WorldState) => {
   const read = await prefetchResources(archive, encounterResourceNames(zoneNumber, tiles));
   const table = read('TELEPORT.DAT');
@@ -120,7 +135,10 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
     loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world }),
     (view, done) => screens.showDialog(view.snippet, view.options.map((o) => o.label), (r) => r.kind !== 'none' && done(r)),
     {
-      other: (e) => console.log('encounter (not run yet):', e.encounter.record.action, e.encounter.record),
+      other: (e) => {
+        if (e.encounter.record.typeId === EncounterType.Combat) void combat.start(e.encounter);
+        else console.log('encounter (not run yet):', e.encounter.record.action, e.encounter.record);
+      },
       zone: (e) => void travelTo(e.transition),
       blocked: () => party.setPosition(prevX, prevY),
       finished: (ev, cancelled) => {
@@ -184,12 +202,14 @@ renderer.setAnimationLoop(() => {
     const py = party.y;
     prevX = px;
     prevY = py;
-    party.update(dt, screens.blocking ? NO_INPUT : partyKeys.read());
+    party.update(dt, screens.blocking || combat.active ? NO_INPUT : partyKeys.read());
     if (party.x !== px || party.y !== py) {
       if (clock.walk(dt)) sky.update(clock.minutes);
     }
-    party.applyToCamera(camera);
-    if (!screens.blocking && !encounters.busy && !travelling) {
+    combat.update(dt);
+    if (combat.active) combat.applyCamera();
+    else party.applyToCamera(camera);
+    if (!screens.blocking && !encounters.busy && !travelling && !combat.active) {
       // The clock owns the shared world state: hand it over for the check, take back the flags it set.
       encounters.runner.setWorld(clock.state);
       encounters.update(party.x, party.y);
