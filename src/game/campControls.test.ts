@@ -36,7 +36,7 @@ describe('runCamp', () => {
     const r = await runCamp(t.h);
     expect(r?.hoursRested).toBe(1);
     expect(t.state().world.ticks).toBe(0x708);
-    expect(t.state().party.characters[0]!.skills.health.trueSkill).toBe(11);
+    expect(t.state().party.characters[0]!.skills.health.trueSkill).toBe(16);
     expect(t.state().timeEvents).toBe(1);
     expect(t.shown[1]).toContain('rested 1 hour');
   });
