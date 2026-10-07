@@ -48,6 +48,7 @@ import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
+import { LAST_CHAPTER } from './chapters';
 import { installPerf } from '../render/perf';
 import { installBookPlayer } from './bookControls';
 import { installCutscenes } from './cutsceneControls';
@@ -77,7 +78,10 @@ const archive = new ResourceArchive(new Uint8Array(await rmf.arrayBuffer()), new
 // 8-bit heading) override the start position.
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
-const chapterStart = loadChapterStart(archive, 1);
+// ?chapter=N loads that chapter's start up front, so the party spawns at the real start position and no
+// teleport races the scene load; the chapter transition (flags, items, start script) runs once the game is wired.
+const debugChapter = Math.min(LAST_CHAPTER, Math.max(1, Math.trunc(num('chapter', 1)) || 1));
+const chapterStart = { ...loadChapterStart(archive, debugChapter), timeElapsed: loadChapterStart(archive, 1).timeElapsed };
 const startZone = num('zone', chapterStart.zone);
 const zoneHost = await ZoneHost.create(scene, archive, startZone);
 const [firstTileX, firstTileY] = zoneHost.current.data.tiles[0] ?? [0, 0];
@@ -374,6 +378,7 @@ const chapters = installChapters({
   }),
   arrive: async (c, teleport) => {
     town.dismiss();
+    while (travelling) await new Promise((r) => setTimeout(r, 16)); // travelTo ignores calls while one runs
     start.chapter = c.chapter;
     encounters = await makeEncounters(zoneHost.current.zone, zoneHost.current.data.tiles, clock.state);
     await travelTo({ zone: c.zone, tileX: c.tileX, tileY: c.tileY, x: c.x, y: c.y, heading: c.heading });
@@ -382,7 +387,9 @@ const chapters = installChapters({
   onTransitioned: () => sky.update(clock.minutes),
 });
 town.controller.handle(HotspotAction.ChapterEnd, ({ done }) => void chapters.begin().finally(done));
-if (q.has('chapter') && num('chapter', 1) > 1) void chapters.begin(num('chapter', 1), { cutscenes: false });
+if (debugChapter > 1) {
+  await new Promise<void>((placed) => void chapters.begin(debugChapter, { cutscenes: false, arriveFirst: true, onArrived: placed }).then((ok) => ok || placed()));
+}
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
