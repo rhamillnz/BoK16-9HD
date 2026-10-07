@@ -91,7 +91,7 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
    campfires (`fireold`, `campfire`), stumps, dirt piles, gravestones (`tstone*`, `tmbstone`).
    Fantasy Props MegaKit isn't downloaded; use Medieval Village props (crates, fences, wagon) and
    nature-kit rocks, and list what's missing for Reuben.
-6. **Bodies** (`dbody1`, `dbody2`, `rogebody`, `morhbody`, ...): posed lying figures built from
+6. **DONE (deadbug not covered)** **Bodies** (`dbody1`, `dbody2`, `rogebody`, `morhbody`, ...): posed lying figures built from
    Universal Base Characters + Modular Character Outfits in Blender (a death pose from the
    Universal Animation Library), fitted to the original sprite footprint.
 7. **DONE by Opus (582 images in `art/reference/Z??/slots-4x`).** ~~Upscale every remaining original sprite, item icon and portrait~~ with `tools/upscale`
