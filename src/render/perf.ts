@@ -2,6 +2,27 @@ import type * as THREE from 'three/webgpu';
 import { beyondFar } from './cullMath';
 import { FOG_FAR } from './sky';
 
+/** What is in the scene right now, for the F3 overlay: tells draw-call, shadow and grass cost apart. */
+export function sceneBreakdown(root: THREE.Object3D): { meshes: number; shadowCasters: number; shadowTris: number; lights: number; instances: number; grassInstances: number } {
+  const r = { meshes: 0, shadowCasters: 0, shadowTris: 0, lights: 0, instances: 0, grassInstances: 0 };
+  root.traverseVisible((o) => {
+    const m = o as THREE.Mesh & { isLight?: boolean; isInstancedMesh?: boolean };
+    if (m.isLight) r.lights++;
+    if (!m.isMesh) return;
+    r.meshes++;
+    const g = m.geometry as THREE.InstancedBufferGeometry;
+    const tris = (g.index ? g.index.count : (g.getAttribute('position')?.count ?? 0)) / 3;
+    const n = m.isInstancedMesh ? (m as THREE.InstancedMesh).count : g.instanceCount !== Infinity && g.isInstancedBufferGeometry ? g.instanceCount : 1;
+    r.instances += n;
+    if (m.name === 'grass') r.grassInstances = n;
+    if (m.castShadow) {
+      r.shadowCasters++;
+      r.shadowTris += tris * n;
+    }
+  });
+  return r;
+}
+
 interface ChunkInfo { x: number; z: number; r: number }
 
 /** Hide instanced billboard chunks that are fully inside the fog's far plane's shadow (beyond it). */
@@ -51,6 +72,11 @@ export function installPerf(renderer: THREE.WebGPURenderer, scene: THREE.Scene) 
         `draw calls ${info.render.drawCalls}  tris ${info.render.triangles}\n` +
         `geometries ${info.memory.geometries}  textures ${info.memory.textures}\n` +
         `billboard chunks culled by distance ${hidden}`;
+      const b = sceneBreakdown(scene);
+      el.textContent +=
+        `\nmeshes ${b.meshes}  instances ${b.instances}  lights ${b.lights}\n` +
+        `shadow casters ${b.shadowCasters}  shadow-pass tris ${b.shadowTris.toFixed(0)}\n` +
+        `grass clumps ${b.grassInstances}`;
     }
     acc = 0;
     frames = 0;
