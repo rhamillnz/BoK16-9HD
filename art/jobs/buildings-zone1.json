@@ -1,0 +1,6 @@
+[
+  { "name": "inn", "out": "public/models/buildings/inn.glb", "modules": [7, 4], "floors": 2, "ground": "UnevenBrick", "upper": "Plaster", "woodgrid": true, "chimney": true, "target": [16.6, 9.3, 12.2], "preview": "shots/build-inn.png" },
+  { "name": "house", "out": "public/models/buildings/house.glb", "modules": [4, 4], "floors": 2, "ground": "UnevenBrick", "upper": "Plaster", "woodgrid": true, "chimney": true, "target": [9.3, 9.3, 11.3], "preview": "shots/build-house.png" },
+  { "name": "house1", "out": "public/models/buildings/house1.glb", "modules": [4, 4], "floors": 1, "ground": "Plaster", "upper": "Plaster", "woodgrid": false, "chimney": true, "target": [9.3, 9.3, 8.0], "preview": "shots/build-house1.png" },
+  { "name": "blcksmth", "out": "public/models/buildings/blcksmth.glb", "modules": [5, 4], "floors": 1, "ground": "UnevenBrick", "upper": "UnevenBrick", "woodgrid": false, "chimney": true, "target": [12.7, 9.3, 7.2], "preview": "shots/build-blcksmth.png" }
+]

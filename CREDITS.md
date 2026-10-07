@@ -4,7 +4,8 @@
 
 | Asset | Author | Licence | Used for |
 |---|---|---|---|
-| [Stylized Nature MegaKit](https://quaternius.itch.io/) | Quaternius | CC0 1.0 | 3D trees (`public/models/nature/`) |
+| [Stylized Nature MegaKit](https://quaternius.itch.io/) | Quaternius | CC0 1.0 | 3D trees and plants (`public/models/nature/`) |
+| [Medieval Village MegaKit](https://quaternius.itch.io/) | Quaternius | CC0 1.0 | Building modules assembled into houses, inn and smithy (`public/models/buildings/`) |
 
 CC0 assets need no attribution; they are credited here anyway, with thanks.
 

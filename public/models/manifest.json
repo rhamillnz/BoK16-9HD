@@ -25,6 +25,10 @@
     "fern": { "file": "nature/fern.glb" },
     "bush1": { "file": "nature/bush1.glb" },
     "bush2": { "file": "nature/bush2.glb" },
-    "bush4": { "file": "nature/bush4.glb" }
+    "bush4": { "file": "nature/bush4.glb" },
+    "inn": { "file": "buildings/inn.glb" },
+    "house": { "file": "buildings/house.glb" },
+    "house1": { "file": "buildings/house1.glb" },
+    "blcksmth": { "file": "buildings/blcksmth.glb" }
   }
 }
