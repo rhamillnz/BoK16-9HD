@@ -33,5 +33,9 @@ Implemented in `src/game/chapterHandover.ts`, run by `transitionToChapter` after
 - Chapters 6, 7, 8: the purse is the slot of the previous chapter.
 - Inventory swaps need the container store (`ChapterHost.containers`); without it only money is handled.
 
-## Not done yet
-Town containers (chapter 2 Locklear's room, chapter 6 Lurough inns) are not modelled; the chapter 7 transition flag (0x1ab1) and the 80 half-hour expiry steps the original runs are also left out.
+## Open values (machinery done, values missing)
+`src/game/chapterRules.ts` runs after the hand-over in `transitionToChapter`. Its three tables are empty on purpose: the real values were not verified (BaKGL was not readable when this was written), and guessed values would be wrong.
+- `TOWN_STASH_RULES`: per chapter and character slot, a town container (scene number and letter, as in the save's town container table, see shops.md) and a mode: `store` (pack into the container, pack emptied) or `fetch` (container becomes the pack, container emptied). Missing: which containers are Locklear's room (chapter 2) and the Lurough inns (chapter 6), who is stored or fetched and when.
+- `CHAPTER_START_FLAGS`: event pointers set when a chapter starts. Missing: what the chapter 7 flag `0x1ab1` does (set or reset, and when).
+- `CHAPTER_EXPIRY_STEPS`: number of half-hour expiry steps run at chapter start (`runExpirySteps` lets expiring events elapse without moving the clock). The original runs 80; what each step expires is not known, so the table is 0 for every chapter.
+Not wired in `main.ts`: `ChapterHost.towns` takes a `TownStashSource` (get and set of a town container by scene ref) and no source is supplied yet, because there are no rules to run. Supply one backed by the shop store when the rules are filled in.

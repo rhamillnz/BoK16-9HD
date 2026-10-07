@@ -8,6 +8,7 @@ import { activeCharacters, healCharacter, updateCharacter, type PartyState } fro
 import { startChapter, type WorldState } from './state';
 import type { ItemDef } from '../formats/objinfo';
 import { applyChapterHandover, type StashSource } from './chapterHandover';
+import { applyChapterRules, type ChapterRules, type TownStashSource } from './chapterRules';
 
 /**
  * Chapter transitions. See docs/formats/chapters.md. A chapter ends when a dialogue sets event
@@ -125,6 +126,10 @@ export interface ChapterTransitionInput {
   items?: readonly ItemDef[];
   /** Stash chests for the chapter 4 and 5 inventory swaps; without it only money is handed over. */
   containers?: StashSource;
+  /** Town containers for the packs stored in towns (rules in chapterRules.ts; none are listed yet). */
+  towns?: TownStashSource;
+  /** Override the chapter-start rule tables (tests). */
+  rules?: ChapterRules;
   env?: DialogEnv;
 }
 
@@ -154,6 +159,9 @@ export function transitionToChapter(i: ChapterTransitionInput): ChapterTransitio
   const handover = applyChapterHandover({ world, party, chapter: i.chapter, items: i.items ?? [], containers: i.containers });
   world = handover.world;
   party = handover.party;
+  const rules = applyChapterRules({ world, party, chapter: i.chapter, towns: i.towns, rules: i.rules });
+  world = rules.world;
+  party = rules.party;
 
   const script = startOfChapterActions(i.store, world, i.chapter, i.env);
   const effects = applyDialogEffects({ world: script.world, party, items: i.items }, script.pending);
