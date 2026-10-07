@@ -67,7 +67,7 @@ In towns, temples, inns and shops use the mouse: click a hotspot in the scene. D
 
 **Combat:** D defend, W wait, S slash, F shoot, C cast, Q retreat, Enter or Space to continue after a fight. The buttons on the combat panel do the same.
 
-**Debug keys:** F3 shows a performance overlay (fps, frame time, draw calls, triangles); `[` and `]` move the clock back or forward 30 minutes; F toggles a free fly camera (click the game to capture the mouse, Space or E rises, Ctrl or Q sinks, Shift is 5x faster).
+**Debug keys:** F3 shows a performance overlay (fps, frame time, draw calls, triangles, plus a scene breakdown: meshes, instances, lights, shadow casters and shadow-pass triangles, grass clumps); `[` and `]` move the clock back or forward 30 minutes; F toggles a free fly camera (click the game to capture the mouse, Space or E rises, Ctrl or Q sinks, Shift is 5x faster).
 
 ## URL options
 
