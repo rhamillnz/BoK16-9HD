@@ -40,6 +40,7 @@ import { ruleFor } from './dialogEffects';
 import { createNotice } from '../ui/notice';
 import { installCamp } from './campControls';
 import { installItemControls } from './itemControls';
+import { installTempleControls } from './templeControls';
 import { createShops } from './shopControls';
 
 const stageEl = document.getElementById('stage')!;
@@ -294,6 +295,18 @@ installCamp({
   onTimePassed: () => sky.update(clock.minutes),
 });
 installItemControls({ items: objectItems, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
+
+// Temples: cure, bless and teleport at temple hotspots.
+installTempleControls({
+  town: town.controller, screens, items: objectItems, saveBytes: save.bytes,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state,
+  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  playDialog: (key, done) => town.playDialog(key, done),
+  teleportLayout: archive.has('REQ_TELE.DAT') ? archive.get('REQ_TELE.DAT') : undefined,
+  travel: (i) => { const d = teleports[i]; if (d) void travelTo(d); },
+});
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
