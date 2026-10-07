@@ -5,6 +5,7 @@ import { createSky, DOME_RADIUS } from '../render/sky';
 import { buildHeightField } from '../world/heightField';
 import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
 import { DEBUG_TIME_STEP, GameClock } from './clock';
+import { prepareZoneOverrides } from '../render/zoneOverrides';
 import { buildZoneScene, collectTerrainTriangles } from '../render/zoneScene';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
@@ -40,7 +41,7 @@ if (!rmf.ok || !data.ok) throw new Error('Game data not found: set BAK_DIR to yo
 const archive = new ResourceArchive(new Uint8Array(await rmf.arrayBuffer()), new Uint8Array(await data.arrayBuffer()));
 const start = loadChapterStart(archive, 1);
 const zoneData = loadZone(archive, start.zone);
-const zone = buildZoneScene(zoneData);
+const zone = buildZoneScene(zoneData, await prepareZoneOverrides(zoneData));
 const heightField = buildHeightField(collectTerrainTriangles(zoneData));
 scene.add(zone.group);
 const zoneInfo = `zone ${start.zone}: ${zone.stats.meshItems} meshes, ${zone.stats.sprites} sprites, ${Math.round(zone.stats.triangles / 1000)}k tris, ${zone.collision.length} colliders`;

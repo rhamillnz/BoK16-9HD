@@ -6,6 +6,7 @@ import { EF_2D_OBJECT, type Face, type Model } from '../formats/tbl';
 import { angleToRadians } from '../formats/world';
 import { buildCollisionPolygons, type CollisionPolygon } from '../world/collision';
 import type { ZoneData } from '../world/zone';
+import { buildOverrideMeshes, placementMatrix, type ZoneOverridePlan } from './overrideResolve';
 
 /**
  * Builds a three.js scene graph for an outdoor zone from the original data.
@@ -162,10 +163,29 @@ export function createBillboards(map: THREE.Texture, data: number[], name: strin
 export interface ZoneScene {
   group: THREE.Group;
   collision: CollisionPolygon[];
-  stats: { items: number; meshItems: number; sprites: number; triangles: number; drawCalls: number };
+  stats: { items: number; meshItems: number; sprites: number; overridden: number; triangles: number; drawCalls: number };
 }
 
-export function buildZoneScene(zone: ZoneData): ZoneScene {
+/** Indices of slot images the zone actually draws (billboards and textured faces). */
+export function usedSlotImages(zone: ZoneData): number[] {
+  const used = new Set<number>();
+  for (const item of zone.items) {
+    const model = zone.table.models[item.type];
+    if (!model) continue;
+    if (model.sprite) used.add(model.sprite.index);
+    else for (const face of model.faces) {
+      const m = classifyFace(model, face);
+      if (m.kind === 'slot') used.add(m.image);
+    }
+  }
+  return [...used].filter((i) => zone.slotImages[i]);
+}
+
+/**
+ * `overrides` (from `prepareZoneOverrides`) swaps in replacement models, drawn instanced from
+ * their .glb instead of the original geometry, and upscaled slot textures at the original size.
+ */
+export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): ZoneScene {
   const { palette, table, items, slotImages } = zone;
   const group = new THREE.Group();
   group.name = `zone${zone.zone}`;
@@ -183,15 +203,26 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
   };
 
   const billboards = new Map<number, number[]>();
+  const overridePlacements = new Map<string, THREE.Matrix4[]>();
 
   const c = new THREE.Vector3();
   const n = new THREE.Vector3();
   let meshItems = 0;
   let sprites = 0;
+  let overridden = 0;
 
   for (const item of items) {
     const model = table.models[item.type];
     if (!model) continue;
+
+    const overrideName = model.name.toLowerCase();
+    if (overrides?.models.has(overrideName)) {
+      let list = overridePlacements.get(overrideName);
+      if (!list) overridePlacements.set(overrideName, (list = []));
+      list.push(placementMatrix(item));
+      overridden++;
+      continue;
+    }
 
     if (model.sprite) {
       const img = slotImages[model.sprite.index];
@@ -278,13 +309,20 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
   }
   for (const [image, batch] of slotBatches) {
     const src = slotImages[image];
-    const map = src ? imageTexture(src, palette, false) : null;
+    const map = overrides?.slotTextures.get(image) ?? (src ? imageTexture(src, palette, false) : null);
     addMesh(batch, new THREE.MeshStandardMaterial({ map, alphaTest: 0.5, roughness: 0.9, side: THREE.DoubleSide }), `slot${image}`);
   }
   for (const [index, data] of billboards) {
     const img = slotImages[index]!;
-    group.add(createBillboards(imageTexture(img, palette, false), data, `sprite${index}`));
+    group.add(createBillboards(overrides?.slotTextures.get(index) ?? imageTexture(img, palette, false), data, `sprite${index}`));
     drawCalls++;
+  }
+
+  for (const [name, placements] of overridePlacements) {
+    for (const mesh of buildOverrideMeshes(name, overrides!.models.get(name)!, placements)) {
+      group.add(mesh);
+      drawCalls++;
+    }
   }
 
   // Terrain pieces (entity flags without EF_2D_OBJECT) are floor, not obstacles.
@@ -292,7 +330,7 @@ export function buildZoneScene(zone: ZoneData): ZoneScene {
   const scales = table.models.map((m) => m?.scale ?? 1);
   const collision = buildCollisionPolygons(items, clips, {}, scales);
 
-  return { group, collision, stats: { items: items.length, meshItems, sprites, triangles, drawCalls } };
+  return { group, collision, stats: { items: items.length, meshItems, sprites, overridden, triangles, drawCalls } };
 }
 
 /**
