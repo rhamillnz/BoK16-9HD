@@ -59,7 +59,7 @@ export function drawBookSpread(
     let row = 0;
     for (const line of spread.lines) {
       if (line.blankBefore) row++;
-      let gx = x0;
+      let gx = x0 + (line.indent ?? 0) * s;
       const gy = y0 + row * (font.height + 1) * s;
       for (const run of line.runs ?? [{ text: line.text, style: { italic: false } }]) {
         drawText(ctx, font, run.text, gx, gy, s, run.style.italic ? INK_ITALIC : INK);
@@ -94,7 +94,10 @@ export class BookScreen implements HudScreenHandler {
   open(arg?: unknown): boolean {
     const view = arg as BookScreenView | undefined;
     if (!view) return false;
-    this.spreads = layoutBook(view.book, this.host.font);
+    this.spreads = layoutBook(view.book, this.host.font, (i) => {
+      const img = view.images[i] as unknown as { width: number; height: number } | undefined;
+      return img ? { width: img.width, height: img.height } : undefined;
+    });
     if (this.spreads.length === 0) return false;
     this.view = view;
     this.index = 0;
