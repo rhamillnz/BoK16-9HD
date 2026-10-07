@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { enemyTurn } from '../combat/ai';
 import {
-  attack, currentFighter, defend, fighterAt, flee, isOver, moveTo, rest, shoot, shootTargets, startBattle,
+  attack, castableSpells, castSpell, currentFighter, defend, fighterAt, flee, isOver, moveTo, rest, shoot, shootTargets, startBattle,
   type BattleEvent, type BattleState, type Fighter,
 } from '../combat/battle';
 import { parseCombatTable, parsePartyGrid, readCombatEnemies, type CombatDef, type PartyGridSlot } from '../combat/combatData';
@@ -17,6 +17,7 @@ import { parsePalette, type Palette } from '../formats/palette';
 import { parseTBL, type ModelTable } from '../formats/tbl';
 import { CombatView } from '../render/combatView';
 import { CombatPanel } from '../ui/combatPanel';
+import { spellKind } from './spells';
 import { prefetchResources, type ReadResource } from './encounterDriver';
 
 /** Seconds an enemy takes to "think" between turns, so the player can follow what happens. */
@@ -127,6 +128,8 @@ export class CombatController {
   private hover: GridPos | undefined;
   private slash = false;
   private shooting = false;
+  /** Index into the current fighter's castable spells, or -1 when not casting. */
+  private casting = -1;
   private rewards: Rewards | undefined;
   private delay = 0;
   private onEnd: CombatEnd | undefined;
@@ -144,6 +147,7 @@ export class CombatController {
     this.onEnd = onEnd;
     this.slash = false;
     this.shooting = false;
+    this.casting = -1;
     this.rewards = undefined;
     this.state = startBattle(launch.fighters);
     this.view = new CombatView(
@@ -158,8 +162,9 @@ export class CombatController {
       defend: () => this.partyAction(defend),
       wait: () => this.partyAction(rest),
       flee: () => this.partyAction(flee),
-      toggleSlash: () => { this.slash = !this.slash; this.shooting = false; this.refresh(); },
-      toggleShoot: () => { this.shooting = !this.shooting; this.slash = false; this.refresh(); },
+      toggleSlash: () => { this.slash = !this.slash; this.shooting = false; this.casting = -1; this.refresh(); },
+      toggleShoot: () => { this.shooting = !this.shooting; this.slash = false; this.casting = -1; this.refresh(); },
+      cycleCast: () => this.cycleCast(),
       finish: () => this.finish(),
     });
     const on = (type: string, f: (e: MouseEvent) => void) => {
@@ -201,7 +206,7 @@ export class CombatController {
     const s = this.state;
     if (!s || !this.view || !this.panel) return;
     this.view.update(s, this.yourTurn() ? this.hover : undefined);
-    if (withLog) this.panel.render(s, { slash: this.slash, shoot: this.shooting, canShoot: this.canShoot(), yourTurn: this.yourTurn() });
+    if (withLog) this.panel.render(s, { slash: this.slash, shoot: this.shooting, canShoot: this.canShoot(), cast: this.castName(), canCast: this.canCast(), yourTurn: this.yourTurn() });
     if (withLog && isOver(s) && !this.rewards && s.turn.outcome === 'won') {
       this.rewards = battleRewards(s.fighters, s.history, this.roll);
       for (const line of this.rewards.lines) this.panel.note(line);
@@ -214,11 +219,34 @@ export class CombatController {
     return !!s && this.yourTurn() && shootTargets(s).length > 0;
   }
 
+  private spellsNow() {
+    const s = this.state;
+    return s && this.yourTurn() ? castableSpells(s) : [];
+  }
+
+  private castName(): string | undefined {
+    return this.spellsNow()[this.casting]?.name;
+  }
+
+  private canCast(): boolean {
+    return this.spellsNow().length > 0;
+  }
+
+  private cycleCast(): void {
+    const n = this.spellsNow().length;
+    if (n === 0) { this.panel?.note('Nobody here can cast a spell right now.'); return; }
+    this.casting = this.casting + 1 >= n ? -1 : this.casting + 1;
+    this.slash = false;
+    this.shooting = false;
+    this.refresh();
+  }
+
   private partyAction(f: (s: BattleState) => BattleState | undefined): void {
     if (!this.state || !this.yourTurn()) return;
     const next = f(this.state);
     if (!next) return;
     this.state = next;
+    this.casting = -1;
     this.delay = ENEMY_DELAY;
     this.refresh();
   }
@@ -227,7 +255,12 @@ export class CombatController {
     const s = this.state;
     if (!s || !cell || !this.yourTurn()) return;
     const target = fighterAt(s, cell);
-    if (target && target.side === 'enemy' && this.shooting) {
+    const spell = this.spellsNow()[this.casting];
+    if (spell && target) {
+      const next = castSpell(s, spell.index, cell);
+      if (next) { this.casting = -1; this.partyAction(() => next); }
+      else this.panel?.note(`${spell.name} needs ${spellKind(spell) === 'heal' ? 'a living ally' : 'an enemy'} within range.`);
+    } else if (target && target.side === 'enemy' && this.shooting) {
       const next = shoot(s, cell, this.roll);
       if (next) this.partyAction(() => next);
       else this.panel?.note('You cannot shoot that: it needs an equipped crossbow and a target within range.');

@@ -1,6 +1,8 @@
 import type { Character, InventoryItem } from '../formats/gam';
 import { practiceCharacter } from './practice';
 import { ItemType, type ItemDef } from '../formats/objinfo';
+import type { SpellDef } from '../formats/spells';
+import { learnFromScroll, skillOfMask } from './spells';
 import { addCondition, addToCharacter, updateCharacter, type ItemRule, type PartyState } from './party';
 
 /**
@@ -92,10 +94,49 @@ function restoreHealth(c: Character, amount: number): Character {
 
 /**
  * Use the item in `slot` on its owner: food and rations cure starvation, potions and restoratives
- * heal (restoratives also clear poison and sickness). Scrolls need the spell system, books and notes
- * are read in the original's text viewer; both are refused for now.
+ * heal (restoratives also clear poison and sickness). Scrolls teach their spell to a magic-user, books raise a
+ * skill and lose a charge; notes are read in the original's text viewer and are refused for now.
  */
-export function useItem(p: PartyState, charIndex: number, slot: number, defs: readonly ItemDef[]): ItemUseResult {
+export interface UseContext {
+  /** SPELLS.DAT, for naming the spell a scroll teaches. */
+  spells?: readonly SpellDef[];
+  /** Whether this character has read this book before (the first reading is a sure gain). */
+  hasRead?: (charIndex: number, itemIndex: number) => boolean;
+  /** Called after a book was read. */
+  markRead?: (charIndex: number, itemIndex: number) => void;
+  random?: (n: number) => number;
+}
+
+/** Book charges and scroll spells: the scroll's spell number is its condition/quantity field. */
+function readMagicItem(p: PartyState, c: Character, slot: number, def: ItemDef, ctx: UseContext): ItemUseResult {
+  const it = c.inventory.items[slot]!;
+  if (def.type === ItemType.Scroll) {
+    const r = learnFromScroll(p, c.index, it.conditionOrQuantity, ctx.spells ?? []);
+    if (!r.ok) return fail(p, r.message);
+    const owner = r.party.characters.find((x) => x.index === c.index)!;
+    return { party: setItems(r.party, owner, owner.inventory.items.filter((_, i) => i !== slot)), message: r.message, ok: true };
+  }
+  if (def.type === ItemType.Book) {
+    if (it.conditionOrQuantity <= 0) return fail(p, `${def.name} has no charges left.`);
+    const skill = skillOfMask(def.effectMask);
+    const random = ctx.random ?? ((n) => Math.floor(Math.random() * n));
+    const seen = ctx.hasRead?.(c.index, def.index) ?? false;
+    let gain = 0;
+    if (!seen) gain = Math.max(0, def.effect);
+    else if (random(100) > def.potionPowerOrBookChance) gain = Math.max(0, def.alternativeEffect);
+    ctx.markRead?.(c.index, def.index);
+    const left = it.conditionOrQuantity - 1;
+    const next = updateCharacter(p, c.index, (x) => {
+      const sk = skill && x.skills[skill];
+      const skills = sk && gain > 0 ? { ...x.skills, [skill!]: { ...sk, trueSkill: Math.min(sk.max, sk.trueSkill + gain) } } : x.skills;
+      return { ...x, skills, inventory: { ...x.inventory, items: x.inventory.items.map((y, i) => (i === slot ? { ...y, conditionOrQuantity: left } : y)) } };
+    });
+    return { party: next, ok: true, message: gain > 0 && skill ? `${c.name} studies ${def.name} and improves ${skill}.` : `${c.name} reads ${def.name} but learns nothing new.` };
+  }
+  return fail(p, `${def.name} cannot be read.`);
+}
+
+export function useItem(p: PartyState, charIndex: number, slot: number, defs: readonly ItemDef[], ctx: UseContext = {}): ItemUseResult {
   const c = characterOf(p, charIndex);
   const it = c?.inventory.items[slot];
   const def = it && defs[it.itemIndex];
@@ -117,8 +158,8 @@ export function useItem(p: PartyState, charIndex: number, slot: number, defs: re
       next = addCondition(addCondition(restoreHealth(c, power), 'poisoned', -100), 'sick', -100);
       message = `${c.name} uses the ${def.name}.`;
       break;
-    case ItemType.Scroll: return fail(p, 'The scroll cannot be read yet.');
-    case ItemType.Book: case ItemType.Note: return fail(p, `${def.name} cannot be read yet.`);
+    case ItemType.Scroll: case ItemType.Book: return readMagicItem(p, c, slot, def, ctx);
+    case ItemType.Note: return fail(p, `${def.name} cannot be read yet.`);
     default: return fail(p, `${def.name} cannot be used.`);
   }
   const items = consumeOne(c.inventory.items, slot, def);

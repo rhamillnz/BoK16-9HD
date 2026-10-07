@@ -42,6 +42,8 @@ import { installCamp } from './campControls';
 import { installContainers } from './containerControls';
 import { installItemControls } from './itemControls';
 import { installTempleControls } from './templeControls';
+import { installCast } from './castControls';
+import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 
 const stageEl = document.getElementById('stage')!;
@@ -206,11 +208,14 @@ const enterTown = async (e: PlacedEncounter, t: TownEntry) => {
   encounters.runner.enterAt(exit.x, exit.y);
 };
 
+const spellDefs = archive.has('SPELLS.DAT') ? parseSpells(archive.get('SPELLS.DAT')) : [];
+
 // Combat encounters: a fight on the combat grid, then wounds applied and the encounter marked done (or a retreat).
 const combat = new CombatEncounters({
   scene, camera, canvas: renderer.domElement, getHeight: zoneHost.getHeight,
   support: await loadCombatSupport(archive, save.bytes),
   items: objectItems,
+  spells: spellDefs,
   position: () => ({ x: party.x, y: party.y, heading: party.heading8 }),
   placeParty: (x, y, h) => { party.setPosition(x, y, h); prevX = x; prevY = y; encounters.runner.enterAt(x, y); },
   getParty: () => partyState,
@@ -295,7 +300,17 @@ installCamp({
   menu: (text, choices) => new Promise((resolve) => screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
   onTimePassed: () => sky.update(clock.minutes),
 });
-installItemControls({ items: objectItems, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
+installItemControls({ items: objectItems, spells: spellDefs, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
+
+// Spells: V casts healing and light spells outside combat (combat casting lives in the fight panel, C).
+installCast({
+  spells: spellDefs,
+  getParty: () => partyState,
+  setParty: (p) => { partyState = p; screens.setParty(p); },
+  getTicks: () => clock.state.ticks,
+  canCast: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
+  menu: (text, choices) => new Promise((resolve) => screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
+});
 
 // Temples: cure, bless and teleport at temple hotspots.
 installTempleControls({

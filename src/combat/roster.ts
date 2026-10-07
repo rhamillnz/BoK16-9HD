@@ -5,6 +5,8 @@
  */
 
 import { effectiveSkill, type Character, type InventoryItem } from '../formats/gam';
+import type { SpellDef } from '../formats/spells';
+import { isSpellcaster, knownSpells } from '../game/spells';
 import { ItemType, Race, type ItemDef } from '../formats/objinfo';
 import type { Fighter } from './battle';
 import type { EnemyRecord, PartyGridSlot } from './combatData';
@@ -67,7 +69,8 @@ export function equippedArmor(items: readonly InventoryItem[], defs: readonly It
   return undefined;
 }
 
-export function partyFighter(c: Character, slot: PartyGridSlot | undefined, index: number, defs: readonly ItemDef[]): Fighter {
+export function partyFighter(c: Character, slot: PartyGridSlot | undefined, index: number, defs: readonly ItemDef[], spells: readonly SpellDef[] = []): Fighter {
+  const known = isSpellcaster(c) ? knownSpells(c, spells) : [];
   const skill = (n: Parameters<typeof effectiveSkill>[1]) => effectiveSkill(c, n);
   const bow = equippedCrossbow(c.inventory.items, defs);
   return {
@@ -89,6 +92,7 @@ export function partyFighter(c: Character, slot: PartyGridSlot | undefined, inde
     race: RaceKind.None,
     weapon: equippedWeapon(c.inventory.items, defs),
     armor: equippedArmor(c.inventory.items, defs),
+    ...(known.length > 0 ? { spells: known } : {}),
     ...(bow ? { ranged: { crossbow: skill('crossbow'), weapon: bow } } : {}),
   };
 }

@@ -4,6 +4,7 @@
  */
 
 import type { Character } from '../formats/gam';
+import type { SpellDef } from '../formats/spells';
 import type { ItemDef } from '../formats/objinfo';
 import type { PartyState } from '../game/party';
 import { updateCharacter } from '../game/party';
@@ -23,6 +24,8 @@ export interface SetupInput {
   /** Monster names by monster index. */
   monsterNames: readonly string[];
   items: readonly ItemDef[];
+  /** SPELLS.DAT; lets magic-users cast in the fight. */
+  spells?: readonly SpellDef[];
 }
 
 const FALLBACK_SKILL = { max: 12, trueSkill: 12, modifier: 0 };
@@ -57,7 +60,7 @@ export function buildFighters(input: SetupInput): Fighter[] {
     taken.push(f.pos);
     fighters.push(f);
   };
-  living.forEach((c, i) => place(partyFighter(c, input.partyGrid[c.index], i, input.items)));
+  living.forEach((c, i) => place(partyFighter(c, input.partyGrid[c.index], i, input.items, input.spells)));
 
   const records = input.enemies.length > 0 ? input.enemies.filter((e) => !e.dead) : input.def.combatants.map((_, i) => standIn(input.def, i));
   const seen = new Map<number, number>();

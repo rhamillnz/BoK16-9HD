@@ -4,6 +4,8 @@
  * and turn rules live in grid.ts and turns.ts, the melee maths in rules.ts. See docs/formats/combat.md.
  */
 
+import type { SpellDef } from '../formats/spells';
+import { maxPower, spellAmount, spellKind } from '../game/spells';
 import {
   buildGrid,
   chebyshevDistance,
@@ -54,12 +56,15 @@ export interface Fighter extends MeleeStats {
   speed: number;
   /** A crossbow and the shooter's Crossbow skill; absent when the fighter cannot shoot. */
   ranged?: RangedStats;
+  /** Spells a magic-user knows (combat ones are castable here); absent for everyone else. */
+  spells?: SpellDef[];
 }
 
 export type BattleEvent =
   | { type: 'move'; id: string; from: GridPos; path: GridPos[] }
   | { type: 'attack'; attacker: string; target: string; kind: AttackKind; hit: boolean; damage: number; killed: boolean }
   | { type: 'shoot'; attacker: string; target: string; hit: boolean; damage: number; killed: boolean; distance: number }
+  | { type: 'cast'; caster: string; target: string; spell: string; power: number; kind: 'damage' | 'heal'; amount: number; killed: boolean }
   | { type: 'defend'; id: string }
   | { type: 'rest'; id: string }
   | { type: 'flee'; success: boolean }
@@ -206,6 +211,52 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
   return endTurn(s, fighters, [{ type: 'shoot', attacker: me.id, target: victim.id, hit, damage, killed, distance }]);
 }
 
+/** Combat spells the current fighter could cast right now (it knows them and can pay the minimum). */
+export function castableSpells(s: BattleState, index = s.turn.current): SpellDef[] {
+  const me = s.fighters[index]!;
+  if (isDead(me)) return [];
+  return (me.spells ?? []).filter((d) => {
+    const kind = spellKind(d);
+    return (kind === 'damage' || kind === 'heal') && me.health + me.stamina > d.minCost;
+  });
+}
+
+/** Power a fighter casts `def` at: as much as affordable up to its maximum, keeping 1 point. */
+export function castPower(f: Fighter, def: SpellDef): number {
+  return maxPower({ skills: { health: { trueSkill: f.health }, stamina: { trueSkill: f.stamina } } } as Parameters<typeof maxPower>[0], def);
+}
+
+/**
+ * Cast a spell on the fighter at `target` without moving; the cast uses the turn. Damage spells
+ * need an enemy in range, healing spells a living ally (or the caster); armour does not reduce
+ * spell damage. The cost comes off Stamina, then Health (never below 1).
+ */
+export function castSpell(s: BattleState, spellIndex: number, target: GridPos): BattleState | undefined {
+  if (isOver(s)) return undefined;
+  const me = currentFighter(s);
+  const def = castableSpells(s).find((d) => d.index === spellIndex);
+  if (!def) return undefined;
+  const kind = spellKind(def) as 'damage' | 'heal';
+  const victimIndex = s.fighters.findIndex((f) => !isDead(f) && samePos(f.pos, target));
+  const victim = s.fighters[victimIndex];
+  if (!victim || chebyshevDistance(me.pos, victim.pos) > RANGED_RANGE) return undefined;
+  if ((kind === 'damage') !== (victim.side !== me.side)) return undefined;
+
+  const power = castPower(me, def);
+  const amount = spellAmount(def, power);
+  const fighters = s.fighters.map((f) => ({ ...f }));
+  const caster = fighters[s.turn.current]!;
+  const subject = fighters[victimIndex]!;
+  caster.facing = directionBetween(caster.pos, subject.pos);
+  const paid = applyDamage(caster, power);
+  caster.stamina = paid.stamina;
+  caster.health = Math.max(1, paid.health);
+  if (kind === 'damage') Object.assign(subject, applyDamage(subject, amount));
+  else subject.health = Math.min(subject.maxHealth, subject.health + amount);
+  const killed = kind === 'damage' && isDead(subject);
+  return endTurn(s, fighters, [{ type: 'cast', caster: me.id, target: subject.id, spell: def.name, power, kind, amount, killed }]);
+}
+
 /** Defending ends the turn; attackers add 20 to their hit roll against the defender until the next round. */
 export function defend(s: BattleState): BattleState | undefined {
   if (isOver(s)) return undefined;
@@ -245,6 +296,10 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
     case 'shoot':
       if (!e.hit) return `${name(e.attacker)} fires at ${name(e.target)} and misses.`;
       return `${name(e.attacker)} shoots ${name(e.target)} for ${e.damage}${e.killed ? ' and fells them' : ''}.`;
+    case 'cast':
+      return e.kind === 'heal'
+        ? `${name(e.caster)} casts ${e.spell}; ${name(e.target)} regains ${e.amount}.`
+        : `${name(e.caster)} casts ${e.spell} on ${name(e.target)} for ${e.amount}${e.killed ? ' and fells them' : ''}.`;
     case 'defend': return `${name(e.id)} defends.`;
     case 'rest': return `${name(e.id)} waits.`;
     case 'flee': return e.success ? 'The party retreats.' : 'The party cannot retreat.';
