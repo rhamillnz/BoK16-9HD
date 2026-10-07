@@ -1,0 +1,12 @@
+[
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Pine_1.gltf", "out": "public/models/nature/tree0.glb", "height": 16.08, "preview": "shots/fit-tree0.png" },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Pine_4.gltf", "out": "public/models/nature/tree0a.glb", "height": 10.68 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/CommonTree_1.gltf", "out": "public/models/nature/tree1.glb", "height": 16.08, "preview": "shots/fit-tree1.png" },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/CommonTree_2.gltf", "out": "public/models/nature/tree1a.glb", "height": 10.36 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Pine_3.gltf", "out": "public/models/nature/tree2.glb", "height": 16.08 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Pine_5.gltf", "out": "public/models/nature/tree2a.glb", "height": 9.42 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Pine_2.gltf", "out": "public/models/nature/tree3.glb", "height": 16.08 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Pine_2.gltf", "out": "public/models/nature/tree3a.glb", "height": 11.93 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/CommonTree_3.gltf", "out": "public/models/nature/tree4a.glb", "height": 9.42 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/CommonTree_5.gltf", "out": "public/models/nature/tree5a.glb", "height": 11.12, "preview": "shots/fit-tree5a.png" }
+]

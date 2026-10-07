@@ -1,4 +1,15 @@
 {
   "version": 1,
-  "models": {}
+  "models": {
+    "tree0": { "file": "nature/tree0.glb" },
+    "tree0a": { "file": "nature/tree0a.glb" },
+    "tree1": { "file": "nature/tree1.glb" },
+    "tree1a": { "file": "nature/tree1a.glb" },
+    "tree2": { "file": "nature/tree2.glb" },
+    "tree2a": { "file": "nature/tree2a.glb" },
+    "tree3": { "file": "nature/tree3.glb" },
+    "tree3a": { "file": "nature/tree3a.glb" },
+    "tree4a": { "file": "nature/tree4a.glb" },
+    "tree5a": { "file": "nature/tree5a.glb" }
+  }
 }
