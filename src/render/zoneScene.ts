@@ -5,6 +5,7 @@ import { Terrain } from '../formats/scx';
 import { EF_2D_OBJECT, type Face, type Model } from '../formats/tbl';
 import { angleToRadians } from '../formats/world';
 import { createTerrainMaterial } from './terrainMaterial';
+import { PATH_STYLE, ROAD_STYLE, createRoadMaterial } from './roadMaterial';
 import { buildCollisionPolygons, type CollisionPolygon } from '../world/collision';
 import type { ZoneData } from '../world/zone';
 import { buildOverrideMeshes, placementMatrix, type ZoneOverridePlan } from './overrideResolve';
@@ -306,7 +307,11 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
     const src = zone.terrain[strip];
     if (!src) continue;
     const map = imageTexture(tileableTerrain(src, strip + 1), palette, true);
-    addMesh(batch, createTerrainMaterial(map, strip), `terrain${strip}`);
+    const material =
+      strip === Terrain.Road ? createRoadMaterial(map, ROAD_STYLE)
+      : strip === Terrain.Path ? createRoadMaterial(map, PATH_STYLE)
+      : createTerrainMaterial(map, strip);
+    addMesh(batch, material, `terrain${strip}`);
   }
   for (const [image, batch] of slotBatches) {
     const src = slotImages[image];
