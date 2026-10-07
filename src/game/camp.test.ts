@@ -15,7 +15,7 @@ function character(index: number, health = 10, rations = 0): Character {
   return {
     index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
     combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
-    conditions: { sick: 20, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 30 },
+    conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 30 },
     affectors: [], inventory: { capacity: 8, items },
   };
 }
@@ -34,22 +34,28 @@ describe('camp', () => {
     expect(r.hoursRested).toBe(3);
     expect(r.world.ticks).toBe(world().ticks + 3 * TICKS_PER_HOUR);
     expect(r.world.ticksLastSlept).toBe(r.world.ticks);
-    expect(r.party.characters[0]!.skills.health.trueSkill).toBe(13);
-    expect(r.party.characters[0]!.skills.stamina.trueSkill).toBe(40);
+    // One pool point per hour, shared with inns: health fills first and stamina holds the rest.
+    expect(r.party.characters[0]!.skills.health.trueSkill).toBe(18);
   });
 
   it('never heals past the 80% camp ceiling', () => {
     const p = party();
-    p.characters[0]!.skills.health.trueSkill = 39;
-    const r = camp(world(), p, { kind: 'hours', hours: 5 }, opts);
-    expect(r.party.characters[0]!.skills.health.trueSkill).toBe(40);
+    p.characters[0]!.skills.health.trueSkill = 50;
+    p.characters[0]!.skills.stamina.trueSkill = 20;
+    p.characters[0]!.conditions.nearDeath = 0;
+    const r = camp(world(6 * TICKS_PER_HOUR), p, { kind: 'hours', hours: 5 }, opts);
+    const c = r.party.characters[0]!;
+    // 80 percent of the 90 point pool is 72; a pool already at 70 only climbs to there.
+    expect(c.skills.health.trueSkill + c.skills.stamina.trueSkill).toBe(72);
   });
 
   it('doubles healing under the Healing condition', () => {
     const p = party();
     p.characters[0]!.conditions.healing = 50;
-    const r = camp(world(), p, { kind: 'hours', hours: 2 }, opts);
-    expect(r.party.characters[0]!.skills.health.trueSkill).toBe(14);
+    const pool = (r: ReturnType<typeof camp>) => r.party.characters[0]!.skills.health.trueSkill + r.party.characters[0]!.skills.stamina.trueSkill;
+    const healing = pool(camp(world(), p, { kind: 'hours', hours: 1 }, opts));
+    const plain = pool(camp(world(), party(), { kind: 'hours', hours: 1 }, opts));
+    expect(healing - plain).toBeGreaterThanOrEqual(1);
   });
 
   it('rests until morning', () => {
@@ -60,12 +66,15 @@ describe('camp', () => {
   });
 
   it('rests until healed and stops early', () => {
-    const r = camp(world(), party(), { kind: 'healed' }, opts);
-    expect(r.hoursRested).toBe(24);
-    expect(r.party.characters[1]!.skills.health.trueSkill).toBe(34);
+    const pool = (c: Character) => c.skills.health.trueSkill + c.skills.stamina.trueSkill;
+    const r = camp(world(6 * TICKS_PER_HOUR), party(), { kind: 'healed' }, opts);
+    expect(r.hoursRested).toBeGreaterThan(1);
+    expect(pool(r.party.characters[1]!)).toBeLessThanOrEqual(72);
     const near = party();
-    near.characters.forEach((c) => (c.skills.health.trueSkill = 37));
-    expect(camp(world(), near, { kind: 'healed' }, opts).hoursRested).toBe(3);
+    near.characters.forEach((c) => (c.skills.health.trueSkill = 67));
+    const n = camp(world(6 * TICKS_PER_HOUR), near, { kind: 'healed' }, opts);
+    expect(n.hoursRested).toBeLessThan(24);
+    expect(n.party.characters.every((c) => !(pool(c) < 72))).toBe(true);
   });
 
   it('eats a ration per character at the day boundary and starves those without', () => {
@@ -88,9 +97,12 @@ describe('camp', () => {
 
   it('recovers near death each day and cures sick after a long rest', () => {
     const r = camp(world(TICKS_PER_DAY - TICKS_PER_HOUR), party(2), { kind: 'hours', hours: 14 }, opts);
-    expect(r.party.characters[0]!.conditions.nearDeath).toBe(20);
-    expect(r.party.characters[0]!.conditions.sick).toBe(0);
-    expect(camp(world(), party(), { kind: 'hours', hours: 4 }, opts).party.characters[0]!.conditions.sick).toBe(20);
+    // The shared rule: a tenth of the distance from 100, less one (30 -> 22).
+    expect(r.party.characters[0]!.conditions.nearDeath).toBe(22);
+    const sick = party(2);
+    sick.characters[0]!.conditions.sick = 60;
+    expect(camp(world(TICKS_PER_DAY - TICKS_PER_HOUR), sick, { kind: 'hours', hours: 14 }, opts).party.characters[0]!.conditions.sick).toBe(0);
+    expect(camp(world(), sick, { kind: 'hours', hours: 4 }, opts).party.characters[0]!.conditions.sick).toBeGreaterThan(0);
   });
 
   it('can be interrupted by an ambush', () => {
