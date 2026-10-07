@@ -24,7 +24,11 @@ import { loadZoneMap } from '../formats/zoneMap';
 import { ZoneHost } from './zoneHost';
 import { partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
-import { parseTeleports, planTransition, type Destination } from './transitions';
+import { parseTeleports, planTransition, type Destination, type ZoneTransition } from './transitions';
+import { QUERY_YES, runDialogSession, type DialogSession, type ShowDialog } from './encounterRunner';
+import { gdsLetter, type TownEntry } from '../formats/gds';
+import { createTownHost, townExit } from './townHost';
+import type { PlacedEncounter } from '../world/encounters';
 import type { WorldState } from './state';
 import { installSaveControls } from './saveControls';
 
@@ -116,30 +120,73 @@ let partyState = partyFromSave(save);
 let teleports: Destination[] = [];
 let travelling = false;
 
+const showView: ShowDialog = (view, done) =>
+  screens.showDialog(view.snippet, view.options.map((o) => o.label), (r) => r.kind !== 'none' && done(r));
+
+// A finished dialogue (from the world or a town scene): apply its effects and move the party if it asks.
+const applyDialog = (session: DialogSession, transition: ZoneTransition | undefined, cancelled: boolean) => {
+  const out = resolveDialogOutcome({
+    session, transition, cancelled, teleports, items: objectItems,
+    party: partyState, world: encounters.runner.world,
+  });
+  partyState = out.party;
+  clock.state = out.world;
+  encounters.runner.setWorld(out.world);
+  screens.setParty(partyState);
+  if (out.ticksElapsed > 0) sky.update(clock.minutes);
+  if (out.unhandled.length) console.log('dialogue actions with no effect yet:', out.unhandled.map((a) => a.name ?? a.type));
+  if (out.warnings.length) console.warn(out.warnings);
+  if (out.destination) {
+    town.dismiss();
+    void travelTo(out.destination);
+  }
+};
+
+// Town and temple scenes: a 2D screen on the HUD whose hotspots open dialogues.
+const town = createTownHost({
+  fetch: (names) => prefetchResources(archive, names),
+  hud: screens,
+  chapter: start.chapter,
+  world: () => clock.state,
+  playDialog: (key, done) => {
+    encounters.runner.setWorld(clock.state);
+    const session = encounters.runner.startDialog(key);
+    runDialogSession(session, showView, (cancelled) => {
+      encounters.runner.finish(session);
+      applyDialog(session, undefined, cancelled);
+      done({ cancelled, endState: session.endOfDialogState });
+    });
+  },
+});
+
+// Entering a town: the party stands at the entry's exit position outside the door, then the scene opens.
+const enterTown = async (e: PlacedEncounter, t: TownEntry) => {
+  await town.enter(t.ref, t.exitDialog);
+  if (!town.active) return;
+  const exit = townExit(t, e.tileX, e.tileY);
+  party.setPosition(exit.x, exit.y, exit.heading);
+  prevX = exit.x;
+  prevY = exit.y;
+  encounters.runner.enterAt(exit.x, exit.y);
+};
+
 const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [number, number])[], world: WorldState) => {
   const read = await prefetchResources(archive, encounterResourceNames(zoneNumber, tiles));
   const table = read('TELEPORT.DAT');
   teleports = table ? parseTeleports(table) : [];
   return new EncounterDriver(
     loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter }) } }),
-    (view, done) => screens.showDialog(view.snippet, view.options.map((o) => o.label), (r) => r.kind !== 'none' && done(r)),
+    showView,
     {
       other: (e) => console.log('encounter (not run yet):', e.encounter.record.action, e.encounter.record),
       zone: (e) => void travelTo(e.transition),
+      town: (e) => void enterTown(e.encounter, e.town),
       blocked: () => party.setPosition(prevX, prevY),
       finished: (ev, cancelled) => {
-        const out = resolveDialogOutcome({
-          session: ev.session, transition: ev.transition, cancelled, teleports, items: objectItems,
-          party: partyState, world: encounters.runner.world,
-        });
-        partyState = out.party;
-        clock.state = out.world;
-        encounters.runner.setWorld(out.world);
-        screens.setParty(partyState);
-        if (out.ticksElapsed > 0) sky.update(clock.minutes);
-        if (out.unhandled.length) console.log('dialogue actions with no effect yet:', out.unhandled.map((a) => a.name ?? a.type));
-        if (out.warnings.length) console.warn(out.warnings);
-        if (out.destination) void travelTo(out.destination);
+        applyDialog(ev.session, ev.transition, cancelled);
+        if (!ev.town) return;
+        if (!cancelled && ev.session.lastChoice === QUERY_YES) void enterTown(ev.encounter, ev.town);
+        else party.setPosition(prevX, prevY);
       },
     },
   );
@@ -151,7 +198,6 @@ async function travelTo(d: Destination): Promise<void> {
   travelling = true;
   try {
     const plan = planTransition(zoneHost.current.zone, d);
-    if (plan.hotspot !== undefined) console.log('teleport into a town scene (not run yet):', plan.hotspot);
     if (plan.reload) {
       const next = await zoneHost.switchTo(plan.zone);
       party.polygons = next.scene.collision;
@@ -164,6 +210,7 @@ async function travelTo(d: Destination): Promise<void> {
     prevX = plan.x;
     prevY = plan.y;
     encounters.runner.enterAt(plan.x, plan.y);
+    if (plan.hotspot !== undefined) void town.enter({ number: plan.hotspot, letter: gdsLetter(plan.hotspotChar ?? 0) });
   } finally {
     travelling = false;
   }

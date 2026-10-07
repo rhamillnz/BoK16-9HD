@@ -23,13 +23,14 @@ describe('parseTeleports', () => {
     bytes.set([3, 4, 5, 6, 7], 0);
     dv.setUint16(5, 0x4000, true);
     dv.setUint16(7, 12, true);
+    dv.setUint16(9, 3, true);
     bytes.set([0xff, 1, 2, 0, 0], TELEPORT_RECORD_SIZE);
     const [a, b] = parseTeleports(bytes);
     expect(a).toEqual({
       zone: 3, tileX: 4, tileY: 5,
       x: 4 * TILE_SIZE + 6 * CELL_SIZE + CELL_SIZE / 2,
       y: 5 * TILE_SIZE + 7 * CELL_SIZE + CELL_SIZE / 2,
-      heading: 0x40, hotspot: 12,
+      heading: 0x40, hotspot: 12, hotspotChar: 3,
     });
     expect(b!.zone).toBeUndefined();
     expect(b!.hotspot).toBeUndefined();

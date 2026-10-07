@@ -512,6 +512,40 @@ describe('EncounterRunner', () => {
     expect(getFlag(r.world, 0x800)).toBe(true);
   });
 
+  describe('town encounters', () => {
+    const townAt = { ...dialogAt, typeId: EncounterType.Town };
+    const entry = (entryDialog: number) => ({
+      ref: { number: 2, letter: 'B' }, entryDialog, exitDialog: 0, exitCellX: 1, exitCellY: 2, exitHeading: 0x4000, walkToDest: false,
+    });
+
+    it('asks the entry dialogue first and carries the town on the event', () => {
+      const r = runnerFor([townAt], world(), 0, 0, { defTown: [entry(100)] });
+      const ev = r.update(...at(2, 2))[0]!;
+      expect(ev.type).toBe('dialog');
+      if (ev.type === 'dialog') {
+        expect(ev.town?.ref).toEqual({ number: 2, letter: 'B' });
+        expect(ev.session.view?.snippet.text).toBe('Greetings');
+      }
+    });
+
+    it('enters at once when the entry has no dialogue, and reads background encounters from their own table', () => {
+      const r = runnerFor([townAt], world(), 0, 0, { defTown: [entry(0)] });
+      expect(r.update(...at(2, 2)).map((e) => e.type)).toEqual(['town']);
+      const b = runnerFor([{ ...dialogAt, typeId: EncounterType.Background }], world(), 0, 0, { defBackground: [entry(0)] });
+      expect(b.update(...at(2, 2)).map((e) => e.type)).toEqual(['town']);
+    });
+
+    it('reports a town without a definition as other', () => {
+      const r = runnerFor([townAt]);
+      expect(r.update(...at(2, 2)).map((e) => e.type)).toEqual(['other']);
+    });
+
+    it('starts a dialogue at a key on request', () => {
+      const r = runnerFor([]);
+      expect(r.startDialog(101).view?.snippet.text).toBe('Blocked');
+    });
+  });
+
   describe('zone encounters', () => {
     const transition = (dialog: number): ZoneTransition => ({ ...destinationAt(4, 3, 5, 6, 7, 0x4000), dialog });
     const zoneAt = { ...dialogAt, typeId: EncounterType.Zone };

@@ -9,6 +9,7 @@ import {
 } from '../formats/ddx';
 import { EncounterType, type EncounterRecord } from '../formats/encounters';
 import { eventFlagLocation } from '../formats/gam';
+import type { TownEntry } from '../formats/gds';
 import { Reader } from '../formats/reader';
 import { isEncounterActive, type EncounterMap, type PlacedEncounter } from '../world/encounters';
 import { getFlag, hourOfDay, setFlag, type WorldState } from './state';
@@ -271,6 +272,11 @@ export class DialogSession {
     return this.finished;
   }
 
+  /** Value of the last SetEndOfDialogState action the dialogue ran (towns use it to pick a follow-up action). */
+  get endOfDialogState(): number | undefined {
+    return this.endState;
+  }
+
   /** What to show now, or undefined once the dialogue has ended. */
   get view(): DialogView | undefined {
     return this.viewNow;
@@ -445,7 +451,11 @@ export type EncounterEvent =
       blocks: boolean;
       /** Zone encounter with a dialogue: the party leaves once it ends (unless declined). */
       transition?: ZoneTransition;
+      /** Town encounter: its entry dialogue asks whether to go in; "Yes" enters the scene. */
+      town?: TownEntry;
     }
+  /** A town or background encounter with no entry dialogue: the party enters the scene at once. */
+  | { type: 'town'; encounter: PlacedEncounter; town: TownEntry }
   /** A zone encounter without a dialogue: the party leaves at once. */
   | { type: 'zone'; encounter: PlacedEncounter; transition: ZoneTransition }
   | { type: 'other'; encounter: PlacedEncounter };
@@ -463,6 +473,9 @@ export interface EncounterRunnerOptions {
   defBloc?: readonly number[];
   /** DEF_ZONE.DAT transitions by table index. */
   defZone?: readonly ZoneTransition[];
+  /** DEF_TOWN.DAT and DEF_BKGR.DAT entries by table index. */
+  defTown?: readonly TownEntry[];
+  defBackground?: readonly TownEntry[];
   keywords?: readonly string[];
   env?: DialogEnv;
 }
@@ -519,6 +532,7 @@ export class EncounterRunner {
   private fire(e: PlacedEncounter): EncounterEvent | undefined {
     const rec: EncounterRecord = e.record;
     if (rec.typeId === EncounterType.Zone) return this.fireZone(e);
+    if (rec.typeId === EncounterType.Town || rec.typeId === EncounterType.Background) return this.fireTown(e);
     const isBlock = rec.typeId === EncounterType.Block;
     if (rec.typeId !== EncounterType.Dialog && !isBlock) return { type: 'other', encounter: e };
     const key = (isBlock ? this.o.defBloc : this.o.defDial)?.[rec.tableIndex];
@@ -528,6 +542,23 @@ export class EncounterRunner {
     const session = new DialogSession(this.o.store, this.world, this.o.keywords ?? [], this.o.env ?? {});
     session.start(key);
     return { type: 'dialog', encounter: e, session, blocks: isBlock };
+  }
+
+  private fireTown(e: PlacedEncounter): EncounterEvent {
+    const table = e.record.typeId === EncounterType.Town ? this.o.defTown : this.o.defBackground;
+    const town = table?.[e.record.tableIndex];
+    if (!town) return { type: 'other', encounter: e };
+    this.markPostEncounter(e, true);
+    if (town.entryDialog === 0) return { type: 'town', encounter: e, town };
+    const session = this.startDialog(town.entryDialog);
+    return { type: 'dialog', encounter: e, session, blocks: false, town };
+  }
+
+  /** A dialogue session at `key`, run against the runner's current world. */
+  startDialog(key: number): DialogSession {
+    const session = new DialogSession(this.o.store, this.world, this.o.keywords ?? [], this.o.env ?? {});
+    session.start(key);
+    return session;
   }
 
   private fireZone(e: PlacedEncounter): EncounterEvent {

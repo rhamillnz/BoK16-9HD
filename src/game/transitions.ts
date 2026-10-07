@@ -16,8 +16,10 @@ export interface Destination {
   y: number;
   /** 8-bit heading, 0 north, counter-clockwise. */
   heading: number;
-  /** Town or temple scene to enter on arrival (GDS hotspot); not entered by the game yet. */
+  /** Town or temple scene to enter on arrival (GDS number). */
   hotspot?: number;
+  /** Letter index of the scene within that town (see `gdsLetter`); present with `hotspot`. */
+  hotspotChar?: number;
 }
 
 export interface ZoneTransition extends Destination {
@@ -60,9 +62,9 @@ export function parseTeleports(bytes: Uint8Array): Destination[] {
     const cellY = r.u8();
     const heading = r.u16();
     const hotspot = r.u16() & 0xff;
-    r.skip(2);
+    const hotspotChar = r.u16() & 0xff;
     const d = destinationAt(zone === SAME_ZONE ? undefined : zone, tileX, tileY, cellX, cellY, heading);
-    out.push(hotspot !== 0 ? { ...d, hotspot } : d);
+    out.push(hotspot !== 0 ? { ...d, hotspot, hotspotChar } : d);
   }
   return out;
 }
@@ -95,10 +97,11 @@ export interface TransitionPlan {
   y: number;
   heading: number;
   hotspot?: number;
+  hotspotChar?: number;
 }
 
 export function planTransition(currentZone: number, d: Destination): TransitionPlan {
   const zone = d.zone ?? currentZone;
-  return { reload: zone !== currentZone, zone, x: d.x, y: d.y, heading: d.heading, hotspot: d.hotspot };
+  return { reload: zone !== currentZone, zone, x: d.x, y: d.y, heading: d.heading, hotspot: d.hotspot, hotspotChar: d.hotspotChar };
 }
 
