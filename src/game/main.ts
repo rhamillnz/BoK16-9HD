@@ -4,13 +4,8 @@ import { FlyCamera } from '../render/flyCamera';
 import { createPost } from '../render/post';
 import { parseQuality } from '../render/postSettings';
 import { createSky, DOME_RADIUS } from '../render/sky';
-import { createGrass } from '../render/grass';
-import { createGroundSampler } from '../render/grassGround';
-import { buildHeightField } from '../world/heightField';
 import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
 import { DEBUG_TIME_STEP, GameClock } from './clock';
-import { prepareZoneOverrides } from '../render/zoneOverrides';
-import { buildZoneScene, collectTerrainTriangles } from '../render/zoneScene';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
 import { parseBMX } from '../formats/bmx';
@@ -23,7 +18,12 @@ import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
 import { portraitCanvases } from '../ui/partyBar';
-import { loadChapterStart, loadZone } from '../world/zone';
+import { loadChapterStart } from '../world/zone';
+import { ZoneHost } from './zoneHost';
+import { partyFromSave } from './party';
+import { resolveDialogOutcome } from './dialogOutcome';
+import { parseTeleports, planTransition, type Destination } from './transitions';
+import type { WorldState } from './state';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -43,12 +43,7 @@ const [rmf, data] = await Promise.all([fetch('/bak/KRONDOR.RMF'), fetch('/bak/KR
 if (!rmf.ok || !data.ok) throw new Error('Game data not found: set BAK_DIR to your Betrayal at Krondor install');
 const archive = new ResourceArchive(new Uint8Array(await rmf.arrayBuffer()), new Uint8Array(await data.arrayBuffer()));
 const start = loadChapterStart(archive, 1);
-const zoneData = loadZone(archive, start.zone);
-const zone = buildZoneScene(zoneData, await prepareZoneOverrides(zoneData));
-const heightField = buildHeightField(collectTerrainTriangles(zoneData));
-scene.add(zone.group);
-createGrass(scene, createGroundSampler(zoneData, heightField));
-const zoneInfo = `zone ${start.zone}: ${zone.stats.meshItems} meshes, ${zone.stats.sprites} sprites, ${Math.round(zone.stats.triangles / 1000)}k tris, ${zone.collision.length} colliders`;
+const zoneHost = await ZoneHost.create(scene, archive, start.zone);
 
 // Game clock: the world state starts at the chapter's CHAP time; [ and ] step it by 30 minutes.
 const startup = await fetch('/bak/STARTUP.GAM');
@@ -65,8 +60,8 @@ window.addEventListener('keydown', (e) => {
 // Debug: ?x=&y=&h= (BaK units, 8-bit heading) overrides the chapter start position.
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
-const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading), heightField.getHeight);
-party.polygons = zone.collision;
+const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading), zoneHost.getHeight);
+party.polygons = zoneHost.current.scene.collision;
 const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
@@ -103,26 +98,64 @@ let prevX = party.x;
 let prevY = party.y;
 
 // Encounters: dialogue and other triggers fire as the party walks into their rectangles.
-const encounters = new EncounterDriver(
-  loadEncounterRunner({
-    read: await prefetchResources(archive, encounterResourceNames(start.zone, zoneData.tiles)),
-    zone: start.zone,
-    tiles: zoneData.tiles,
-    chapter: start.chapter,
-    world: clock.state,
-  }),
-  (view, done) => screens.showDialog(view.snippet, view.options.map((o) => o.label), (r) => r.kind !== 'none' && done(r)),
-  {
-    other: (e) => console.log('encounter (not run yet):', e.encounter.record.action, e.encounter.record),
-    blocked: () => party.setPosition(prevX, prevY),
-    finished: ({ session }) => {
-      clock.state = encounters.runner.world;
-      if (session.teleport !== undefined) console.log('dialogue teleport (not run yet):', session.teleport);
-      if (session.pendingActions.length) console.log('dialogue actions (not applied yet):', session.pendingActions.map((a) => a.name ?? a.type));
-      if (session.warnings.length) console.warn(session.warnings);
+// A finished dialogue applies its actions to the world and party, and may send the party elsewhere.
+const objectItems = parseObjInfo(archive.get('OBJINFO.DAT')).items;
+let partyState = partyFromSave(save);
+let teleports: Destination[] = [];
+let travelling = false;
+
+const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [number, number])[], world: WorldState) => {
+  const read = await prefetchResources(archive, encounterResourceNames(zoneNumber, tiles));
+  const table = read('TELEPORT.DAT');
+  teleports = table ? parseTeleports(table) : [];
+  return new EncounterDriver(
+    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world }),
+    (view, done) => screens.showDialog(view.snippet, view.options.map((o) => o.label), (r) => r.kind !== 'none' && done(r)),
+    {
+      other: (e) => console.log('encounter (not run yet):', e.encounter.record.action, e.encounter.record),
+      zone: (e) => void travelTo(e.transition),
+      blocked: () => party.setPosition(prevX, prevY),
+      finished: (ev, cancelled) => {
+        const out = resolveDialogOutcome({
+          session: ev.session, transition: ev.transition, cancelled, teleports, items: objectItems,
+          party: partyState, world: encounters.runner.world,
+        });
+        partyState = out.party;
+        clock.state = out.world;
+        encounters.runner.setWorld(out.world);
+        screens.setParty(partyState);
+        if (out.ticksElapsed > 0) sky.update(clock.minutes);
+        if (out.unhandled.length) console.log('dialogue actions with no effect yet:', out.unhandled.map((a) => a.name ?? a.type));
+        if (out.warnings.length) console.warn(out.warnings);
+        if (out.destination) void travelTo(out.destination);
+      },
     },
-  },
-);
+  );
+};
+
+// Zone transitions and teleports: reload the zone scene when the zone changes, then place the party.
+async function travelTo(d: Destination): Promise<void> {
+  if (travelling) return;
+  travelling = true;
+  try {
+    const plan = planTransition(zoneHost.current.zone, d);
+    if (plan.hotspot !== undefined) console.log('teleport into a town scene (not run yet):', plan.hotspot);
+    if (plan.reload) {
+      const next = await zoneHost.switchTo(plan.zone);
+      party.polygons = next.scene.collision;
+      encounters = await makeEncounters(plan.zone, next.data.tiles, clock.state);
+      void music.play(songForZone(plan.zone)).catch((err) => console.warn('Music unavailable:', err));
+    }
+    party.setPosition(plan.x, plan.y, plan.heading);
+    prevX = plan.x;
+    prevY = plan.y;
+    encounters.runner.enterAt(plan.x, plan.y);
+  } finally {
+    travelling = false;
+  }
+}
+
+let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, clock.state);
 
 // Post-processing: P cycles low/medium/high (?post=low|medium|high sets the start).
 const post = createPost(renderer, scene, camera, parseQuality(new URLSearchParams(location.search).get('post'), 'medium'));
@@ -148,7 +181,7 @@ renderer.setAnimationLoop(() => {
       if (clock.walk(dt)) sky.update(clock.minutes);
     }
     party.applyToCamera(camera);
-    if (!screens.blocking && !encounters.busy) {
+    if (!screens.blocking && !encounters.busy && !travelling) {
       // The clock owns the shared world state: hand it over for the check, take back the flags it set.
       encounters.runner.setWorld(clock.state);
       encounters.update(party.x, party.y);
@@ -166,5 +199,5 @@ renderer.setAnimationLoop(() => {
     fpsTime = 0;
   }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneInfo}\n${backend}  post ${post.quality} (P)  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
+  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneHost.current.info}\n${backend}  post ${post.quality} (P)  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
 });

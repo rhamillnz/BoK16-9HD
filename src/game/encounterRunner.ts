@@ -12,6 +12,7 @@ import { eventFlagLocation } from '../formats/gam';
 import { Reader } from '../formats/reader';
 import { isEncounterActive, type EncounterMap, type PlacedEncounter } from '../world/encounters';
 import { getFlag, hourOfDay, setFlag, type WorldState } from './state';
+import type { ZoneTransition } from './transitions';
 
 /**
  * Runs tile encounters and the dialogue they point at. See docs/formats/dialogue.md section 7.
@@ -421,7 +422,11 @@ export type EncounterEvent =
       session: DialogSession;
       /** Block encounters also stop the party: the caller should undo the last step. */
       blocks: boolean;
+      /** Zone encounter with a dialogue: the party leaves once it ends (unless declined). */
+      transition?: ZoneTransition;
     }
+  /** A zone encounter without a dialogue: the party leaves at once. */
+  | { type: 'zone'; encounter: PlacedEncounter; transition: ZoneTransition }
   | { type: 'other'; encounter: PlacedEncounter };
 
 export interface EncounterRunnerOptions {
@@ -435,6 +440,8 @@ export interface EncounterRunnerOptions {
   defDial: readonly number[];
   /** DEF_BLOC.DAT keys by table index. */
   defBloc?: readonly number[];
+  /** DEF_ZONE.DAT transitions by table index. */
+  defZone?: readonly ZoneTransition[];
   keywords?: readonly string[];
   env?: DialogEnv;
 }
@@ -490,6 +497,7 @@ export class EncounterRunner {
 
   private fire(e: PlacedEncounter): EncounterEvent | undefined {
     const rec: EncounterRecord = e.record;
+    if (rec.typeId === EncounterType.Zone) return this.fireZone(e);
     const isBlock = rec.typeId === EncounterType.Block;
     if (rec.typeId !== EncounterType.Dialog && !isBlock) return { type: 'other', encounter: e };
     const key = (isBlock ? this.o.defBloc : this.o.defDial)?.[rec.tableIndex];
@@ -499,6 +507,24 @@ export class EncounterRunner {
     const session = new DialogSession(this.o.store, this.world, this.o.keywords ?? [], this.o.env ?? {});
     session.start(key);
     return { type: 'dialog', encounter: e, session, blocks: isBlock };
+  }
+
+  private fireZone(e: PlacedEncounter): EncounterEvent {
+    const transition = this.o.defZone?.[e.record.tableIndex];
+    if (!transition) return { type: 'other', encounter: e };
+    this.markPostEncounter(e, false);
+    const key = transition.dialog;
+    if (key === 0) return { type: 'zone', encounter: e, transition };
+    const session = new DialogSession(this.o.store, this.world, this.o.keywords ?? [], this.o.env ?? {});
+    session.start(key);
+    return { type: 'dialog', encounter: e, session, blocks: false, transition };
+  }
+
+  /** The party was placed here (arrival after a transition): do not fire the encounters it stands in. */
+  enterAt(x: number, y: number): void {
+    this.inside = new Set(this.o.map.at(x, y));
+    this.lastTile = Math.floor(y / 64000) * 1024 + Math.floor(x / 64000);
+    this.recent.clear();
   }
 
   /** Take over the world state a finished dialogue left behind (flags it set, topics marked). */

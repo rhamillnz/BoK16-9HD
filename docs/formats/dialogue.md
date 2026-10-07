@@ -143,4 +143,27 @@ Derived from BaKGL (`bak/encounter/dialog.cpp`, `block.cpp`, `bak/state/encounte
 - Topic snippets (`displayStyle3 == 4`): one entry per conversation choice whose event pointer is set and whose inhibit flag (`0x1a2c + pointer`) is clear, plus "Goodbye". Picking a topic marks it clicked (`0x1d4c + pointer`) and pushes its target; Goodbye (no match) pops the stack.
 - `KEYWORD.DAT`: `u16 length`, `u16` string offsets up to file offset `0x2b8` (347 entries), NUL-terminated strings at those offsets. Indices below `0xAC` are topic names, indexed by event pointer.
 
-Not applied yet (reported on the session): items, skills, conditions, healing, spells, sounds, time, text variables, teleports. Scripted `customState`, `haveNote` and `castSpell` choices, party money and shop context read as 0.
+### 7.1 Applying actions after the dialogue
+
+`DialogSession` applies `SetFlag`, `PushNextDialog`, `SetEndOfDialogState` and records `Teleport`; every other action lands in `pendingActions`. When the dialogue ends, `src/game/dialogEffects.ts` applies them (semantics from BaKGL `GameState::EvaluateAction`, understanding only):
+
+- `GiveItem`: bytes `item, who`, `u16` quantity. Item 53 is sovereigns and 54 royals: they add to the purse (1 sovereign = 10 royals, `gold` in the save counts royals). Key items go to the key ring. Anything else goes to the first active character with room, stacking onto an existing stack up to the item's `stackSize`. `who` 0 and 1 mean "the party"; 2 and up address the dialogue's character list.
+- `LoseItem` / `LoseNOfItem`: remove from the party in order, money items from the purse; gold never goes below 0.
+- `HealCharacters`: `who` 0/1 is the active party. An amount of 100 or more is a full rest (all conditions -100, health to max, time last slept = now). Below 100 the original takes 20 percent off current health (used at the start of chapter 4).
+- `GainCondition`: amount is `min`, or `min + rand(0x1000) % (max - min)` when they differ; the condition is clamped to 0..100.
+- `LearnSpell`: `who` indexes the dialogue's character list directly; sets the spell bit.
+- `UpdateCharacters`: replaces the active party.
+- `ElapseTime`, `SetAddResetState` (sets the flag now and queues a reset-state timer with flags 0x40), `SetTimeExpiringState`: world clock and expiring events.
+- `SpecialAction` 0 / 1: lose / gain the "item value" game state (0x753e) in royals. Other specials are not applied.
+
+Not applied (returned as `unhandled`): skills (`GainSkill`, `LoadSkillValue`), sounds, text variables, actor loading, popup sizes, combat specials and the rest of `SpecialAction`. "Who" selection by text variable (`SetTextVariable`) is not tracked, so those actions fall back to the whole active party.
+
+### 7.2 Teleports and zone transitions
+
+`Teleport` carries an index into `TELEPORT.DAT` (11-byte records: `u8` zone, tile x, tile y, cell x, cell y, `u16` heading, `u16` hotspot, `u16` hotspot char; zone `0xff` stays in the current zone; a non-zero hotspot is a town or temple scene to enter on arrival). The destination is the centre of the cell, `tile * 64000 + cell * 1600 + 800`; heading is the high byte of the `u16`. The original performs the teleport once the dialogue has closed.
+
+Zone encounters (type 8) index `DEF_ZONE.DAT`: `u32 count`, then 20-byte records: 3 unknown bytes, `u8` zone, tile x/y, cell x/y, `u16` heading, `u32` dialogue key (0 = none), 6 unused bytes. With a dialogue, it is shown first and the party leaves afterwards. *Unverified:* how the original decides that the player declined; we stay when the dialogue is cancelled or the last query answer was "No".
+
+When the target zone differs from the current one the zone scene is rebuilt (`src/game/zoneHost.ts`), encounters are reloaded for the new zone and the zone song starts; the party is placed without firing the encounters it arrives in.
+
+Scripted `customState`, `haveNote` and `castSpell` choices, party money and shop context still read as 0 in choice conditions.
