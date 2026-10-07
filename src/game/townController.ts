@@ -6,6 +6,8 @@ export interface DialogEnd {
   cancelled: boolean;
   /** Value set by the dialogue's SetEndOfDialogState action, if it ran one. */
   endState: number | undefined;
+  /** The query or topic picked last (QUERY_YES, QUERY_NO...), if any. */
+  lastChoice?: number | undefined;
 }
 
 export interface TownHooks {
@@ -20,6 +22,8 @@ export interface TownHooks {
   activeHotspots(scene: TownScene): Hotspot[];
   /** The party left the scene. */
   left(): void;
+  /** The party clicked an inn hotspot (or a dialogue sent it there). */
+  inn?(ref: GdsRef): void;
   /** An action that is not implemented yet (shops, inns, temples, bards...). */
   unsupported?(action: number, hotspot: Hotspot): void;
 }
@@ -120,6 +124,10 @@ export class TownController {
       case HotspotAction.Unknown1:
       case HotspotAction.Dialog:
         break; // the dialogue was the whole action
+      case HotspotAction.Inn:
+        if (this.hooks.inn) this.hooks.inn(scene.ref);
+        else this.hooks.unsupported?.(action, h);
+        break;
       default:
         this.hooks.unsupported?.(action, h);
     }
