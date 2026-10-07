@@ -21,7 +21,7 @@ import {
   vec3,
 } from 'three/tsl';
 import { computeSkyState, type Rgb, type Vec3 } from './skyMath';
-import { MINE_LOOK, torchFlicker } from '../world/underground';
+import { MINE_LOOK, outdoorMagicStrength, torchFlicker } from '../world/underground';
 
 /**
  * Time-of-day sky: gradient dome (follows the camera), sun + moon discs, stars,
@@ -78,6 +78,7 @@ export function createSky(scene: THREE.Scene): Sky {
   scene.add(torch);
   let underground = false;
   let magic = false;
+  let sunVis = 1;
   let lastMinutes = 12 * 60;
   let shadowsWanted = true;
 
@@ -173,6 +174,15 @@ export function createSky(scene: THREE.Scene): Sky {
     fog.far = MINE_LOOK.fogFar;
   };
 
+  // Outdoors a light spell lights the party at night; the glow fades out as the sun comes up.
+  const refreshOutdoorGlow = () => {
+    if (underground) return;
+    const k = magic ? outdoorMagicStrength(sunVis) : 0;
+    torch.visible = k > 0.001;
+    torch.intensity = MINE_LOOK.outdoorIntensity * k;
+    torch.distance = MINE_LOOK.outdoorDistance;
+  };
+
   return {
     setShadows(enabled: boolean): void {
       shadowsWanted = enabled;
@@ -182,7 +192,8 @@ export function createSky(scene: THREE.Scene): Sky {
     setMagicLight(on: boolean): void {
       if (on === magic) return;
       magic = on;
-      torch.distance = MINE_LOOK.torchDistance * (on ? MINE_LOOK.magicReach : 1);
+      if (underground) torch.distance = MINE_LOOK.torchDistance * (on ? MINE_LOOK.magicReach : 1);
+      else refreshOutdoorGlow();
     },
 
     setUnderground(enabled: boolean): void {
@@ -206,6 +217,10 @@ export function createSky(scene: THREE.Scene): Sky {
         torch.position.set(x, y, z);
         torch.intensity = MINE_LOOK.torchIntensity * (magic ? MINE_LOOK.magicBoost : 1) * torchFlicker(performance.now() / 1000);
         return;
+      }
+      if (torch.visible) {
+        torch.position.set(x, y + 2, z);
+        torch.intensity = MINE_LOOK.outdoorIntensity * outdoorMagicStrength(sunVis) * torchFlicker(performance.now() / 1000);
       }
       // Snap the target to the shadow texel grid in light space.
       const texel = (2 * SHADOW_EXTENT) / SHADOW_MAP_SIZE;
@@ -246,6 +261,9 @@ export function createSky(scene: THREE.Scene): Sky {
       uSunVis.value = s.sunVisibility;
       uMoonVis.value = s.moonVisibility;
       uStars.value = s.starAlpha;
+
+      sunVis = s.sunVisibility;
+      refreshOutdoorGlow();
     },
   };
 }
