@@ -15,15 +15,78 @@ WebGPU (three.js `WebGPURenderer`), targeting 2560×1440 16:9 with upgraded grap
 
 ## Running
 
+You need Node.js 20 or newer, a browser with WebGPU (current Chrome or Edge), and your own copy of the game.
+
 ```sh
 npm install
-# Point at your install if it isn't the default GOG Galaxy path:
-#   PowerShell: $env:BAK_DIR = "D:\Games\Betrayal at Krondor"
 npm run dev
 ```
 
-- Asset viewer: http://localhost:5173/
-- Game (work in progress): http://localhost:5173/game.html
+Then open the game at <http://localhost:5173/game.html>. (The asset viewer is at <http://localhost:5173/>.)
+
+### Pointing the game at your BaK install
+
+The dev server reads the original files read-only from your install folder and serves them to the page under `/bak/`. Nothing is copied into this repository. The folder is the one that contains `KRONDOR.RMF` and `KRONDOR.001` (the game also reads `STARTUP.GAM` and the other files from it).
+
+The default is the GOG Galaxy path on Windows, `C:/Program Files (x86)/GOG Galaxy/Games/Betrayal at Krondor`. For any other location, set `BAK_DIR` before starting the server:
+
+```sh
+# macOS / Linux
+BAK_DIR="/path/to/Betrayal at Krondor" npm run dev
+
+# Windows PowerShell
+$env:BAK_DIR = "D:\Games\Betrayal at Krondor"; npm run dev
+
+# Windows cmd
+set BAK_DIR=D:\Games\Betrayal at Krondor && npm run dev
+```
+
+If the page stops with "Game data not found", `BAK_DIR` is wrong or the files are not in that folder (check the spelling and that `KRONDOR.RMF` is directly inside it). Restart `npm run dev` after changing it.
+
+## Controls
+
+The same list is in the game: press **Esc** and choose Options, then Keys.
+
+| Key | What it does |
+| --- | --- |
+| W A S D or arrow keys | Walk forward and back, turn left and right |
+| Shift | Run |
+| Esc | Open the main menu (new game, continue, load, options); closes any open screen |
+| I | Inventory. Arrows or WASD move the selection, E or Tab switches character; Enter or U uses an item, X equips, T gives it to the next character, R repairs |
+| C | Character sheet |
+| Tab | Map and compass |
+| E | Open the chest or container beside you |
+| R | Camp and rest in the wild |
+| V | Cast a healing or light spell |
+| F5 / F9 | Quick save / quick load |
+| F6 | Save and load slots |
+| M | Music and sound on/off |
+| P | Cycle graphics quality (low, medium, high) |
+
+In towns, temples, inns and shops use the mouse: click a hotspot in the scene. Dialogue, shops and chests are also mouse-driven; open screens show their own buttons. Right-click an item in the inventory to use it.
+
+**Combat:** D defend, W wait, S slash, F shoot, C cast, Q retreat, Enter or Space to continue after a fight. The buttons on the combat panel do the same.
+
+**Debug keys:** `[` and `]` move the clock back or forward 30 minutes; F toggles a free fly camera (click the game to capture the mouse, Space or E rises, Ctrl or Q sinks, Shift is 5x faster).
+
+## URL options
+
+Add these to the game address, for example `http://localhost:5173/game.html?zone=1&post=low`.
+
+| Option | Meaning |
+| --- | --- |
+| `post=low\|medium\|high` | Graphics quality at start. Overrides the quality saved in Options |
+| `grass=off\|low\|medium\|high` | Grass density |
+| `zone=N` | Start in zone N at the centre of its first tile |
+| `x=` `y=` `h=` | Start position in game units, and an 8-bit heading |
+| `song=N` | Play music track N instead of the zone's song |
+| `cutscene=ADS,TTM` | Play a cutscene on load, e.g. `cutscene=CHAPTER1.ADS,CHAPTER1.TTM` |
+
+## Saves and settings
+
+Saves go to your browser's IndexedDB (localStorage if that is unavailable), so they stay with that browser and address. Graphics, volume and mute settings are kept in the browser too.
+
+## Development
 
 ```sh
 npm test          # unit tests + integration tests against your game data (skipped if absent)
