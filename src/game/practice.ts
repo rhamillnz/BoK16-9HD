@@ -18,7 +18,7 @@ export const SELECTED_SKILL_POOL_TOTAL = 26;
 
 /** Share of the pool each selected skill gets: 26 split evenly, 0 when nothing is selected. */
 export function selectedSkillPool(c: Pick<Character, 'skills'>): number {
-  const n = SKILL_NAMES.filter((s) => c.skills[s].selected).length;
+  const n = SKILL_NAMES.filter((s) => c.skills[s]?.selected).length;
   return n > 0 ? Math.trunc(SELECTED_SKILL_POOL_TOTAL / n) : 0;
 }
 

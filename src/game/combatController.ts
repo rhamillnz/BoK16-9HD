@@ -1,12 +1,13 @@
 import * as THREE from 'three/webgpu';
 import { enemyTurn } from '../combat/ai';
 import {
-  attack, currentFighter, defend, fighterAt, flee, isOver, moveTo, rest, startBattle,
-  type BattleState, type Fighter,
+  attack, currentFighter, defend, fighterAt, flee, isOver, moveTo, rest, shoot, shootTargets, startBattle,
+  type BattleEvent, type BattleState, type Fighter,
 } from '../combat/battle';
 import { parseCombatTable, parsePartyGrid, readCombatEnemies, type CombatDef, type PartyGridSlot } from '../combat/combatData';
 import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS, type GridPos } from '../combat/grid';
 import { parseMonsterNames, parseMonsterSprites, type MonsterSprites } from '../combat/monsters';
+import { battleRewards, type Rewards } from '../combat/rewards';
 import { rollFrom, type Roll } from '../combat/rules';
 import { combatSprite, spriteSheetName, type CombatSprite } from '../combat/sprites';
 import type { CombatOutcome } from '../combat/turns';
@@ -106,7 +107,13 @@ export interface CombatLaunch {
   palette: Uint8Array;
 }
 
-export type CombatEnd = (outcome: CombatOutcome, fighters: readonly Fighter[]) => void;
+/** What the fight produced beyond the outcome: its event history and, after a win, the rewards. */
+export interface CombatResult {
+  history: readonly BattleEvent[];
+  rewards?: Rewards;
+}
+
+export type CombatEnd = (outcome: CombatOutcome, fighters: readonly Fighter[], result: CombatResult) => void;
 
 /**
  * Runs one fight: shows the grid and fighters, takes the player's clicks and keys on the party's
@@ -119,6 +126,8 @@ export class CombatController {
   private panel: CombatPanel | undefined;
   private hover: GridPos | undefined;
   private slash = false;
+  private shooting = false;
+  private rewards: Rewards | undefined;
   private delay = 0;
   private onEnd: CombatEnd | undefined;
   private readonly roll: Roll = rollFrom(Math.random);
@@ -134,6 +143,8 @@ export class CombatController {
     if (this.active) return;
     this.onEnd = onEnd;
     this.slash = false;
+    this.shooting = false;
+    this.rewards = undefined;
     this.state = startBattle(launch.fighters);
     this.view = new CombatView(
       {
@@ -147,7 +158,8 @@ export class CombatController {
       defend: () => this.partyAction(defend),
       wait: () => this.partyAction(rest),
       flee: () => this.partyAction(flee),
-      toggleSlash: () => { this.slash = !this.slash; this.refresh(); },
+      toggleSlash: () => { this.slash = !this.slash; this.shooting = false; this.refresh(); },
+      toggleShoot: () => { this.shooting = !this.shooting; this.slash = false; this.refresh(); },
       finish: () => this.finish(),
     });
     const on = (type: string, f: (e: MouseEvent) => void) => {
@@ -189,8 +201,17 @@ export class CombatController {
     const s = this.state;
     if (!s || !this.view || !this.panel) return;
     this.view.update(s, this.yourTurn() ? this.hover : undefined);
-    if (withLog) this.panel.render(s, { slash: this.slash, yourTurn: this.yourTurn() });
+    if (withLog) this.panel.render(s, { slash: this.slash, shoot: this.shooting, canShoot: this.canShoot(), yourTurn: this.yourTurn() });
+    if (withLog && isOver(s) && !this.rewards && s.turn.outcome === 'won') {
+      this.rewards = battleRewards(s.fighters, s.history, this.roll);
+      for (const line of this.rewards.lines) this.panel.note(line);
+    }
     if (withLog) s.events = [];
+  }
+
+  private canShoot(): boolean {
+    const s = this.state;
+    return !!s && this.yourTurn() && shootTargets(s).length > 0;
   }
 
   private partyAction(f: (s: BattleState) => BattleState | undefined): void {
@@ -206,7 +227,11 @@ export class CombatController {
     const s = this.state;
     if (!s || !cell || !this.yourTurn()) return;
     const target = fighterAt(s, cell);
-    if (target && target.side === 'enemy') {
+    if (target && target.side === 'enemy' && this.shooting) {
+      const next = shoot(s, cell, this.roll);
+      if (next) this.partyAction(() => next);
+      else this.panel?.note('You cannot shoot that: it needs an equipped crossbow and a target within range.');
+    } else if (target && target.side === 'enemy') {
       const next = attack(s, cell, this.roll, { kind: this.slash || shift ? 'slash' : 'thrust' });
       if (next) this.partyAction(() => next);
       else this.panel?.note(this.slash || shift ? 'A slash needs an adjacent enemy and more than 1 stamina.' : 'Out of reach.');
@@ -222,8 +247,9 @@ export class CombatController {
     if (!s || !isOver(s)) return;
     const outcome = s.turn.outcome!;
     const fighters = s.fighters;
+    const result: CombatResult = { history: s.history, rewards: this.rewards };
     this.close();
-    this.onEnd?.(outcome, fighters);
+    this.onEnd?.(outcome, fighters, result);
   }
 
   private close(): void {

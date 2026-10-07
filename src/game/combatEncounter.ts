@@ -1,4 +1,6 @@
 import type * as THREE from 'three/webgpu';
+import { applyRewards, applyWear } from '../combat/rewards';
+import { rollFrom } from '../combat/rules';
 import { buildFighters, applyBattleToParty, retreatDestination } from '../combat/setup';
 import type { Fighter } from '../combat/battle';
 import type { CombatOutcome } from '../combat/turns';
@@ -6,7 +8,7 @@ import type { ItemDef } from '../formats/objinfo';
 import type { PlacedEncounter } from '../world/encounters';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
 import {
-  CombatController, enemiesOf, loadSheets, spriteLookup, type CombatSupport,
+  CombatController, enemiesOf, loadSheets, spriteLookup, type CombatResult, type CombatSupport,
 } from './combatController';
 
 export interface CombatEncounterDeps {
@@ -39,7 +41,7 @@ function revive(party: PartyState): PartyState {
 /**
  * Glue between the encounter system and a fight: builds the fighters for a combat encounter, runs it,
  * and applies the result (wounds, the encounter marked done on a win, the retreat move otherwise).
- * Entry and scout dialogues, the post-fight dialogue and loot are not handled yet.
+ * Entry and scout dialogues and the post-fight dialogue are not handled yet.
  */
 export class CombatEncounters {
   private readonly controller: CombatController;
@@ -85,7 +87,7 @@ export class CombatEncounters {
           spriteFor: spriteLookup(s, sheets),
           palette: s.palette ?? new Uint8Array(1024).fill(255),
         },
-        (outcome, after) => this.finished(e, def, outcome, after, pos),
+        (outcome, after, result) => this.finished(e, def, outcome, after, pos, result),
       );
     } finally {
       this.starting = false;
@@ -98,9 +100,12 @@ export class CombatEncounters {
     outcome: CombatOutcome,
     fighters: readonly Fighter[],
     at: { x: number; y: number },
+    result: CombatResult,
   ): void {
     let party = applyBattleToParty(this.d.getParty(), fighters);
+    party = applyWear(party, result.history, this.d.items, rollFrom(Math.random));
     if (outcome === 'won') {
+      if (result.rewards) party = applyRewards(party, result.rewards);
       this.d.markDone(e);
     } else {
       if (outcome === 'dead') party = revive(party);
