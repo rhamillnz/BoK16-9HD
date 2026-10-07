@@ -1,3 +1,5 @@
+import { playSfx } from '../audio/sfxBus';
+import { Snd } from '../audio/soundIds';
 import type { ShopStats } from '../formats/gdsContainers';
 import type { GdsRef } from '../formats/gds';
 import { QUERY_NO } from './encounterRunner';
@@ -77,6 +79,7 @@ export function createInnHost(d: InnDeps) {
       const night = sleepAtInn(d.world(), now, stats, cost, d.itemRule);
       d.setWorld(night.world);
       d.setParty(night.party);
+      playSfx(Snd.buy);
       d.notify(`You slept for ${night.hours} hour${night.hours === 1 ? '' : 's'}.`);
       if (night.anotherNight) offer(stats, true);
     });

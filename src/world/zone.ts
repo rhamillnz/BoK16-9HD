@@ -3,6 +3,7 @@ import { parseBMX, type IndexedImage } from '../formats/bmx';
 import { parsePalette, type Palette } from '../formats/palette';
 import { parseSCX, terrainStrips } from '../formats/scx';
 import { parseTBL, zonePrefix, type ModelTable } from '../formats/tbl';
+import { isUndergroundZone, undergroundTableName } from './underground';
 import { parseChapterStart, parseWLD, parseZoneRef, tileName, type ChapterStart, type WorldItem } from '../formats/world';
 
 /** Everything needed to build one outdoor zone, decoded from the original data. */
@@ -17,6 +18,8 @@ export interface ZoneData {
   /** Eight terrain strips from ZxxL.SCX (see Terrain in formats/scx.ts). */
   terrain: IndexedImage[];
   tiles: [number, number][];
+  /** Mines only: the overhead ("_ug") variants from ZxxM.TBL, same model indices as `table`. */
+  overheadTable?: ModelTable;
 }
 
 export function loadZone(archive: ResourceArchive, zone: number): ZoneData {
@@ -29,7 +32,8 @@ export function loadZone(archive: ResourceArchive, zone: number): ZoneData {
     slotImages.push(...parseBMX(archive.get(`${p}SLOT${slot}.BMX`)));
   }
 
-  const terrain = terrainStrips(parseSCX(archive.get(`${p}L.SCX`)));
+  // Mines have no ground strips to speak of: tolerate a missing or empty sheet.
+  const terrain = archive.has(`${p}L.SCX`) ? terrainStrips(parseSCX(archive.get(`${p}L.SCX`))) : [];
   const tiles = parseZoneRef(archive.get(`${p}REF.DAT`));
   const items: WorldItem[] = [];
   for (const [tx, ty] of tiles) {
@@ -38,7 +42,9 @@ export function loadZone(archive: ResourceArchive, zone: number): ZoneData {
     // Type 0 is both the tile-centre marker and model 0 ("ground"): it is the tile's ground plane.
     items.push(...parseWLD(archive.get(name)));
   }
-  return { zone, palette, table, items, slotImages, terrain, tiles };
+  const mTable = undergroundTableName(p);
+  const overheadTable = isUndergroundZone(zone) && archive.has(mTable) ? parseTBL(archive.get(mTable)) : undefined;
+  return { zone, palette, table, items, slotImages, terrain, tiles, overheadTable };
 }
 
 export function loadChapterStart(archive: ResourceArchive, chapter: number): ChapterStart {
