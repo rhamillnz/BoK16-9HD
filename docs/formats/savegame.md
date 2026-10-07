@@ -88,7 +88,7 @@ Item record: `u8 itemIndex`, `u8 conditionOrQuantity`, `u8 status`, `u8 modifier
 - `status` bit indices: 1 Activated, 2 Used, 4 Broken, 5 Repairable, 6 Equipped, 7 Poisoned. Bits 0 and 3 are unassigned in BaKGL.
 - `modifiers` is a bitmask of item enchantments; the individual bits are not decoded here.
 
-Zone containers (13 regions at `0x3ab4f`...), shops (98 at `0x443c9`) and combat inventories (1734 at `0x46053`) share the inventory encoding but are **not parsed**.
+Zone containers (13 regions at `0x3ab4f`...), shops (98 at `0x443c9`, parsed by `src/formats/gdsContainers.ts`, see shops.md) and combat inventories (1734 at `0x46053`) share the inventory encoding but are **not parsed**.
 
 ## 5. Time-expiring events (`0x616`)
 

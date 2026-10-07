@@ -36,6 +36,7 @@ import type { WorldState } from './state';
 import { installSaveControls } from './saveControls';
 import { installCamp } from './campControls';
 import { installItemControls } from './itemControls';
+import { createShops } from './shopControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -147,8 +148,17 @@ const applyDialog = (session: DialogSession, transition: ZoneTransition | undefi
   }
 };
 
+// Shops: buy, sell and haggle at shop hotspots of town scenes.
+const shops = createShops({
+  items: objectItems, scrollValues: parseObjInfo(archive.get('OBJINFO.DAT')).scrollValues, saveBytes: save.bytes, hud: screens,
+  getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); },
+  getWorld: () => clock.state, zone: () => zoneHost.current.zone,
+  playDialog: (key, done) => town.playDialog(key, done),
+});
+
 // Town and temple scenes: a 2D screen on the HUD whose hotspots open dialogues.
 const town = createTownHost({
+  shop: (ref) => shops.open(ref),
   fetch: (names) => prefetchResources(archive, names),
   hud: screens,
   chapter: start.chapter,
@@ -159,7 +169,7 @@ const town = createTownHost({
     runDialogSession(session, showView, (cancelled) => {
       encounters.runner.finish(session);
       applyDialog(session, undefined, cancelled);
-      done({ cancelled, endState: session.endOfDialogState });
+      done({ cancelled, endState: session.endOfDialogState, choice: session.lastChoice });
     });
   },
 });
@@ -192,7 +202,7 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
   const table = read('TELEPORT.DAT');
   teleports = table ? parseTeleports(table) : [];
   return new EncounterDriver(
-    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter }) } }),
+    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: { textContext: () => ({ party: partyState, chapter: start.chapter, ...shops.textExtras() }) } }),
     showView,
     {
       other: (e) => {
@@ -240,8 +250,9 @@ let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, c
 
 // Save and load: F5 quick-save, F9 quick-load, F6 slot screen.
 await installSaveControls({
-  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState }),
+  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState, shops: shops.snapshot() }),
   restore: async (d) => {
+    shops.restore(d.shops);
     clock.state = d.world;
     partyState = d.party;
     screens.setParty(partyState);
