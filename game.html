@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Betrayal at Krondor — Remake</title>
+    <title>Betrayal at Krondor - Remake</title>
     <style>
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
       #stage { position: absolute; inset: 0; display: grid; place-items: center; }
@@ -15,6 +15,11 @@
     </style>
   </head>
   <body>
+    <div id="splash" style="position: absolute; inset: 0; background: #000; color: #e8dcc4; display: flex; flex-direction: column; justify-content: center; align-items: center; font: 24px system-ui, sans-serif; z-index: 9999;">
+      <div id="splash-title" style="font-weight: bold; margin-bottom: 20px;">Krondor Remake</div>
+      <div id="splash-message" style="font-size: 16px; color: #a89c84;">Initializing...</div>
+      <div id="splash-error" style="display: none; margin-top: 20px; font-size: 18px; color: #ff6b6b; max-width: 600px; text-align: center; border: 1px solid #ff6b6b; padding: 20px; border-radius: 8px; background: rgba(255,0,0,0.1);"></div>
+    </div>
     <div id="stage"></div>
     <div id="hud"></div>
     <script type="module" src="/src/game/main.ts"></script>

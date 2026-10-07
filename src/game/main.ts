@@ -54,12 +54,37 @@ import { installMainMenu } from './mainMenuControls';
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
 
-const { renderer, camera, backend, scene, sky, post, applyGraphics, tickPerf } = await setupGraphics(stageEl);
+
+const splash = document.getElementById('splash')!;
+const splashMsg = document.getElementById('splash-message')!;
+const splashErr = document.getElementById('splash-error')!;
+
+function setSplash(msg: string) {
+  if (splash.style.display !== 'none') splashMsg.textContent = msg;
+}
+function crash(err: any) {
+  if (splash) splash.style.display = 'flex';
+  if (splashErr) {
+    splashErr.style.display = 'block';
+    splashErr.textContent = String(err instanceof Error ? err.message : err);
+  }
+  if (splashMsg) splashMsg.style.display = 'none';
+  throw err;
+}
+
+try {
+  setSplash('Initializing renderer...');
+
+  const { renderer, camera, backend, scene, sky, post, applyGraphics, tickPerf } = await setupGraphics(stageEl);
+
+  if (backend === 'WebGL2') {
+    console.warn('WebGPU not available, falling back to WebGL2');
+  }
 
 // Original game data, served by the dev server from the local install (see vite.config.ts).
 hud.textContent = 'Loading game data…';
 const [rmf, data] = await Promise.all([fetch('/bak/KRONDOR.RMF'), fetch('/bak/KRONDOR.001')]);
-if (!rmf.ok || !data.ok) throw new Error('Game data not found: set BAK_DIR to your Betrayal at Krondor install');
+if (!rmf.ok || !data.ok) throw new Error('Game data not found: Please ensure KRONDOR.RMF and KRONDOR.001 are present in the bak directory.');
 const archive = new ResourceArchive(new Uint8Array(await rmf.arrayBuffer()), new Uint8Array(await data.arrayBuffer()));
 // Debug: ?zone=N starts in zone N at the centre of its first tile; ?x=&y=&h= (BaK units,
 // 8-bit heading) override the start position.
@@ -312,7 +337,12 @@ async function travelTo(d: Destination): Promise<void> {
   try {
     const plan = planTransition(zoneHost.current.zone, d);
     if (plan.reload) {
-      const next = await zoneHost.switchTo(plan.zone);
+      splash.style.display = 'flex';
+        setSplash(`Loading Zone ${plan.zone}...`);
+        // Wait a frame so the UI updates
+        await new Promise(r => setTimeout(r, 10));
+        const next = await zoneHost.switchTo(plan.zone);
+        splash.style.display = 'none';
       party.polygons = next.scene.collision;
       next.grass.setQuality(post.quality);
       screens.setMap(loadZoneMap(archive, plan.zone, next.data.tiles), plan.zone);
@@ -543,7 +573,15 @@ installMainMenu({
   canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode,
 });
 
-let last = performance.now();
+splash.style.display = 'none';
+  if (backend === 'WebGL2') {
+    const toast = document.getElementById('toast')!;
+    toast.textContent = 'WebGPU not available, falling back to WebGL2';
+    toast.style.opacity = '1';
+    setTimeout(() => toast.style.opacity = '0', 4000);
+  }
+
+  let last = performance.now();
 let frames = 0;
 let fpsTime = 0;
 let fps = 0;
@@ -591,3 +629,7 @@ renderer.setAnimationLoop(() => {
     .map((v) => v.toFixed(1))
     .join(', ')}`;
 });
+
+} catch (err) {
+  crash(err);
+}
