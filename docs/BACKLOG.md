@@ -34,5 +34,5 @@ Backlog 2:
 
 Backlog 3:
 - [~] 1 Town containers, chapter 7 flag and expiry steps: machinery and tests merged (`chapterRules.ts`), rule tables empty until the real values are verified (see docs/formats/chapters.md, Open values)
-- [ ] 2 Real-data checklist for Reuben's review of integration
+- [x] 2 Real-data checklist for Reuben's review of integration (docs/REAL_DATA_CHECKLIST.md)
 - [ ] 3 Performance and E2E pass over everything merged
