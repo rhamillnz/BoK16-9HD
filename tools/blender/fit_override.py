@@ -65,6 +65,9 @@ def fit(job):
     lo, hi = mesh_bounds(meshes)
     height = hi.z - lo.z
     s = job["height"] / height
+    # Optional footprint cap for low, wide plants: never wider than `width`.
+    if job.get("width"):
+        s = min(s, job["width"] / max(hi.x - lo.x, hi.y - lo.y))
     base = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
     for r in roots:
         r.location = (r.location - base) * s
@@ -74,6 +77,24 @@ def fit(job):
         o.select_set(True)
     bpy.context.view_layer.objects.active = meshes[0]
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    # Optional texture swaps: {"<image file name in the model>": "path/to/replacement.png"}.
+    # Imported glTF images are packed, so load the replacement as a new image and
+    # repoint every material texture node that used the old one.
+    for name, path in job.get("textures", {}).items():
+        stem = name.rsplit(".", 1)[0]
+        old = [img for img in bpy.data.images if img.name.startswith(stem) or os.path.basename(img.filepath_raw) == name]
+        if not old:
+            print(f"warning: texture {name} not found in {job['src']}")
+            continue
+        new = bpy.data.images.load(os.path.abspath(path))
+        new.pack()
+        for mat in bpy.data.materials:
+            if not mat.use_nodes:
+                continue
+            for node in mat.node_tree.nodes:
+                if node.type == "TEX_IMAGE" and node.image in old:
+                    node.image = new
+                    print(f"swapped {node.image.name} into {mat.name}")
     # Keep browser downloads small: cap texture size and export as WebP.
     max_tex = int(job.get("max_texture", 512))
     for img in bpy.data.images:

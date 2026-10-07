@@ -19,6 +19,7 @@ import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
 import { portraitCanvases } from '../ui/partyBar';
 import { loadChapterStart } from '../world/zone';
+import { TILE_SIZE } from '../formats/world';
 import { ZoneHost } from './zoneHost';
 import { partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
@@ -42,8 +43,18 @@ hud.textContent = 'Loading game data…';
 const [rmf, data] = await Promise.all([fetch('/bak/KRONDOR.RMF'), fetch('/bak/KRONDOR.001')]);
 if (!rmf.ok || !data.ok) throw new Error('Game data not found: set BAK_DIR to your Betrayal at Krondor install');
 const archive = new ResourceArchive(new Uint8Array(await rmf.arrayBuffer()), new Uint8Array(await data.arrayBuffer()));
-const start = loadChapterStart(archive, 1);
-const zoneHost = await ZoneHost.create(scene, archive, start.zone);
+// Debug: ?zone=N starts in zone N at the centre of its first tile; ?x=&y=&h= (BaK units,
+// 8-bit heading) override the start position.
+const q = new URLSearchParams(location.search);
+const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
+const chapterStart = loadChapterStart(archive, 1);
+const startZone = num('zone', chapterStart.zone);
+const zoneHost = await ZoneHost.create(scene, archive, startZone);
+const [firstTileX, firstTileY] = zoneHost.current.data.tiles[0] ?? [0, 0];
+const start =
+  startZone === chapterStart.zone
+    ? chapterStart
+    : { ...chapterStart, zone: startZone, x: (firstTileX + 0.5) * TILE_SIZE, y: (firstTileY + 0.5) * TILE_SIZE };
 
 // Game clock: the world state starts at the chapter's CHAP time; [ and ] step it by 30 minutes.
 const startup = await fetch('/bak/STARTUP.GAM');
@@ -57,9 +68,6 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Party controller drives the camera; F toggles the debug fly camera.
-// Debug: ?x=&y=&h= (BaK units, 8-bit heading) overrides the chapter start position.
-const q = new URLSearchParams(location.search);
-const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
 const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading), zoneHost.getHeight);
 party.polygons = zoneHost.current.scene.collision;
 const partyKeys = new PartyKeyboard();

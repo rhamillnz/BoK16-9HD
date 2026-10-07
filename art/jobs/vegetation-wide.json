@@ -1,0 +1,4 @@
+[
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Fern_1.gltf", "out": "public/models/nature/fern.glb", "height": 3.36, "width": 4.69 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Plant_7_Big.gltf", "out": "public/models/nature/bush4.glb", "height": 2.11, "width": 3.44 }
+]

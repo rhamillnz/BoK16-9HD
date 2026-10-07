@@ -9,7 +9,22 @@
     "tree2a": { "file": "nature/tree2a.glb" },
     "tree3": { "file": "nature/tree3.glb" },
     "tree3a": { "file": "nature/tree3a.glb" },
+    "tree4": { "file": "nature/tree4.glb" },
     "tree4a": { "file": "nature/tree4a.glb" },
-    "tree5a": { "file": "nature/tree5a.glb" }
+    "tree5": { "file": "nature/tree5.glb" },
+    "tree5a": { "file": "nature/tree5a.glb" },
+    "tree6": { "file": "nature/tree6.glb" },
+    "tree6a": { "file": "nature/tree6a.glb" },
+    "tree7": { "file": "nature/tree7.glb" },
+    "tree7a": { "file": "nature/tree7a.glb" },
+    "tree8": { "file": "nature/tree8.glb" },
+    "tree8a": { "file": "nature/tree8a.glb" },
+    "tree9": { "file": "nature/tree9.glb" },
+    "tree9a": { "file": "nature/tree9a.glb" },
+    "grove": { "file": "nature/grove.glb" },
+    "fern": { "file": "nature/fern.glb" },
+    "bush1": { "file": "nature/bush1.glb" },
+    "bush2": { "file": "nature/bush2.glb" },
+    "bush4": { "file": "nature/bush4.glb" }
   }
 }

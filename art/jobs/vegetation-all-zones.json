@@ -1,0 +1,17 @@
+[
+  { "src": "art/incoming/stylized-nature-megakit/glTF/CommonTree_4.gltf", "out": "public/models/nature/tree4.glb", "height": 16.08 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/CommonTree_5.gltf", "out": "public/models/nature/tree5.glb", "height": 16.08 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/CommonTree_3.gltf", "out": "public/models/nature/tree6.glb", "height": 16.08 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/CommonTree_4.gltf", "out": "public/models/nature/tree6a.glb", "height": 11.31 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/DeadTree_1.gltf", "out": "public/models/nature/tree7.glb", "height": 16.08, "preview": "shots/fit-tree7.png" },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/DeadTree_2.gltf", "out": "public/models/nature/tree7a.glb", "height": 9.42 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Pine_1.gltf", "out": "public/models/nature/tree8.glb", "height": 16.08 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Pine_4.gltf", "out": "public/models/nature/tree8a.glb", "height": 11.75 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/TwistedTree_3.gltf", "out": "public/models/nature/tree9.glb", "height": 14.63, "preview": "shots/fit-tree9.png" },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/TwistedTree_4.gltf", "out": "public/models/nature/tree9a.glb", "height": 10.57 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/TwistedTree_5.gltf", "out": "public/models/nature/grove.glb", "height": 31.15, "preview": "shots/fit-grove.png" },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Fern_1.gltf", "out": "public/models/nature/fern.glb", "height": 3.36 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Bush_Common.gltf", "out": "public/models/nature/bush1.glb", "height": 2.3 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Bush_Common_Flowers.gltf", "out": "public/models/nature/bush2.glb", "height": 2.68 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Plant_7_Big.gltf", "out": "public/models/nature/bush4.glb", "height": 2.11 }
+]

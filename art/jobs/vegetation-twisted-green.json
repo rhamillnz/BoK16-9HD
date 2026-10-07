@@ -1,0 +1,5 @@
+[
+  { "src": "art/incoming/stylized-nature-megakit/glTF/TwistedTree_3.gltf", "out": "public/models/nature/tree9.glb", "height": 14.63, "textures": { "Leaves_TwistedTree_C.png": "art/derived/Leaves_TwistedTree_Green.png" } },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/TwistedTree_4.gltf", "out": "public/models/nature/tree9a.glb", "height": 10.57, "textures": { "Leaves_TwistedTree_C.png": "art/derived/Leaves_TwistedTree_Green.png" } },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/TwistedTree_5.gltf", "out": "public/models/nature/grove.glb", "height": 31.15, "textures": { "Leaves_TwistedTree_C.png": "art/derived/Leaves_TwistedTree_Green.png" }, "preview": "shots/fit-grove-green.png" }
+]
