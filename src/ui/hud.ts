@@ -16,9 +16,11 @@ import {
   type DialogState,
 } from './dialogBox';
 import { buildPartyBar, drawPartyBar, layoutPartyBar, type PartyBarLayout, type PartyBarMember, type PortraitSet } from './partyBar';
+import type { ZoneMap } from '../formats/zoneMap';
+import { drawCompass, drawMap, layoutCompass, layoutMap, type CompassLayout, type MapLayout, type PartyPose } from './mapScreen';
 import { defaultLayoutOptions, drawInventory, initialInventoryState, layoutInventory, stepInventory, type InventoryLayout, type InventoryState } from './inventory';
 
-export type HudScreen = 'none' | 'inventory' | 'sheet' | 'dialog';
+export type HudScreen = 'none' | 'inventory' | 'sheet' | 'dialog' | 'map';
 
 export interface HudData {
   font: Font;
@@ -43,6 +45,9 @@ export class HudScreens {
   private inventory: { layout: InventoryLayout; state: InventoryState } | undefined;
   private sheet: { layout: SheetLayout; models: SheetModel[]; state: SheetState } | undefined;
   private dialog: { layout: DialogLayout; state: DialogState; done: (r: DialogResult) => void } | undefined;
+  private map: { layout: MapLayout; zone: number } | undefined;
+  private pose: PartyPose = { x: 0, y: 0, heading: 0 };
+  private readonly compass: CompassLayout;
   /** Set whenever the picture changed since the last `draw`. */
   dirty = true;
   private partyBar: { layout: PartyBarLayout; members: PartyBarMember[] };
@@ -52,6 +57,7 @@ export class HudScreens {
     readonly width = HUD_WIDTH,
     readonly height = HUD_HEIGHT,
   ) {
+    this.compass = layoutCompass(width, height);
     this.party = partyCharacters(data.save);
     const members = buildPartyBar(data.save);
     this.partyBar = { members, layout: layoutPartyBar(data.font, members.length, { canvasWidth: width, canvasHeight: height }) };
@@ -68,14 +74,29 @@ export class HudScreens {
     this.dirty = true;
   }
 
+  /** The party moved or turned: redraws the compass (and the map arrow) when the heading or map position changed. */
+  setPose(pose: PartyPose): void {
+    const old = this.pose;
+    this.pose = pose;
+    if (Math.floor(pose.heading) !== Math.floor(old.heading) || (this.screen === 'map' && (pose.x !== old.x || pose.y !== old.y))) this.dirty = true;
+  }
+
+  /** Set the zone's map (ZxxMAP.DAT); Tab opens it. */
+  setMap(map: ZoneMap, zone: number): void {
+    this.map = { layout: layoutMap(map, this.width, this.height), zone };
+    this.dirty = true;
+  }
+
   /** True while a screen is open; the party controller must ignore movement then. */
   get blocking(): boolean {
     return this.screen !== 'none';
   }
 
-  open(screen: 'inventory' | 'sheet'): void {
+  open(screen: 'inventory' | 'sheet' | 'map'): void {
     this.closeDialog({ kind: 'cancel' });
-    if (screen === 'inventory') {
+    if (screen === 'map') {
+      if (!this.map) return;
+    } else if (screen === 'inventory') {
       const layout = layoutInventory(defaultLayoutOptions(this.party.length, 16, this.width, this.height));
       this.inventory = { layout, state: initialInventoryState() };
     } else {
@@ -123,6 +144,11 @@ export class HudScreens {
       else this.open('sheet');
       return true;
     }
+    if (code === 'Tab' && this.screen !== 'dialog') {
+      if (this.screen === 'map') this.close();
+      else if (this.map) this.open('map');
+      return true;
+    }
     if (this.screen === 'none') return false;
     if (code === 'Escape') {
       this.close();
@@ -167,8 +193,11 @@ export class HudScreens {
       drawCharacterSheet(ctx, font, layout, models[state.tab] ?? models[0]!, state);
     } else if (this.screen === 'dialog' && this.dialog) {
       drawDialog(ctx, font, this.dialog.layout, this.dialog.state);
+    } else if (this.screen === 'map' && this.map) {
+      drawMap(ctx, font, this.map.layout, this.pose, this.map.zone);
     } else if (this.screen === 'none') {
       drawPartyBar(ctx, font, this.partyBar.layout, this.partyBar.members, this.data.portraits);
+      drawCompass(ctx, font, this.compass, this.pose.heading);
     }
   }
 }

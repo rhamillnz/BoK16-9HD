@@ -19,6 +19,7 @@ import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
 import { portraitCanvases } from '../ui/partyBar';
 import { loadChapterStart } from '../world/zone';
+import { loadZoneMap } from '../formats/zoneMap';
 import { ZoneHost } from './zoneHost';
 import { partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
@@ -87,6 +88,8 @@ const screens = mountHud(document.body, {
   portraits: portraitCanvases(parseBMX(archive.get('HEADS.BMX')), parsePalette(archive.get('OPTIONS.PAL'))),
 });
 
+screens.setMap(loadZoneMap(archive, start.zone, zoneHost.current.data.tiles), start.zone); // Tab: map screen + compass
+
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
 const music = createBrowserMusicPlayer({ volume: 0.7 });
 void music.play(num('song', songForZone(start.zone))).catch((err) => console.warn('Music unavailable:', err));
@@ -143,6 +146,7 @@ async function travelTo(d: Destination): Promise<void> {
     if (plan.reload) {
       const next = await zoneHost.switchTo(plan.zone);
       party.polygons = next.scene.collision;
+      screens.setMap(loadZoneMap(archive, plan.zone, next.data.tiles), plan.zone);
       encounters = await makeEncounters(plan.zone, next.data.tiles, clock.state);
       void music.play(songForZone(plan.zone)).catch((err) => console.warn('Music unavailable:', err));
     }
@@ -181,6 +185,7 @@ renderer.setAnimationLoop(() => {
       if (clock.walk(dt)) sky.update(clock.minutes);
     }
     party.applyToCamera(camera);
+    screens.setPose({ x: party.x, y: party.y, heading: party.heading });
     if (!screens.blocking && !encounters.busy && !travelling) {
       // The clock owns the shared world state: hand it over for the check, take back the flags it set.
       encounters.runner.setWorld(clock.state);
