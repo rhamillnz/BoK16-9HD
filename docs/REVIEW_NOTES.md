@@ -38,3 +38,9 @@
 - Mapping (my guess, tell me if you want others): dbody1 male peasant, dbody2 male ranger with hood, rogebody female ranger with hood, morhbody female peasant with long hair. Variety via mirror/yaw only (one death pose exists).
 - Screenshots `shots/local/6/after-close.png`, `after-dbody2.png`, `after-dbody1.png`, 60 fps. Preview renders `shots/body-*.png`.
 - Limitations: `deadbug` (zone 9 monster) not done; all corpses lie face down in the same pose; morhbody is not visibly a Moredhel (no elf ears/dark skin in the kit); bodies are lit like props (no ground shadow tweak). Files are the largest assets in `public/` so far.
+
+## Bodies, clothing pass (follow-up to item 6)
+- `build_bodies.py` gained per-part `tints` (keeps the outfit texture's light/dark pattern, replaces its colour, one copy per part), bypasses the rangers' painted vertex-colour multiply (it made them black), deletes base-character skin under the clothes (decimation let it poke through), drops skin weights and spare UV sets, textures 256 px.
+- Matched to the original sprites (`art/reference/Z01/slots-4x/16.png` etc.): dbody2 and morhbody = purple hooded cloak, grey legs, brown boots (Moredhel; morhbody mirrored/yawed); dbody1 = green tunic, red-brown legs; rogebody = brown hooded leathers.
+- Sizes: dbody1 283 KB, others ~384 KB (were 0.4-1.2 MB). Screenshot `shots/local/9/start-body.png` (chapter 1 start body, zone 1). 57-58 fps there, but the 371k tris come from the new hill detail, not the bodies (6k tris each).
+- Known: no Moredhel ears or skin tone; the cloak is a tinted ranger body, so it keeps ranger straps.
