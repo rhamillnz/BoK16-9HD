@@ -72,6 +72,8 @@ import { installMainMenu } from './mainMenuControls';
 import { ensureGameData } from '../ui/dataPicker';
 import { GameDataError, installBootScreen } from '../ui/bootScreen';
 import { installInput } from './inputControls';
+import { loadZone } from '../world/zone';
+import type { JumpMapScreen } from '../ui/jumpMapScreen';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
@@ -176,6 +178,16 @@ screens.setMap(
   start.zone,
   overheadPolygons(zoneHost.current.data),
 ); // Tab: map screen + compass
+
+// Jump map screen (F7): debug tool to teleport to any zone/tile
+const jumpMapScreen = screens.screenHandler<JumpMapScreen>('jumpmap');
+jumpMapScreen.setCallbacks(
+  async (zone: number) => {
+    const zoneData = loadZone(archive, zone);
+    return { map: loadZoneMap(archive, zone, zoneData.tiles), tiles: zoneData.tiles };
+  },
+  (d: Destination) => void travelTo(d),
+);
 
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
 const music = createBrowserMusicPlayer({ volume: 0.7 });
