@@ -24,3 +24,17 @@
 - Roadside stones: `roadStones.ts` (seeded, per road-edge cell), 4 models `scatter_stone1-4.glb` from Quaternius RockPath pieces (`art/jobs/scatter-stones.json`), added in `zoneHost.ts` as 32-unit chunks distance-culled at 60 units (`perf.ts` chunk info gained optional `far`).
 - Also: hill rock colour darkened a touch, hill rocks sink deeper (floating look). Tests: `roadStones.test.ts`, verge case in `grassMath.test.ts`.
 - Screenshots `shots/local/4/after-*.png`, 60 fps. Not done: road-edge blend band in roadMaterial (Opus).
+
+## Item 5: props
+- New `tools/blender/build_props.py` + `art/jobs/props-outdoor.json`: builds fitted-to-box GLBs from Medieval Village/Nature kit pieces plus a few primitives (fence = 5 kit panels, chest/box = kit crate, well = brick ring + beams + roof, rockpile/rockslab = nature rocks, fireold = stone ring with logs, dirtpile and stump = flat-coloured primitives).
+- New `public/models/props/*.glb` (chest also used for `chest_nl` and `box`), manifest entries. No code changes: the existing override path handles both mesh and sprite models.
+- Screenshots `shots/local/5/*.png` (chest-close, fire-close, after-well, after-fence), 60 fps.
+- Limitations: well is 7.5k polys (5 per zone, fine); stump/dirtpile are plain colours (no texture); chest and fence sit on the ground rather than half-buried like the originals; not yet checked in zones 3-12; the whole list of props still missing is under Questions for Reuben.
+- Noticed, not touched (out of my file scope): hill-scatter bushes look black at distance (no ambient on their glb material).
+
+## Item 6: bodies
+- New `tools/blender/build_bodies.py` + `art/jobs/bodies.json`: imports a Modular Outfit (+ hood), the Universal Base Character (head/hands), hair and eyebrows, binds the Death01 action (last frame) from the Universal Animation Library to every armature (they share one 65-bone rig; Blender 5 needs the action slot set), bakes the pose, lays it along X, fits `length`, decimates to ~0.2, keeps base-colour textures only, exports static GLB.
+- New `public/models/props/{dbody1,dbody2,rogebody,morhbody}.glb` (6-9k tris, 0.4-1.2 MB each) and manifest entries; `CREDITS.md` gained the three Quaternius packs.
+- Mapping (my guess, tell me if you want others): dbody1 male peasant, dbody2 male ranger with hood, rogebody female ranger with hood, morhbody female peasant with long hair. Variety via mirror/yaw only (one death pose exists).
+- Screenshots `shots/local/6/after-close.png`, `after-dbody2.png`, `after-dbody1.png`, 60 fps. Preview renders `shots/body-*.png`.
+- Limitations: `deadbug` (zone 9 monster) not done; all corpses lie face down in the same pose; morhbody is not visibly a Moredhel (no elf ears/dark skin in the kit); bodies are lit like props (no ground shadow tweak). Files are the largest assets in `public/` so far.

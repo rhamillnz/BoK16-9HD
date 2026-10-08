@@ -1,0 +1,6 @@
+[
+  { "name": "dbody2", "out": "public/models/props/dbody2.glb", "outfit": "Male_Ranger", "extras": ["Male_Ranger_Head_Hood"], "base": "Superhero_Male_FullBody", "length": 3.91, "preview": "shots/body-dbody2.png" },
+  { "name": "dbody1", "out": "public/models/props/dbody1.glb", "outfit": "Male_Peasant", "base": "Superhero_Male_FullBody", "hair": "Hair_SimpleParted", "eyebrows": "Eyebrows_Regular", "length": 3.83, "mirror": true, "yaw": 8, "preview": "shots/body-dbody1.png" },
+  { "name": "rogebody", "out": "public/models/props/rogebody.glb", "outfit": "Female_Ranger", "extras": ["Female_Ranger_Head_Hood"], "base": "Superhero_Female_FullBody", "length": 3.13, "yaw": -6, "preview": "shots/body-rogebody.png" },
+  { "name": "morhbody", "out": "public/models/props/morhbody.glb", "outfit": "Female_Peasant", "base": "Superhero_Female_FullBody", "hair": "Hair_Long", "eyebrows": "Eyebrows_Female", "length": 3.13, "mirror": true, "preview": "shots/body-morhbody.png" }
+]

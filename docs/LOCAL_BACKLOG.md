@@ -86,17 +86,17 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
 4. **Partly done (verge grass + roadside stones); rest (cart-track road material, ruts) moved to Opus.** **Road verges**: soften road and path edges into the grass (e.g. grass clumps biased to road edges,
    or an edge-darkening/blend band in `src/render/roadMaterial.ts`), plus occasional RockPath
    stones from the nature kit along roads.
-5. **Props**: replace remaining sprite/flat props with kit models through the manifest: chests
+5. **DONE (partly, see Questions for Reuben)** **Props**: replace remaining sprite/flat props with kit models through the manifest: chests
    (`chest_nl`, `box`, `bag`), fences (`fence`), signs (`sign1-4`, `signpost`), wells, tents,
    campfires (`fireold`, `campfire`), stumps, dirt piles, gravestones (`tstone*`, `tmbstone`).
    Fantasy Props MegaKit isn't downloaded; use Medieval Village props (crates, fences, wagon) and
    nature-kit rocks, and list what's missing for Reuben.
-6. **Bodies** (`dbody1`, `dbody2`, `rogebody`, `morhbody`, ...): posed lying figures built from
+6. **DONE (deadbug not covered)** **Bodies** (`dbody1`, `dbody2`, `rogebody`, `morhbody`, ...): posed lying figures built from
    Universal Base Characters + Modular Character Outfits in Blender (a death pose from the
    Universal Animation Library), fitted to the original sprite footprint.
 7. **DONE by Opus (582 images in `art/reference/Z??/slots-4x`).** ~~Upscale every remaining original sprite, item icon and portrait~~ with `tools/upscale`
    into `art/reference/Z??/slots-4x/` (gitignored); check a few in game.
-8. **Verify the cloud's `integration` branch** periodically: run it on port 5176, screenshot
+8. **DONE once (2026-10-08, see `docs/INTEGRATION_NOTES.md`); repeat periodically** **Verify the cloud's `integration` branch** periodically: run it on port 5176, screenshot
    the start, the village, a town scene, combat and the map, and write findings to
    `docs/INTEGRATION_NOTES.md` on `local-art`.
 

@@ -1,0 +1,10 @@
+[
+  { "name": "fence", "out": "public/models/props/fence.glb", "type": "fence", "box": [-5.1, 2.03, -0.1, 5.7, 2.33, 1.25], "preview": "shots/prop-fence.png" },
+  { "name": "chest", "out": "public/models/props/chest.glb", "type": "crate", "box": [-1.25, -0.95, -0.05, 1.25, 0.95, 1.22], "preview": "shots/prop-chest.png" },
+  { "name": "well", "out": "public/models/props/well.glb", "type": "well", "box": [-3.15, -2.5, 0, 3.15, 2.5, 5.09], "preview": "shots/prop-well.png" },
+  { "name": "rockpile", "out": "public/models/props/rockpile.glb", "type": "rocks", "box": [-1.55, -0.8, 0, 1.55, 0.8, 1.41], "preview": "shots/prop-rockpile.png" },
+  { "name": "rockslab", "out": "public/models/props/rockslab.glb", "type": "slab", "box": [-1.4, -0.9, 0, 1.4, 0.9, 3.75], "preview": "shots/prop-rockslab.png" },
+  { "name": "fireold", "out": "public/models/props/fireold.glb", "type": "firepit", "box": [-1.75, -1.75, 0, 1.75, 1.75, 0.5], "preview": "shots/prop-fireold.png" },
+  { "name": "dirtpile", "out": "public/models/props/dirtpile.glb", "type": "dirtpile", "box": [-1.7, -0.9, 0, 1.85, 0.9, 1.17], "preview": "shots/prop-dirtpile.png" },
+  { "name": "stump", "out": "public/models/props/stump.glb", "type": "stump", "box": [-1.85, -1.85, 0, 1.85, 1.85, 1.6], "preview": "shots/prop-stump.png" }
+]
