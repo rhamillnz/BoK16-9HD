@@ -29,11 +29,11 @@ export interface HillDetailOptions {
 
 export const DEFAULT_HILL_DETAIL: HillDetailOptions = {
   targetEdge: 2,
-  targetFraction: 1 / 10,
+  targetFraction: 1 / 14,
   maxLevel: 6,
   curvature: 0.65,
-  maxAmplitude: 1.6,
-  amplitudeRatio: 0.07,
+  maxAmplitude: 7,
+  amplitudeRatio: 0.22,
   frequency: 0.05,
   baseFade: 3,
 };
@@ -86,21 +86,34 @@ export function valueNoise3(x: number, y: number, z: number): number {
   return lerp(lerp(x00, x10, v), lerp(x01, x11, v), w) * 2 - 1;
 }
 
-/** Hill relief in about [-1, 1]: rolling fractal noise plus sharper ridges. */
+/**
+ * Hill relief in about [-1, 1]: rolling fractal noise, sharp ridged crags and rock ledges
+ * (soft terraces, broken up by noise so they never line up into contour lines).
+ */
 export function hillRelief(x: number, y: number, z: number, freq: number): number {
   let sum = 0,
     amp = 0.5,
     f = freq,
     norm = 0;
-  for (let o = 0; o < 4; o++) {
+  for (let o = 0; o < 5; o++) {
     sum += valueNoise3(x * f + o * 17.3, y * f, z * f - o * 9.1) * amp;
     norm += amp;
     amp *= 0.5;
     f *= 2.07;
   }
   const rolling = sum / norm;
-  const ridge = 1 - Math.abs(valueNoise3(x * freq * 1.6 + 31.7, y * freq * 1.6, z * freq * 1.6 + 5.2));
-  return rolling * 0.65 + (ridge * ridge - 0.45) * 0.7;
+  // Ridged multifractal: thin, sharp crests where the noise crosses zero.
+  const r1 = 1 - Math.abs(valueNoise3(x * freq * 1.6 + 31.7, y * freq * 1.6, z * freq * 1.6 + 5.2));
+  const r2 = 1 - Math.abs(valueNoise3(x * freq * 3.9 - 8.4, y * freq * 3.9 + 2.2, z * freq * 3.9));
+  const crags = r1 * r1 * r1 * (0.7 + 0.3 * r2 * r2);
+  // Ledges: the height snaps part way to steps about 1/freq/3 apart, with a wandering offset.
+  const step = 1 / (freq * 3);
+  const h = (y + valueNoise3(x * freq * 0.7, 3.1, z * freq * 0.7) * step) / step;
+  const frac = h - Math.floor(h);
+  const ledge = (frac * frac * (3 - 2 * frac) - frac) * 1.6;
+  // Broad shape: big shoulders, spurs and saddles, so no two hills share the same outline.
+  const broad = valueNoise3(x * freq * 0.35 + 50.3, y * freq * 0.35, z * freq * 0.35 - 21.7);
+  return broad * 0.9 + rolling * 0.45 + (crags - 0.3) * 0.8 + ledge * 0.3;
 }
 
 // ---- Tessellation ------------------------------------------------------------------------
