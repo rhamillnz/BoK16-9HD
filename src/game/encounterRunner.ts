@@ -172,6 +172,8 @@ export interface DialogEnv {
   skillValue?: (skill: number) => { value: number; character: number } | undefined;
   /** Party and context for `@N` text variables, read when a dialogue starts. Without it text is shown as written. */
   textContext?: () => TextVariableContext;
+  /** Play a PlaySound action as its snippet comes up, before its text shows. Without it sounds wait in `pendingActions`. */
+  playSound?: (sound: number) => void;
 }
 
 const GAME_STATE_CHAPTER = 0x7537;
@@ -400,6 +402,10 @@ export class DialogSession {
           break;
         case ActionType.SetTextVariable:
           this.textVars?.set(a.words[0]!, a.words[1]!);
+          break;
+        case ActionType.PlaySound:
+          if (this.env.playSound) this.env.playSound(a.words[0]!);
+          else this.pendingActions.push(a);
           break;
         case ActionType.LoadSkillValue: {
           const r = this.env.skillValue?.(a.words[1]!);

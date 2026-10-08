@@ -757,3 +757,27 @@ describe('DialogSession text variables', () => {
     expect(d.view?.snippet.text).toBe('@4 remarked');
   });
 });
+
+describe('dialogue sounds', () => {
+  const calling = store([
+    0,
+    [{ key: KEY | 1, text: 'Hey, you there!', actions: [{ type: ActionType.PlaySound, words: [42, 0] }] }],
+  ]);
+
+  it('plays a sound as its snippet comes up, before the text is read', () => {
+    const played: { sound: number; textShown: boolean }[] = [];
+    const s = new DialogSession(calling, world(), [], {
+      playSound: (sound) => played.push({ sound, textShown: s.view !== undefined }),
+    });
+    s.start(KEY | 1);
+    expect(played).toEqual([{ sound: 42, textShown: false }]);
+    expect(s.view?.snippet.text).toBe('Hey, you there!');
+    expect(s.pendingActions.some((a) => a.type === ActionType.PlaySound)).toBe(false);
+  });
+
+  it('keeps sounds for the end when nothing can play them', () => {
+    const s = new DialogSession(calling, world());
+    s.start(KEY | 1);
+    expect(s.pendingActions.map((a) => a.type)).toEqual([ActionType.PlaySound]);
+  });
+});
