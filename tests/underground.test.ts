@@ -27,7 +27,7 @@ describe('underground zones', () => {
     const fog = scene.fog as THREE.Fog;
     const dome = scene.children.find((o): o is THREE.Mesh => o instanceof THREE.Mesh)!;
     sky.update(12 * 60);
-    expect(torch.visible).toBe(false);
+    expect(torch.intensity).toBe(0);
 
     sky.setUnderground(true);
     sky.update(12 * 60); // the clock keeps ticking below ground; it must not relight the sun
@@ -36,13 +36,13 @@ describe('underground zones', () => {
     expect(key.intensity).toBe(0);
     expect(key.castShadow).toBe(false);
     expect([fog.near, fog.far]).toEqual([MINE_LOOK.fogNear, MINE_LOOK.fogFar]);
-    expect(torch.visible).toBe(true);
+    expect(torch.visible).toBe(true); // always registered: the light count never changes
     expect(torch.position.toArray()).toEqual([5, 1, -7]);
     expect(torch.intensity).toBeGreaterThan(0);
 
     sky.setUnderground(false);
     expect(dome.visible).toBe(true);
-    expect(torch.visible).toBe(false);
+    expect(torch.intensity).toBe(0);
     expect([fog.near, fog.far]).toEqual([FOG_NEAR, FOG_FAR]);
     expect(key.intensity).toBeGreaterThan(2);
     expect(key.castShadow).toBe(true);
@@ -79,7 +79,7 @@ describe('underground zones', () => {
     expect(torch.intensity).toBe(0);
     sky.update(0);
     sky.setMagicLight(false);
-    expect(torch.visible).toBe(false);
+    expect(torch.intensity).toBe(0);
     expect(outdoorMagicStrength(1)).toBe(0);
     expect(outdoorMagicStrength(0)).toBe(1);
   });

@@ -79,10 +79,11 @@ function cellsToRuns(cells: Cell[]): StyledRun[] {
 const text = (cells: Cell[]) => cells.map((c) => c.ch).join('');
 
 /** Greedy word-wrap of one styled paragraph. '\n' inside a run forces a line break. Over-long words are broken per character. */
-export function wrapStyled(font: Font, paragraph: StyledParagraph, maxWidth: number, spacing = 0): StyledRun[][] {
+export function wrapStyled(font: Font, paragraph: StyledParagraph, maxWidth: number | ((lineIndex: number) => number), spacing = 0): StyledRun[][] {
   const lines: Cell[][] = [];
   let line: Cell[] = [];
-  const fits = (cells: Cell[]) => measureString(font, text(cells), spacing) <= maxWidth;
+  const widthAt = typeof maxWidth === 'number' ? () => maxWidth : maxWidth;
+  const fits = (cells: Cell[]) => measureString(font, text(cells), spacing) <= widthAt(lines.length);
   const words: Cell[][] = [];
   let word: Cell[] = [];
   const endWord = () => {
