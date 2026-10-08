@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseFMapTowns, parseFMapXY, generateZoneNames, shortenZoneName } from './fullMap';
+import { fitText, generateZoneNames, parseFMapTowns, parseFMapXY, zoneButtonLines } from './fullMap';
 
 // Helper functions for building test data
 const u16 = (n: number) => [n & 0xff, (n >> 8) & 0xff];
@@ -125,18 +125,17 @@ describe('generateZoneNames', () => {
   });
 });
 
-describe('shortenZoneName', () => {
-  it('returns short names unchanged', () => {
-    expect(shortenZoneName('Krondor')).toBe('Krondor');
+describe('zone buttons', () => {
+  it('names a zone by its first town and says which zone it is', () => {
+    expect(zoneButtonLines(1, "Loriel / Hawk's Hollow")).toEqual(['Loriel', 'Zone 1']);
+    expect(zoneButtonLines(9, 'Timirianya')).toEqual(['Timirianya', 'Zone 9']);
   });
-
-  it('uses first town for multi-town names', () => {
-    const result = shortenZoneName('Krondor / Sar-Sargoth');
-    expect(result).toBe('Krondor');
+  it('labels the underground zones as mines', () => {
+    expect(zoneButtonLines(11, 'Sarth / Krondor mines')).toEqual(['Mines', 'Mine 2']);
   });
-
-  it('truncates long names with ellipsis', () => {
-    const result = shortenZoneName('VeryLongTownNameThatDoesNotFit');
-    expect(result).toContain('…');
+  it('fits text by measured width with a full stop', () => {
+    const measure = (s: string) => s.length * 10;
+    expect(fitText('Loriel', 100, measure)).toBe('Loriel');
+    expect(fitText('Highcastle', 60, measure)).toBe('Highc.');
   });
 });

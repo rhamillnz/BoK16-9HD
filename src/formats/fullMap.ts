@@ -86,6 +86,9 @@ function readNullTerminatedString(r: Reader): string {
  * Name the zone after the most central town(s).
  * Zones 10-12 are underground mines: label with " mines" or "Mine 1/2/3" if no town.
  */
+/** Zone 9 has no full-map tiles: it is Timirianya, which the original full map does not show. */
+export const TIMIRIANYA_ZONE = 9;
+
 export function generateZoneNames(towns: Town[], zones: ZoneTiles[]): string[] {
   const names: string[] = [];
 
@@ -94,6 +97,9 @@ export function generateZoneNames(towns: Town[], zones: ZoneTiles[]): string[] {
     if (zone.tiles.length === 0) {
       if (zone.zone >= 10) {
         names.push(`Mine ${zone.zone - 9}`);
+      } else if (zone.zone === TIMIRIANYA_ZONE) {
+        // The original full map leaves out Timirianya, so FMAP_XY has no tiles for it.
+        names.push('Timirianya');
       } else {
         names.push(`Zone ${zone.zone}`);
       }
@@ -138,6 +144,9 @@ export function generateZoneNames(towns: Town[], zones: ZoneTiles[]): string[] {
     if (zoneName.length === 0) {
       if (zone.zone >= 10) {
         names.push(`Mine ${zone.zone - 9}`);
+      } else if (zone.zone === TIMIRIANYA_ZONE) {
+        // The original full map leaves out Timirianya, so FMAP_XY has no tiles for it.
+        names.push('Timirianya');
       } else {
         names.push(`Zone ${zone.zone}`);
       }
@@ -153,21 +162,21 @@ export function generateZoneNames(towns: Town[], zones: ZoneTiles[]): string[] {
 }
 
 /**
- * Shorten a zone name to fit in a button.
- * Returns the full name if short, otherwise truncates with "…".
- * For multi-town names, keeps just the first town.
+ * The two lines of a zone's button: the area (its first town; "Mines" for the mines) and which
+ * zone it is ("Zone 3", or "Mine 2" for zones 10-12), so zones sharing a town stay distinct.
  */
-export function shortenZoneName(name: string, maxWidth: number = 15): string {
-  // If it fits, return as-is
-  if (name.length <= maxWidth) return name;
+export function zoneButtonLines(zone: number, name: string): [string, string] {
+  const mine = zone >= 10;
+  const area = mine ? 'Mines' : (name.split(' / ')[0] ?? name);
+  return [area, mine ? `Mine ${zone - 9}` : `Zone ${zone}`];
+}
 
-  // For multi-town names, try using just the first town
-  const parts = name.split(' / ');
-  if (parts.length > 1) {
-    const firstName = parts[0]!;
-    if (firstName.length <= maxWidth) return firstName;
+/** `text`, cut short with a full stop (the game font has no ellipsis) until `measure(text)` fits in `maxWidth`. */
+export function fitText(text: string, maxWidth: number, measure: (s: string) => number): string {
+  if (measure(text) <= maxWidth) return text;
+  for (let n = text.length - 1; n > 0; n--) {
+    const cut = `${text.slice(0, n).trimEnd()}.`;
+    if (measure(cut) <= maxWidth) return cut;
   }
-
-  // Truncate with ellipsis
-  return name.substring(0, Math.max(1, maxWidth - 1)) + '…';
+  return '.';
 }

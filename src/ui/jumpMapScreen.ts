@@ -7,7 +7,7 @@ import { TILE_SIZE } from '../formats/world';
 import { type ZoneMap } from '../formats/zoneMap';
 import { type Destination } from '../game/transitions';
 import { type HudEvent, type HudHost, type HudScreenHandler } from './hudRegistry';
-import { shortenZoneName } from '../formats/fullMap';
+import { fitText, zoneButtonLines } from '../formats/fullMap';
 
 const ZONE_COUNT = 12;
 
@@ -22,7 +22,7 @@ export type ZoneNameLoader = () => Promise<string[]>;
 export function layoutZoneButtons(
   width: number,
   height: number,
-  buttonHeight: number = 16 * chooseScale(height),
+  buttonHeight: number = 26 * chooseScale(height),
 ): { x: number; y: number; width: number; height: number }[] {
   const scale = chooseScale(height);
   const topMargin = 6 * scale;
@@ -245,11 +245,12 @@ export class JumpMapScreen implements HudScreenHandler {
       ctx.strokeStyle = MAP_COLORS.border;
       ctx.lineWidth = scale;
       ctx.strokeRect(btn.x, btn.y, btn.width, btn.height);
-      const zoneButtonText = shortenZoneName(
-        s.zoneNames[i] || `Zone ${i + 1}`,
-        btn.width / (font.height * scale * 0.6),
-      );
-      label(zoneButtonText, btn.x + btn.width / 2, btn.y + (btn.height - font.height * scale) / 2, 'centre');
+      const [area, which] = zoneButtonLines(i + 1, s.zoneNames[i] || `Zone ${i + 1}`);
+      const fit = (t: string) => fitText(t, btn.width - 6 * scale, (x) => measureString(font, x) * scale);
+      const lineH = (font.height + 3) * scale;
+      const top = btn.y + (btn.height - 2 * lineH) / 2 + scale;
+      label(fit(area), btn.x + btn.width / 2, top, 'centre');
+      label(which, btn.x + btn.width / 2, top + lineH, 'centre');
     });
 
     const layout = s.layouts.get(s.selectedZone);
