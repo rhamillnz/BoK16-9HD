@@ -161,14 +161,14 @@ describe('casting in combat', () => {
     expect(castSpell(s, 7, { x: 4, y: 1 })).toBeUndefined();
     expect(castSpell(s, 99, { x: 3, y: 5 })).toBeUndefined();
   });
-  it('a casting kill gives casting experience', () => {
+  it('a cast gives casting experience', () => {
     const s = startBattle([
       fighter('party0', 'party', 3, 1, { spells: [FIRE], speed: 9 }),
       fighter('enemy1', 'enemy', 3, 5, { speed: 1, health: 3, maxHealth: 20, stamina: 0 }),
     ]);
     const done = castSpell(s, 7, { x: 3, y: 5 })!;
     const rewards = battleRewards(done.fighters, done.history, () => 0);
-    expect(rewards.experience.get('party0')).toMatchObject({ casting: 6 });
+    expect(rewards.experience.get('party0')).toMatchObject({ casting: 2 });
   });
 });
 

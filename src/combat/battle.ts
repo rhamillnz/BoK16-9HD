@@ -190,7 +190,7 @@ export function attack(s: BattleState, target: GridPos, roll: Roll, opts: Attack
   const hit = rollToHit(attacker, victim, kind, roll);
   let damage = 0;
   if (hit) {
-    damage = reduceDamage(meleeDamage(attacker, kind), victim, roll);
+    damage = reduceDamage(meleeDamage(attacker, kind, victim), victim, roll);
     Object.assign(victim, applyDamage(victim, damage));
   }
   const killed = isDead(victim);
@@ -232,7 +232,7 @@ export function castableSpells(s: BattleState, index = s.turn.current): SpellDef
   if (isDead(me)) return [];
   return (me.spells ?? []).filter((d) => {
     const kind = spellKind(d);
-    return (kind === 'damage' || kind === 'heal') && me.health + me.stamina > d.minCost;
+    return (kind === 'damage' || kind === 'heal') && me.health + me.stamina >= d.minCost;
   });
 }
 
