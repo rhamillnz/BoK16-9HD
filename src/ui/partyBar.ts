@@ -84,7 +84,12 @@ export interface PartyBarLayout {
 }
 
 export function defaultPartyBarOptions(canvasWidth = HUD_WIDTH, canvasHeight = HUD_HEIGHT): Required<PartyBarOptions> {
-  return { canvasWidth, canvasHeight, scale: Math.max(1, Math.floor(canvasHeight / 360)), portrait: { ...DEFAULT_PORTRAIT_SIZE } };
+  return {
+    canvasWidth,
+    canvasHeight,
+    scale: Math.max(1, Math.floor(canvasHeight / 360)),
+    portrait: { ...DEFAULT_PORTRAIT_SIZE },
+  };
 }
 
 /** Lay `count` slots out in a centred panel flush with the bottom edge of the canvas. */
@@ -170,7 +175,15 @@ export const DEFAULT_PARTY_BAR_COLORS: PartyBarColors = {
 /** Portraits by character index (HEADS.BMX order); a missing entry draws a plain slot. */
 export type PortraitSet = ReadonlyArray<CanvasImageSource | undefined>;
 
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+): void {
   ctx.fillStyle = css;
   let gx = x;
   for (let i = 0; i < text.length; i++) {
@@ -223,7 +236,13 @@ export function drawPartyBar(
       ctx.fillRect(p.x, p.y, p.width, p.height);
     }
     drawText(ctx, font, ellipsize(font, m.name, slot.nameWidth / s), slot.name.x, slot.name.y, s, colors.text);
-    drawBar(ctx, slot.healthBar, m.healthFraction, colors.barTrack, m.healthFraction < 0.25 ? colors.healthLow : colors.health);
+    drawBar(
+      ctx,
+      slot.healthBar,
+      m.healthFraction,
+      colors.barTrack,
+      m.healthFraction < 0.25 ? colors.healthLow : colors.health,
+    );
     drawBar(ctx, slot.staminaBar, m.staminaFraction, colors.barTrack, colors.stamina);
   }
   ctx.imageSmoothingEnabled = smoothing;

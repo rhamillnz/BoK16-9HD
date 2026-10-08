@@ -7,7 +7,11 @@ const party = { x: 123456, y: 98765 };
 describe('combat grid layout', () => {
   it('agrees with gridCellToWorld at cell centres for every quarter-turn heading', () => {
     for (const heading of [0, 64, 128, 192, 10, 100]) {
-      for (const cell of [{ x: 0, y: 0 }, { x: 7, y: 12 }, { x: 3, y: 5 }]) {
+      for (const cell of [
+        { x: 0, y: 0 },
+        { x: 7, y: 12 },
+        { x: 3, y: 5 },
+      ]) {
         const exact = gridCellToWorld(party, heading, cell);
         const p = gridPointToWorld(party, heading, cell.x + 0.5, cell.y + 0.5);
         expect(Math.abs(p.x - exact.x)).toBeLessThanOrEqual(2);

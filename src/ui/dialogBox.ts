@@ -1,6 +1,13 @@
 import type { DialogSnippet } from '../formats/ddx';
 import { glyphFor, measureString, type Font } from '../formats/fnt';
-import { PLAIN_STYLE, sameStyle, tokenizeText, type StyledParagraph, type StyledRun, type TextStyle } from '../formats/textCodes';
+import {
+  PLAIN_STYLE,
+  sameStyle,
+  tokenizeText,
+  type StyledParagraph,
+  type StyledRun,
+  type TextStyle,
+} from '../formats/textCodes';
 
 /** HUD canvas size (16:9). */
 export const HUD_WIDTH = 2560;
@@ -79,7 +86,12 @@ function cellsToRuns(cells: Cell[]): StyledRun[] {
 const text = (cells: Cell[]) => cells.map((c) => c.ch).join('');
 
 /** Greedy word-wrap of one styled paragraph. '\n' inside a run forces a line break. Over-long words are broken per character. */
-export function wrapStyled(font: Font, paragraph: StyledParagraph, maxWidth: number | ((lineIndex: number) => number), spacing = 0): StyledRun[][] {
+export function wrapStyled(
+  font: Font,
+  paragraph: StyledParagraph,
+  maxWidth: number | ((lineIndex: number) => number),
+  spacing = 0,
+): StyledRun[][] {
   const lines: Cell[][] = [];
   let line: Cell[] = [];
   const widthAt = typeof maxWidth === 'number' ? () => maxWidth : maxWidth;
@@ -127,7 +139,9 @@ export function wrapStyled(font: Font, paragraph: StyledParagraph, maxWidth: num
 
 /** Greedy word-wrap of one plain paragraph to `maxWidth` font pixels. */
 export function wrapParagraph(font: Font, text: string, maxWidth: number, spacing = 0): string[] {
-  return wrapStyled(font, [{ text, style: { ...PLAIN_STYLE } }], maxWidth, spacing).map((l) => l.map((r) => r.text).join(''));
+  return wrapStyled(font, [{ text, style: { ...PLAIN_STYLE } }], maxWidth, spacing).map((l) =>
+    l.map((r) => r.text).join(''),
+  );
 }
 
 /** A wrapped text line; `blankBefore` marks the first line of a paragraph other than the first. */
@@ -210,7 +224,12 @@ export function layoutDialog(
   const textArea: Rect = { x: box.x + padding, y: box.y + padding, width: innerW, height: innerH };
 
   const isQuery = (snippet.displayStyle3 & 0x2) !== 0;
-  const columns = choiceLabels.length === 0 ? 0 : isQuery ? choiceLabels.length : choiceColumns(font, choiceLabels, maxWidth, spacing);
+  const columns =
+    choiceLabels.length === 0
+      ? 0
+      : isQuery
+        ? choiceLabels.length
+        : choiceColumns(font, choiceLabels, maxWidth, spacing);
   const choiceRows = columns === 0 ? 0 : Math.ceil(choiceLabels.length / columns);
   const totalRows = Math.max(1, Math.floor(innerH / rowH));
   // Keep at least two text rows even when many choices; choices only appear on the last page.
@@ -226,7 +245,11 @@ export function layoutDialog(
     choiceLabels.forEach((label, index) => {
       const col = index % columns;
       const row = Math.floor(index / columns);
-      choices.push({ index, label, rect: { x: textArea.x + col * colW, y: top + row * rowH, width: colW, height: rowH } });
+      choices.push({
+        index,
+        label,
+        rect: { x: textArea.x + col * colW, y: top + row * rowH, width: colW, height: rowH },
+      });
     });
   }
   return { box, scale, rowsPerPage, pages, textArea, choices };
@@ -239,9 +262,7 @@ export function choiceColumns(font: Font, labels: string[], maxWidth: number, sp
 }
 
 export type DialogEvent =
-  | { type: 'key'; key: string }
-  | { type: 'click'; x: number; y: number }
-  | { type: 'hover'; x: number; y: number };
+  { type: 'key'; key: string } | { type: 'click'; x: number; y: number } | { type: 'hover'; x: number; y: number };
 
 export interface DialogState {
   page: number;
@@ -250,7 +271,8 @@ export interface DialogState {
 }
 
 /** `cancel`: the dialogue was closed from outside (Esc, another screen) rather than answered. */
-export type DialogResult = { kind: 'none' } | { kind: 'choose'; index: number } | { kind: 'finish' } | { kind: 'cancel' };
+export type DialogResult =
+  { kind: 'none' } | { kind: 'choose'; index: number } | { kind: 'finish' } | { kind: 'cancel' };
 
 export function initialState(layout: DialogLayout): DialogState {
   return { page: 0, selected: layout.choices.length > 0 ? 0 : -1 };
@@ -271,13 +293,18 @@ export function choicesActive(layout: DialogLayout, state: DialogState): boolean
  * choice-less snippet. Arrows / WASD move the selection (grid-aware). Digits 1-9 pick a choice
  * directly. Clicks pick a choice or advance; hover moves the selection.
  */
-export function step(layout: DialogLayout, state: DialogState, ev: DialogEvent): { state: DialogState; result: DialogResult } {
+export function step(
+  layout: DialogLayout,
+  state: DialogState,
+  ev: DialogEvent,
+): { state: DialogState; result: DialogResult } {
   const last = layout.pages.length - 1;
   const active = choicesActive(layout, state);
   const none: DialogResult = { kind: 'none' };
   const advance = (): { state: DialogState; result: DialogResult } => {
     if (state.page < last) return { state: { ...state, page: state.page + 1 }, result: none };
-    if (layout.choices.length > 0) return { state, result: state.selected >= 0 ? { kind: 'choose', index: state.selected } : none };
+    if (layout.choices.length > 0)
+      return { state, result: state.selected >= 0 ? { kind: 'choose', index: state.selected } : none };
     return { state, result: { kind: 'finish' } };
   };
 
@@ -372,7 +399,13 @@ export function runColor(style: TextStyle, colors: DialogColors): string {
  * Rasterise `text` into an RGBA buffer at an integer `scale` (nearest-neighbour). Pure: returns
  * the pixels so it can be tested without a canvas. `color` is [r,g,b,a].
  */
-export function rasterizeText(font: Font, text: string, scale: number, color: [number, number, number, number], spacing = 0) {
+export function rasterizeText(
+  font: Font,
+  text: string,
+  scale: number,
+  color: [number, number, number, number],
+  spacing = 0,
+) {
   const width = Math.max(1, measureString(font, text, spacing)) * scale;
   const height = font.height * scale;
   const data = new Uint8ClampedArray(width * height * 4);
@@ -384,7 +417,7 @@ export function rasterizeText(font: Font, text: string, scale: number, color: [n
         if (g.pixels[gy * g.width + gx] === 0) continue;
         for (let sy = 0; sy < scale; sy++) {
           for (let sx = 0; sx < scale; sx++) {
-            const o = (((gy * scale + sy) * width) + (x + gx) * scale + sx) * 4;
+            const o = ((gy * scale + sy) * width + (x + gx) * scale + sx) * 4;
             data[o] = color[0];
             data[o + 1] = color[1];
             data[o + 2] = color[2];
@@ -399,7 +432,16 @@ export function rasterizeText(font: Font, text: string, scale: number, color: [n
 }
 
 /** Draw glyph pixels with fillRect (horizontal runs) so unset pixels stay transparent; putImageData would overwrite the box background with them. */
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string, spacing: number) {
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+  spacing: number,
+) {
   if (text === '') return;
   ctx.fillStyle = css;
   let gx = x;
@@ -456,10 +498,28 @@ export function drawDialog(
   if (choicesActive(layout, state)) {
     for (const c of layout.choices) {
       const sel = c.index === state.selected;
-      drawText(ctx, font, `${sel ? '>' : ' '} ${c.label}`, c.rect.x, c.rect.y, scale, sel ? colors.selected : colors.choice, spacing);
+      drawText(
+        ctx,
+        font,
+        `${sel ? '>' : ' '} ${c.label}`,
+        c.rect.x,
+        c.rect.y,
+        scale,
+        sel ? colors.selected : colors.choice,
+        spacing,
+      );
     }
   } else if (state.page < layout.pages.length - 1) {
-    drawText(ctx, font, '...', box.x + box.width - 16 * scale - padding(layout), box.y + box.height - rowH - scale, scale, colors.more, spacing);
+    drawText(
+      ctx,
+      font,
+      '...',
+      box.x + box.width - 16 * scale - padding(layout),
+      box.y + box.height - rowH - scale,
+      scale,
+      colors.more,
+      spacing,
+    );
   }
 }
 

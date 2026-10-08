@@ -20,9 +20,23 @@ const SLEEP_DAMAGE = [2, 1, 2, 2, 2, 3];
  * is still above zero]. Sick, Plagued and Poisoned worsen and drain; Drunk and Healing fade.
  */
 const CONDITION_EFFECT: readonly (readonly [number, number])[] = [
-  [1, -1], [1, -2], [1, -3], [-2, 0], [-3, 1], [0, -2], [0, 0],
+  [1, -1],
+  [1, -2],
+  [1, -3],
+  [-2, 0],
+  [-3, 1],
+  [0, -2],
+  [0, 0],
 ];
-const CONDITION_NAMES_ORDER: readonly ConditionName[] = ['sick', 'plagued', 'poisoned', 'drunk', 'healing', 'starving', 'nearDeath'];
+const CONDITION_NAMES_ORDER: readonly ConditionName[] = [
+  'sick',
+  'plagued',
+  'poisoned',
+  'drunk',
+  'healing',
+  'starving',
+  'nearDeath',
+];
 
 /** Health and stamina are one pool for healing: health fills first, stamina holds the rest. */
 export const healthPool = (c: Character): number => c.skills.health.trueSkill + c.skills.stamina.trueSkill;
@@ -97,7 +111,8 @@ function takeOne(c: Character, itemIndex: number, rule: ItemRule | undefined): C
   if (at < 0) return undefined;
   const it = c.inventory.items[at]!;
   const items = c.inventory.items.slice();
-  if ((rule?.stackSize ?? 1) > 1 && it.conditionOrQuantity > 1) items[at] = { ...it, conditionOrQuantity: it.conditionOrQuantity - 1 };
+  if ((rule?.stackSize ?? 1) > 1 && it.conditionOrQuantity > 1)
+    items[at] = { ...it, conditionOrQuantity: it.conditionOrQuantity - 1 };
   else items.splice(at, 1);
   return { ...c, inventory: { ...c.inventory, items } };
 }
@@ -117,7 +132,11 @@ export function eatRation(c: Character, rule: (item: number) => ItemRule | undef
 export function rationCount(c: Character): number {
   let n = 0;
   for (const it of c.inventory.items) {
-    if (it.itemIndex === ITEM_RATIONS || it.itemIndex === ITEM_POISONED_RATIONS || it.itemIndex === ITEM_SPOILED_RATIONS) {
+    if (
+      it.itemIndex === ITEM_RATIONS ||
+      it.itemIndex === ITEM_POISONED_RATIONS ||
+      it.itemIndex === ITEM_SPOILED_RATIONS
+    ) {
       n += it.conditionOrQuantity > 0 && it.conditionOrQuantity < 255 ? it.conditionOrQuantity : 1;
     }
   }
@@ -125,7 +144,11 @@ export function rationCount(c: Character): number {
 }
 
 /** Apply what a time step reported to the active characters: day effects first, then the hourly ones. */
-export function applyTimeReport(p: PartyState, r: TimeReport, rule: (item: number) => ItemRule | undefined = () => undefined): PartyState {
+export function applyTimeReport(
+  p: PartyState,
+  r: TimeReport,
+  rule: (item: number) => ItemRule | undefined = () => undefined,
+): PartyState {
   let party = p;
   for (const c of activeCharacters(p)) {
     party = updateCharacter(party, c.index, (x) => {
@@ -133,7 +156,14 @@ export function applyTimeReport(p: PartyState, r: TimeReport, rule: (item: numbe
       if (r.improveHealthStamina) {
         const h = n.skills.health;
         const s = n.skills.stamina;
-        n = { ...n, skills: { ...n.skills, health: { ...h, max: h.max + 1, trueSkill: h.trueSkill + 1 }, stamina: { ...s, max: s.max + 1, trueSkill: s.trueSkill + 1 } } };
+        n = {
+          ...n,
+          skills: {
+            ...n.skills,
+            health: { ...h, max: h.max + 1, trueSkill: h.trueSkill + 1 },
+            stamina: { ...s, max: s.max + 1, trueSkill: s.trueSkill + 1 },
+          },
+        };
       }
       if (r.consumeRations) n = eatRation(n, rule);
       if (r.improveNearDeath) n = improveNearDeath(n);
@@ -180,7 +210,14 @@ export function rest(world: WorldState, party: PartyState, o: RestOptions): Rest
     if (w.ticks - began > TIMES.thirteenHours) {
       for (const c of activeCharacters(p)) p = updateCharacter(p, c.index, (x) => addCondition(x, 'sick', -100));
     }
-    if (target !== undefined ? hourOfDay(w.ticks) === target : o.untilHealed ? !activeCharacters(p).some((c) => canHeal(c, o.inInn)) : true) break;
+    if (
+      target !== undefined
+        ? hourOfDay(w.ticks) === target
+        : o.untilHealed
+          ? !activeCharacters(p).some((c) => canHeal(c, o.inInn))
+          : true
+    )
+      break;
   }
   return { world: w, party: p, hours };
 }

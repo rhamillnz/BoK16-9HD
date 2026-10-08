@@ -1,11 +1,5 @@
 import type { ItemDef } from '../formats/objinfo';
-import {
-  REST_CURES_SICK_AFTER,
-  hoursUntil,
-  restOneHour,
-  type TimeReport,
-  type WorldState,
-} from './state';
+import { REST_CURES_SICK_AFTER, hoursUntil, restOneHour, type TimeReport, type WorldState } from './state';
 import { activeCharacters, addCondition, removeItem, updateCharacter, type PartyState } from './party';
 import { applyTimeReport, canHeal } from './rest';
 
@@ -29,10 +23,7 @@ export const STARVE_PENALTY = 5;
 /** Longest single camp, in hours. */
 export const MAX_CAMP_HOURS = 24;
 
-export type CampPlan =
-  | { kind: 'hours'; hours: number }
-  | { kind: 'morning' }
-  | { kind: 'healed' };
+export type CampPlan = { kind: 'hours'; hours: number } | { kind: 'morning' } | { kind: 'healed' };
 
 export interface CampOptions {
   items: readonly ItemDef[];
@@ -67,7 +58,11 @@ function eatRations(party: PartyState, items: readonly ItemDef[], messages: stri
   for (const c of activeCharacters(party)) {
     const ration = findRation(p, c.index, items);
     if (ration) {
-      p = removeItem(p, ration, 1, { stackSize: items[ration]?.stackSize ?? 1, defaultStackSize: items[ration]?.defaultStackSize ?? 1, isKey: false });
+      p = removeItem(p, ration, 1, {
+        stackSize: items[ration]?.stackSize ?? 1,
+        defaultStackSize: items[ration]?.defaultStackSize ?? 1,
+        isKey: false,
+      });
       p = updateCharacter(p, c.index, (x) => addCondition(x, 'starving', -100));
     } else {
       p = updateCharacter(p, c.index, (x) => addCondition(x, 'starving', STARVE_PENALTY));

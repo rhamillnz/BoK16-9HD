@@ -47,11 +47,16 @@ export function makeDialogEnv(o: DialogEnvOptions): DialogEnv {
     gameState: (id) => {
       const value = o.extras?.().itemValue ?? 0;
       switch (id) {
-        case GAME_STATE_MONEY: return o.getParty().gold;
-        case GAME_STATE_CANT_AFFORD: return o.getParty().gold < value ? 1 : 0;
-        case GAME_STATE_ITEM_VALUE: return value;
-        case GAME_STATE_ZONE: return o.zone;
-        default: return o.gameState?.(id) ?? 0;
+        case GAME_STATE_MONEY:
+          return o.getParty().gold;
+        case GAME_STATE_CANT_AFFORD:
+          return o.getParty().gold < value ? 1 : 0;
+        case GAME_STATE_ITEM_VALUE:
+          return value;
+        case GAME_STATE_ZONE:
+          return o.zone;
+        default:
+          return o.gameState?.(id) ?? 0;
       }
     },
     skillValue: (skill) => {

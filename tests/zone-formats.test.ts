@@ -109,7 +109,10 @@ function buildModel(m: ModelSpec): Uint8Array {
     p += mesh.faces.length * 8;
     return at;
   });
-  interface PolyLayout { edgePos: number; indexPos: number[] }
+  interface PolyLayout {
+    edgePos: number;
+    indexPos: number[];
+  }
   const polyLayout = new Map<FaceSpec, PolyLayout>();
   for (const mesh of meshes) {
     for (const face of mesh.faces) {
@@ -165,7 +168,11 @@ function buildModel(m: ModelSpec): Uint8Array {
       if (!('edges' in face)) continue;
       const lay = polyLayout.get(face)!;
       face.edges.forEach((e, i) => {
-        out.u8(e.material, e.color).pad(3, 0xaa).u8(e.group ?? 0).u16(stored(lay.indexPos[i]!));
+        out
+          .u8(e.material, e.color)
+          .pad(3, 0xaa)
+          .u8(e.group ?? 0)
+          .u16(stored(lay.indexPos[i]!));
       });
       face.edges.forEach((e) => out.u8(...e.indices, 0xff));
     }
@@ -175,7 +182,11 @@ function buildModel(m: ModelSpec): Uint8Array {
 }
 
 function chunk(tag: string, payload: Uint8Array, sizeFlags = 0): Uint8Array {
-  return new Bytes().ascii(tag).u32((payload.length | sizeFlags) >>> 0).raw(payload).done();
+  return new Bytes()
+    .ascii(tag)
+    .u32((payload.length | sizeFlags) >>> 0)
+    .raw(payload)
+    .done();
 }
 
 /** MAP: chunk payload. String data is laid out in reverse so offsets matter. */
@@ -187,7 +198,12 @@ function buildMap(names: string[]): Uint8Array {
     offsets[i] = strings.length;
     strings.ascii(names[i]!).u8(0);
   }
-  return new Bytes().u16(0, names.length).u16(...offsets).u16(0).raw(strings.done()).done();
+  return new Bytes()
+    .u16(0, names.length)
+    .u16(...offsets)
+    .u16(0)
+    .raw(strings.done())
+    .done();
 }
 
 /**
@@ -238,7 +254,14 @@ const BOUNDED_BOX: ModelSpec = {
   radius: 100,
   bounds: { min: [-5, 0, 0], max: [10, 20, 30] },
   baseOffset: 0x10,
-  vertexSets: [[[0, 0, 0], [10, 0, 0], [10, 20, 0], [-5, 20, 30]]],
+  vertexSets: [
+    [
+      [0, 0, 0],
+      [10, 0, 0],
+      [10, 20, 0],
+      [-5, 20, 30],
+    ],
+  ],
   components: [[{ set: 0, faces: [{ edges: [{ material: 0xc1, color: 7, group: 4, indices: [0, 1, 2, 3] }] }] }]],
 };
 
@@ -250,8 +273,16 @@ const UNBOUNDED_MULTI: ModelSpec = {
   radius: 250,
   baseOffset: 0x0123,
   vertexSets: [
-    [[1, 2, 3], [-4, 5, 6], [7, -8, 9]],
-    [[10, 0, 0], [0, 10, 0], [0, 0, -10]],
+    [
+      [1, 2, 3],
+      [-4, 5, 6],
+      [7, -8, 9],
+    ],
+    [
+      [10, 0, 0],
+      [0, 10, 0],
+      [0, 0, -10],
+    ],
   ],
   components: [
     [
@@ -345,10 +376,7 @@ describe('parseTBL', () => {
   it('shares a vertex set between meshes and offsets later sets', () => {
     const m = table.models[2]!;
     // Two sets of three vertices, stored once each, scaled by 4.
-    expect(m.vertices).toEqual([
-      4, 8, 12, -16, 20, 24, 28, -32, 36,
-      40, 0, 0, 0, 40, 0, 0, 0, -40,
-    ]);
+    expect(m.vertices).toEqual([4, 8, 12, -16, 20, 24, 28, -32, 36, 40, 0, 0, 0, 40, 0, 0, 0, -40]);
     expect(m.faces).toEqual([
       { material: 0x90, color: 12, indices: [0, 1, 2] }, // mesh 0: set 0, base 0
       { material: 0x91, color: 13, indices: [2, 1, 0] }, // mesh 1: shares set 0, base 0
@@ -441,7 +469,10 @@ describe('parseTBL', () => {
 
 describe('parseWLD', () => {
   const record = (type: number, rot: [number, number, number], pos: [number, number, number]) =>
-    new Bytes().u16(type, ...rot).u32(...pos).done();
+    new Bytes()
+      .u16(type, ...rot)
+      .u32(...pos)
+      .done();
 
   it('reads headerless 20-byte placement records', () => {
     const bytes = new Bytes()
@@ -462,7 +493,10 @@ describe('parseWLD', () => {
   });
 
   it('ignores a trailing partial record and accepts an empty file', () => {
-    const bytes = new Bytes().raw(record(3, [0, 0, 0], [1, 2, 3])).pad(19, 0xff).done();
+    const bytes = new Bytes()
+      .raw(record(3, [0, 0, 0], [1, 2, 3]))
+      .pad(19, 0xff)
+      .done();
     expect(parseWLD(bytes)).toHaveLength(1);
     expect(parseWLD(new Uint8Array(0))).toEqual([]);
   });

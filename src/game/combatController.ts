@@ -1,10 +1,30 @@
 import * as THREE from 'three/webgpu';
 import { enemyTurn } from '../combat/ai';
 import {
-  attack, castableSpells, castSpell, currentFighter, defend, fighterAt, flee, isOver, moveTo, rest, shoot, shootTargets, startBattle,
-  type BattleEvent, type BattleState, type Fighter,
+  attack,
+  castableSpells,
+  castSpell,
+  currentFighter,
+  defend,
+  fighterAt,
+  flee,
+  isOver,
+  moveTo,
+  rest,
+  shoot,
+  shootTargets,
+  startBattle,
+  type BattleEvent,
+  type BattleState,
+  type Fighter,
 } from '../combat/battle';
-import { parseCombatTable, parsePartyGrid, readCombatEnemies, type CombatDef, type PartyGridSlot } from '../combat/combatData';
+import {
+  parseCombatTable,
+  parsePartyGrid,
+  readCombatEnemies,
+  type CombatDef,
+  type PartyGridSlot,
+} from '../combat/combatData';
 import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS, type GridPos } from '../combat/grid';
 import { parseMonsterNames, parseMonsterSprites, type MonsterSprites } from '../combat/monsters';
 import { battleRewards, type Rewards } from '../combat/rewards';
@@ -72,7 +92,10 @@ export async function loadSheets(support: CombatSupport, monsters: readonly numb
   return prefetchResources(support.archive, [...names]);
 }
 
-export function spriteLookup(support: CombatSupport, sheets: ReadResource): (monster: number) => CombatSprite | undefined {
+export function spriteLookup(
+  support: CombatSupport,
+  sheets: ReadResource,
+): (monster: number) => CombatSprite | undefined {
   const cache = new Map<string, IndexedImage[] | undefined>();
   const load = (name: string) => {
     if (!cache.has(name)) {
@@ -153,8 +176,13 @@ export class CombatController {
     this.state = startBattle(launch.fighters);
     this.view = new CombatView(
       {
-        party: launch.party, heading: launch.heading, cols: COMBAT_GRID_COLS, rows: COMBAT_GRID_ROWS,
-        getHeight: this.host.getHeight, spriteFor: launch.spriteFor, palette: launch.palette,
+        party: launch.party,
+        heading: launch.heading,
+        cols: COMBAT_GRID_COLS,
+        rows: COMBAT_GRID_ROWS,
+        getHeight: this.host.getHeight,
+        spriteFor: launch.spriteFor,
+        palette: launch.palette,
       },
       launch.fighters,
     );
@@ -163,8 +191,18 @@ export class CombatController {
       defend: () => this.partyAction(defend),
       wait: () => this.partyAction(rest),
       flee: () => this.partyAction(flee),
-      toggleSlash: () => { this.slash = !this.slash; this.shooting = false; this.casting = -1; this.refresh(); },
-      toggleShoot: () => { this.shooting = !this.shooting; this.slash = false; this.casting = -1; this.refresh(); },
+      toggleSlash: () => {
+        this.slash = !this.slash;
+        this.shooting = false;
+        this.casting = -1;
+        this.refresh();
+      },
+      toggleShoot: () => {
+        this.shooting = !this.shooting;
+        this.slash = false;
+        this.casting = -1;
+        this.refresh();
+      },
       cycleCast: () => this.cycleCast(),
       finish: () => this.finish(),
     });
@@ -172,7 +210,10 @@ export class CombatController {
       this.host.canvas.addEventListener(type, f as EventListener);
       this.listeners.push([type, f]);
     };
-    on('mousemove', (e) => { this.hover = this.cellAt(e); this.refresh(false); });
+    on('mousemove', (e) => {
+      this.hover = this.cellAt(e);
+      this.refresh(false);
+    });
     on('click', (e) => this.click(this.cellAt(e), e.shiftKey));
     this.refresh();
     this.delay = ENEMY_DELAY;
@@ -200,14 +241,26 @@ export class CombatController {
 
   private cellAt(e: MouseEvent): GridPos | undefined {
     const r = this.host.canvas.getBoundingClientRect();
-    return this.view?.pick(this.host.camera, ((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1));
+    return this.view?.pick(
+      this.host.camera,
+      ((e.clientX - r.left) / r.width) * 2 - 1,
+      -(((e.clientY - r.top) / r.height) * 2 - 1),
+    );
   }
 
   private refresh(withLog = true): void {
     const s = this.state;
     if (!s || !this.view || !this.panel) return;
     this.view.update(s, this.yourTurn() ? this.hover : undefined);
-    if (withLog) this.panel.render(s, { slash: this.slash, shoot: this.shooting, canShoot: this.canShoot(), cast: this.castName(), canCast: this.canCast(), yourTurn: this.yourTurn() });
+    if (withLog)
+      this.panel.render(s, {
+        slash: this.slash,
+        shoot: this.shooting,
+        canShoot: this.canShoot(),
+        cast: this.castName(),
+        canCast: this.canCast(),
+        yourTurn: this.yourTurn(),
+      });
     if (withLog && isOver(s) && !this.rewards && s.turn.outcome === 'won') {
       this.rewards = battleRewards(s.fighters, s.history, this.roll);
       for (const line of this.rewards.lines) this.panel.note(line);
@@ -238,7 +291,10 @@ export class CombatController {
 
   private cycleCast(): void {
     const n = this.spellsNow().length;
-    if (n === 0) { this.panel?.note('Nobody here can cast a spell right now.'); return; }
+    if (n === 0) {
+      this.panel?.note('Nobody here can cast a spell right now.');
+      return;
+    }
     this.casting = this.casting + 1 >= n ? -1 : this.casting + 1;
     this.slash = false;
     this.shooting = false;
@@ -262,8 +318,13 @@ export class CombatController {
     const spell = this.spellsNow()[this.casting];
     if (spell && target) {
       const next = castSpell(s, spell.index, cell);
-      if (next) { this.casting = -1; this.partyAction(() => next); }
-      else this.panel?.note(`${spell.name} needs ${spellKind(spell) === 'heal' ? 'a living ally' : 'an enemy'} within range.`);
+      if (next) {
+        this.casting = -1;
+        this.partyAction(() => next);
+      } else
+        this.panel?.note(
+          `${spell.name} needs ${spellKind(spell) === 'heal' ? 'a living ally' : 'an enemy'} within range.`,
+        );
     } else if (target && target.side === 'enemy' && this.shooting) {
       const next = shoot(s, cell, this.roll);
       if (next) this.partyAction(() => next);
@@ -271,7 +332,10 @@ export class CombatController {
     } else if (target && target.side === 'enemy') {
       const next = attack(s, cell, this.roll, { kind: this.slash || shift ? 'slash' : 'thrust' });
       if (next) this.partyAction(() => next);
-      else this.panel?.note(this.slash || shift ? 'A slash needs an adjacent enemy and more than 1 stamina.' : 'Out of reach.');
+      else
+        this.panel?.note(
+          this.slash || shift ? 'A slash needs an adjacent enemy and more than 1 stamina.' : 'Out of reach.',
+        );
     } else if (!target) {
       const next = moveTo(s, cell);
       if (next) this.partyAction(() => next);

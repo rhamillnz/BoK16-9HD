@@ -68,19 +68,30 @@ const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 
 /** Smooth value noise in [-1, 1]. */
 export function valueNoise3(x: number, y: number, z: number): number {
-  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
-  const xf = x - xi, yf = y - yi, zf = z - zi;
-  const u = fade(xf), v = fade(yf), w = fade(zf);
+  const xi = Math.floor(x),
+    yi = Math.floor(y),
+    zi = Math.floor(z);
+  const xf = x - xi,
+    yf = y - yi,
+    zf = z - zi;
+  const u = fade(xf),
+    v = fade(yf),
+    w = fade(zf);
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
   const c = (dx: number, dy: number, dz: number) => hash3(xi + dx, yi + dy, zi + dz);
-  const x00 = lerp(c(0, 0, 0), c(1, 0, 0), u), x10 = lerp(c(0, 1, 0), c(1, 1, 0), u);
-  const x01 = lerp(c(0, 0, 1), c(1, 0, 1), u), x11 = lerp(c(0, 1, 1), c(1, 1, 1), u);
+  const x00 = lerp(c(0, 0, 0), c(1, 0, 0), u),
+    x10 = lerp(c(0, 1, 0), c(1, 1, 0), u);
+  const x01 = lerp(c(0, 0, 1), c(1, 0, 1), u),
+    x11 = lerp(c(0, 1, 1), c(1, 1, 1), u);
   return lerp(lerp(x00, x10, v), lerp(x01, x11, v), w) * 2 - 1;
 }
 
 /** Hill relief in about [-1, 1]: rolling fractal noise plus sharper ridges. */
 export function hillRelief(x: number, y: number, z: number, freq: number): number {
-  let sum = 0, amp = 0.5, f = freq, norm = 0;
+  let sum = 0,
+    amp = 0.5,
+    f = freq,
+    norm = 0;
   for (let o = 0; o < 4; o++) {
     sum += valueNoise3(x * f + o * 17.3, y * f, z * f - o * 9.1) * amp;
     norm += amp;
@@ -104,10 +115,19 @@ const smoothstep = (a: number, b: number, x: number) => {
  * with shared, welded ids and smooth normals. Edges longer than `targetEdge` are halved
  * (recursively); the decision depends only on the edge, so neighbouring triangles agree.
  */
-export function detailHill(triangles: readonly HillCorner[][], options: HillDetailOptions = DEFAULT_HILL_DETAIL): DetailedHill {
+export function detailHill(
+  triangles: readonly HillCorner[][],
+  options: HillDetailOptions = DEFAULT_HILL_DETAIL,
+): DetailedHill {
   const o = options;
-  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-  for (const t of triangles) for (const c of t) for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i]!, c.p[i]!); hi[i] = Math.max(hi[i]!, c.p[i]!); }
+  const lo = [Infinity, Infinity, Infinity],
+    hi = [-Infinity, -Infinity, -Infinity];
+  for (const t of triangles)
+    for (const c of t)
+      for (let i = 0; i < 3; i++) {
+        lo[i] = Math.min(lo[i]!, c.p[i]!);
+        hi[i] = Math.max(hi[i]!, c.p[i]!);
+      }
   const minY = lo[1]!;
   const size = Math.max(hi[0]! - lo[0]!, hi[1]! - lo[1]!, hi[2]! - lo[2]!);
   const amplitude = Math.min(o.maxAmplitude, (hi[1]! - minY) * o.amplitudeRatio);
@@ -129,24 +149,41 @@ export function detailHill(triangles: readonly HillCorner[][], options: HillDeta
     if (found !== undefined) return found;
 
     // Flat position and interpolated normal, in canonical (sorted) order so every triangle agrees.
-    let px = 0, py = 0, pz = 0, nx = 0, ny = 0, nz = 0;
+    let px = 0,
+      py = 0,
+      pz = 0,
+      nx = 0,
+      ny = 0,
+      nz = 0;
     for (const [c, b] of parts) {
-      px += c.p[0] * b; py += c.p[1] * b; pz += c.p[2] * b;
-      nx += c.n[0] * b; ny += c.n[1] * b; nz += c.n[2] * b;
+      px += c.p[0] * b;
+      py += c.p[1] * b;
+      pz += c.p[2] * b;
+      nx += c.n[0] * b;
+      ny += c.n[1] * b;
+      nz += c.n[2] * b;
     }
     // Phong tessellation: average of the point projected onto each corner's tangent plane.
-    let qx = 0, qy = 0, qz = 0;
+    let qx = 0,
+      qy = 0,
+      qz = 0;
     for (const [c, b] of parts) {
       const d = (px - c.p[0]) * c.n[0] + (py - c.p[1]) * c.n[1] + (pz - c.p[2]) * c.n[2];
-      qx += (px - d * c.n[0]) * b; qy += (py - d * c.n[1]) * b; qz += (pz - d * c.n[2]) * b;
+      qx += (px - d * c.n[0]) * b;
+      qy += (py - d * c.n[1]) * b;
+      qz += (pz - d * c.n[2]) * b;
     }
     // Rounding and sculpting both fade out at the foot of the hill, so it still sits on the ground.
     const fadeIn = smoothstep(0, o.baseFade, py - minY);
     const k = o.curvature * fadeIn;
-    let x = px + (qx - px) * k, y = py + (qy - py) * k, z = pz + (qz - pz) * k;
+    let x = px + (qx - px) * k,
+      y = py + (qy - py) * k,
+      z = pz + (qz - pz) * k;
     const len = Math.hypot(nx, ny, nz) || 1;
     const d = hillRelief(x, y, z, o.frequency) * amplitude * fadeIn;
-    x += (nx / len) * d; y += (ny / len) * d; z += (nz / len) * d;
+    x += (nx / len) * d;
+    y += (ny / len) * d;
+    z += (nz / len) * d;
 
     const index = pos.length / 3;
     flat.push(px, py, pz);
@@ -155,16 +192,24 @@ export function detailHill(triangles: readonly HillCorner[][], options: HillDeta
     points.set(key, index);
     return index;
   };
-  const flatLength = (a: number, b: number) => Math.hypot(flat[a * 3]! - flat[b * 3]!, flat[a * 3 + 1]! - flat[b * 3 + 1]!, flat[a * 3 + 2]! - flat[b * 3 + 2]!);
+  const flatLength = (a: number, b: number) =>
+    Math.hypot(flat[a * 3]! - flat[b * 3]!, flat[a * 3 + 1]! - flat[b * 3 + 1]!, flat[a * 3 + 2]! - flat[b * 3 + 2]!);
 
   const tris: number[] = [];
   const source: number[] = [];
   type Bary = readonly [number, number, number];
   const mid = (a: Bary, b: Bary): Bary => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
   const split = (t: readonly HillCorner[], ti: number, a: Bary, b: Bary, c: Bary): void => {
-    const ia = pointFor(t, a), ib = pointFor(t, b), ic = pointFor(t, c);
-    const long = (p: number, q: number) => { const l = flatLength(p, q); return l > target && l > minEdge * 2; };
-    const sAB = long(ia, ib), sBC = long(ib, ic), sCA = long(ic, ia);
+    const ia = pointFor(t, a),
+      ib = pointFor(t, b),
+      ic = pointFor(t, c);
+    const long = (p: number, q: number) => {
+      const l = flatLength(p, q);
+      return l > target && l > minEdge * 2;
+    };
+    const sAB = long(ia, ib),
+      sBC = long(ib, ic),
+      sCA = long(ic, ia);
     const count = +sAB + +sBC + +sCA;
     if (count === 0) {
       tris.push(ia, ib, ic);
@@ -172,8 +217,13 @@ export function detailHill(triangles: readonly HillCorner[][], options: HillDeta
       return;
     }
     if (count === 3) {
-      const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a);
-      split(t, ti, a, ab, ca); split(t, ti, ab, b, bc); split(t, ti, ca, bc, c); split(t, ti, ab, bc, ca);
+      const ab = mid(a, b),
+        bc = mid(b, c),
+        ca = mid(c, a);
+      split(t, ti, a, ab, ca);
+      split(t, ti, ab, b, bc);
+      split(t, ti, ca, bc, c);
+      split(t, ti, ab, bc, ca);
       return;
     }
     // Rotate so the split edges come first: one split is AB; two splits are AB and BC.
@@ -181,23 +231,39 @@ export function detailHill(triangles: readonly HillCorner[][], options: HillDeta
       if (sBC) return split(t, ti, b, c, a);
       if (sCA) return split(t, ti, c, a, b);
       const ab = mid(a, b);
-      split(t, ti, a, ab, c); split(t, ti, ab, b, c);
+      split(t, ti, a, ab, c);
+      split(t, ti, ab, b, c);
       return;
     }
     if (!sAB) return split(t, ti, b, c, a); // BC and CA split
     if (!sBC) return split(t, ti, c, a, b); // CA and AB split
-    const ab = mid(a, b), bc = mid(b, c);
-    split(t, ti, a, ab, bc); split(t, ti, ab, b, bc); split(t, ti, a, bc, c);
+    const ab = mid(a, b),
+      bc = mid(b, c);
+    split(t, ti, a, ab, bc);
+    split(t, ti, ab, b, bc);
+    split(t, ti, a, bc, c);
   };
   triangles.forEach((t, ti) => split(t, ti, [1, 0, 0], [0, 1, 0], [0, 0, 1]));
 
   // Smooth normals of the sculpted surface: area-weighted face normals summed per shared point.
   for (let i = 0; i < tris.length; i += 3) {
-    const a = tris[i]! * 3, b = tris[i + 1]! * 3, c = tris[i + 2]! * 3;
-    const ux = pos[b]! - pos[a]!, uy = pos[b + 1]! - pos[a + 1]!, uz = pos[b + 2]! - pos[a + 2]!;
-    const vx = pos[c]! - pos[a]!, vy = pos[c + 1]! - pos[a + 1]!, vz = pos[c + 2]! - pos[a + 2]!;
-    const fx = uy * vz - uz * vy, fy = uz * vx - ux * vz, fz = ux * vy - uy * vx;
-    for (const v of [a, b, c]) { acc[v] = acc[v]! + fx; acc[v + 1] = acc[v + 1]! + fy; acc[v + 2] = acc[v + 2]! + fz; }
+    const a = tris[i]! * 3,
+      b = tris[i + 1]! * 3,
+      c = tris[i + 2]! * 3;
+    const ux = pos[b]! - pos[a]!,
+      uy = pos[b + 1]! - pos[a + 1]!,
+      uz = pos[b + 2]! - pos[a + 2]!;
+    const vx = pos[c]! - pos[a]!,
+      vy = pos[c + 1]! - pos[a + 1]!,
+      vz = pos[c + 2]! - pos[a + 2]!;
+    const fx = uy * vz - uz * vy,
+      fy = uz * vx - ux * vz,
+      fz = ux * vy - uy * vx;
+    for (const v of [a, b, c]) {
+      acc[v] = acc[v]! + fx;
+      acc[v + 1] = acc[v + 1]! + fy;
+      acc[v + 2] = acc[v + 2]! + fz;
+    }
   }
 
   const positions: number[] = [];

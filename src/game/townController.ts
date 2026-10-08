@@ -46,12 +46,18 @@ export interface TownHooks {
  */
 export function actionAfterDialog(endState: number | undefined, clicked: number): number {
   switch ((endState ?? 0) + 5) {
-    case 4: return HotspotAction.Unknown0;
-    case 3: return HotspotAction.Barmaid;
-    case 2: return HotspotAction.Inn;
-    case 1: return HotspotAction.Exit;
-    case 0: return HotspotAction.Repair2;
-    default: return clicked;
+    case 4:
+      return HotspotAction.Unknown0;
+    case 3:
+      return HotspotAction.Barmaid;
+    case 2:
+      return HotspotAction.Inn;
+    case 1:
+      return HotspotAction.Exit;
+    case 0:
+      return HotspotAction.Repair2;
+    default:
+      return clicked;
   }
 }
 
@@ -165,7 +171,13 @@ export class TownController {
           break;
         }
         this.busy = true;
-        handler({ scene, hotspot: h, done: () => { this.busy = false; } });
+        handler({
+          scene,
+          hotspot: h,
+          done: () => {
+            this.busy = false;
+          },
+        });
       }
     }
   }

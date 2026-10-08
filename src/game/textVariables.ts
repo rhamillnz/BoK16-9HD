@@ -16,7 +16,17 @@ export const CHAR_JAMES = 4;
 export const CHAR_PATRUS = 5;
 
 /** Party leader per chapter (1-9); Pug leads whenever he is in the party. */
-const LEADER_PER_CHAPTER = [CHAR_LOCKLEAR, CHAR_JAMES, CHAR_JAMES, CHAR_GORATH, CHAR_JAMES, CHAR_OWYN, CHAR_JAMES, CHAR_OWYN, CHAR_PUG];
+const LEADER_PER_CHAPTER = [
+  CHAR_LOCKLEAR,
+  CHAR_JAMES,
+  CHAR_JAMES,
+  CHAR_GORATH,
+  CHAR_JAMES,
+  CHAR_OWYN,
+  CHAR_JAMES,
+  CHAR_OWYN,
+  CHAR_PUG,
+];
 
 /** What the variables can be filled from. Everything but `party` is optional. */
 export interface TextVariableContext {
@@ -118,25 +128,55 @@ export class TextVariables {
       }
     };
     switch (what - 1) {
-      case 0: case 1: case 2: case 3: case 4: case 5:
+      case 0:
+      case 1:
+      case 2:
+      case 3:
+      case 4:
+      case 5:
         fromCharacter(what - 1);
         break;
-      case 6: fromCharacter(this.leader()); break;
-      case 10: fromCharacter(c.activeCharacter ?? this.leader()); break;
-      case 11: fromCharacter(c.skillCheckedCharacter); break;
-      case 12: case 13: case 14: case 15: case 30:
+      case 6:
+        fromCharacter(this.leader());
+        break;
+      case 10:
+        fromCharacter(c.activeCharacter ?? this.leader());
+        break;
+      case 11:
+        fromCharacter(c.skillCheckedCharacter);
+        break;
+      case 12:
+      case 13:
+      case 14:
+      case 15:
+      case 30:
         this.pickRandom(which, what);
         break;
-      case 16: this.values.set(which, c.monsterName ?? 'No Monster Specified'); break;
-      case 17: this.values.set(which, c.itemName ?? ''); break;
-      case 18: this.values.set(which, moneyString(c.itemValue ?? 0)); break;
-      case 19: this.values.set(which, moneyString(c.party.gold)); break;
-      case 20: case 21: case 9: case 29:
+      case 16:
+        this.values.set(which, c.monsterName ?? 'No Monster Specified');
+        break;
+      case 17:
+        this.values.set(which, c.itemName ?? '');
+        break;
+      case 18:
+        this.values.set(which, moneyString(c.itemValue ?? 0));
+        break;
+      case 19:
+        this.values.set(which, moneyString(c.party.gold));
+        break;
+      case 20:
+      case 21:
+      case 9:
+      case 29:
         // Health points left and values this port does not track: shown as nothing.
         this.values.set(which, '');
         break;
-      case 27: this.values.set(which, c.keeperName ?? 'shopkeeper'); break;
-      case 28: this.values.set(which, c.improvedSkill === undefined ? '' : skillLabel(c.improvedSkill)); break;
+      case 27:
+        this.values.set(which, c.keeperName ?? 'shopkeeper');
+        break;
+      case 28:
+        this.values.set(which, c.improvedSkill === undefined ? '' : skillLabel(c.improvedSkill));
+        break;
       default:
         break;
     }
@@ -158,11 +198,16 @@ export class TextVariables {
     const taken = (i: number) => this.characters.some((c, slot) => slot !== which && c === i);
     const accepts = (i: number): boolean => {
       switch (what) {
-        case 14: return i === CHAR_OWYN || i === CHAR_PUG || i === CHAR_PATRUS; // magicians
-        case 15: return i === CHAR_LOCKLEAR || i === CHAR_GORATH || i === CHAR_JAMES; // swordsmen
-        case 16: return i === CHAR_GORATH || i === CHAR_PATRUS;
-        case 31: return i !== leader;
-        default: return true;
+        case 14:
+          return i === CHAR_OWYN || i === CHAR_PUG || i === CHAR_PATRUS; // magicians
+        case 15:
+          return i === CHAR_LOCKLEAR || i === CHAR_GORATH || i === CHAR_JAMES; // swordsmen
+        case 16:
+          return i === CHAR_GORATH || i === CHAR_PATRUS;
+        case 31:
+          return i !== leader;
+        default:
+          return true;
       }
     };
     // The original retries random picks up to 0x1f8 times, then keeps the last one; this deals from

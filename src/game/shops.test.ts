@@ -4,28 +4,78 @@ import { ContainerFlag, findShop, parseShopContainers, type ShopStats } from '..
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import type { PartyState } from './party';
 import {
-  UNPURCHASEABLE, applyHaggle, buy, buyPrice, canBuyItem, haggle, isRefused, priceOf, sell, sellPrice, ItemFlag,
-  type PriceContext, type ShopState,
+  UNPURCHASEABLE,
+  applyHaggle,
+  buy,
+  buyPrice,
+  canBuyItem,
+  haggle,
+  isRefused,
+  priceOf,
+  sell,
+  sellPrice,
+  ItemFlag,
+  type PriceContext,
+  type ShopState,
 } from './shops';
 
 // ---- fixtures --------------------------------------------------------------------------------
 
 const stats = (over: Partial<ShopStats> = {}): ShopStats => ({
-  templeNumber: 1, sellFactor: 20, maxDiscount: 30, buyFactor: 50, haggleDifficulty: 40, haggleAnnoyance: 50,
-  bardingSkill: 0, bardingReward: 0, bardingMaxReward: 0, unknown: 0, innSleepUntilHour: 0, innCost: 0,
-  repairTypes: 0, repairFactor: 0, categories: 0x0080, ...over,
+  templeNumber: 1,
+  sellFactor: 20,
+  maxDiscount: 30,
+  buyFactor: 50,
+  haggleDifficulty: 40,
+  haggleAnnoyance: 50,
+  bardingSkill: 0,
+  bardingReward: 0,
+  bardingMaxReward: 0,
+  unknown: 0,
+  innSleepUntilHour: 0,
+  innCost: 0,
+  repairTypes: 0,
+  repairFactor: 0,
+  categories: 0x0080,
+  ...over,
 });
 
 const item = (itemIndex: number, conditionOrQuantity = 100, modifiers = 0): InventoryItem => ({
-  itemIndex, conditionOrQuantity, status: 0, modifiers,
-  activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false,
+  itemIndex,
+  conditionOrQuantity,
+  status: 0,
+  modifiers,
+  activated: false,
+  used: false,
+  broken: false,
+  repairable: false,
+  equipped: false,
+  poisoned: false,
 });
 
 const DEFS = [] as ItemDef[];
-const def = (index: number, o: Partial<ItemDef>) => (DEFS[index] = { index, value: 100, stackSize: 1, defaultStackSize: 1, flags: 0, categories: 0, type: 0, ...o } as ItemDef);
+const def = (index: number, o: Partial<ItemDef>) =>
+  (DEFS[index] = {
+    index,
+    value: 100,
+    stackSize: 1,
+    defaultStackSize: 1,
+    flags: 0,
+    categories: 0,
+    type: 0,
+    ...o,
+  } as ItemDef);
 def(1, { name: 'Sword', value: 100, type: ItemType.Sword, categories: 0x0080 });
 def(2, { name: 'Armour', value: 200, type: ItemType.Armor, categories: 0x0200 });
-def(3, { name: 'Rations', value: 10, type: ItemType.Ration, categories: 0x0002, flags: ItemFlag.Stackable, stackSize: 10, defaultStackSize: 5 });
+def(3, {
+  name: 'Rations',
+  value: 10,
+  type: ItemType.Ration,
+  categories: 0x0002,
+  flags: ItemFlag.Stackable,
+  stackSize: 10,
+  defaultStackSize: 5,
+});
 def(4, { name: 'Key', type: ItemType.Key });
 def(5, { name: 'Gambeson', value: 100, flags: ItemFlag.ConditionBased, categories: 0x0080 });
 def(133, { name: 'Scroll', type: ItemType.Scroll, categories: 0x1000 });
@@ -41,23 +91,43 @@ function character(index: number, capacity = 4, haggling = 50): Character {
   skills.health = skill(60, 60);
   skills.haggling = skill(100, haggling);
   return {
-    index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name: `C${index}`,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0 },
-    affectors: [], inventory: { capacity, items: [] },
+    affectors: [],
+    inventory: { capacity, items: [] },
   };
 }
 const party = (gold = 1000): PartyState => ({
-  gold, characters: [character(0), character(1)], activeCharacters: [0, 1], partyKeys: { capacity: 8, items: [] },
+  gold,
+  characters: [character(0), character(1)],
+  activeCharacters: [0, 1],
+  partyKeys: { capacity: 8, items: [] },
 });
 const shop = (items: InventoryItem[], s = stats()): ShopState => ({ stats: s, items, capacity: 8, discounts: {} });
 
 /** Rng that returns the given values in turn, then 0. */
-const seq = (...v: number[]) => { let i = 0; return () => v[i++] ?? 0; };
+const seq = (...v: number[]) => {
+  let i = 0;
+  return () => v[i++] ?? 0;
+};
 
 // ---- container parsing -----------------------------------------------------------------------
 
-function container(o: { number: number; letter: number; flags: number; items: number[][]; capacity: number; extra?: number[] }): number[] {
+function container(o: {
+  number: number;
+  letter: number;
+  flags: number;
+  items: number[][];
+  capacity: number;
+  extra?: number[];
+}): number[] {
   const out = [0, 0, 0, 0, o.number, 0, 0, 0, o.letter, 0, 0, 0, 7, o.items.length, o.capacity, o.flags];
   for (const it of o.items) out.push(...it);
   for (let i = o.items.length; i < o.capacity; i++) out.push(0, 0, 0, 0);
@@ -67,18 +137,57 @@ function container(o: { number: number; letter: number; flags: number; items: nu
 describe('parseShopContainers', () => {
   const statsBytes = [3, 20, 30, 50, 40, 25, 0, 0, 0, 0, 8, 12, 5, 9, 0x80, 0x02];
   const bytes = new Uint8Array([
-    ...container({ number: 2, letter: 2, flags: ContainerFlag.Shop, capacity: 3, items: [[1, 100, 0, 0], [3, 10, 0, 0xe0]], extra: statsBytes }),
+    ...container({
+      number: 2,
+      letter: 2,
+      flags: ContainerFlag.Shop,
+      capacity: 3,
+      items: [
+        [1, 100, 0, 0],
+        [3, 10, 0, 0xe0],
+      ],
+      extra: statsBytes,
+    }),
     // a container with a lock, a dialog and a time stamp before/after the (absent) shop part
-    ...container({ number: 5, letter: 0, flags: ContainerFlag.Lock | ContainerFlag.Dialog | ContainerFlag.Time, capacity: 1, items: [], extra: [1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9] }),
-    ...container({ number: 7, letter: 1, flags: ContainerFlag.Shop | ContainerFlag.Encounter, capacity: 0, items: [], extra: [...statsBytes, 0, 0, 0, 0, 0, 0, 0, 0, 0] }),
+    ...container({
+      number: 5,
+      letter: 0,
+      flags: ContainerFlag.Lock | ContainerFlag.Dialog | ContainerFlag.Time,
+      capacity: 1,
+      items: [],
+      extra: [1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9],
+    }),
+    ...container({
+      number: 7,
+      letter: 1,
+      flags: ContainerFlag.Shop | ContainerFlag.Encounter,
+      capacity: 0,
+      items: [],
+      extra: [...statsBytes, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    }),
   ]);
 
   it('reads items, skipped slots, optional parts and shop stats', () => {
     const all = parseShopContainers(bytes, 0, 3);
     expect(all.map((c) => `${c.ref.number}${c.ref.letter}`)).toEqual(['2B', '5A', '7A']);
     const s = findShop(all, { number: 2, letter: 'B' })!;
-    expect(s.items.map((i) => [i.itemIndex, i.conditionOrQuantity, i.modifiers])).toEqual([[1, 100, 0], [3, 10, 0xe0]]);
-    expect(s.stats).toMatchObject({ templeNumber: 3, sellFactor: 20, maxDiscount: 30, buyFactor: 50, haggleDifficulty: 40, haggleAnnoyance: 25, innSleepUntilHour: 8, innCost: 12, repairTypes: 5, repairFactor: 9, categories: 0x0280 });
+    expect(s.items.map((i) => [i.itemIndex, i.conditionOrQuantity, i.modifiers])).toEqual([
+      [1, 100, 0],
+      [3, 10, 0xe0],
+    ]);
+    expect(s.stats).toMatchObject({
+      templeNumber: 3,
+      sellFactor: 20,
+      maxDiscount: 30,
+      buyFactor: 50,
+      haggleDifficulty: 40,
+      haggleAnnoyance: 25,
+      innSleepUntilHour: 8,
+      innCost: 12,
+      repairTypes: 5,
+      repairFactor: 9,
+      categories: 0x0280,
+    });
     expect(all[1]!.stats).toBeUndefined();
     expect(all[2]!.stats?.categories).toBe(0x0280);
   });
@@ -175,7 +284,10 @@ describe('sell', () => {
   it('only takes what the shop trades in, and never keys or the only weapon', () => {
     expect(sell(owner([item(2)]), shop([item(1)]), 0, 0, DEFS, ctx)).toEqual({ ok: false, reason: 'wontBuy' });
     expect(sell(owner([item(4)]), shop([item(1)]), 0, 0, DEFS, ctx)).toEqual({ ok: false, reason: 'cantSellKey' });
-    expect(sell(owner([{ ...item(1), equipped: true }]), shop([item(1)]), 0, 0, DEFS, ctx)).toEqual({ ok: false, reason: 'onlyWeapon' });
+    expect(sell(owner([{ ...item(1), equipped: true }]), shop([item(1)]), 0, 0, DEFS, ctx)).toEqual({
+      ok: false,
+      reason: 'onlyWeapon',
+    });
     expect(canBuyItem(shop([item(2)]), item(2), DEFS[2]!)).toBe(true); // already stocked
   });
 });

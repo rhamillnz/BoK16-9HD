@@ -7,7 +7,10 @@ describe('bindings', () => {
     expect(parseBindings(serializeBindings(b))).toEqual(b);
     expect(parseBindings(null)).toEqual(DEFAULT_BINDINGS);
     expect(parseBindings('{oops')).toEqual(DEFAULT_BINDINGS);
-    expect(parseBindings('{"forward":["KeyZ"],"back":["KeyX","KeyY"]}')).toMatchObject({ forward: DEFAULT_BINDINGS.forward, back: ['KeyX', 'KeyY'] });
+    expect(parseBindings('{"forward":["KeyZ"],"back":["KeyX","KeyY"]}')).toMatchObject({
+      forward: DEFAULT_BINDINGS.forward,
+      back: ['KeyX', 'KeyY'],
+    });
   });
   it('rebinds slot 0 and keeps slot 1', () => {
     const b = rebind(DEFAULT_BINDINGS, 'forward', 'KeyT')!;

@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { MAP_GRID, ZONE_MAP_BYTES, isTilePresent, parseZoneMap, presentTiles, zoneMapFromTiles } from '../src/formats/zoneMap';
+import {
+  MAP_GRID,
+  ZONE_MAP_BYTES,
+  isTilePresent,
+  parseZoneMap,
+  presentTiles,
+  zoneMapFromTiles,
+} from '../src/formats/zoneMap';
 import { TILE_SIZE } from '../src/formats/world';
-import { compassAngle, compassPoint, fitViewport, headingToMapDir, insideBounds, tileBounds, tileRect, worldToMap, worldToTile } from '../src/ui/mapMath';
+import {
+  compassAngle,
+  compassPoint,
+  fitViewport,
+  headingToMapDir,
+  insideBounds,
+  tileBounds,
+  tileRect,
+  worldToMap,
+  worldToTile,
+} from '../src/ui/mapMath';
 import { layoutMap } from '../src/ui/mapScreen';
 import { HudScreens } from '../src/ui/hud';
 import type { Font, Glyph } from '../src/formats/fnt';
@@ -16,12 +33,19 @@ describe('zone map bitmask', () => {
     expect(isTilePresent(map, 6, 7)).toBe(true);
     expect(isTilePresent(map, 7, 6)).toBe(false);
     expect(isTilePresent(map, 49, 49)).toBe(true);
-    expect(presentTiles(map)).toEqual([[6, 7], [49, 49]]);
+    expect(presentTiles(map)).toEqual([
+      [6, 7],
+      [49, 49],
+    ]);
     expect(isTilePresent(map, -1, 0)).toBe(false);
     expect(isTilePresent(map, MAP_GRID, 0)).toBe(false);
   });
   it('round-trips and rejects short data', () => {
-    const tiles: [number, number][] = [[0, 0], [3, 9], [12, 40]];
+    const tiles: [number, number][] = [
+      [0, 0],
+      [3, 9],
+      [12, 40],
+    ];
     expect(presentTiles(zoneMapFromTiles(tiles))).toEqual(tiles);
     expect(() => parseZoneMap(new Uint8Array(10))).toThrow();
   });
@@ -29,7 +53,17 @@ describe('zone map bitmask', () => {
 
 describe('compass maths', () => {
   it('names the eight points counter-clockwise from north', () => {
-    expect([0, 32, 64, 96, 128, 160, 192, 224, 255].map(compassPoint)).toEqual(['N', 'NW', 'W', 'SW', 'S', 'SE', 'E', 'NE', 'N']);
+    expect([0, 32, 64, 96, 128, 160, 192, 224, 255].map(compassPoint)).toEqual([
+      'N',
+      'NW',
+      'W',
+      'SW',
+      'S',
+      'SE',
+      'E',
+      'NE',
+      'N',
+    ]);
     expect(compassPoint(-64)).toBe('E');
   });
   it('puts north to the right when facing west', () => {
@@ -58,13 +92,25 @@ describe('map coordinates', () => {
     expect(tileRect(v, 8, 6)).toEqual({ x: 400, y: 350, size: 100 });
   });
   it('points the arrow along the heading on screen', () => {
-    const n = headingToMapDir(0), w = headingToMapDir(64), e = headingToMapDir(192);
-    expect(n.x).toBeCloseTo(0); expect(n.y).toBeCloseTo(-1);
-    expect(w.x).toBeCloseTo(-1); expect(w.y).toBeCloseTo(0);
+    const n = headingToMapDir(0),
+      w = headingToMapDir(64),
+      e = headingToMapDir(192);
+    expect(n.x).toBeCloseTo(0);
+    expect(n.y).toBeCloseTo(-1);
+    expect(w.x).toBeCloseTo(-1);
+    expect(w.y).toBeCloseTo(0);
     expect(e.x).toBeCloseTo(1);
   });
   it('pads and clamps bounds', () => {
-    expect(tileBounds([[0, 0], [3, 4]], 1)).toEqual({ minX: 0, minY: 0, maxX: 4, maxY: 5 });
+    expect(
+      tileBounds(
+        [
+          [0, 0],
+          [3, 4],
+        ],
+        1,
+      ),
+    ).toEqual({ minX: 0, minY: 0, maxX: 4, maxY: 5 });
     expect(tileBounds([])).toEqual({ minX: 0, minY: 0, maxX: 49, maxY: 49 });
     expect(insideBounds({ minX: 1, minY: 1, maxX: 2, maxY: 2 }, 3 * TILE_SIZE - 1, 1.5 * TILE_SIZE)).toBe(true);
     expect(insideBounds({ minX: 1, minY: 1, maxX: 2, maxY: 2 }, 3 * TILE_SIZE, 1.5 * TILE_SIZE)).toBe(false);
@@ -81,7 +127,13 @@ describe('map screen', () => {
     const h = new HudScreens({ font, save, items: [] });
     expect(h.keyDown('Tab', 'Tab')).toBe(true);
     expect(h.screen).toBe('none');
-    h.setMap(zoneMapFromTiles([[6, 7], [7, 7]]), 1);
+    h.setMap(
+      zoneMapFromTiles([
+        [6, 7],
+        [7, 7],
+      ]),
+      1,
+    );
     h.keyDown('Tab', 'Tab');
     expect(h.screen).toBe('map');
     expect(h.blocking).toBe(true);
@@ -92,7 +144,12 @@ describe('map screen', () => {
     expect(h.screen).toBe('none');
   });
   it('lays the viewport around the present tiles', () => {
-    const l = layoutMap(zoneMapFromTiles([[6, 7], [7, 7]]));
+    const l = layoutMap(
+      zoneMapFromTiles([
+        [6, 7],
+        [7, 7],
+      ]),
+    );
     expect(l.viewport.bounds).toEqual({ minX: 5, minY: 6, maxX: 8, maxY: 8 });
     expect(l.tiles).toHaveLength(2);
   });

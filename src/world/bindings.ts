@@ -23,7 +23,22 @@ export const BINDINGS_KEY = 'bok.bindings';
 
 /** Keys that must stay free: the menu, the HUD hotkeys that open screens, and the debug/save keys. */
 export const RESERVED_CODES: ReadonlySet<string> = new Set([
-  'Escape', 'Tab', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12', 'BracketLeft', 'BracketRight',
+  'Escape',
+  'Tab',
+  'F1',
+  'F2',
+  'F3',
+  'F4',
+  'F5',
+  'F6',
+  'F7',
+  'F8',
+  'F9',
+  'F10',
+  'F11',
+  'F12',
+  'BracketLeft',
+  'BracketRight',
 ]);
 
 export const cloneBindings = (b: Readonly<Bindings> = DEFAULT_BINDINGS): Bindings =>
@@ -37,7 +52,8 @@ export function parseBindings(json: string | null | undefined): Bindings {
     if (!raw || typeof raw !== 'object') return out;
     for (const a of BINDING_ACTIONS) {
       const v = (raw as Record<string, unknown>)[a];
-      if (Array.isArray(v) && v.length === 2 && v.every((c) => typeof c === 'string' && c.length > 0 && c.length < 32)) out[a] = [v[0] as string, v[1] as string];
+      if (Array.isArray(v) && v.length === 2 && v.every((c) => typeof c === 'string' && c.length > 0 && c.length < 32))
+        out[a] = [v[0] as string, v[1] as string];
     }
   } catch {
     // corrupt storage: use defaults
@@ -65,7 +81,8 @@ export function rebind(b: Readonly<Bindings>, action: BindingAction, code: strin
 }
 
 /** True when `code` is bound to `action` in either slot. */
-export const isBound = (b: Readonly<Bindings>, action: BindingAction, code: string): boolean => b[action][0] === code || b[action][1] === code;
+export const isBound = (b: Readonly<Bindings>, action: BindingAction, code: string): boolean =>
+  b[action][0] === code || b[action][1] === code;
 
 /** Short readable name for a key code ('KeyW' -> 'W', 'ArrowUp' -> 'Up'). */
 export function codeLabel(code: string): string {
@@ -73,5 +90,8 @@ export function codeLabel(code: string): string {
   if (code.startsWith('Digit')) return code.slice(5);
   if (code.startsWith('Arrow')) return code.slice(5);
   if (code.startsWith('Numpad')) return 'Num ' + code.slice(6);
-  return code.replace(/(Left|Right)$/, ' $1').replace(/^Shift/, 'Shift').trim();
+  return code
+    .replace(/(Left|Right)$/, ' $1')
+    .replace(/^Shift/, 'Shift')
+    .trim();
 }

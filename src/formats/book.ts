@@ -73,8 +73,22 @@ function parsePage(r: Reader): BookPage {
   const reservedCount = r.u16();
   const showPageNumber = r.u16();
   r.skip(30);
-  const page: BookPage = { x, y, width, height, displayNumber, pageNumber, previousPage, nextPage, showPageNumber, reservedAreas: [], images: [], paragraphs: [] };
-  for (let i = 0; i < reservedCount; i++) page.reservedAreas.push({ x: r.i16(), y: r.i16(), width: r.i16(), height: r.i16() });
+  const page: BookPage = {
+    x,
+    y,
+    width,
+    height,
+    displayNumber,
+    pageNumber,
+    previousPage,
+    nextPage,
+    showPageNumber,
+    reservedAreas: [],
+    images: [],
+    paragraphs: [],
+  };
+  for (let i = 0; i < reservedCount; i++)
+    page.reservedAreas.push({ x: r.i16(), y: r.i16(), width: r.i16(), height: r.i16() });
   for (let i = 0; i < imageCount; i++) page.images.push({ x: r.i16(), y: r.i16(), image: r.u16(), mirroring: r.u16() });
 
   let paragraph: BookParagraph | undefined;

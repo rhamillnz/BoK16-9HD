@@ -30,12 +30,32 @@ export const EncounterType = {
 
 /** Discriminator names for each known type id. Background is a GDS scene like Town. */
 export type EncounterKind =
-  | 'background' | 'combat' | 'comment' | 'dialog' | 'health' | 'sound'
-  | 'town' | 'trap' | 'zone' | 'disable' | 'enable' | 'block';
+  | 'background'
+  | 'combat'
+  | 'comment'
+  | 'dialog'
+  | 'health'
+  | 'sound'
+  | 'town'
+  | 'trap'
+  | 'zone'
+  | 'disable'
+  | 'enable'
+  | 'block';
 
 const KIND_BY_TYPE: readonly EncounterKind[] = [
-  'background', 'combat', 'comment', 'dialog', 'health', 'sound',
-  'town', 'trap', 'zone', 'disable', 'enable', 'block',
+  'background',
+  'combat',
+  'comment',
+  'dialog',
+  'health',
+  'sound',
+  'town',
+  'trap',
+  'zone',
+  'disable',
+  'enable',
+  'block',
 ];
 
 /**
@@ -48,8 +68,7 @@ const KIND_BY_TYPE: readonly EncounterKind[] = [
  * - comment/health/sound: defined by the type list, but BaKGL has no definition files for them
  */
 export type EncounterAction =
-  | { kind: EncounterKind; tableIndex: number }
-  | { kind: 'unknown'; typeId: number; tableIndex: number };
+  { kind: EncounterKind; tableIndex: number } | { kind: 'unknown'; typeId: number; tableIndex: number };
 
 export interface EncounterRecord {
   /** Position of the record in the chapter block (0..9). */
@@ -98,7 +117,10 @@ export function parseTileEncounters(bytes: Uint8Array, chapter: number): Encount
       index,
       typeId,
       action: encounterAction(typeId, tableIndex),
-      left, top, right, bottom,
+      left,
+      top,
+      right,
+      bottom,
       tableIndex,
       unknown0: r.u8(),
       unknown1: r.u8(),

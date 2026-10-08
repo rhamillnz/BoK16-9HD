@@ -24,7 +24,9 @@ describe('describeStartupError', () => {
   });
 
   it('flags unreadable data', () => {
-    expect(describeStartupError(new RangeError('Offset is outside the bounds of the DataView')).title).toBe('Game data looks wrong');
+    expect(describeStartupError(new RangeError('Offset is outside the bounds of the DataView')).title).toBe(
+      'Game data looks wrong',
+    );
   });
 
   it('falls back to a generic message', () => {

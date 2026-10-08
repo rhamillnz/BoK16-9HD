@@ -69,7 +69,13 @@ function select(name: string) {
 
 function currentPalette(imageName: string): { name: string; pal: Palette } {
   const a = archive!;
-  const name = paletteEl.value === AUTO ? guessPalette(imageName, a.entries.map((e) => e.name)) : paletteEl.value;
+  const name =
+    paletteEl.value === AUTO
+      ? guessPalette(
+          imageName,
+          a.entries.map((e) => e.name),
+        )
+      : paletteEl.value;
   return { name, pal: parsePalette(a.get(name)) };
 }
 

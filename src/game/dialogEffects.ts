@@ -90,7 +90,8 @@ export function applyDialogEffects(ctx: DialogEffectsContext, actions: readonly 
     const picked = ctx.dialogCharacters?.[who - 2];
     return picked === undefined || picked === NO_CHARACTER ? all : [picked];
   };
-  const randomBetween = (min: number, max: number) => (min === max ? max : min + (rnd(0x1000) % Math.max(1, max - min)));
+  const randomBetween = (min: number, max: number) =>
+    min === max ? max : min + (rnd(0x1000) % Math.max(1, max - min));
 
   for (const a of actions) {
     const f = a.fields;
@@ -124,7 +125,8 @@ export function applyDialogEffects(ctx: DialogEffectsContext, actions: readonly 
           break;
         }
         const amount = randomBetween(num(f.min), num(f.max));
-        for (const index of targets(num(f.who))) party = updateCharacter(party, index, (c) => addCondition(c, name, amount));
+        for (const index of targets(num(f.who)))
+          party = updateCharacter(party, index, (c) => addCondition(c, name, amount));
         break;
       }
       case ActionType.GainSkill: {
@@ -141,7 +143,13 @@ export function applyDialogEffects(ctx: DialogEffectsContext, actions: readonly 
             const s = c.skills[name];
             if (s.max === 0) return c;
             const trueSkill = Math.max(0, Math.min(s.max, s.trueSkill + amount));
-            return { ...c, skills: { ...c.skills, [name]: { ...s, trueSkill, unseenImprovement: s.unseenImprovement || trueSkill > s.trueSkill } } };
+            return {
+              ...c,
+              skills: {
+                ...c.skills,
+                [name]: { ...s, trueSkill, unseenImprovement: s.unseenImprovement || trueSkill > s.trueSkill },
+              },
+            };
           });
         }
         if (amount > 0) improvedSkills.push(num(f.skill));

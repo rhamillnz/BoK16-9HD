@@ -30,7 +30,10 @@ function addRoadStones(scene: ZoneScene, data: ZoneData, overrides: ZoneOverride
   const height = (x: number, z: number) => heightField.getHeight(x * WORLD_SCALE, -z * WORLD_SCALE) / WORLD_SCALE;
   // One group per model and ground chunk, so each chunk is frustum- and distance-culled on its own.
   const groups = new Map<string, { name: string; cx: number; cz: number; matrices: THREE.Matrix4[] }>();
-  for (const p of roadStonePlacements(roadEdgePoints(data), height, available, { ...DEFAULT_ROAD_STONES, seed: data.zone })) {
+  for (const p of roadStonePlacements(roadEdgePoints(data), height, available, {
+    ...DEFAULT_ROAD_STONES,
+    seed: data.zone,
+  })) {
     const cx = Math.floor(p.matrix.elements[12]! / ROAD_STONE_CHUNK);
     const cz = Math.floor(p.matrix.elements[14]! / ROAD_STONE_CHUNK);
     const key = `${p.name}|${cx}|${cz}`;
@@ -41,7 +44,12 @@ function addRoadStones(scene: ZoneScene, data: ZoneData, overrides: ZoneOverride
   for (const g of groups.values()) {
     for (const mesh of buildOverrideMeshes(g.name, overrides.models.get(g.name)!, g.matrices)) {
       mesh.castShadow = false;
-      mesh.userData.chunk = { x: (g.cx + 0.5) * ROAD_STONE_CHUNK, z: (g.cz + 0.5) * ROAD_STONE_CHUNK, r: ROAD_STONE_CHUNK * 0.75, far: ROAD_STONE_FAR };
+      mesh.userData.chunk = {
+        x: (g.cx + 0.5) * ROAD_STONE_CHUNK,
+        z: (g.cz + 0.5) * ROAD_STONE_CHUNK,
+        r: ROAD_STONE_CHUNK * 0.75,
+        far: ROAD_STONE_FAR,
+      };
       scene.group.add(mesh);
       scene.stats.drawCalls++;
     }

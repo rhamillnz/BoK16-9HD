@@ -60,12 +60,34 @@ function fakeCtx() {
     state: 'running',
     destination: {},
     createGain: gain,
-    createBufferSource: () => { throw new Error('no wave expected'); },
-    createBuffer: () => { throw new Error('no wave expected'); },
+    createBufferSource: () => {
+      throw new Error('no wave expected');
+    },
+    createBuffer: () => {
+      throw new Error('no wave expected');
+    },
     createOscillator: () => {
-      const o = { type: '', freq: 0, started: [] as number[], stopped: [] as number[], onended: null as (() => void) | null,
-        frequency: { ...param(), set value(v: number) { o.freq = v; } }, connect() {}, disconnect() {},
-        start(t = 0) { o.started.push(t); }, stop(t = 0) { o.stopped.push(t); } };
+      const o = {
+        type: '',
+        freq: 0,
+        started: [] as number[],
+        stopped: [] as number[],
+        onended: null as (() => void) | null,
+        frequency: {
+          ...param(),
+          set value(v: number) {
+            o.freq = v;
+          },
+        },
+        connect() {},
+        disconnect() {},
+        start(t = 0) {
+          o.started.push(t);
+        },
+        stop(t = 0) {
+          o.stopped.push(t);
+        },
+      };
       oscs.push(o);
       return o;
     },

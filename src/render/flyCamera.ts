@@ -48,7 +48,11 @@ export class FlyCamera {
     const rx = Math.cos(this.yaw);
     const rz = -Math.sin(this.yaw);
     const p = this.camera.position;
-    const move = (dx: number, dy: number, dz: number, s: number) => { p.x += dx * s; p.y += dy * s; p.z += dz * s; };
+    const move = (dx: number, dy: number, dz: number, s: number) => {
+      p.x += dx * s;
+      p.y += dy * s;
+      p.z += dz * s;
+    };
     if (has('KeyW', 'ArrowUp')) move(fx, fy, fz, step);
     if (has('KeyS', 'ArrowDown')) move(fx, fy, fz, -step);
     if (has('KeyD', 'ArrowRight')) move(rx, 0, rz, step);

@@ -7,5 +7,12 @@ const z = loadZone(a, 1);
 for (const n of ['inn', 'house', 'house1', 'blcksmth', 'church', 'temple', 'bridge1']) {
   const t = z.table.names.indexOf(n);
   const hits = z.items.filter((i) => i.type === t);
-  console.log(n, hits.length, hits.slice(0, 3).map((i) => `(${i.x},${i.y} r${i.zRot})`).join(' '));
+  console.log(
+    n,
+    hits.length,
+    hits
+      .slice(0, 3)
+      .map((i) => `(${i.x},${i.y} r${i.zRot})`)
+      .join(' '),
+  );
 }

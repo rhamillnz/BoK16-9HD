@@ -26,13 +26,45 @@ export interface PadFrame {
 export const DEADZONE = 0.2;
 const NAV_THRESHOLD = 0.6;
 
-const A = 0, B = 1, X = 2, Y = 3, LB = 4, RB = 5, LT = 6, RT = 7, BACK = 8, START = 9, UP = 12, DOWN = 13, LEFT = 14, RIGHT = 15;
+const A = 0,
+  B = 1,
+  X = 2,
+  Y = 3,
+  LB = 4,
+  RB = 5,
+  LT = 6,
+  RT = 7,
+  BACK = 8,
+  START = 9,
+  UP = 12,
+  DOWN = 13,
+  LEFT = 14,
+  RIGHT = 15;
 
 /** Button index to key code, per context. */
 export const PAD_KEYS: Record<PadContext, Readonly<Record<number, string>>> = {
   world: { [A]: 'KeyE', [X]: 'KeyC', [Y]: 'KeyI', [LB]: 'KeyV', [RB]: 'KeyR', [BACK]: 'Tab', [START]: 'Escape' },
-  screen: { [A]: 'Enter', [B]: 'Escape', [LB]: 'KeyE', [RB]: 'Tab', [START]: 'Escape', [UP]: 'ArrowUp', [DOWN]: 'ArrowDown', [LEFT]: 'ArrowLeft', [RIGHT]: 'ArrowRight' },
-  combat: { [A]: 'Enter', [B]: 'KeyD', [X]: 'KeyS', [Y]: 'KeyF', [LB]: 'KeyW', [RB]: 'KeyC', [LT]: 'KeyQ', [START]: 'Escape' },
+  screen: {
+    [A]: 'Enter',
+    [B]: 'Escape',
+    [LB]: 'KeyE',
+    [RB]: 'Tab',
+    [START]: 'Escape',
+    [UP]: 'ArrowUp',
+    [DOWN]: 'ArrowDown',
+    [LEFT]: 'ArrowLeft',
+    [RIGHT]: 'ArrowRight',
+  },
+  combat: {
+    [A]: 'Enter',
+    [B]: 'KeyD',
+    [X]: 'KeyS',
+    [Y]: 'KeyF',
+    [LB]: 'KeyW',
+    [RB]: 'KeyC',
+    [LT]: 'KeyQ',
+    [START]: 'Escape',
+  },
 };
 
 /** Removes the dead zone and rescales so the usable range still reaches 1. */
@@ -52,11 +84,16 @@ export function keyForCode(code: string): string {
  * `prev` is the pressed state of each button on the previous frame, including virtual buttons for the
  * left stick (indices 100 to 103: up, down, left, right) used to navigate screens.
  */
-export function padFrame(pad: PadSnapshot, prev: readonly boolean[], ctx: PadContext): { frame: PadFrame; pressed: boolean[] } {
+export function padFrame(
+  pad: PadSnapshot,
+  prev: readonly boolean[],
+  ctx: PadContext,
+): { frame: PadFrame; pressed: boolean[] } {
   const ax = (i: number) => deadzone(pad.axes[i] ?? 0);
   const pressed: boolean[] = [];
   for (let i = 0; i < 16; i++) pressed[i] = pad.buttons[i] ?? false;
-  const lx = ax(0), ly = ax(1);
+  const lx = ax(0),
+    ly = ax(1);
   pressed[100] = ly < 0 && -ly > NAV_THRESHOLD;
   pressed[101] = ly > 0 && ly > NAV_THRESHOLD;
   pressed[102] = lx < 0 && -lx > NAV_THRESHOLD;
@@ -66,11 +103,18 @@ export function padFrame(pad: PadSnapshot, prev: readonly boolean[], ctx: PadCon
   const edge = (i: number) => pressed[i] === true && !prev[i];
   for (const [idx, code] of Object.entries(PAD_KEYS[ctx])) if (edge(Number(idx))) presses.push(code);
   if (ctx === 'screen') {
-    const stick: [number, string][] = [[100, 'ArrowUp'], [101, 'ArrowDown'], [102, 'ArrowLeft'], [103, 'ArrowRight']];
+    const stick: [number, string][] = [
+      [100, 'ArrowUp'],
+      [101, 'ArrowDown'],
+      [102, 'ArrowLeft'],
+      [103, 'ArrowRight'],
+    ];
     for (const [i, code] of stick) if (edge(i)) presses.push(code);
   }
 
-  let moveAxis = 0, turnAxis = 0, run = false;
+  let moveAxis = 0,
+    turnAxis = 0,
+    run = false;
   if (ctx === 'world') {
     moveAxis = -ly + (pressed[UP] ? 1 : 0) - (pressed[DOWN] ? 1 : 0);
     turnAxis = -lx - ax(2) + (pressed[LEFT] ? 1 : 0) - (pressed[RIGHT] ? 1 : 0);

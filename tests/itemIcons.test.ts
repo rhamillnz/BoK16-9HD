@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { buildItemIconSet, colorizeIcon, fitScale, resolveItemIcon, resolveItemImage } from '../src/data/itemIcons';
 import type { IndexedImage } from '../src/formats/bmx';
 
-const img = (w: number, h: number, fill: number): IndexedImage => ({ width: w, height: h, pixels: new Uint8Array(w * h).fill(fill) });
+const img = (w: number, h: number, fill: number): IndexedImage => ({
+  width: w,
+  height: h,
+  pixels: new Uint8Array(w * h).fill(fill),
+});
 const palette = new Uint8Array(256 * 4);
 palette.set([10, 20, 30, 255], 1 * 4);
 palette.set([200, 100, 50, 255], 2 * 4);

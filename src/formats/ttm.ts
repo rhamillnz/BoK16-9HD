@@ -16,7 +16,17 @@ export type TtmOp =
   | { op: 'loadPalette'; name: string }
   | { op: 'loadImage'; name: string }
   | { op: 'loadScreen'; name: string }
-  | { op: 'sprite'; x: number; y: number; index: number; slot: number; width: number; height: number; flipX: boolean; flipY: boolean }
+  | {
+      op: 'sprite';
+      x: number;
+      y: number;
+      index: number;
+      slot: number;
+      width: number;
+      height: number;
+      flipX: boolean;
+      flipY: boolean;
+    }
   | { op: 'rect'; x: number; y: number; width: number; height: number; filled: boolean; edge: number; fill: number }
   | { op: 'clip'; x: number; y: number; right: number; bottom: number }
   | { op: 'actor' };
@@ -133,7 +143,16 @@ export function parseTtm(bytes: Uint8Array): Map<number, TtmScript> {
         break;
       case OP.rect:
       case OP.frame:
-        current?.ops.push({ op: 'rect', x: a(0), y: a(1), width: a(2), height: a(3), filled: code === OP.rect, edge, fill });
+        current?.ops.push({
+          op: 'rect',
+          x: a(0),
+          y: a(1),
+          width: a(2),
+          height: a(3),
+          filled: code === OP.rect,
+          edge,
+          fill,
+        });
         break;
       case OP.sprite:
       case OP.spriteFlipY:
@@ -142,9 +161,15 @@ export function parseTtm(bytes: Uint8Array): Map<number, TtmScript> {
         const flip = (code & 0xf0) >> 4;
         const scaled = args.length >= 6;
         current?.ops.push({
-          op: 'sprite', x: a(0), y: a(1), index: a(2), slot: a(3),
-          width: scaled ? a(4) : 0, height: scaled ? a(5) : 0,
-          flipX: (flip & 2) !== 0, flipY: (flip & 1) !== 0,
+          op: 'sprite',
+          x: a(0),
+          y: a(1),
+          index: a(2),
+          slot: a(3),
+          width: scaled ? a(4) : 0,
+          height: scaled ? a(5) : 0,
+          flipX: (flip & 2) !== 0,
+          flipY: (flip & 1) !== 0,
         });
         break;
       }
@@ -165,8 +190,27 @@ export function parseTtm(bytes: Uint8Array): Map<number, TtmScript> {
 export type TtmFrameOp =
   | { op: 'slotImage' | 'slotPalette'; slot: number }
   | { op: 'loadPalette' | 'loadImage' | 'loadScreen'; name: string }
-  | { op: 'sprite'; x: number; y: number; index: number; slot: number; width: number; height: number; flipX: boolean; flipY: boolean }
-  | { op: 'spriteRotated'; x: number; y: number; index: number; slot: number; width: number; height: number; angle: number }
+  | {
+      op: 'sprite';
+      x: number;
+      y: number;
+      index: number;
+      slot: number;
+      width: number;
+      height: number;
+      flipX: boolean;
+      flipY: boolean;
+    }
+  | {
+      op: 'spriteRotated';
+      x: number;
+      y: number;
+      index: number;
+      slot: number;
+      width: number;
+      height: number;
+      angle: number;
+    }
   | { op: 'rect'; x: number; y: number; width: number; height: number; filled: boolean; edge: number; fill: number }
   | { op: 'clip'; x: number; y: number; right: number; bottom: number }
   | { op: 'saveBackground' }
@@ -270,28 +314,61 @@ export function parseTtmFrames(bytes: Uint8Array): TtmFrame[] {
           fill = 0xf;
         }
         break;
-      case FRAME_OP.endFrame: push(); break;
-      case FRAME_OP.endScript: ops.push({ op: 'endScript' }); break;
-      case FRAME_OP.saveBackground: ops.push({ op: 'saveBackground' }); break;
-      case FRAME_OP.delay: ops.push({ op: 'delay', ticks: a(0) }); break;
-      case FRAME_OP.slotImage: ops.push({ op: 'slotImage', slot: a(0) }); break;
-      case FRAME_OP.slotPalette: ops.push({ op: 'slotPalette', slot: a(0) }); break;
-      case FRAME_OP.setSaveLayer: ops.push({ op: 'setSaveLayer', layer: a(0) }); break;
-      case FRAME_OP.drawSavedRegion: ops.push({ op: 'drawSavedRegion', layer: a(0) }); break;
-      case FRAME_OP.gotoTag: ops.push({ op: 'gotoTag', tag: a(0) }); break;
+      case FRAME_OP.endFrame:
+        push();
+        break;
+      case FRAME_OP.endScript:
+        ops.push({ op: 'endScript' });
+        break;
+      case FRAME_OP.saveBackground:
+        ops.push({ op: 'saveBackground' });
+        break;
+      case FRAME_OP.delay:
+        ops.push({ op: 'delay', ticks: a(0) });
+        break;
+      case FRAME_OP.slotImage:
+        ops.push({ op: 'slotImage', slot: a(0) });
+        break;
+      case FRAME_OP.slotPalette:
+        ops.push({ op: 'slotPalette', slot: a(0) });
+        break;
+      case FRAME_OP.setSaveLayer:
+        ops.push({ op: 'setSaveLayer', layer: a(0) });
+        break;
+      case FRAME_OP.drawSavedRegion:
+        ops.push({ op: 'drawSavedRegion', layer: a(0) });
+        break;
+      case FRAME_OP.gotoTag:
+        ops.push({ op: 'gotoTag', tag: a(0) });
+        break;
       case FRAME_OP.setColor:
         edge = a(0);
         fill = a(1);
         break;
-      case FRAME_OP.clip: ops.push({ op: 'clip', x: a(0), y: a(1), right: a(2), bottom: a(3) }); break;
-      case FRAME_OP.saveRect: ops.push({ op: 'saveRect', x: a(0), y: a(1), width: a(2), height: a(3) }); break;
-      case FRAME_OP.saveRegion: ops.push({ op: 'saveRegion', x: a(0), y: a(1), width: a(2), height: a(3) }); break;
+      case FRAME_OP.clip:
+        ops.push({ op: 'clip', x: a(0), y: a(1), right: a(2), bottom: a(3) });
+        break;
+      case FRAME_OP.saveRect:
+        ops.push({ op: 'saveRect', x: a(0), y: a(1), width: a(2), height: a(3) });
+        break;
+      case FRAME_OP.saveRegion:
+        ops.push({ op: 'saveRegion', x: a(0), y: a(1), width: a(2), height: a(3) });
+        break;
       case FRAME_OP.copyLayer:
         ops.push({ op: 'copyLayer', x: a(0), y: a(1), width: a(2), height: a(3), source: a(4), target: a(5) });
         break;
       case FRAME_OP.rect:
       case FRAME_OP.frame:
-        ops.push({ op: 'rect', x: a(0), y: a(1), width: a(2), height: a(3), filled: code === FRAME_OP.rect, edge, fill });
+        ops.push({
+          op: 'rect',
+          x: a(0),
+          y: a(1),
+          width: a(2),
+          height: a(3),
+          filled: code === FRAME_OP.rect,
+          edge,
+          fill,
+        });
         break;
       case FRAME_OP.sprite:
       case 0xa510:
@@ -300,19 +377,45 @@ export function parseTtmFrames(bytes: Uint8Array): TtmFrame[] {
         const flip = (code & 0xf0) >> 4;
         const scaled = args.length >= 6;
         ops.push({
-          op: 'sprite', x: a(0), y: a(1), index: a(2), slot: a(3),
-          width: scaled ? a(4) : 0, height: scaled ? a(5) : 0, flipX: (flip & 2) !== 0, flipY: (flip & 1) !== 0,
+          op: 'sprite',
+          x: a(0),
+          y: a(1),
+          index: a(2),
+          slot: a(3),
+          width: scaled ? a(4) : 0,
+          height: scaled ? a(5) : 0,
+          flipX: (flip & 2) !== 0,
+          flipY: (flip & 1) !== 0,
         });
         break;
       }
       case FRAME_OP.spriteRotated:
-        ops.push({ op: 'spriteRotated', x: a(0), y: a(1), index: a(2), slot: a(3), width: a(4), height: a(5), angle: a(6) });
+        ops.push({
+          op: 'spriteRotated',
+          x: a(0),
+          y: a(1),
+          index: a(2),
+          slot: a(3),
+          width: a(4),
+          height: a(5),
+          angle: a(6),
+        });
         break;
-      case FRAME_OP.showDialog: ops.push({ op: 'dialog', key: a(0) === -1 ? undefined : a(0), type: a(1) }); break;
-      case FRAME_OP.sound: ops.push({ op: 'sound', index: a(0) }); break;
+      case FRAME_OP.showDialog:
+        ops.push({ op: 'dialog', key: a(0) === -1 ? undefined : a(0), type: a(1) });
+        break;
+      case FRAME_OP.sound:
+        ops.push({ op: 'sound', index: a(0) });
+        break;
       case FRAME_OP.fadeIn:
       case FRAME_OP.fadeOut:
-        ops.push({ op: code === FRAME_OP.fadeIn ? 'fadeIn' : 'fadeOut', startColor: a(0), steps: a(1), endColor: a(2), duration: a(3) });
+        ops.push({
+          op: code === FRAME_OP.fadeIn ? 'fadeIn' : 'fadeOut',
+          startColor: a(0),
+          steps: a(1),
+          endColor: a(2),
+          duration: a(3),
+        });
         break;
       default:
         break;
@@ -325,8 +428,7 @@ export function parseTtmFrames(bytes: Uint8Array): TtmFrame[] {
 // ---- ADS -------------------------------------------------------------------
 
 export type AdsCondition =
-  | { kind: 'notStarted' | 'finished'; script: number }
-  | { kind: 'chapterGte' | 'chapterLte'; chapter: number };
+  { kind: 'notStarted' | 'finished'; script: number } | { kind: 'chapterGte' | 'chapterLte'; chapter: number };
 
 export interface AdsAction {
   kind: 'start' | 'stop';
@@ -364,16 +466,30 @@ const ADS = {
 
 function operandCount(op: number): number {
   switch (op) {
-    case ADS.ifNotPlayed: case ADS.ifNotPlayedElse: case ADS.ifPlayedElse: return 2;
-    case ADS.restart: case ADS.start: return 4;
-    case ADS.stop: return 3;
-    case ADS.ifChapGte: case ADS.ifChapLte: case ADS.stopScene: return 1;
-    default: return 0;
+    case ADS.ifNotPlayed:
+    case ADS.ifNotPlayedElse:
+    case ADS.ifPlayedElse:
+      return 2;
+    case ADS.restart:
+    case ADS.start:
+      return 4;
+    case ADS.stop:
+      return 3;
+    case ADS.ifChapGte:
+    case ADS.ifChapLte:
+    case ADS.stopScene:
+      return 1;
+    default:
+      return 0;
   }
 }
 
 const isCondition = (op: number) =>
-  op === ADS.ifNotPlayed || op === ADS.ifNotPlayedElse || op === ADS.ifPlayedElse || op === ADS.ifChapGte || op === ADS.ifChapLte;
+  op === ADS.ifNotPlayed ||
+  op === ADS.ifNotPlayedElse ||
+  op === ADS.ifPlayedElse ||
+  op === ADS.ifChapGte ||
+  op === ADS.ifChapLte;
 const isAction = (op: number) => op === ADS.start || op === ADS.restart || op === ADS.stop;
 
 interface RawOp {
@@ -383,10 +499,14 @@ interface RawOp {
 
 function toCondition(o: RawOp): AdsCondition {
   switch (o.op) {
-    case ADS.ifChapGte: return { kind: 'chapterGte', chapter: o.args[0]! };
-    case ADS.ifChapLte: return { kind: 'chapterLte', chapter: o.args[0]! };
-    case ADS.ifPlayedElse: return { kind: 'finished', script: o.args[1]! };
-    default: return { kind: 'notStarted', script: o.args[1]! };
+    case ADS.ifChapGte:
+      return { kind: 'chapterGte', chapter: o.args[0]! };
+    case ADS.ifChapLte:
+      return { kind: 'chapterLte', chapter: o.args[0]! };
+    case ADS.ifPlayedElse:
+      return { kind: 'finished', script: o.args[1]! };
+    default:
+      return { kind: 'notStarted', script: o.args[1]! };
   }
 }
 

@@ -5,8 +5,7 @@ import { resolveArtPath } from './src/assets/artServe';
 
 // Original game files are never copied into the repo. In dev they are served
 // read-only from the user's install directory under /bak/.
-export const BAK_DIR =
-  process.env.BAK_DIR ?? 'C:/Program Files (x86)/GOG Galaxy/Games/Betrayal at Krondor';
+export const BAK_DIR = process.env.BAK_DIR ?? 'C:/Program Files (x86)/GOG Galaxy/Games/Betrayal at Krondor';
 
 function serveGameData(): Plugin {
   return {

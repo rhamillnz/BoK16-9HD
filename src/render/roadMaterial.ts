@@ -1,5 +1,20 @@
 import * as THREE from 'three/webgpu';
-import { Fn, abs, attribute, float, max, mix, mx_noise_float, normalWorld, positionWorld, smoothstep, step, texture, uv, vec3 } from 'three/tsl';
+import {
+  Fn,
+  abs,
+  attribute,
+  float,
+  max,
+  mix,
+  mx_noise_float,
+  normalWorld,
+  positionWorld,
+  smoothstep,
+  step,
+  texture,
+  uv,
+  vec3,
+} from 'three/tsl';
 import { bumpedNormal } from './bump';
 
 /**
@@ -29,7 +44,12 @@ export const PATH_STYLE: RoadStyle = { ruts: false, rutOffset: 0, rutWidth: 0.12
 const RUT_DEPTH = 0.12;
 
 export function createRoadMaterial(map: THREE.Texture, style: RoadStyle): THREE.MeshStandardNodeMaterial {
-  const material = new THREE.MeshStandardNodeMaterial({ roughness: 1, metalness: 0, side: THREE.DoubleSide, transparent: true });
+  const material = new THREE.MeshStandardNodeMaterial({
+    roughness: 1,
+    metalness: 0,
+    side: THREE.DoubleSide,
+    transparent: true,
+  });
   const p = positionWorld.xz;
 
   // Across the strip: wobbled a little in world space so the track meanders instead of ruling straight lines.
@@ -40,14 +60,20 @@ export function createRoadMaterial(map: THREE.Texture, style: RoadStyle): THREE.
 
   // Wheel ruts (or the footpath's worn centre line), 1 in the groove.
   const rutAt = style.ruts ? abs(fromMiddle.sub(style.rutOffset)) : fromMiddle;
-  const rut = float(1).sub(smoothstep(style.rutWidth * 0.35, style.rutWidth, rutAt.add(mx_noise_float(p.mul(1.7)).mul(0.008)))).mul(known);
+  const rut = float(1)
+    .sub(smoothstep(style.rutWidth * 0.35, style.rutWidth, rutAt.add(mx_noise_float(p.mul(1.7)).mul(0.008))))
+    .mul(known);
   // Grass and weeds on the crown between the ruts, patchy along the road.
-  const crown = style.ruts ? float(1).sub(smoothstep(style.rutOffset - style.rutWidth * 2.2, style.rutOffset - style.rutWidth, fromMiddle)) : float(0);
+  const crown = style.ruts
+    ? float(1).sub(smoothstep(style.rutOffset - style.rutWidth * 2.2, style.rutOffset - style.rutWidth, fromMiddle))
+    : float(0);
   const weeds = crown.mul(smoothstep(0.1, 0.6, mx_noise_float(p.mul(0.9).add(3.3)).mul(0.5).add(0.5))).mul(known);
 
   material.colorNode = Fn(() => {
     // The original road colour, averaged by sampling the tileable texture coarsely.
-    const orig = texture(map, uv().mul(0.25)).rgb.add(texture(map, uv().mul(0.25).add(0.5)).rgb).mul(0.5);
+    const orig = texture(map, uv().mul(0.25))
+      .rgb.add(texture(map, uv().mul(0.25).add(0.5)).rgb)
+      .mul(0.5);
     const blotch = mx_noise_float(p.mul(0.3)).mul(0.5).add(0.5);
     const grit = mx_noise_float(p.mul(11.0)).mul(0.5).add(0.5);
     // Dust: the same earth colour the road had before (original texture pulled towards dusty
@@ -56,7 +82,10 @@ export function createRoadMaterial(map: THREE.Texture, style: RoadStyle): THREE.
     const dust = earth.mul(float(0.88).add(blotch.mul(0.3))).mul(float(0.9).add(grit.mul(0.2)));
     // Ruts are packed and a little damp: darker; the churned dust beside them is lighter.
     const groove = earth.mul(vec3(0.52, 0.48, 0.45));
-    const rim = float(1).sub(smoothstep(0, style.rutWidth * 0.8, abs(rutAt.sub(style.rutWidth * 1.4)))).mul(known).mul(style.ruts ? 1 : 0);
+    const rim = float(1)
+      .sub(smoothstep(0, style.rutWidth * 0.8, abs(rutAt.sub(style.rutWidth * 1.4))))
+      .mul(known)
+      .mul(style.ruts ? 1 : 0);
     const grass = vec3(0.05, 0.09, 0.025).mul(float(0.8).add(blotch.mul(0.4)));
     const surface = mix(mix(dust.mul(float(1).add(rim.mul(0.18))), groove, rut), grass, weeds.mul(0.75));
     // Banks and slopes darken a little, like the rest of the terrain.
@@ -65,7 +94,9 @@ export function createRoadMaterial(map: THREE.Texture, style: RoadStyle): THREE.
   })();
 
   // Ruts sink in, the crown and the dust are lumpy: bump only, the strip itself stays flat.
-  const lumps = mx_noise_float(p.mul(2.3)).mul(0.25).add(mx_noise_float(p.mul(7.0)).mul(0.1));
+  const lumps = mx_noise_float(p.mul(2.3))
+    .mul(0.25)
+    .add(mx_noise_float(p.mul(7.0)).mul(0.1));
   material.normalNode = bumpedNormal(lumps.sub(rut).add(weeds.mul(0.3)).mul(RUT_DEPTH));
 
   // Soft, wavy edges into the grass instead of a hard polygon outline.

@@ -43,7 +43,13 @@ describe('turn selection', () => {
   it('skips the dead, incapacitated, exorcised, fled and those who have acted', () => {
     const base = party('a', 1);
     expect(isActive(base)).toBe(true);
-    for (const patch of [{ dead: true }, { incapacitated: true }, { exorcised: true }, { fled: true }, { turnPending: false }]) {
+    for (const patch of [
+      { dead: true },
+      { incapacitated: true },
+      { exorcised: true },
+      { fled: true },
+      { turnPending: false },
+    ]) {
       expect(isActive({ ...base, ...patch })).toBe(false);
     }
     expect(selectNextCombatant([{ ...base, dead: true }])).toBe(-1);
@@ -105,7 +111,7 @@ describe('combat flow', () => {
     expect(finishTurn(t)).toBe(t);
   });
 
-  it('applies poison at the end of the poisoned combatant\'s turn', () => {
+  it("applies poison at the end of the poisoned combatant's turn", () => {
     let s = beginCombat([{ ...party('a', 5), poisoned: true, health: 3 }, enemy('x', 1)]);
     s = finishTurn(s, { poisonDamage: 2 });
     expect(s.combatants[0]!.health).toBe(1);
@@ -150,7 +156,12 @@ describe('fleeing', () => {
   it('ends the combat as fled when allowed', () => {
     const s = beginCombat([party('a', 1), enemy('x', 1)]);
     expect(flee(s).outcome).toBe('fled');
-    const bad = beginCombat([party('a', 3), { ...party('b', 1), dead: true }, { ...party('c', 1), dead: true }, enemy('x', 1)]);
+    const bad = beginCombat([
+      party('a', 3),
+      { ...party('b', 1), dead: true },
+      { ...party('c', 1), dead: true },
+      enemy('x', 1),
+    ]);
     expect(flee(bad).outcome).toBeUndefined();
   });
 });

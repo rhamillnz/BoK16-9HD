@@ -1,7 +1,25 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HotspotAction, HOTSPOT_SIZE, TOWN_ENTRY_SIZE, gdsFileName, gdsLetter, hotspotHasDialog, parseGds, parseTownTable, templeNumber, type Hotspot } from '../src/formats/gds';
+import {
+  HotspotAction,
+  HOTSPOT_SIZE,
+  TOWN_ENTRY_SIZE,
+  gdsFileName,
+  gdsLetter,
+  hotspotHasDialog,
+  parseGds,
+  parseTownTable,
+  templeNumber,
+  type Hotspot,
+} from '../src/formats/gds';
 import { decodeAds, parseTtm, selectScript } from '../src/formats/ttm';
-import { SCENE_HEIGHT, SCENE_WIDTH, composeScene, hotspotActive, runsImmediately, scriptResourceNames } from '../src/game/townScene';
+import {
+  SCENE_HEIGHT,
+  SCENE_WIDTH,
+  composeScene,
+  hotspotActive,
+  runsImmediately,
+  scriptResourceNames,
+} from '../src/game/townScene';
 import { TownController, actionAfterDialog, type DialogEnd, type TownHooks } from '../src/game/townController';
 import { townExit } from '../src/game/townHost';
 import { setFlag, type WorldState } from '../src/game/state';
@@ -19,8 +37,23 @@ vi.mock('../src/formats/scx', () => ({
 type HotspotSpec = Partial<Hotspot>;
 
 const hotspot = (index: number, spec: HotspotSpec = {}): Hotspot => ({
-  index, x: 0, y: 0, width: 10, height: 10, chapterMask: 0, keyword: 1, action: HotspotAction.Dialog, unknownD: 0,
-  arg1: 0, arg2: 0, arg3: 0, tooltip: 0, unknown1a: 0, dialog: 0, checkEventState: 0, ...spec,
+  index,
+  x: 0,
+  y: 0,
+  width: 10,
+  height: 10,
+  chapterMask: 0,
+  keyword: 1,
+  action: HotspotAction.Dialog,
+  unknownD: 0,
+  arg1: 0,
+  arg2: 0,
+  arg3: 0,
+  tooltip: 0,
+  unknown1a: 0,
+  dialog: 0,
+  checkEventState: 0,
+  ...spec,
 });
 
 function gdsBytes(opts: { name?: string; temple?: number; flavour?: number; hotspots: HotspotSpec[] }): Uint8Array {
@@ -114,7 +147,13 @@ function bmxBytes(images: { width: number; height: number; pixels: number[] }[])
   return out;
 }
 
-const world = (): WorldState => ({ chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(GAM_OFFSETS.complexEventFlags + 0x800), expiringEvents: [] });
+const world = (): WorldState => ({
+  chapter: 1,
+  ticks: 0,
+  ticksLastSlept: 0,
+  bytes: new Uint8Array(GAM_OFFSETS.complexEventFlags + 0x800),
+  expiringEvents: [],
+});
 
 // Op codes used by the fixtures.
 const SET_SCRIPT = 0x1110;
@@ -132,17 +171,54 @@ const SHOW_DIALOG = 0x2010;
 
 describe('parseGds', () => {
   it('reads the header and every hotspot', () => {
-    const gds = parseGds(gdsBytes({
-      name: 'T1', temple: 0x85, flavour: 0x2468,
-      hotspots: [
-        { x: 10, y: 20, width: 30, height: 40, action: HotspotAction.Shop, arg2: 3, arg3: 0x1234, tooltip: 0x5678, chapterMask: 0x8001, checkEventState: 1, dialog: 0x00010345 },
-        { action: HotspotAction.Exit },
-      ],
-    }));
-    expect(gds).toMatchObject({ resource: 'T1', ttm: 'T1.TTM', ads: 'T1.ADS', song: 33, sceneIndex1: 4, sceneIndex2: 5, flavourText: 0x2468 });
+    const gds = parseGds(
+      gdsBytes({
+        name: 'T1',
+        temple: 0x85,
+        flavour: 0x2468,
+        hotspots: [
+          {
+            x: 10,
+            y: 20,
+            width: 30,
+            height: 40,
+            action: HotspotAction.Shop,
+            arg2: 3,
+            arg3: 0x1234,
+            tooltip: 0x5678,
+            chapterMask: 0x8001,
+            checkEventState: 1,
+            dialog: 0x00010345,
+          },
+          { action: HotspotAction.Exit },
+        ],
+      }),
+    );
+    expect(gds).toMatchObject({
+      resource: 'T1',
+      ttm: 'T1.TTM',
+      ads: 'T1.ADS',
+      song: 33,
+      sceneIndex1: 4,
+      sceneIndex2: 5,
+      flavourText: 0x2468,
+    });
     expect(templeNumber(gds)).toBe(5);
     expect(gds.hotspots).toHaveLength(2);
-    expect(gds.hotspots[0]).toMatchObject({ index: 0, x: 10, y: 20, width: 30, height: 40, action: HotspotAction.Shop, arg2: 3, arg3: 0x1234, tooltip: 0x5678, chapterMask: 0x8001, checkEventState: 1, dialog: 0x00010345 });
+    expect(gds.hotspots[0]).toMatchObject({
+      index: 0,
+      x: 10,
+      y: 20,
+      width: 30,
+      height: 40,
+      action: HotspotAction.Shop,
+      arg2: 3,
+      arg3: 0x1234,
+      tooltip: 0x5678,
+      chapterMask: 0x8001,
+      checkEventState: 1,
+      dialog: 0x00010345,
+    });
     expect(gds.hotspots[1]!.action).toBe(HotspotAction.Exit);
   });
 
@@ -185,7 +261,15 @@ describe('parseTownTable', () => {
     dv.setUint16(4 + 17, 0x4000, true);
     bytes[4 + 19] = 1;
     const [a, b] = parseTownTable(bytes);
-    expect(a).toEqual({ ref: { number: 7, letter: 'C' }, entryDialog: 0x1111, exitDialog: 0x2222, exitCellX: 5, exitCellY: 6, exitHeading: 0x4000, walkToDest: true });
+    expect(a).toEqual({
+      ref: { number: 7, letter: 'C' },
+      entryDialog: 0x1111,
+      exitDialog: 0x2222,
+      exitCellX: 5,
+      exitCellY: 6,
+      exitHeading: 0x4000,
+      walkToDest: true,
+    });
     expect(b!.walkToDest).toBe(false);
   });
 
@@ -211,20 +295,22 @@ describe('parseTownTable', () => {
 // ---- TTM and ADS -----------------------------------------------------------
 
 describe('parseTtm', () => {
-  const ttm = parseTtm(ttmBytes([
-    [SET_SCRIPT, 7],
-    [SLOT_PALETTE, 0],
-    [LOAD_PALETTE, 'town.pal'],
-    [SLOT_IMAGE, 1],
-    [LOAD_IMAGE, 'SPR.BMP'],
-    [LOAD_SCREEN, 'BACK.SCR'],
-    [CLIP, 1, 2, 30, 40],
-    [SPRITE, 10, 20, 0, 1],
-    [SPRITE_FLIP_X, 5, 6, 1, 1, 64, 32],
-    [SHOW_DIALOG, -1, 0],
-    [SET_SCRIPT, 8],
-    [SPRITE, 1, 1, 0, 1],
-  ]));
+  const ttm = parseTtm(
+    ttmBytes([
+      [SET_SCRIPT, 7],
+      [SLOT_PALETTE, 0],
+      [LOAD_PALETTE, 'town.pal'],
+      [SLOT_IMAGE, 1],
+      [LOAD_IMAGE, 'SPR.BMP'],
+      [LOAD_SCREEN, 'BACK.SCR'],
+      [CLIP, 1, 2, 30, 40],
+      [SPRITE, 10, 20, 0, 1],
+      [SPRITE_FLIP_X, 5, 6, 1, 1, 64, 32],
+      [SHOW_DIALOG, -1, 0],
+      [SET_SCRIPT, 8],
+      [SPRITE, 1, 1, 0, 1],
+    ]),
+  );
 
   it('splits scripts at each set-script op', () => {
     expect([...ttm.keys()]).toEqual([7, 8]);
@@ -242,8 +328,28 @@ describe('parseTtm', () => {
   it('decodes clips, plain and scaled flipped sprites, and the actor marker', () => {
     const ops = ttm.get(7)!.ops;
     expect(ops).toContainEqual({ op: 'clip', x: 1, y: 2, right: 30, bottom: 40 });
-    expect(ops).toContainEqual({ op: 'sprite', x: 10, y: 20, index: 0, slot: 1, width: 0, height: 0, flipX: false, flipY: false });
-    expect(ops).toContainEqual({ op: 'sprite', x: 5, y: 6, index: 1, slot: 1, width: 64, height: 32, flipX: true, flipY: false });
+    expect(ops).toContainEqual({
+      op: 'sprite',
+      x: 10,
+      y: 20,
+      index: 0,
+      slot: 1,
+      width: 0,
+      height: 0,
+      flipX: false,
+      flipY: false,
+    });
+    expect(ops).toContainEqual({
+      op: 'sprite',
+      x: 5,
+      y: 6,
+      index: 1,
+      slot: 1,
+      width: 64,
+      height: 32,
+      flipX: true,
+      flipY: false,
+    });
     expect(ops).toContainEqual({ op: 'actor' });
   });
 
@@ -254,10 +360,37 @@ describe('parseTtm', () => {
 
 describe('ADS scene selection', () => {
   const u16s = (...v: number[]) => Uint8Array.from(v.flatMap((n) => [n & 0xff, n >> 8]));
-  const scenes = decodeAds(u16s(
-    5, 0x13b0, 2, 0x2005, 0, 7, 0, 0, 0x1500, 0x2005, 0, 8, 0, 0, 0x1520, 0xffff,
-    6, 0x1030, 1, 3, 0x2005, 0, 9, 0, 0, 0x1520, 0xffff,
-  ));
+  const scenes = decodeAds(
+    u16s(
+      5,
+      0x13b0,
+      2,
+      0x2005,
+      0,
+      7,
+      0,
+      0,
+      0x1500,
+      0x2005,
+      0,
+      8,
+      0,
+      0,
+      0x1520,
+      0xffff,
+      6,
+      0x1030,
+      1,
+      3,
+      0x2005,
+      0,
+      9,
+      0,
+      0,
+      0x1520,
+      0xffff,
+    ),
+  );
 
   it('groups conditions and branches into blocks', () => {
     expect(scenes.map((s) => s.index)).toEqual([5, 6]);
@@ -284,12 +417,31 @@ describe('ADS scene selection', () => {
 describe('composeScene', () => {
   const files = new Map<string, Uint8Array>([
     ['T.PAL', palBytes({ 1: [63, 0, 0], 2: [0, 63, 0], 3: [0, 0, 63] })],
-    ['SPR.BMX', bmxBytes([{ width: 2, height: 1, pixels: [1, 3] }, { width: 1, height: 1, pixels: [0] }])],
+    [
+      'SPR.BMX',
+      bmxBytes([
+        { width: 2, height: 1, pixels: [1, 3] },
+        { width: 1, height: 1, pixels: [0] },
+      ]),
+    ],
     ['BACK.SCX', new Uint8Array(1)],
   ]);
   const read = (n: string) => files.get(n);
-  const px = (img: { rgba: Uint8ClampedArray }, x: number, y: number) => [...img.rgba.subarray((y * SCENE_WIDTH + x) * 4, (y * SCENE_WIDTH + x) * 4 + 4)];
-  const script = (...ops: Op[]) => [...parseTtm(ttmBytes([[SET_SCRIPT, 1], [SLOT_PALETTE, 0], [LOAD_PALETTE, 'T.PAL'], [SLOT_IMAGE, 1], [LOAD_IMAGE, 'SPR.BMP'], ...ops])).values()];
+  const px = (img: { rgba: Uint8ClampedArray }, x: number, y: number) => [
+    ...img.rgba.subarray((y * SCENE_WIDTH + x) * 4, (y * SCENE_WIDTH + x) * 4 + 4),
+  ];
+  const script = (...ops: Op[]) => [
+    ...parseTtm(
+      ttmBytes([
+        [SET_SCRIPT, 1],
+        [SLOT_PALETTE, 0],
+        [LOAD_PALETTE, 'T.PAL'],
+        [SLOT_IMAGE, 1],
+        [LOAD_IMAGE, 'SPR.BMP'],
+        ...ops,
+      ]),
+    ).values(),
+  ];
 
   it('draws the sprite with the palette, leaving index 0 transparent', () => {
     const img = composeScene(script([SPRITE, 10, 20, 0, 1]), read);
@@ -310,7 +462,10 @@ describe('composeScene', () => {
     expect(px(flipped, 10, 20)).toEqual([0, 0, 255, 255]);
     const scaled = composeScene(script([SPRITE, 0, 0, 0, 1, 4, 2]), read);
     expect([px(scaled, 0, 0), px(scaled, 1, 1), px(scaled, 2, 0), px(scaled, 3, 1)]).toEqual([
-      [255, 0, 0, 255], [255, 0, 0, 255], [0, 0, 255, 255], [0, 0, 255, 255],
+      [255, 0, 0, 255],
+      [255, 0, 0, 255],
+      [0, 0, 255, 255],
+      [0, 0, 255, 255],
     ]);
   });
 
@@ -376,7 +531,17 @@ describe('actionAfterDialog', () => {
 describe('TownController', () => {
   const sceneFor = (letter: string, hotspots: Hotspot[]) => ({
     ref: { number: 1, letter },
-    gds: { resource: 'T1', ttm: 'T1.TTM', ads: 'T1.ADS', templeIndex: 0, song: 0, sceneIndex1: 0, sceneIndex2: 0, flavourText: 0, hotspots },
+    gds: {
+      resource: 'T1',
+      ttm: 'T1.TTM',
+      ads: 'T1.ADS',
+      templeIndex: 0,
+      song: 0,
+      sceneIndex1: 0,
+      sceneIndex2: 0,
+      flavourText: 0,
+      hotspots,
+    },
     image: { width: SCENE_WIDTH, height: SCENE_HEIGHT, rgba: new Uint8ClampedArray(SCENE_WIDTH * SCENE_HEIGHT * 4) },
   });
 

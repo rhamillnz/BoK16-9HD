@@ -104,7 +104,12 @@ export class PartyController {
     const move = clampAxis(Number(input.forward) - Number(input.back) + (input.moveAxis ?? 0));
     this.heading = stepHeading(this.heading, turn, dt);
     if (move === 0) return;
-    const p = slideMove({ x: this.x, y: this.y }, walkDelta(this.heading, move, input.run, dt * this.speedScale), PARTY_RADIUS, this.polygons);
+    const p = slideMove(
+      { x: this.x, y: this.y },
+      walkDelta(this.heading, move, input.run, dt * this.speedScale),
+      PARTY_RADIUS,
+      this.polygons,
+    );
     this.x = p.x;
     this.y = p.y;
   }

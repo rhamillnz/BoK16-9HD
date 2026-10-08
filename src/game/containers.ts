@@ -4,7 +4,15 @@ import { ITEM_STATUS_BITS, type Character, type InventoryItem } from '../formats
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import { applyDamage } from '../combat/rules';
 import { getFlag, setFlag, type WorldState } from './state';
-import { ITEM_ROYALS, ITEM_SOVEREIGNS, activeCharacters, giveItem, updateCharacter, type ItemRule, type PartyState } from './party';
+import {
+  ITEM_ROYALS,
+  ITEM_SOVEREIGNS,
+  activeCharacters,
+  giveItem,
+  updateCharacter,
+  type ItemRule,
+  type PartyState,
+} from './party';
 
 /**
  * Chests, bags and other containers standing in the world. `ContainerStore` holds the live state
@@ -75,7 +83,11 @@ export function worldContainersFromRecords(zone: number, records: readonly Conta
   return out;
 }
 
-const stateOf = (c: WorldContainer): ContainerState => ({ items: c.items, unlocked: c.unlocked, trapSpent: c.trapSpent });
+const stateOf = (c: WorldContainer): ContainerState => ({
+  items: c.items,
+  unlocked: c.unlocked,
+  trapSpent: c.trapSpent,
+});
 const sameState = (a: ContainerState, b: ContainerState): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 /** Live containers by zone, loaded on first use from `source` (usually the save image). */
@@ -138,7 +150,14 @@ export function visibleIn(c: WorldContainer, chapter: number, world: WorldState)
 }
 
 /** The nearest container within reach that exists in this chapter and world. */
-export function nearestContainer(list: readonly WorldContainer[], x: number, y: number, chapter: number, world: WorldState, reach = REACH): WorldContainer | undefined {
+export function nearestContainer(
+  list: readonly WorldContainer[],
+  x: number,
+  y: number,
+  chapter: number,
+  world: WorldState,
+  reach = REACH,
+): WorldContainer | undefined {
   let best: WorldContainer | undefined;
   let bestD = reach * reach;
   for (const c of list) {
@@ -155,11 +174,14 @@ export function nearestContainer(list: readonly WorldContainer[], x: number, y: 
 /** A word-lock riddle chest that is still shut. */
 export const needsWordLock = (c: WorldContainer): boolean => !!c.lock && isWordLock(c.lock) && !c.unlocked;
 /** Locked with a key or picklock: the lock has a rating, is not a riddle and not a trap. */
-export const needsKey = (c: WorldContainer): boolean => !!c.lock && !isWordLock(c.lock) && !isTrapped(c.lock) && c.lock.rating !== 0 && !c.unlocked;
+export const needsKey = (c: WorldContainer): boolean =>
+  !!c.lock && !isWordLock(c.lock) && !isTrapped(c.lock) && c.lock.rating !== 0 && !c.unlocked;
 /** Still booby-trapped. */
-export const isArmed = (c: WorldContainer): boolean => !!c.lock && !isWordLock(c.lock) && isTrapped(c.lock) && c.lock.trapDamage > 0 && !c.trapSpent;
+export const isArmed = (c: WorldContainer): boolean =>
+  !!c.lock && !isWordLock(c.lock) && isTrapped(c.lock) && c.lock.trapDamage > 0 && !c.trapSpent;
 
-export const openedFlagUpdate = (c: WorldContainer, world: WorldState): WorldState => (c.setFlag === undefined ? world : setFlag(world, c.setFlag, true));
+export const openedFlagUpdate = (c: WorldContainer, world: WorldState): WorldState =>
+  c.setFlag === undefined ? world : setFlag(world, c.setFlag, true);
 
 // ---- Items ---------------------------------------------------------------------
 
@@ -174,13 +196,25 @@ const isMoney = (itemIndex: number): boolean => itemIndex === ITEM_SOVEREIGNS ||
 export function toInventoryItem(i: ContainerItem): InventoryItem {
   const bit = (n: number) => ((i.status >> n) & 1) === 1;
   return {
-    itemIndex: i.itemIndex, conditionOrQuantity: i.conditionOrQuantity, status: i.status, modifiers: i.modifiers,
-    activated: bit(ITEM_STATUS_BITS.activated), used: bit(ITEM_STATUS_BITS.used), broken: bit(ITEM_STATUS_BITS.broken),
-    repairable: bit(ITEM_STATUS_BITS.repairable), equipped: bit(ITEM_STATUS_BITS.equipped), poisoned: bit(ITEM_STATUS_BITS.poisoned),
+    itemIndex: i.itemIndex,
+    conditionOrQuantity: i.conditionOrQuantity,
+    status: i.status,
+    modifiers: i.modifiers,
+    activated: bit(ITEM_STATUS_BITS.activated),
+    used: bit(ITEM_STATUS_BITS.used),
+    broken: bit(ITEM_STATUS_BITS.broken),
+    repairable: bit(ITEM_STATUS_BITS.repairable),
+    equipped: bit(ITEM_STATUS_BITS.equipped),
+    poisoned: bit(ITEM_STATUS_BITS.poisoned),
   };
 }
 
-const toContainerItem = (i: InventoryItem): ContainerItem => ({ itemIndex: i.itemIndex, conditionOrQuantity: i.conditionOrQuantity, status: i.status, modifiers: i.modifiers });
+const toContainerItem = (i: InventoryItem): ContainerItem => ({
+  itemIndex: i.itemIndex,
+  conditionOrQuantity: i.conditionOrQuantity,
+  status: i.status,
+  modifiers: i.modifiers,
+});
 
 /** Put one item with its exact condition into the first character with a free slot; undefined when everyone is full. */
 function placeExact(p: PartyState, item: InventoryItem, preferred?: number): PartyState | undefined {
@@ -189,7 +223,10 @@ function placeExact(p: PartyState, item: InventoryItem, preferred?: number): Par
   for (const index of order) {
     const c = p.characters.find((x) => x.index === index)!;
     if (c.inventory.items.length >= c.inventory.capacity) continue;
-    return updateCharacter(p, index, (x) => ({ ...x, inventory: { ...x.inventory, items: [...x.inventory.items, item] } }));
+    return updateCharacter(p, index, (x) => ({
+      ...x,
+      inventory: { ...x.inventory, items: [...x.inventory.items, item] },
+    }));
   }
   return undefined;
 }
@@ -202,13 +239,25 @@ export interface TakeResult {
 }
 
 /** Move the item in container slot `slot` to the party: money to the purse, keys to the ring, the rest to a character with room. */
-export function takeItem(p: PartyState, c: WorldContainer, slot: number, defs: readonly ItemDef[], preferred?: number): TakeResult {
+export function takeItem(
+  p: PartyState,
+  c: WorldContainer,
+  slot: number,
+  defs: readonly ItemDef[],
+  preferred?: number,
+): TakeResult {
   const item = c.items[slot];
   if (!item) return { party: p, container: c, moved: false };
   const rule = ruleFor(defs, item.itemIndex);
   let party: PartyState | undefined;
   if (isMoney(item.itemIndex) || rule?.isKey || isStack(rule)) {
-    const r = giveItem(p, item.itemIndex, Math.max(1, isStack(rule) || isMoney(item.itemIndex) ? item.conditionOrQuantity : 1), rule, preferred);
+    const r = giveItem(
+      p,
+      item.itemIndex,
+      Math.max(1, isStack(rule) || isMoney(item.itemIndex) ? item.conditionOrQuantity : 1),
+      rule,
+      preferred,
+    );
     party = r.lost ? undefined : r.party;
   } else {
     party = placeExact(p, toInventoryItem(item), preferred);
@@ -218,11 +267,16 @@ export function takeItem(p: PartyState, c: WorldContainer, slot: number, defs: r
 }
 
 /** Take everything that fits; items without room stay. */
-export function takeAll(p: PartyState, c: WorldContainer, defs: readonly ItemDef[], preferred?: number): TakeResult & { left: number } {
+export function takeAll(
+  p: PartyState,
+  c: WorldContainer,
+  defs: readonly ItemDef[],
+  preferred?: number,
+): TakeResult & { left: number } {
   let party = p;
   let container = c;
   let moved = false;
-  for (let slot = 0; slot < container.items.length; ) {
+  for (let slot = 0; slot < container.items.length;) {
     const r = takeItem(party, container, slot, defs, preferred);
     if (r.moved) {
       party = r.party;
@@ -239,7 +293,13 @@ export type PutFailure = 'missing' | 'equipped' | 'full';
 export type PutResult = { ok: true; party: PartyState; container: WorldContainer } | { ok: false; reason: PutFailure };
 
 /** Move item `slot` of character `characterIndex` into the container; stacks merge into stacks of the same item. */
-export function putItem(p: PartyState, characterIndex: number, slot: number, c: WorldContainer, defs: readonly ItemDef[]): PutResult {
+export function putItem(
+  p: PartyState,
+  characterIndex: number,
+  slot: number,
+  c: WorldContainer,
+  defs: readonly ItemDef[],
+): PutResult {
   const ch = p.characters.find((x) => x.index === characterIndex);
   const item = ch?.inventory.items[slot];
   if (!ch || !item) return { ok: false, reason: 'missing' };
@@ -263,7 +323,10 @@ export function putItem(p: PartyState, characterIndex: number, slot: number, c: 
     if (items.length >= c.capacity) return { ok: false, reason: 'full' };
     items.push(toContainerItem(item));
   }
-  const party = updateCharacter(p, characterIndex, (x) => ({ ...x, inventory: { ...x.inventory, items: x.inventory.items.filter((_, i) => i !== slot) } }));
+  const party = updateCharacter(p, characterIndex, (x) => ({
+    ...x,
+    inventory: { ...x.inventory, items: x.inventory.items.filter((_, i) => i !== slot) },
+  }));
   return { ok: true, party, container: { ...c, items } };
 }
 

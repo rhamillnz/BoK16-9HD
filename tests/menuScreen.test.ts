@@ -13,7 +13,10 @@ const model: MenuModel = {
 };
 const layout = layoutMenu(model);
 const key = (key: string) => ({ type: 'key', key }) as const;
-const centre = (r: { x: number; y: number; width: number; height: number }) => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+const centre = (r: { x: number; y: number; width: number; height: number }) => ({
+  x: r.x + r.width / 2,
+  y: r.y + r.height / 2,
+});
 
 describe('menu screen', () => {
   it('fits on the HUD with rows above the buttons', () => {
@@ -40,7 +43,8 @@ describe('menu screen', () => {
   });
 
   it('picks by click and ignores disabled rows', () => {
-    const click = (r: (typeof layout.rows)[number]) => stepMenu(layout, model, initialMenuState(model), { type: 'click', ...centre(r) });
+    const click = (r: (typeof layout.rows)[number]) =>
+      stepMenu(layout, model, initialMenuState(model), { type: 'click', ...centre(r) });
     expect(click(layout.rows[2]!).result).toEqual({ kind: 'pick', id: 'c' });
     expect(click(layout.rows[1]!).result).toEqual({ kind: 'none' });
     expect(click(layout.buttons[0]!).result).toEqual({ kind: 'pick', id: 'cancel' });
@@ -50,7 +54,13 @@ describe('menu screen', () => {
   });
 
   it('starts on the first enabled entry', () => {
-    const m: MenuModel = { ...model, rows: [{ id: 'x', label: 'X', enabled: false }, { id: 'y', label: 'Y' }] };
+    const m: MenuModel = {
+      ...model,
+      rows: [
+        { id: 'x', label: 'X', enabled: false },
+        { id: 'y', label: 'Y' },
+      ],
+    };
     expect(initialMenuState(m).focus).toBe(1);
   });
 });

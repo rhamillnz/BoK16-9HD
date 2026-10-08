@@ -5,8 +5,21 @@ import type { HudScreens } from '../ui/hud';
 import type { ContainerView, WordLockView } from '../ui/containerScreen';
 import '../ui/containerScreen'; // registers the container and word-lock screens
 import {
-  ContainerStore, bestLockpicker, disarmChance, isArmed, needsKey, needsWordLock, nearestContainer,
-  openedFlagUpdate, putItem, springTrap, takeAll, takeItem, worldContainersFromRecords, type ContainerSnapshot, type WorldContainer,
+  ContainerStore,
+  bestLockpicker,
+  disarmChance,
+  isArmed,
+  needsKey,
+  needsWordLock,
+  nearestContainer,
+  openedFlagUpdate,
+  putItem,
+  springTrap,
+  takeAll,
+  takeItem,
+  worldContainersFromRecords,
+  type ContainerSnapshot,
+  type WorldContainer,
 } from './containers';
 import { KEY_RULE, attemptLock, classifyLock, describeLock, isKeyItem, ITEM_PICKLOCK, keyItemForLock } from './locks';
 import { removeItem, type PartyState } from './party';
@@ -72,10 +85,17 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
       console.warn(`word lock ${cur.lock!.fairyChestIndex}: riddle text missing or unreadable, opening the chest`);
       save({ ...cur, unlocked: true });
     } else {
-      const pick = await host.menu('A riddle is cut into the lid. Turn the tumblers to spell the answer.', ['Try the riddle', 'Leave it']);
+      const pick = await host.menu('A riddle is cut into the lid. Turn the tumblers to spell the answer.', [
+        'Try the riddle',
+        'Leave it',
+      ]);
       if (pick !== 0) return undefined;
       let state: WordLockState = startWordLock(puzzle);
-      const view: WordLockView = { state: () => state, onTurn: (i) => (state = turnTumbler(state, i)), onLeave: () => {} };
+      const view: WordLockView = {
+        state: () => state,
+        onTurn: (i) => (state = turnTumbler(state, i)),
+        onLeave: () => {},
+      };
       if (!(await host.showWordLock(view, () => isWordLockSolved(state)))) return undefined;
       await host.menu('The tumblers click and the lid springs open.', []);
       save({ ...cur, unlocked: true });
@@ -87,8 +107,14 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
     const rating = cur.lock!.rating;
     const best = bestLockpicker(party);
     const skill = best?.skill ?? 0;
-    const looks = ['an easy lock for you', 'too complicated to pick', 'a lock that wants a special key', 'a lock that is broken beyond repair'][describeLock(skill, rating)];
-    const hasKey = keyItemForLock(rating) !== undefined && party.partyKeys.items.some((i) => i.itemIndex === keyItemForLock(rating));
+    const looks = [
+      'an easy lock for you',
+      'too complicated to pick',
+      'a lock that wants a special key',
+      'a lock that is broken beyond repair',
+    ][describeLock(skill, rating)];
+    const hasKey =
+      keyItemForLock(rating) !== undefined && party.partyKeys.items.some((i) => i.itemIndex === keyItemForLock(rating));
     const tools = party.partyKeys.items.filter((i) => i.itemIndex === ITEM_PICKLOCK || isKeyItem(i.itemIndex));
     const known = [...new Set(tools.map((i) => i.itemIndex))];
     const text = `The chest is locked: a ${classifyLock(rating)} lock, ${looks}.${hasKey ? ' You have a key that may fit.' : ''}`;
@@ -100,9 +126,19 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
     if (r.learned && best) host.setParty(practiceCharacter(host.getParty(), best.character.index, 'lockpick'));
     if (r.unlocked) {
       save({ ...cur, unlocked: true });
-      await host.menu(r.attempt.kind === 'opened' && r.attempt.with === 'key' ? 'The key turns and the lock opens.' : 'The lock gives way to the pick.', []);
+      await host.menu(
+        r.attempt.kind === 'opened' && r.attempt.with === 'key'
+          ? 'The key turns and the lock opens.'
+          : 'The lock gives way to the pick.',
+        [],
+      );
     } else {
-      const why = r.attempt.kind === 'broke' ? `The ${nameOf(host, r.consumed!)} snaps in the lock.` : tool === ITEM_PICKLOCK ? 'The lock holds.' : 'The key does not fit.';
+      const why =
+        r.attempt.kind === 'broke'
+          ? `The ${nameOf(host, r.consumed!)} snaps in the lock.`
+          : tool === ITEM_PICKLOCK
+            ? 'The lock holds.'
+            : 'The key does not fit.';
       await host.menu(why, []);
     }
   }
@@ -110,7 +146,10 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
   if (isArmed(cur)) {
     const best = bestLockpicker(host.getParty());
     const chance = disarmChance(best?.skill ?? 0);
-    const pick = await host.menu(`The chest is trapped! ${best ? `${best.character.name} could try to disarm it (${chance}%).` : ''}`, ['Try to disarm it', 'Open it anyway', 'Leave it']);
+    const pick = await host.menu(
+      `The chest is trapped! ${best ? `${best.character.name} could try to disarm it (${chance}%).` : ''}`,
+      ['Try to disarm it', 'Open it anyway', 'Leave it'],
+    );
     if (pick !== 0 && pick !== 1) return undefined;
     if (pick === 0 && best) host.setParty(practiceCharacter(host.getParty(), best.character.index, 'lockpick'));
     if (pick === 0 && roll() < chance) {
@@ -179,7 +218,10 @@ export async function interact(host: ContainerHost): Promise<boolean> {
 }
 
 /** Build the container source: the save image's live blocks first, `OBJFIXED.DAT` for zones the save has none for. */
-export function containerSource(save: Uint8Array | undefined, fixed: Uint8Array | undefined): (zone: number) => WorldContainer[] {
+export function containerSource(
+  save: Uint8Array | undefined,
+  fixed: Uint8Array | undefined,
+): (zone: number) => WorldContainer[] {
   let fixedRecords: ContainerRecord[] | undefined;
   return (zone) => {
     const fromSave = save ? parseSaveZoneContainers(save, zone) : [];
@@ -222,37 +264,54 @@ export async function installContainers(setup: ContainerSetup): Promise<Containe
   const host: ContainerHost = {
     ...setup,
     // Read live: `setup.chapter` may be a getter that follows chapter transitions.
-    get chapter() { return setup.chapter; },
+    get chapter() {
+      return setup.chapter;
+    },
     store,
     riddleText: data.riddleText,
-    menu: (text, choices) => new Promise((resolve) => hud.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
-    showContainer: (view) => new Promise((resolve) => {
-      const screen = hud.screenHandler<import('../ui/containerScreen').ContainerScreen>('container');
-      screen.show({ ...view, onClose: () => { view.onClose(); resolve(); } });
-      hud.open('container');
-    }),
-    showWordLock: (view, isSolved) => new Promise((resolve) => {
-      const screen = hud.screenHandler<import('../ui/containerScreen').WordLockScreen>('wordlock');
-      const leave = () => resolve(false);
-      screen.show({
-        ...view,
-        onTurn: (i) => {
-          view.onTurn(i);
-          if (isSolved()) {
-            resolve(true); // before closing: the close also reports a leave, which must not win
-            hud.close();
-          }
-        },
-        onLeave: leave,
-      });
-      hud.open('wordlock');
-    }),
+    menu: (text, choices) =>
+      new Promise((resolve) =>
+        hud.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1)),
+      ),
+    showContainer: (view) =>
+      new Promise((resolve) => {
+        const screen = hud.screenHandler<import('../ui/containerScreen').ContainerScreen>('container');
+        screen.show({
+          ...view,
+          onClose: () => {
+            view.onClose();
+            resolve();
+          },
+        });
+        hud.open('container');
+      }),
+    showWordLock: (view, isSolved) =>
+      new Promise((resolve) => {
+        const screen = hud.screenHandler<import('../ui/containerScreen').WordLockScreen>('wordlock');
+        const leave = () => resolve(false);
+        screen.show({
+          ...view,
+          onTurn: (i) => {
+            view.onTurn(i);
+            if (isSolved()) {
+              resolve(true); // before closing: the close also reports a leave, which must not win
+              hud.close();
+            }
+          },
+          onLeave: leave,
+        });
+        hud.open('wordlock');
+      }),
   };
   let busy = false;
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyE' || e.repeat || busy || !setup.canInteract()) return;
     busy = true;
-    interact(host).catch((err) => console.error('container:', err)).finally(() => { busy = false; });
+    interact(host)
+      .catch((err) => console.error('container:', err))
+      .finally(() => {
+        busy = false;
+      });
   });
   return store;
 }

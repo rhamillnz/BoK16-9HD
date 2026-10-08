@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ItemType,
-  OBJINFO_RECORD_SIZE,
-  Race,
-  SaleCategory,
-  modifiersOf,
-  parseObjInfo,
-} from '../src/formats/objinfo';
+import { ItemType, OBJINFO_RECORD_SIZE, Race, SaleCategory, modifiersOf, parseObjInfo } from '../src/formats/objinfo';
 
 interface Rec {
   name: string;
@@ -65,7 +58,18 @@ describe('parseObjInfo', () => {
   it('parses fields from the documented offsets', () => {
     const data = build(
       [
-        { name: 'Short Sword', flags: 0x0102, level: 2, value: 150, swing: [6, 55], thrust: [4, 50], image: 12, type: ItemType.Sword, race: Race.Human, categories: SaleCategory.Sword },
+        {
+          name: 'Short Sword',
+          flags: 0x0102,
+          level: 2,
+          value: 150,
+          swing: [6, 55],
+          thrust: [4, 50],
+          image: 12,
+          type: ItemType.Sword,
+          race: Race.Human,
+          categories: SaleCategory.Sword,
+        },
         { name: 'Ration', value: -1, type: ItemType.Ration },
       ],
       [100, 250],

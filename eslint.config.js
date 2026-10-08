@@ -19,9 +19,11 @@ export default tseslint.config(
   {
     // Plain-JS Node scripts (Playwright drivers): Node globals, plus the browser ones used inside page.evaluate.
     files: ['scripts/**/*.mjs'],
-    languageOptions: { globals: { process: 'readonly', console: 'readonly', document: 'readonly', window: 'readonly' } },
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly', document: 'readonly', window: 'readonly' },
+    },
   },
   {
     ignores: ['dist/', 'node_modules/', 'tests/playwright/', 'tools/upscale/'],
-  }
+  },
 );

@@ -10,7 +10,15 @@ export const CUTSCENE_TEXT_BOX = { x: 15, y: 125, width: 285, height: 66 } as co
 /** Keys that continue past a text pause. */
 const CONTINUE_KEYS = new Set([' ', 'Enter']);
 
-export function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
+export function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+): void {
   ctx.fillStyle = css;
   let gx = x;
   for (let i = 0; i < text.length; i++) {
@@ -25,7 +33,15 @@ export function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string
 }
 
 /** Draw one player state: the picture scaled to fit, the fade over it, then any text. Pure drawing. */
-export function drawCutscene(ctx: CanvasRenderingContext2D, font: Font, layout: TownLayout, view: CutsceneDrawable, picture: CanvasImageSource | undefined, canvasWidth: number, canvasHeight: number): void {
+export function drawCutscene(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: TownLayout,
+  view: CutsceneDrawable,
+  picture: CanvasImageSource | undefined,
+  canvasWidth: number,
+  canvasHeight: number,
+): void {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
   const s = layout.scale;
@@ -112,4 +128,3 @@ export class CutsceneScreen implements HudScreenHandler {
 }
 
 registerHudScreen('cutscene', (host) => new CutsceneScreen(host));
-

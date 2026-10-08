@@ -75,7 +75,13 @@ export interface PriceContext {
 }
 
 /** What the shop asks for an item, less `discount` royals off its per-unit price. */
-export function sellPrice(item: InventoryItem, def: ItemDef, stats: ShopStats, discount: number, ctx: PriceContext): number {
+export function sellPrice(
+  item: InventoryItem,
+  def: ItemDef,
+  stats: ShopStats,
+  discount: number,
+  ctx: PriceContext,
+): number {
   const sellFactor = (100 + stats.sellFactor) / 100;
   if (def.type === ItemType.Scroll) return ctx.scrollValues[item.conditionOrQuantity] ?? 0;
   let base = def.value;
@@ -136,7 +142,12 @@ function bestOfThree(skill: number, rng: Rng): number {
  * annoying the shop. Skill is the effective Haggling of the character doing the talking.
  */
 export function haggle(shop: ShopState, def: ItemDef, skill: number, rng: Rng = defaultRng): HaggleResult {
-  const none = (outcome: HaggleResult['outcome']): HaggleResult => ({ outcome, discount: 0, percent: 0, exercised: false });
+  const none = (outcome: HaggleResult['outcome']): HaggleResult => ({
+    outcome,
+    discount: 0,
+    percent: 0,
+    exercised: false,
+  });
   if (def.index === ITEM_SCROLL) return none('scroll');
   const stats = shop.stats;
   if (stats.maxDiscount === 0) return none('noHaggle');
@@ -188,7 +199,13 @@ export function priceOf(shop: ShopState, item: InventoryItem, def: ItemDef, ctx:
 }
 
 /** Give an item to `who` only (never to another character); `lost` when there is no room. */
-function giveTo(party: PartyState, who: number, itemIndex: number, quantity: number, def: ItemDef): { party: PartyState; lost: boolean } {
+function giveTo(
+  party: PartyState,
+  who: number,
+  itemIndex: number,
+  quantity: number,
+  def: ItemDef,
+): { party: PartyState; lost: boolean } {
   const r = giveItem({ ...party, activeCharacters: [who] }, itemIndex, quantity, ruleOf(def), who);
   return { party: { ...r.party, activeCharacters: party.activeCharacters }, lost: r.lost };
 }
@@ -200,14 +217,20 @@ export function canCarry(party: PartyState, who: number, item: InventoryItem, de
 
 /** Buy the stocked item for character `who`. Shops never run out of stock. */
 export function buy(
-  party: PartyState, shop: ShopState, itemIndex: number, who: number, defs: readonly ItemDef[], ctx: PriceContext,
+  party: PartyState,
+  shop: ShopState,
+  itemIndex: number,
+  who: number,
+  defs: readonly ItemDef[],
+  ctx: PriceContext,
 ): { ok: true; result: Transaction; price: number } | { ok: false; reason: Refusal } {
   const def = defs[itemIndex];
   const stocked = shop.items.find((i) => i.itemIndex === itemIndex);
   if (!def || !stocked || isRefused(shop, itemIndex)) return { ok: false, reason: 'unavailable' };
   const c = party.characters.find((x) => x.index === who);
   if (!c) return { ok: false, reason: 'unavailable' };
-  if ((itemIndex === ITEM_BRANDY || itemIndex === ITEM_ALE) && c.conditions.drunk >= 100) return { ok: false, reason: 'tooDrunk' };
+  if ((itemIndex === ITEM_BRANDY || itemIndex === ITEM_ALE) && c.conditions.drunk >= 100)
+    return { ok: false, reason: 'tooDrunk' };
   const offered = offeredItem(stocked, def);
   const price = actualPrice(shop, offered, def, ctx);
   const stacking = def.stackSize > 1;
@@ -229,7 +252,16 @@ function carryOver(p: PartyState, who: number, itemIndex: number, stocked: Inven
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i]!;
       if (it.itemIndex !== itemIndex || it.equipped) continue;
-      items[i] = { ...it, conditionOrQuantity: stocked.conditionOrQuantity > 0 && !stack ? stocked.conditionOrQuantity : it.conditionOrQuantity, modifiers: stocked.modifiers, status: stocked.status, broken: stocked.broken, repairable: stocked.repairable, poisoned: stocked.poisoned };
+      items[i] = {
+        ...it,
+        conditionOrQuantity:
+          stocked.conditionOrQuantity > 0 && !stack ? stocked.conditionOrQuantity : it.conditionOrQuantity,
+        modifiers: stocked.modifiers,
+        status: stocked.status,
+        broken: stocked.broken,
+        repairable: stocked.repairable,
+        poisoned: stocked.poisoned,
+      };
       break;
     }
     return { ...c, inventory: { ...c.inventory, items } };
@@ -238,27 +270,39 @@ function carryOver(p: PartyState, who: number, itemIndex: number, stocked: Inven
 
 /** Sell the item at slot `slot` of character `who`'s inventory to the shop. */
 export function sell(
-  party: PartyState, shop: ShopState, who: number, slot: number, defs: readonly ItemDef[], ctx: PriceContext,
+  party: PartyState,
+  shop: ShopState,
+  who: number,
+  slot: number,
+  defs: readonly ItemDef[],
+  ctx: PriceContext,
 ): { ok: true; result: Transaction; price: number } | { ok: false; reason: Refusal } {
   const c = party.characters.find((x) => x.index === who);
   const item = c?.inventory.items[slot];
   const def = item && defs[item.itemIndex];
   if (!c || !item || !def) return { ok: false, reason: 'unavailable' };
   if (def.type === ItemType.Key) return { ok: false, reason: 'cantSellKey' };
-  if (item.equipped && (def.type === ItemType.Sword || def.type === ItemType.Staff)) return { ok: false, reason: 'onlyWeapon' };
+  if (item.equipped && (def.type === ItemType.Sword || def.type === ItemType.Staff))
+    return { ok: false, reason: 'onlyWeapon' };
   if (!canBuyItem(shop, item, def)) return { ok: false, reason: 'wontBuy' };
   const price = buyPrice(item, def, shop.stats, ctx);
   const items = c.inventory.items.filter((_, i) => i !== slot);
   let next = updateCharacter(party, who, (x) => ({ ...x, inventory: { ...x.inventory, items } }));
   next = gainRoyals(next, price);
-  return { ok: true, price, result: { party: next, shop: { ...shop, items: addToShop(shop, { ...item, equipped: false }, def) } } };
+  return {
+    ok: true,
+    price,
+    result: { party: next, shop: { ...shop, items: addToShop(shop, { ...item, equipped: false }, def) } },
+  };
 }
 
 /** Sold items join the shop's stock; stackable ones merge into an existing stack. Full shops take nothing more. */
 function addToShop(shop: ShopState, item: InventoryItem, def: ItemDef): InventoryItem[] {
   const stackable = hasFlag(def, ItemFlag.Stackable);
   const items = shop.items.map((i) => ({ ...i }));
-  const same = stackable ? items.find((i) => i.itemIndex === item.itemIndex && i.conditionOrQuantity < def.stackSize) : undefined;
+  const same = stackable
+    ? items.find((i) => i.itemIndex === item.itemIndex && i.conditionOrQuantity < def.stackSize)
+    : undefined;
   if (same) {
     same.conditionOrQuantity = Math.min(def.stackSize, same.conditionOrQuantity + item.conditionOrQuantity);
     return items;

@@ -46,10 +46,15 @@ export type EquipGroup = 'melee' | 'crossbow' | 'armor';
 
 export function equipGroup(def: ItemDef | undefined): EquipGroup | undefined {
   switch (def?.type) {
-    case ItemType.Sword: case ItemType.Staff: return 'melee';
-    case ItemType.Crossbow: return 'crossbow';
-    case ItemType.Armor: return 'armor';
-    default: return undefined;
+    case ItemType.Sword:
+    case ItemType.Staff:
+      return 'melee';
+    case ItemType.Crossbow:
+      return 'crossbow';
+    case ItemType.Armor:
+      return 'armor';
+    default:
+      return undefined;
   }
 }
 
@@ -67,7 +72,15 @@ export function toggleEquip(p: PartyState, charIndex: number, slot: number, defs
   const group = equipGroup(def);
   if (!group) return fail(p, `${def?.name ?? 'That'} cannot be equipped.`);
   if (it.equipped) {
-    return { party: setItems(p, c, c.inventory.items.map((x, i) => (i === slot ? { ...x, equipped: false } : x))), message: `${def!.name} unequipped.`, ok: true };
+    return {
+      party: setItems(
+        p,
+        c,
+        c.inventory.items.map((x, i) => (i === slot ? { ...x, equipped: false } : x)),
+      ),
+      message: `${def!.name} unequipped.`,
+      ok: true,
+    };
   }
   if (it.broken) return fail(p, `${def!.name} is broken.`);
   const items = c.inventory.items.map((x, i) => {
@@ -114,7 +127,15 @@ function readMagicItem(p: PartyState, c: Character, slot: number, def: ItemDef, 
     const r = learnFromScroll(p, c.index, it.conditionOrQuantity, ctx.spells ?? []);
     if (!r.ok) return fail(p, r.message);
     const owner = r.party.characters.find((x) => x.index === c.index)!;
-    return { party: setItems(r.party, owner, owner.inventory.items.filter((_, i) => i !== slot)), message: r.message, ok: true };
+    return {
+      party: setItems(
+        r.party,
+        owner,
+        owner.inventory.items.filter((_, i) => i !== slot),
+      ),
+      message: r.message,
+      ok: true,
+    };
   }
   if (def.type === ItemType.Book) {
     if (it.conditionOrQuantity <= 0) return fail(p, `${def.name} has no charges left.`);
@@ -128,15 +149,38 @@ function readMagicItem(p: PartyState, c: Character, slot: number, def: ItemDef, 
     const left = it.conditionOrQuantity - 1;
     const next = updateCharacter(p, c.index, (x) => {
       const sk = skill && x.skills[skill];
-      const skills = sk && gain > 0 ? { ...x.skills, [skill!]: { ...sk, trueSkill: Math.min(sk.max, sk.trueSkill + gain) } } : x.skills;
-      return { ...x, skills, inventory: { ...x.inventory, items: x.inventory.items.map((y, i) => (i === slot ? { ...y, conditionOrQuantity: left } : y)) } };
+      const skills =
+        sk && gain > 0
+          ? { ...x.skills, [skill!]: { ...sk, trueSkill: Math.min(sk.max, sk.trueSkill + gain) } }
+          : x.skills;
+      return {
+        ...x,
+        skills,
+        inventory: {
+          ...x.inventory,
+          items: x.inventory.items.map((y, i) => (i === slot ? { ...y, conditionOrQuantity: left } : y)),
+        },
+      };
     });
-    return { party: next, ok: true, message: gain > 0 && skill ? `${c.name} studies ${def.name} and improves ${skill}.` : `${c.name} reads ${def.name} but learns nothing new.` };
+    return {
+      party: next,
+      ok: true,
+      message:
+        gain > 0 && skill
+          ? `${c.name} studies ${def.name} and improves ${skill}.`
+          : `${c.name} reads ${def.name} but learns nothing new.`,
+    };
   }
   return fail(p, `${def.name} cannot be read.`);
 }
 
-export function useItem(p: PartyState, charIndex: number, slot: number, defs: readonly ItemDef[], ctx: UseContext = {}): ItemUseResult {
+export function useItem(
+  p: PartyState,
+  charIndex: number,
+  slot: number,
+  defs: readonly ItemDef[],
+  ctx: UseContext = {},
+): ItemUseResult {
   const c = characterOf(p, charIndex);
   const it = c?.inventory.items[slot];
   const def = it && defs[it.itemIndex];
@@ -158,9 +202,13 @@ export function useItem(p: PartyState, charIndex: number, slot: number, defs: re
       next = addCondition(addCondition(restoreHealth(c, power), 'poisoned', -100), 'sick', -100);
       message = `${c.name} uses the ${def.name}.`;
       break;
-    case ItemType.Scroll: case ItemType.Book: return readMagicItem(p, c, slot, def, ctx);
-    case ItemType.Note: return fail(p, `${def.name} cannot be read yet.`);
-    default: return fail(p, `${def.name} cannot be used.`);
+    case ItemType.Scroll:
+    case ItemType.Book:
+      return readMagicItem(p, c, slot, def, ctx);
+    case ItemType.Note:
+      return fail(p, `${def.name} cannot be read yet.`);
+    default:
+      return fail(p, `${def.name} cannot be used.`);
   }
   const items = consumeOne(c.inventory.items, slot, def);
   const updated: Character = { ...next, inventory: { ...c.inventory, items } };
@@ -168,7 +216,13 @@ export function useItem(p: PartyState, charIndex: number, slot: number, defs: re
 }
 
 /** Move the item in `slot` to another active character, merging stacks. Fails when they are full. */
-export function giveToCharacter(p: PartyState, fromIndex: number, slot: number, toIndex: number, defs: readonly ItemDef[]): ItemUseResult {
+export function giveToCharacter(
+  p: PartyState,
+  fromIndex: number,
+  slot: number,
+  toIndex: number,
+  defs: readonly ItemDef[],
+): ItemUseResult {
   const from = characterOf(p, fromIndex);
   const to = characterOf(p, toIndex);
   const it = from?.inventory.items[slot];
@@ -183,7 +237,11 @@ export function giveToCharacter(p: PartyState, fromIndex: number, slot: number, 
     const last = added.inventory.items.length - 1;
     added.inventory.items[last] = { ...it, equipped: false };
   }
-  const moved = setItems(updateCharacter(p, to.index, () => added), { ...from }, from.inventory.items.filter((_, i) => i !== slot));
+  const moved = setItems(
+    updateCharacter(p, to.index, () => added),
+    { ...from },
+    from.inventory.items.filter((_, i) => i !== slot),
+  );
   return { party: moved, message: `${def.name} given to ${to.name}.`, ok: true };
 }
 
@@ -211,7 +269,11 @@ export function repairItem(
   let toolSlot = -1;
   for (const owner of [c, ...p.characters.filter((x) => x.index !== c.index && p.activeCharacters.includes(x.index))]) {
     const s = owner.inventory.items.findIndex((x) => defs[x.itemIndex]?.type === ItemType.Tool && !x.broken);
-    if (s >= 0) { toolOwner = owner; toolSlot = s; break; }
+    if (s >= 0) {
+      toolOwner = owner;
+      toolSlot = s;
+      break;
+    }
   }
   if (!toolOwner) return fail(p, 'You need a tool to repair things.');
 
@@ -221,15 +283,24 @@ export function repairItem(
   let party = p;
   if (success) {
     const items = c.inventory.items.map((x, i) =>
-      i === slot ? { ...x, broken: false, repairable: false, conditionOrQuantity: Math.min(100, x.conditionOrQuantity + REPAIR_AMOUNT) } : x);
+      i === slot
+        ? {
+            ...x,
+            broken: false,
+            repairable: false,
+            conditionOrQuantity: Math.min(100, x.conditionOrQuantity + REPAIR_AMOUNT),
+          }
+        : x,
+    );
     party = setItems(party, c, items);
   }
   const owner = characterOf(party, toolOwner.index)!;
   const tool = owner.inventory.items[toolSlot]!;
   const worn = tool.conditionOrQuantity - TOOL_WEAR;
-  const toolItems = worn <= 0
-    ? owner.inventory.items.filter((_, i) => i !== toolSlot)
-    : owner.inventory.items.map((x, i) => (i === toolSlot ? { ...x, conditionOrQuantity: worn } : x));
+  const toolItems =
+    worn <= 0
+      ? owner.inventory.items.filter((_, i) => i !== toolSlot)
+      : owner.inventory.items.map((x, i) => (i === toolSlot ? { ...x, conditionOrQuantity: worn } : x));
   party = setItems(party, owner, toolItems);
   party = practiceCharacter(party, c.index, equipGroup(def) === 'armor' ? 'armorcraft' : 'weaponcraft'); // every attempt exercises the craft
   return { party, ok: success, message: success ? `${def.name} repaired.` : `The repair of ${def.name} failed.` };

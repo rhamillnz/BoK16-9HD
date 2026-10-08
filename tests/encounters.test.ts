@@ -1,14 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ENCOUNTER_BLOCK_SIZE, EncounterType, encounterAction, encounterChapterCount, parseTileEncounters,
+  ENCOUNTER_BLOCK_SIZE,
+  EncounterType,
+  encounterAction,
+  encounterChapterCount,
+  parseTileEncounters,
 } from '../src/formats/encounters';
 import { GAM_OFFSETS as O, type GamSave, decodeTime } from '../src/formats/gam';
 import { createWorldState, setFlag } from '../src/game/state';
 import { EncounterMap, placeEncounter, triggeredAt } from '../src/world/encounters';
 
 interface Rec {
-  type: number; l: number; t: number; r: number; b: number; idx?: number;
-  chapterFlag?: number; req?: number; inh?: number; comp?: number; rep?: number;
+  type: number;
+  l: number;
+  t: number;
+  r: number;
+  b: number;
+  idx?: number;
+  chapterFlag?: number;
+  req?: number;
+  inh?: number;
+  comp?: number;
+  rep?: number;
 }
 
 /** Build a tile file with the given records per chapter (1-based index into `chapters`). */
@@ -38,15 +51,32 @@ function tileFile(chapters: Rec[][]): Uint8Array {
 
 function world() {
   const save = {
-    chapter: 1, time: decodeTime(0), timeLastSlept: decodeTime(0),
-    bytes: new Uint8Array(O.complexEventFlags + 0x400), expiringEvents: [],
+    chapter: 1,
+    time: decodeTime(0),
+    timeLastSlept: decodeTime(0),
+    bytes: new Uint8Array(O.complexEventFlags + 0x400),
+    expiringEvents: [],
   } as unknown as GamSave;
   return createWorldState(save);
 }
 
 describe('parseTileEncounters', () => {
   const file = tileFile([
-    [{ type: EncounterType.Combat, l: 1, t: 4, r: 3, b: 2, idx: 7, chapterFlag: 1, req: 0x20, inh: 0x30, comp: 0x40, rep: 1 }],
+    [
+      {
+        type: EncounterType.Combat,
+        l: 1,
+        t: 4,
+        r: 3,
+        b: 2,
+        idx: 7,
+        chapterFlag: 1,
+        req: 0x20,
+        inh: 0x30,
+        comp: 0x40,
+        rep: 1,
+      },
+    ],
     [
       { type: EncounterType.Dialog, l: 0, t: 0, r: 0, b: 0, idx: 9 },
       { type: 99, l: 5, t: 5, r: 5, b: 5 },
@@ -56,9 +86,20 @@ describe('parseTileEncounters', () => {
   it('reads every field of a record', () => {
     const [e] = parseTileEncounters(file, 1);
     expect(e).toMatchObject({
-      index: 0, typeId: 1, left: 1, top: 4, right: 3, bottom: 2, tableIndex: 7,
-      unknown0: 0xaa, unknown1: 0xbb, chapterFlag: 1, requiredState: 0x20, inhibitState: 0x30,
-      completionState: 0x40, repeatable: 1,
+      index: 0,
+      typeId: 1,
+      left: 1,
+      top: 4,
+      right: 3,
+      bottom: 2,
+      tableIndex: 7,
+      unknown0: 0xaa,
+      unknown1: 0xbb,
+      chapterFlag: 1,
+      requiredState: 0x20,
+      inhibitState: 0x30,
+      completionState: 0x40,
+      repeatable: 1,
     });
     expect(e!.action).toEqual({ kind: 'combat', tableIndex: 7 });
   });
@@ -73,8 +114,18 @@ describe('parseTileEncounters', () => {
   it('maps every known type id to a kind', () => {
     const kinds = Array.from({ length: 12 }, (_, i) => encounterAction(i, 0).kind);
     expect(kinds).toEqual([
-      'background', 'combat', 'comment', 'dialog', 'health', 'sound',
-      'town', 'trap', 'zone', 'disable', 'enable', 'block',
+      'background',
+      'combat',
+      'comment',
+      'dialog',
+      'health',
+      'sound',
+      'town',
+      'trap',
+      'zone',
+      'disable',
+      'enable',
+      'block',
     ]);
   });
 
@@ -92,10 +143,16 @@ describe('trigger rectangles', () => {
   });
 
   const map = new EncounterMap(1);
-  map.addTile(1, 0, tileFile([[
-    { type: EncounterType.Dialog, l: 10, t: 10, r: 10, b: 10, idx: 1 },
-    { type: EncounterType.Combat, l: 10, t: 12, r: 11, b: 10, idx: 2 },
-  ]]));
+  map.addTile(
+    1,
+    0,
+    tileFile([
+      [
+        { type: EncounterType.Dialog, l: 10, t: 10, r: 10, b: 10, idx: 1 },
+        { type: EncounterType.Combat, l: 10, t: 12, r: 11, b: 10, idx: 2 },
+      ],
+    ]),
+  );
   const cell = (cx: number, cy: number) => [64000 + cx * 1600 + 800, cy * 1600 + 800] as const;
 
   it('finds encounters by position and tile', () => {
@@ -113,11 +170,17 @@ describe('trigger rectangles', () => {
 
 describe('triggeredAt', () => {
   const map = new EncounterMap(1);
-  map.addTile(0, 0, tileFile([[
-    { type: 3, l: 0, t: 0, r: 0, b: 0, req: 0x20 },
-    { type: 3, l: 0, t: 0, r: 0, b: 0, inh: 0x21 },
-    { type: 3, l: 0, t: 0, r: 0, b: 0 },
-  ]]));
+  map.addTile(
+    0,
+    0,
+    tileFile([
+      [
+        { type: 3, l: 0, t: 0, r: 0, b: 0, req: 0x20 },
+        { type: 3, l: 0, t: 0, r: 0, b: 0, inh: 0x21 },
+        { type: 3, l: 0, t: 0, r: 0, b: 0 },
+      ],
+    ]),
+  );
   const idx = (s: ReturnType<typeof world>) => triggeredAt(map, s, 100, 100).map((e) => e.record.index);
 
   it('honours required and inhibit flags', () => {

@@ -4,7 +4,14 @@ import { parsePalette, type Palette } from '../formats/palette';
 import { parseSCX, terrainStrips } from '../formats/scx';
 import { parseTBL, zonePrefix, type ModelTable } from '../formats/tbl';
 import { isUndergroundZone, undergroundTableName } from './underground';
-import { parseChapterStart, parseWLD, parseZoneRef, tileName, type ChapterStart, type WorldItem } from '../formats/world';
+import {
+  parseChapterStart,
+  parseWLD,
+  parseZoneRef,
+  tileName,
+  type ChapterStart,
+  type WorldItem,
+} from '../formats/world';
 
 /** Everything needed to build one outdoor zone, decoded from the original data. */
 export interface ZoneData {

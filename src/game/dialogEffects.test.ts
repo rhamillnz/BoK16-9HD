@@ -35,10 +35,17 @@ function character(index: number, capacity = 4): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(0, 0)])) as Character['skills'];
   skills.health = skill(60, 30);
   return {
-    index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name: `C${index}`,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 10, plagued: 0, poisoned: 40, drunk: 0, healing: 0, starving: 0, nearDeath: 0 },
-    affectors: [], inventory: { capacity, items: [] },
+    affectors: [],
+    inventory: { capacity, items: [] },
   };
 }
 
@@ -87,10 +94,12 @@ describe('GiveItem', () => {
   });
 
   it('turns sovereigns and royals into gold', () => {
-    const r = apply(actions(
-      { type: ActionType.GiveItem, bytes: [ITEM_SOVEREIGNS, 0, 3, 0] },
-      { type: ActionType.GiveItem, bytes: [ITEM_ROYALS, 0, 5, 0] },
-    ));
+    const r = apply(
+      actions(
+        { type: ActionType.GiveItem, bytes: [ITEM_SOVEREIGNS, 0, 3, 0] },
+        { type: ActionType.GiveItem, bytes: [ITEM_ROYALS, 0, 5, 0] },
+      ),
+    );
     expect(r.party.gold).toBe(100 + 30 + 5);
   });
 
@@ -186,7 +195,9 @@ describe('world actions', () => {
   });
 
   it('leaves actions it has no effect for in `unhandled`', () => {
-    const r = apply(actions({ type: ActionType.PlaySound, words: [1, 0] }, { type: ActionType.LoadActor, words: [1, 2, 3, 0] }));
+    const r = apply(
+      actions({ type: ActionType.PlaySound, words: [1, 0] }, { type: ActionType.LoadActor, words: [1, 2, 3, 0] }),
+    );
     expect(r.unhandled.map((a) => a.name)).toEqual(['PlaySound', 'LoadActor']);
   });
 });

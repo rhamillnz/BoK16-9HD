@@ -32,14 +32,7 @@ import {
   rangedDamage,
   rollToHitRanged,
 } from './rules';
-import {
-  beginCombat,
-  finishTurn,
-  flee as fleeTurn,
-  newCombatant,
-  type CombatOutcome,
-  type TurnState,
-} from './turns';
+import { beginCombat, finishTurn, flee as fleeTurn, newCombatant, type CombatOutcome, type TurnState } from './turns';
 
 export interface Fighter extends MeleeStats {
   id: string;
@@ -62,9 +55,26 @@ export interface Fighter extends MeleeStats {
 
 export type BattleEvent =
   | { type: 'move'; id: string; from: GridPos; path: GridPos[] }
-  | { type: 'attack'; attacker: string; target: string; kind: AttackKind; hit: boolean; damage: number; killed: boolean }
+  | {
+      type: 'attack';
+      attacker: string;
+      target: string;
+      kind: AttackKind;
+      hit: boolean;
+      damage: number;
+      killed: boolean;
+    }
   | { type: 'shoot'; attacker: string; target: string; hit: boolean; damage: number; killed: boolean; distance: number }
-  | { type: 'cast'; caster: string; target: string; spell: string; power: number; kind: 'damage' | 'heal'; amount: number; killed: boolean }
+  | {
+      type: 'cast';
+      caster: string;
+      target: string;
+      spell: string;
+      power: number;
+      kind: 'damage' | 'heal';
+      amount: number;
+      killed: boolean;
+    }
   | { type: 'defend'; id: string }
   | { type: 'rest'; id: string }
   | { type: 'flee'; success: boolean }
@@ -110,7 +120,9 @@ export function gridFor(s: BattleState, index = s.turn.current): CombatGrid {
 /** Copies fighter vitals into the turn state and the turn state's defending flag back to the fighters. */
 function sync(s: BattleState, fighters: Fighter[], turn: TurnState, events: BattleEvent[]): BattleState {
   const combatants = turn.combatants.map((c, i) => ({ ...c, dead: isDead(fighters[i]!), health: fighters[i]!.health }));
-  const synced = fighters.map((f, i) => (f.defending === combatants[i]!.defending ? f : { ...f, defending: combatants[i]!.defending }));
+  const synced = fighters.map((f, i) =>
+    f.defending === combatants[i]!.defending ? f : { ...f, defending: combatants[i]!.defending },
+  );
   return { ...s, fighters: synced, turn: { ...turn, combatants }, events, history: [...s.history, ...events] };
 }
 
@@ -130,11 +142,14 @@ export function moveTo(s: BattleState, target: GridPos): BattleState | undefined
   if (isOver(s)) return undefined;
   const grid = gridFor(s);
   const i = target.y * grid.cols + target.x;
-  if (target.x < 0 || target.y < 0 || target.x >= grid.cols || target.y >= grid.rows || !grid.cells[i]!.reachable) return undefined;
+  if (target.x < 0 || target.y < 0 || target.x >= grid.cols || target.y >= grid.rows || !grid.cells[i]!.reachable)
+    return undefined;
   const me = currentFighter(s);
   const path = calculatePath(grid, me.pos, target);
   if (path.length === 0) return undefined;
-  const fighters = s.fighters.map((f, k) => (k === s.turn.current ? { ...f, pos: target, facing: directionBetween(path[path.length - 2] ?? me.pos, target) } : f));
+  const fighters = s.fighters.map((f, k) =>
+    k === s.turn.current ? { ...f, pos: target, facing: directionBetween(path[path.length - 2] ?? me.pos, target) } : f,
+  );
   return endTurn(s, fighters, [{ type: 'move', id: me.id, from: me.pos, path }]);
 }
 
@@ -223,7 +238,12 @@ export function castableSpells(s: BattleState, index = s.turn.current): SpellDef
 
 /** Power a fighter casts `def` at: as much as affordable up to its maximum, keeping 1 point. */
 export function castPower(f: Fighter, def: SpellDef): number {
-  return maxPower({ skills: { health: { trueSkill: f.health }, stamina: { trueSkill: f.stamina } } } as Parameters<typeof maxPower>[0], def);
+  return maxPower(
+    { skills: { health: { trueSkill: f.health }, stamina: { trueSkill: f.stamina } } } as Parameters<
+      typeof maxPower
+    >[0],
+    def,
+  );
 }
 
 /**
@@ -232,7 +252,12 @@ export function castPower(f: Fighter, def: SpellDef): number {
  * spell damage. The cost comes off Stamina, then Health (never below 1); `maxSpend` caps the power
  * (the enemy AI uses it to cast from Stamina only).
  */
-export function castSpell(s: BattleState, spellIndex: number, target: GridPos, maxSpend = Infinity): BattleState | undefined {
+export function castSpell(
+  s: BattleState,
+  spellIndex: number,
+  target: GridPos,
+  maxSpend = Infinity,
+): BattleState | undefined {
   if (isOver(s)) return undefined;
   const me = currentFighter(s);
   const def = castableSpells(s).find((d) => d.index === spellIndex);
@@ -256,7 +281,9 @@ export function castSpell(s: BattleState, spellIndex: number, target: GridPos, m
   if (kind === 'damage') Object.assign(subject, applyDamage(subject, amount));
   else subject.health = Math.min(subject.maxHealth, subject.health + amount);
   const killed = kind === 'damage' && isDead(subject);
-  return endTurn(s, fighters, [{ type: 'cast', caster: me.id, target: subject.id, spell: def.name, power, kind, amount, killed }]);
+  return endTurn(s, fighters, [
+    { type: 'cast', caster: me.id, target: subject.id, spell: def.name, power, kind, amount, killed },
+  ]);
 }
 
 /** Defending ends the turn; attackers add 20 to their hit roll against the defender until the next round. */
@@ -289,7 +316,8 @@ export function flee(s: BattleState): BattleState | undefined {
 export function describeEvent(s: BattleState, e: BattleEvent): string {
   const name = (id: string) => s.fighters.find((f) => f.id === id)?.name ?? id;
   switch (e.type) {
-    case 'move': return `${name(e.id)} moves.`;
+    case 'move':
+      return `${name(e.id)} moves.`;
     case 'attack': {
       const verb = e.kind === 'slash' ? 'slashes at' : 'strikes at';
       if (!e.hit) return `${name(e.attacker)} ${verb} ${name(e.target)} and misses.`;
@@ -302,10 +330,15 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
       return e.kind === 'heal'
         ? `${name(e.caster)} casts ${e.spell}; ${name(e.target)} regains ${e.amount}.`
         : `${name(e.caster)} casts ${e.spell} on ${name(e.target)} for ${e.amount}${e.killed ? ' and fells them' : ''}.`;
-    case 'defend': return `${name(e.id)} defends.`;
-    case 'rest': return `${name(e.id)} waits.`;
-    case 'flee': return e.success ? 'The party retreats.' : 'The party cannot retreat.';
-    case 'round': return `Round ${e.round}.`;
-    case 'end': return e.outcome === 'won' ? 'Victory!' : e.outcome === 'fled' ? 'You got away.' : 'The party has fallen.';
+    case 'defend':
+      return `${name(e.id)} defends.`;
+    case 'rest':
+      return `${name(e.id)} waits.`;
+    case 'flee':
+      return e.success ? 'The party retreats.' : 'The party cannot retreat.';
+    case 'round':
+      return `Round ${e.round}.`;
+    case 'end':
+      return e.outcome === 'won' ? 'Victory!' : e.outcome === 'fled' ? 'You got away.' : 'The party has fallen.';
   }
 }

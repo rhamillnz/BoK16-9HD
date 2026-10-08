@@ -1,29 +1,77 @@
 import { describe, expect, it } from 'vitest';
 import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
 import type { ItemDef } from '../formats/objinfo';
-import { AMBUSH_CHANCE_PER_HOUR, MORNING_HOUR, camp, campSummary, countRations, plannedHours, ITEM_TYPE_RATION } from './camp';
+import {
+  AMBUSH_CHANCE_PER_HOUR,
+  MORNING_HOUR,
+  camp,
+  campSummary,
+  countRations,
+  plannedHours,
+  ITEM_TYPE_RATION,
+} from './camp';
 import type { PartyState } from './party';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, hourOfDay, type WorldState } from './state';
 
-const skill = (max: number, trueSkill: number): Skill => ({ max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false });
+const skill = (max: number, trueSkill: number): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 0,
+  modifier: 0,
+  selected: false,
+  unseenImprovement: false,
+});
 
 function character(index: number, health = 10, rations = 0): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(0, 0)])) as Character['skills'];
   skills.health = skill(50, health);
   skills.stamina = skill(40, 5);
-  const items = rations > 0 ? [{ itemIndex: 1, conditionOrQuantity: rations, status: 0, modifiers: 0, activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false }] : [];
+  const items =
+    rations > 0
+      ? [
+          {
+            itemIndex: 1,
+            conditionOrQuantity: rations,
+            status: 0,
+            modifiers: 0,
+            activated: false,
+            used: false,
+            broken: false,
+            repairable: false,
+            equipped: false,
+            poisoned: false,
+          },
+        ]
+      : [];
   return {
-    index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name: `C${index}`,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 30 },
-    affectors: [], inventory: { capacity: 8, items },
+    affectors: [],
+    inventory: { capacity: 8, items },
   };
 }
 
 const party = (rations = 0): PartyState => ({
-  gold: 0, characters: [character(0, 10, rations), character(1, 10, rations)], activeCharacters: [0, 1], partyKeys: { capacity: 4, items: [] },
+  gold: 0,
+  characters: [character(0, 10, rations), character(1, 10, rations)],
+  activeCharacters: [0, 1],
+  partyKeys: { capacity: 4, items: [] },
 });
-const world = (ticks = 20 * TICKS_PER_HOUR): WorldState => ({ chapter: 1, ticks, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [] });
+const world = (ticks = 20 * TICKS_PER_HOUR): WorldState => ({
+  chapter: 1,
+  ticks,
+  ticksLastSlept: 0,
+  bytes: new Uint8Array(0x4000),
+  expiringEvents: [],
+});
 const ITEMS = [] as ItemDef[];
 ITEMS[1] = { index: 1, stackSize: 10, defaultStackSize: 1, type: ITEM_TYPE_RATION } as ItemDef;
 const opts = { items: ITEMS, ambushChance: 0 };
@@ -52,7 +100,8 @@ describe('camp', () => {
   it('doubles healing under the Healing condition', () => {
     const p = party();
     p.characters[0]!.conditions.healing = 50;
-    const pool = (r: ReturnType<typeof camp>) => r.party.characters[0]!.skills.health.trueSkill + r.party.characters[0]!.skills.stamina.trueSkill;
+    const pool = (r: ReturnType<typeof camp>) =>
+      r.party.characters[0]!.skills.health.trueSkill + r.party.characters[0]!.skills.stamina.trueSkill;
     const healing = pool(camp(world(), p, { kind: 'hours', hours: 1 }, opts));
     const plain = pool(camp(world(), party(), { kind: 'hours', hours: 1 }, opts));
     expect(healing - plain).toBeGreaterThanOrEqual(1);
@@ -101,12 +150,22 @@ describe('camp', () => {
     expect(r.party.characters[0]!.conditions.nearDeath).toBe(22);
     const sick = party(2);
     sick.characters[0]!.conditions.sick = 60;
-    expect(camp(world(TICKS_PER_DAY - TICKS_PER_HOUR), sick, { kind: 'hours', hours: 14 }, opts).party.characters[0]!.conditions.sick).toBe(0);
-    expect(camp(world(), sick, { kind: 'hours', hours: 4 }, opts).party.characters[0]!.conditions.sick).toBeGreaterThan(0);
+    expect(
+      camp(world(TICKS_PER_DAY - TICKS_PER_HOUR), sick, { kind: 'hours', hours: 14 }, opts).party.characters[0]!
+        .conditions.sick,
+    ).toBe(0);
+    expect(camp(world(), sick, { kind: 'hours', hours: 4 }, opts).party.characters[0]!.conditions.sick).toBeGreaterThan(
+      0,
+    );
   });
 
   it('can be interrupted by an ambush', () => {
-    const r = camp(world(), party(), { kind: 'hours', hours: 8 }, { items: ITEMS, ambushChance: AMBUSH_CHANCE_PER_HOUR, random: () => 0 });
+    const r = camp(
+      world(),
+      party(),
+      { kind: 'hours', hours: 8 },
+      { items: ITEMS, ambushChance: AMBUSH_CHANCE_PER_HOUR, random: () => 0 },
+    );
     expect(r.interrupted).toBe(true);
     expect(r.hoursRested).toBe(1);
     expect(campSummary(r, party(), r.party)[0]).toContain('disturbed');

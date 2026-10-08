@@ -1,6 +1,30 @@
 import * as THREE from 'three/webgpu';
-import { Fn, attribute, cameraPosition, cos, float, mix, positionLocal, sin, smoothstep, time, transformNormalToView, uniform, vec3 } from 'three/tsl';
-import { CLUMP_HEIGHT, GRASS_PRESETS, cellInView, cellsAround, lodKeep, scatterCell, type GrassQuality, type GrassSettings, type GroundSampler } from './grassMath';
+import {
+  Fn,
+  attribute,
+  cameraPosition,
+  cos,
+  float,
+  mix,
+  positionLocal,
+  sin,
+  smoothstep,
+  time,
+  transformNormalToView,
+  uniform,
+  vec3,
+} from 'three/tsl';
+import {
+  CLUMP_HEIGHT,
+  GRASS_PRESETS,
+  cellInView,
+  cellsAround,
+  lodKeep,
+  scatterCell,
+  type GrassQuality,
+  type GrassSettings,
+  type GroundSampler,
+} from './grassMath';
 
 /**
  * Stylised GPU-instanced grass: clumps of tapered blades scattered on Ground-terrain areas in a ring of
@@ -35,18 +59,19 @@ function clumpGeometry(): THREE.BufferGeometry {
   const idx: number[] = [];
   for (let b = 0; b < BLADES; b++) {
     const a = (b / BLADES) * Math.PI * 2 + b * 0.7;
-    const r = 0.05 + 0.05 * ((b * 37) % 5) / 4;
+    const r = 0.05 + (0.05 * ((b * 37) % 5)) / 4;
     const cx = Math.cos(a) * r;
     const cz = Math.sin(a) * r;
     const lean = 0.12 + 0.08 * (b % 3);
-    const h = 0.7 + 0.3 * ((b * 53) % 7) / 6;
+    const h = 0.7 + (0.3 * ((b * 53) % 7)) / 6;
     const w = 0.045;
     const dx = Math.cos(a + 1.2);
     const dz = Math.sin(a + 1.2);
     const lx = Math.cos(a) * lean;
     const lz = Math.sin(a) * lean;
     const base = pos.length / 3;
-    const v = (t: number, side: number, width: number) => pos.push(cx + dx * side * width + lx * t * t, t * h, cz + dz * side * width + lz * t * t);
+    const v = (t: number, side: number, width: number) =>
+      pos.push(cx + dx * side * width + lx * t * t, t * h, cz + dz * side * width + lz * t * t);
     v(0, -1, w);
     v(0, 1, w);
     v(0.5, -1, w * 0.7);
@@ -62,12 +87,20 @@ function clumpGeometry(): THREE.BufferGeometry {
 
 export function createGrass(scene: THREE.Scene, sampleGround: GroundSampler, options: GrassOptions = {}): Grass {
   const urlQuality = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('grass') : null;
-  let quality: GrassQuality | 'off' = urlQuality === 'off' || urlQuality === 'low' || urlQuality === 'medium' || urlQuality === 'high' ? urlQuality : (options.quality ?? 'medium');
+  let quality: GrassQuality | 'off' =
+    urlQuality === 'off' || urlQuality === 'low' || urlQuality === 'medium' || urlQuality === 'high'
+      ? urlQuality
+      : (options.quality ?? 'medium');
   const base = options.color ?? sampleGround.color ?? [0.3, 0.45, 0.2];
 
   // Stylised palette from the ground colour: dark saturated roots, lighter warm tips.
   const root = new THREE.Color().setRGB(base[0] * 0.8, base[1] * 0.9, base[2] * 0.6, THREE.SRGBColorSpace);
-  const tip = new THREE.Color().setRGB(Math.min(1, base[0] * 1.45 + 0.14), Math.min(1, base[1] * 1.5 + 0.12), Math.min(1, base[2] * 0.9 + 0.02), THREE.SRGBColorSpace);
+  const tip = new THREE.Color().setRGB(
+    Math.min(1, base[0] * 1.45 + 0.14),
+    Math.min(1, base[1] * 1.5 + 0.12),
+    Math.min(1, base[2] * 0.9 + 0.02),
+    THREE.SRGBColorSpace,
+  );
   const uRoot = uniform(root);
   const uTip = uniform(tip);
   const uRadius = uniform(1); // fade-out distance in world units

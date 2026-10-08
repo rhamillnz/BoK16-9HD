@@ -40,7 +40,12 @@ interface ClipSpec {
   flags: number;
   /** Bytes between the record start and its point data, minus the 8 the parser subtracts. */
   adjust: number;
-  elements: { scale: number; baseHeight: number; points: [number, number, number, number][]; height?: [number, number] }[];
+  elements: {
+    scale: number;
+    baseHeight: number;
+    points: [number, number, number, number][];
+    height?: [number, number];
+  }[];
 }
 
 /**
@@ -115,7 +120,23 @@ describe('GID: parser', () => {
 
   it('reads the walkable flag and negative values', () => {
     const gid = buildGid([
-      { radiusX: 1, radiusY: 1, flags: 1, adjust: 8, elements: [{ scale: 0, baseHeight: 0, points: [[-5, -6, -7, -8], [0, 0, 1, 1], [0, 0, 2, 0]] }] },
+      {
+        radiusX: 1,
+        radiusY: 1,
+        flags: 1,
+        adjust: 8,
+        elements: [
+          {
+            scale: 0,
+            baseHeight: 0,
+            points: [
+              [-5, -6, -7, -8],
+              [0, 0, 1, 1],
+              [0, 0, 2, 0],
+            ],
+          },
+        ],
+      },
     ]);
     const clip = parseClips(gid, 1)[0]!;
     expect(clip.walkable).toBe(true);
@@ -138,7 +159,10 @@ describe('GID: parser', () => {
     ]);
     const clip = parseClips(gid, 1)[0]!;
     expect(clip.hasVertical).toBe(true);
-    expect(clip.elements.map((e) => e.heightPoint)).toEqual([[-300, 400], [5, 6]]);
+    expect(clip.elements.map((e) => e.heightPoint)).toEqual([
+      [-300, 400],
+      [5, 6],
+    ]);
     expect(clip.elements[1]!.points).toHaveLength(6);
   });
 
@@ -157,8 +181,7 @@ describe('GID: parser', () => {
     const gid = buildGid([
       { radiusX: 9, radiusY: 8, flags: 0, adjust: 8, elements: [{ scale: 0, baseHeight: 0, points: SQUARE }] },
     ]);
-    const chunk = (tag: string, p: Uint8Array) =>
-      new Bytes().ascii(tag).u16(p.length, 0).raw(p).done();
+    const chunk = (tag: string, p: Uint8Array) => new Bytes().ascii(tag).u16(p.length, 0).raw(p).done();
     const tbl = new Bytes().raw(chunk('MAP:', names)).raw(chunk('GID:', gid)).done();
     const table = parseTBL(tbl);
     expect(table.clips[0]!.radiusX).toBe(9);
@@ -192,7 +215,10 @@ describe('placeClip', () => {
   });
 
   it('rotates counter-clockwise by the 16-bit yaw', () => {
-    const clip: ModelClip = { ...box(0), elements: [{ scale: 0, baseHeight: 0, points: [100, 0, 0, 100, -100, 0], normals: [] }] };
+    const clip: ModelClip = {
+      ...box(0),
+      elements: [{ scale: 0, baseHeight: 0, points: [100, 0, 0, 100, -100, 0], normals: [] }],
+    };
     const [poly] = placeClip(clip, { x: 0, y: 0, zRot: 0x4000 }); // 90°
     expect(poly!.points[0]).toBeCloseTo(0);
     expect(poly!.points[1]).toBeCloseTo(100);
@@ -201,12 +227,17 @@ describe('placeClip', () => {
   });
 
   it('falls back to the radius rectangle when there are no elements', () => {
-    const [poly] = placeClip({ radiusX: 50, radiusY: 20, walkable: false, hasVertical: false, elements: [] }, { x: 0, y: 0, zRot: 0 });
+    const [poly] = placeClip(
+      { radiusX: 50, radiusY: 20, walkable: false, hasVertical: false, elements: [] },
+      { x: 0, y: 0, zRot: 0 },
+    );
     expect(poly!.points).toEqual([-50, -20, 50, -20, 50, 20, -50, 20]);
   });
 
   it('emits nothing for an empty clip with no radius', () => {
-    expect(placeClip({ radiusX: 0, radiusY: 0, walkable: false, hasVertical: false, elements: [] }, { x: 0, y: 0, zRot: 0 })).toEqual([]);
+    expect(
+      placeClip({ radiusX: 0, radiusY: 0, walkable: false, hasVertical: false, elements: [] }, { x: 0, y: 0, zRot: 0 }),
+    ).toEqual([]);
   });
 });
 
@@ -245,7 +276,10 @@ describe('slideMove', () => {
   });
 
   it('does not tunnel through a thin wall on a large step', () => {
-    const thin = placeClip({ ...box(0), elements: [{ scale: 0, baseHeight: 0, points: [-5, -500, 5, -500, 5, 500, -5, 500], normals: [] }] }, { x: 0, y: 0, zRot: 0 });
+    const thin = placeClip(
+      { ...box(0), elements: [{ scale: 0, baseHeight: 0, points: [-5, -500, 5, -500, 5, 500, -5, 500], normals: [] }] },
+      { x: 0, y: 0, zRot: 0 },
+    );
     const p = slideMove({ x: 100, y: 0 }, { x: -200, y: 0 }, 10, thin);
     expect(p.x).toBeGreaterThan(5);
   });

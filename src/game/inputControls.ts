@@ -79,7 +79,8 @@ export function installInput(h: InputHost): { read(): PartyInput; clear(): void 
 
   const wantsMouse = () => mouseLook && !h.blocking() && !h.combatActive() && !h.flyMode();
   window.addEventListener('mousedown', (e) => {
-    if (e.button === 0 && wantsMouse() && document.pointerLockElement !== h.canvas) void Promise.resolve(h.canvas.requestPointerLock()).catch(() => undefined);
+    if (e.button === 0 && wantsMouse() && document.pointerLockElement !== h.canvas)
+      void Promise.resolve(h.canvas.requestPointerLock()).catch(() => undefined);
   });
   window.addEventListener('mousemove', (e) => {
     if (document.pointerLockElement !== h.canvas) return;

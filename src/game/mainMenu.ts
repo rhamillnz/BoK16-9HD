@@ -15,7 +15,14 @@ export interface GameSettings {
   mouseLook: boolean;
 }
 
-export const DEFAULT_SETTINGS: GameSettings = { quality: 'medium', volume: 0.7, muted: false, fov: 60, uiScale: 1, mouseLook: false };
+export const DEFAULT_SETTINGS: GameSettings = {
+  quality: 'medium',
+  volume: 0.7,
+  muted: false,
+  fov: 60,
+  uiScale: 1,
+  mouseLook: false,
+};
 export const FOV_MIN = 50;
 export const FOV_MAX = 100;
 export const FOV_STEP = 5;
@@ -39,10 +46,14 @@ export function parseSettings(json: string | null | undefined): GameSettings {
   }
   return {
     quality: parseQuality(typeof raw.quality === 'string' ? raw.quality : null, DEFAULT_SETTINGS.quality),
-    volume: typeof raw.volume === 'number' && Number.isFinite(raw.volume) ? clampVolume(raw.volume) : DEFAULT_SETTINGS.volume,
+    volume:
+      typeof raw.volume === 'number' && Number.isFinite(raw.volume) ? clampVolume(raw.volume) : DEFAULT_SETTINGS.volume,
     muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
     fov: typeof raw.fov === 'number' && Number.isFinite(raw.fov) ? clampFov(raw.fov) : DEFAULT_SETTINGS.fov,
-    uiScale: typeof raw.uiScale === 'number' && Number.isFinite(raw.uiScale) ? clampUiScale(raw.uiScale) : DEFAULT_SETTINGS.uiScale,
+    uiScale:
+      typeof raw.uiScale === 'number' && Number.isFinite(raw.uiScale)
+        ? clampUiScale(raw.uiScale)
+        : DEFAULT_SETTINGS.uiScale,
     mouseLook: typeof raw.mouseLook === 'boolean' ? raw.mouseLook : DEFAULT_SETTINGS.mouseLook,
   };
 }
@@ -61,7 +72,8 @@ export const stepFov = (v: number): number => (v + FOV_STEP > FOV_MAX ? FOV_MIN 
 export const stepUiScale = (v: number): number => (v + 0.1 > 1.05 ? UI_SCALE_MIN : clampUiScale(v + 0.1));
 
 export type MainMenuId = 'resume' | 'new' | 'continue' | 'load' | 'options';
-export type OptionsId = 'quality' | 'volDown' | 'volUp' | 'mute' | 'fov' | 'uiScale' | 'mouseLook' | 'controls' | 'keys' | 'back';
+export type OptionsId =
+  'quality' | 'volDown' | 'volUp' | 'mute' | 'fov' | 'uiScale' | 'mouseLook' | 'controls' | 'keys' | 'back';
 
 export interface MainMenuState {
   /** The game is running (the menu was opened over it) so Resume makes sense. */

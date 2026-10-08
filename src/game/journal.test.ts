@@ -43,7 +43,12 @@ describe('journal', () => {
 });
 
 describe('journal screen', () => {
-  const font = { height: 8, firstChar: 0, maxWidth: 6, glyphs: [{ width: 6, height: 8, pixels: new Uint8Array(48) }] } as unknown as Font;
+  const font = {
+    height: 8,
+    firstChar: 0,
+    maxWidth: 6,
+    glyphs: [{ width: 6, height: 8, pixels: new Uint8Array(48) }],
+  } as unknown as Font;
   it('scrolls the window to follow the selection and clamps at the ends', () => {
     const layout = layoutJournal(2560, 1440, 4);
     let s = initialJournalState();

@@ -15,7 +15,12 @@ export interface RoadStoneOptions {
   maxInstances: number;
 }
 
-export const DEFAULT_ROAD_STONES: Omit<RoadStoneOptions, 'seed'> = { keep: 0.3, maxPerGroup: 3, jitter: 0.9, maxInstances: 30_000 };
+export const DEFAULT_ROAD_STONES: Omit<RoadStoneOptions, 'seed'> = {
+  keep: 0.3,
+  maxPerGroup: 3,
+  jitter: 0.9,
+  maxInstances: 30_000,
+};
 
 /** Stones are small: chunks of this edge (world units) are hidden beyond ROAD_STONE_FAR. */
 export const ROAD_STONE_CHUNK = 32;
@@ -50,7 +55,11 @@ export function roadStonePlacements(
       const s = 0.8 + h(2) * 0.7;
       const q = new THREE.Quaternion().setFromAxisAngle(up, h(3) * Math.PI * 2);
       // Sunk a little so the stone beds into the ground.
-      const m = new THREE.Matrix4().compose(new THREE.Vector3(x, height(x, z) - 0.02 * s, z), q, new THREE.Vector3(s, s, s));
+      const m = new THREE.Matrix4().compose(
+        new THREE.Vector3(x, height(x, z) - 0.02 * s, z),
+        q,
+        new THREE.Vector3(s, s, s),
+      );
       out.push({ name: names[Math.floor(h(4) * names.length)]!, matrix: m });
     }
   });

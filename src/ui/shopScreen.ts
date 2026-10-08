@@ -48,9 +48,7 @@ export interface ShopScreenState {
   message: string;
 }
 
-export type ShopEvent =
-  | { type: 'key'; key: string }
-  | { type: 'click' | 'hover' | 'rightClick'; x: number; y: number };
+export type ShopEvent = { type: 'key'; key: string } | { type: 'click' | 'hover' | 'rightClick'; x: number; y: number };
 
 export type ShopResult =
   | { kind: 'none' }
@@ -68,27 +66,43 @@ export function layoutShopScreen(memberCount: number, width = HUD_WIDTH, height 
   const panelW = Math.min(width, 190 * unit);
   const rowH = unit * 1.6;
   const panelH = Math.ceil(unit * 8 + SHOP_ROWS_PER_PAGE * rowH);
-  const panel: Rect = { x: Math.floor((width - panelW) / 2), y: Math.floor((height - panelH) / 2), width: panelW, height: panelH };
+  const panel: Rect = {
+    x: Math.floor((width - panelW) / 2),
+    y: Math.floor((height - panelH) / 2),
+    width: panelW,
+    height: panelH,
+  };
   const pad = unit;
   const title: Rect = { x: panel.x + pad, y: panel.y + pad, width: panelW - 2 * pad, height: unit };
-  const memberW = Math.floor((panelW - 2 * pad - unit / 2 * (memberCount - 1)) / Math.max(1, memberCount));
+  const memberW = Math.floor((panelW - 2 * pad - (unit / 2) * (memberCount - 1)) / Math.max(1, memberCount));
   const tabY = title.y + unit * 2;
   const members = Array.from({ length: memberCount }, (_, index) => ({
-    index, rect: { x: panel.x + pad + index * (memberW + unit / 2), y: tabY, width: memberW, height: unit * 1.5 },
+    index,
+    rect: { x: panel.x + pad + index * (memberW + unit / 2), y: tabY, width: memberW, height: unit * 1.5 },
   }));
   const colW = Math.floor((panelW - 3 * pad) / 2);
   const rowsTop = tabY + unit * 2.5;
-  const column = (x: number) => Array.from({ length: SHOP_ROWS_PER_PAGE }, (_, slot) => ({
-    slot, rect: { x, y: rowsTop + slot * rowH, width: colW, height: rowH - scale * 2 },
-  }));
+  const column = (x: number) =>
+    Array.from({ length: SHOP_ROWS_PER_PAGE }, (_, slot) => ({
+      slot,
+      rect: { x, y: rowsTop + slot * rowH, width: colW, height: rowH - scale * 2 },
+    }));
   const bottom = panel.y + panelH - pad - unit * 1.5;
   return {
-    scale, panel, title, members,
+    scale,
+    panel,
+    title,
+    members,
     stockRows: column(panel.x + pad),
     packRows: column(panel.x + 2 * pad + colW),
     prev: { x: panel.x + pad, y: bottom, width: 8 * unit, height: unit * 1.5 },
     next: { x: panel.x + pad + 9 * unit, y: bottom, width: 8 * unit, height: unit * 1.5 },
-    status: { x: panel.x + pad + 18 * unit, y: bottom, width: panelW - 2 * pad - 18 * unit - 14 * unit, height: unit * 1.5 },
+    status: {
+      x: panel.x + pad + 18 * unit,
+      y: bottom,
+      width: panelW - 2 * pad - 18 * unit - 14 * unit,
+      height: unit * 1.5,
+    },
     leave: { x: panel.x + panelW - pad - 12 * unit, y: bottom, width: 12 * unit, height: unit * 1.5 },
   };
 }
@@ -97,7 +111,13 @@ export const initialShopState = (): ShopScreenState => ({ member: 0, page: 0, ho
 
 export const shopPageCount = (stockCount: number): number => Math.max(1, Math.ceil(stockCount / SHOP_ROWS_PER_PAGE));
 
-function hit(layout: ShopLayout, state: ShopScreenState, model: ShopModel, x: number, y: number): ShopScreenState['hover'] {
+function hit(
+  layout: ShopLayout,
+  state: ShopScreenState,
+  model: ShopModel,
+  x: number,
+  y: number,
+): ShopScreenState['hover'] {
   const s = layout.stockRows.find((r) => inside(r.rect, x, y));
   if (s) {
     const index = state.page * SHOP_ROWS_PER_PAGE + s.slot;
@@ -108,27 +128,45 @@ function hit(layout: ShopLayout, state: ShopScreenState, model: ShopModel, x: nu
 }
 
 export function stepShopScreen(
-  layout: ShopLayout, state: ShopScreenState, model: ShopModel, ev: ShopEvent,
+  layout: ShopLayout,
+  state: ShopScreenState,
+  model: ShopModel,
+  ev: ShopEvent,
 ): { state: ShopScreenState; result: ShopResult } {
   const none: ShopResult = { kind: 'none' };
   const pages = shopPageCount(model.stock.length);
-  const turn = (d: number) => ({ state: { ...state, page: (state.page + d + pages) % pages, hover: undefined, message: '' }, result: none });
+  const turn = (d: number) => ({
+    state: { ...state, page: (state.page + d + pages) % pages, hover: undefined, message: '' },
+    result: none,
+  });
   const pick = (m: number) => {
     const member = (m + model.members.length) % Math.max(1, model.members.length);
-    return { state: { ...state, member, hover: undefined, message: '' }, result: { kind: 'member', member } as ShopResult };
+    return {
+      state: { ...state, member, hover: undefined, message: '' },
+      result: { kind: 'member', member } as ShopResult,
+    };
   };
   if (ev.type === 'key') {
     switch (ev.key) {
-      case 'ArrowLeft': return pick(state.member - 1);
-      case 'ArrowRight': return pick(state.member + 1);
-      case 'PageUp': return turn(-1);
-      case 'PageDown': return turn(1);
-      case 'h': case 'H':
-        return state.hover?.side === 'stock' ? { state, result: { kind: 'haggle', stock: state.hover.index } } : { state, result: none };
-      case 'Enter': case ' ':
+      case 'ArrowLeft':
+        return pick(state.member - 1);
+      case 'ArrowRight':
+        return pick(state.member + 1);
+      case 'PageUp':
+        return turn(-1);
+      case 'PageDown':
+        return turn(1);
+      case 'h':
+      case 'H':
+        return state.hover?.side === 'stock'
+          ? { state, result: { kind: 'haggle', stock: state.hover.index } }
+          : { state, result: none };
+      case 'Enter':
+      case ' ':
         if (state.hover?.side === 'stock') return { state, result: { kind: 'buy', stock: state.hover.index } };
         return state.hover ? { state, result: { kind: 'sell', pack: state.hover.index } } : { state, result: none };
-      default: return { state, result: none };
+      default:
+        return { state, result: none };
     }
   }
   const { x, y } = ev;
@@ -141,8 +179,14 @@ export function stepShopScreen(
   const target = hit(layout, state, model, x, y);
   if (!target) return { state, result: none };
   const next = { ...state, hover: target };
-  if (ev.type === 'rightClick') return target.side === 'stock' ? { state: next, result: { kind: 'haggle', stock: target.index } } : { state: next, result: none };
-  return { state: next, result: target.side === 'stock' ? { kind: 'buy', stock: target.index } : { kind: 'sell', pack: target.index } };
+  if (ev.type === 'rightClick')
+    return target.side === 'stock'
+      ? { state: next, result: { kind: 'haggle', stock: target.index } }
+      : { state: next, result: none };
+  return {
+    state: next,
+    result: target.side === 'stock' ? { kind: 'buy', stock: target.index } : { kind: 'sell', pack: target.index },
+  };
 }
 
 const COLORS = {
@@ -158,7 +202,15 @@ const COLORS = {
   message: '#e0a040',
 };
 
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+): void {
   if (text === '') return;
   ctx.fillStyle = css;
   let gx = x;
@@ -174,7 +226,11 @@ function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: nu
 }
 
 export function drawShopScreen(
-  ctx: CanvasRenderingContext2D, font: Font, layout: ShopLayout, state: ShopScreenState, model: ShopModel,
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: ShopLayout,
+  state: ShopScreenState,
+  model: ShopModel,
 ): void {
   const { scale, panel } = layout;
   const c = COLORS;
@@ -217,5 +273,13 @@ export function drawShopScreen(
   tab(layout.prev, 'Prev', false);
   tab(layout.next, `Next ${state.page + 1}/${pages}`, false);
   tab(layout.leave, 'Leave', false);
-  drawText(ctx, font, state.message || 'Click to buy or sell, H haggles, Esc leaves', layout.status.x, layout.status.y + 2 * scale, scale, state.message ? c.message : c.dim);
+  drawText(
+    ctx,
+    font,
+    state.message || 'Click to buy or sell, H haggles, Esc leaves',
+    layout.status.x,
+    layout.status.y + 2 * scale,
+    scale,
+    state.message ? c.message : c.dim,
+  );
 }

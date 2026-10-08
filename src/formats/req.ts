@@ -72,7 +72,19 @@ export function parseReq(bytes: Uint8Array): ReqLayout {
     r.skip(2);
     const group = r.u16();
     r.skip(2);
-    widgets.push({ widget, action, visible, x: wx, y: wy, width: ww, height: wh, teleport, image: (image >> 1) + (image & 1), group, label: '' });
+    widgets.push({
+      widget,
+      action,
+      visible,
+      x: wx,
+      y: wy,
+      width: ww,
+      height: wh,
+      teleport,
+      image: (image >> 1) + (image & 1),
+      group,
+      label: '',
+    });
   }
   r.skip(2);
   const stringStart = r.pos;

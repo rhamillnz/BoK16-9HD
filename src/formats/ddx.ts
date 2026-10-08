@@ -11,10 +11,7 @@ export const DDX_HEADER_SIZE = 8;
 /** Choice targets with any of these bits set are dialogue keys, not file offsets. */
 export const DDX_KEY_TARGET_MASK = 0xf0000000;
 
-export type DialogTarget =
-  | { kind: 'none' }
-  | { kind: 'key'; key: number }
-  | { kind: 'offset'; offset: number };
+export type DialogTarget = { kind: 'none' } | { kind: 'key'; key: number } | { kind: 'offset'; offset: number };
 
 /** What a choice's `state` word tests. Categories are the first range (<= bound) that contains it. */
 export type ChoiceCategory =
@@ -122,9 +119,7 @@ export interface DialogFile {
   byOffset: Map<number, DialogSnippet>;
 }
 
-const ACTION_NAMES = new Map<number, string>(
-  Object.entries(ActionType).map(([name, code]) => [code, name]),
-);
+const ACTION_NAMES = new Map<number, string>(Object.entries(ActionType).map(([name, code]) => [code, name]));
 
 export function parseTarget(raw: number): DialogTarget {
   if (raw === 0) return { kind: 'none' };

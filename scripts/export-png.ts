@@ -23,7 +23,12 @@ for (const name of names) {
     palName = name;
     continue;
   }
-  const pn = palName ?? guessPalette(name, archive.entries.map((e) => e.name));
+  const pn =
+    palName ??
+    guessPalette(
+      name,
+      archive.entries.map((e) => e.name),
+    );
   const pal = parsePalette(archive.get(pn));
   parseBMX(archive.get(name)).forEach((img, i) => {
     const file = path.join(outDir, `${name}_${i}.png`);

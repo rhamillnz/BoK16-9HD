@@ -25,7 +25,14 @@ const IMAGE_GAP = 2;
  * Pictures overlapping the row inside the box push the text aside: a picture in the left half indents it, one in the
  * right half narrows it. A picture that would leave less than a quarter of the width is ignored.
  */
-export function rowSpace(page: BookPage, row: number, rowH: number, fontH: number, baseWidth: number, imageSize?: (index: number) => { width: number; height: number } | undefined): { indent: number; width: number } {
+export function rowSpace(
+  page: BookPage,
+  row: number,
+  rowH: number,
+  fontH: number,
+  baseWidth: number,
+  imageSize?: (index: number) => { width: number; height: number } | undefined,
+): { indent: number; width: number } {
   let left = 0;
   let right = baseWidth;
   if (imageSize) {
@@ -59,7 +66,11 @@ export function rowSpace(page: BookPage, row: number, rowH: number, fontH: numbe
  * picture (see `rowSpace`) are indented or shortened, so an illuminated initial never sits under the text. A book
  * with no text gives one spread per page so its pictures can still be seen.
  */
-export function layoutBook(book: Book, font: Font, imageSize?: (index: number) => { width: number; height: number } | undefined): BookSpread[] {
+export function layoutBook(
+  book: Book,
+  font: Font,
+  imageSize?: (index: number) => { width: number; height: number } | undefined,
+): BookSpread[] {
   if (book.pages.length === 0) return [];
   const text = bookText(book);
   const rowH = font.height + 1;
@@ -87,10 +98,14 @@ export function layoutBook(book: Book, font: Font, imageSize?: (index: number) =
     /** The open spread's state at the start of the paragraph; line j's space is worked out from it. */
     const start = { turn, used, count: spreads[spreads.length - 1]!.lines.length };
     const probe = (j: number) => {
-      let t = start.turn, u = start.used, c = start.count;
+      let t = start.turn,
+        u = start.used,
+        c = start.count;
       let s = slot(t, u, c, p > 0 && j === 0);
       for (let k = 1; k <= j; k++) {
-        t = s.turn; u = s.used; c = s.fresh ? 1 : c + 1;
+        t = s.turn;
+        u = s.used;
+        c = s.fresh ? 1 : c + 1;
         s = slot(t, u, c, false);
       }
       return s;
@@ -111,7 +126,11 @@ export function layoutBook(book: Book, font: Font, imageSize?: (index: number) =
       turn = s.turn;
       used = s.used;
       const space = rowSpace(s.page, s.row, rowH, font.height, baseWidth, imageSize);
-      const line: BookLine = { text: runs.map((r) => r.text).join(''), runs, blankBefore: target.lines.length > 0 && blankBefore };
+      const line: BookLine = {
+        text: runs.map((r) => r.text).join(''),
+        runs,
+        blankBefore: target.lines.length > 0 && blankBefore,
+      };
       if (space.indent > 0) line.indent = space.indent;
       target.lines.push(line);
     });

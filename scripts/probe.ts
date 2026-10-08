@@ -15,7 +15,12 @@ for (const e of a.entries) {
   const ext = e.name.split('.').pop() ?? '';
   exts.set(ext, (exts.get(ext) ?? 0) + 1);
 }
-console.log([...exts].sort().map(([k, v]) => `${k}:${v}`).join(' '));
+console.log(
+  [...exts]
+    .sort()
+    .map(([k, v]) => `${k}:${v}`)
+    .join(' '),
+);
 
 for (const e of a.entries.filter((x) => x.name.endsWith('.BMX'))) {
   const r = new Reader(a.get(e.name));
@@ -25,7 +30,12 @@ for (const e of a.entries.filter((x) => x.name.endsWith('.BMX'))) {
   const t = performance.now();
   try {
     const imgs = parseBMX(a.get(e.name));
-    console.log(`${imgs.length} imgs ${imgs.map((i) => `${i.width}x${i.height}`).slice(0, 3).join(',')} ${(performance.now() - t).toFixed(0)}ms`);
+    console.log(
+      `${imgs.length} imgs ${imgs
+        .map((i) => `${i.width}x${i.height}`)
+        .slice(0, 3)
+        .join(',')} ${(performance.now() - t).toFixed(0)}ms`,
+    );
   } catch (err) {
     console.log(`FAIL ${(err as Error).message}`);
   }

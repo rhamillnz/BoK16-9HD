@@ -22,9 +22,7 @@ export interface ItemHandler {
   act(action: 'use' | 'equip' | 'give' | 'repair', character: number, slot: number, target?: number): string;
 }
 
-export type HudEvent =
-  | { type: 'key'; key: string }
-  | { type: 'click' | 'hover' | 'rightClick'; x: number; y: number };
+export type HudEvent = { type: 'key'; key: string } | { type: 'click' | 'hover' | 'rightClick'; x: number; y: number };
 
 /** What a screen can see of the HUD it lives in. */
 export interface HudHost {

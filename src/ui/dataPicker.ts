@@ -1,13 +1,24 @@
 import {
-  MemoryStore, OpfsStore, hasGameData, importGameFiles, installBakFetch, normaliseName, type FileStore, type GameFile,
+  MemoryStore,
+  OpfsStore,
+  hasGameData,
+  importGameFiles,
+  installBakFetch,
+  normaliseName,
+  type FileStore,
+  type GameFile,
 } from '../data/gameFiles';
 
 type DirPicker = () => Promise<FileSystemDirectoryHandle>;
 
 async function walk(dir: FileSystemDirectoryHandle, prefix: string, out: GameFile[], depth: number) {
-  for await (const [name, handle] of (dir as unknown as { entries(): AsyncIterable<[string, FileSystemHandle]> }).entries()) {
-    if (handle.kind === 'file') out.push({ path: prefix + name, blob: await (handle as FileSystemFileHandle).getFile() });
-    else if (depth > 0 && name.toLowerCase() === 'music') await walk(handle as FileSystemDirectoryHandle, 'music/', out, depth - 1);
+  for await (const [name, handle] of (
+    dir as unknown as { entries(): AsyncIterable<[string, FileSystemHandle]> }
+  ).entries()) {
+    if (handle.kind === 'file')
+      out.push({ path: prefix + name, blob: await (handle as FileSystemFileHandle).getFile() });
+    else if (depth > 0 && name.toLowerCase() === 'music')
+      await walk(handle as FileSystemDirectoryHandle, 'music/', out, depth - 1);
   }
 }
 
@@ -15,11 +26,18 @@ async function walk(dir: FileSystemDirectoryHandle, prefix: string, out: GameFil
 async function dropped(items: DataTransferItemList): Promise<GameFile[]> {
   const out: GameFile[] = [];
   const list = [...items];
-  const handles = await Promise.all(list.map((i) => (i as unknown as { getAsFileSystemHandle?(): Promise<FileSystemHandle | null> }).getAsFileSystemHandle?.()));
+  const handles = await Promise.all(
+    list.map((i) =>
+      (i as unknown as { getAsFileSystemHandle?(): Promise<FileSystemHandle | null> }).getAsFileSystemHandle?.(),
+    ),
+  );
   for (const [n, h] of handles.entries()) {
     if (h?.kind === 'directory') await walk(h as FileSystemDirectoryHandle, '', out, 1);
     else if (h?.kind === 'file') out.push({ path: h.name, blob: await (h as FileSystemFileHandle).getFile() });
-    else { const f = list[n]?.getAsFile(); if (f) out.push({ path: f.name, blob: f }); }
+    else {
+      const f = list[n]?.getAsFile();
+      if (f) out.push({ path: f.name, blob: f });
+    }
   }
   return out;
 }
@@ -29,13 +47,17 @@ function fromInput(list: FileList): GameFile[] {
   return [...list].map((f) => {
     const rel = (f.webkitRelativePath || f.name).split('/');
     const i = rel.length - 2;
-    return { path: i >= 0 && rel[i]!.toLowerCase() === 'music' ? `music/${rel[i + 1]}` : rel[rel.length - 1]!, blob: f };
+    return {
+      path: i >= 0 && rel[i]!.toLowerCase() === 'music' ? `music/${rel[i + 1]}` : rel[rel.length - 1]!,
+      blob: f,
+    };
   });
 }
 
 function overlay(): { root: HTMLElement; body: HTMLElement } {
   const root = document.createElement('div');
-  root.style.cssText = 'position:fixed;inset:0;z-index:200;display:grid;place-items:center;background:#120d08;color:#e8dcc4;font:15px Georgia,serif;text-align:center';
+  root.style.cssText =
+    'position:fixed;inset:0;z-index:200;display:grid;place-items:center;background:#120d08;color:#e8dcc4;font:15px Georgia,serif;text-align:center';
   const body = document.createElement('div');
   body.style.cssText = 'max-width:34em;padding:2em;border:2px solid #7a5c2e;background:#1d150d;border-radius:6px';
   root.append(body);
@@ -49,10 +71,20 @@ function askForFolder(body: HTMLElement, message: string): Promise<GameFile[]> {
     body.replaceChildren();
     const h = Object.assign(document.createElement('h2'), { textContent: 'Betrayal at Krondor' });
     const p = Object.assign(document.createElement('p'), {
-      textContent: message || 'Choose the folder where you installed the original game (it contains KRONDOR.RMF). The files stay in this browser; nothing is uploaded.',
+      textContent:
+        message ||
+        'Choose the folder where you installed the original game (it contains KRONDOR.RMF). The files stay in this browser; nothing is uploaded.',
     });
-    const btn = Object.assign(document.createElement('button'), { textContent: 'Choose game folder', id: 'pick-folder' });
-    const input = Object.assign(document.createElement('input'), { type: 'file', multiple: true, hidden: true, id: 'pick-input' });
+    const btn = Object.assign(document.createElement('button'), {
+      textContent: 'Choose game folder',
+      id: 'pick-folder',
+    });
+    const input = Object.assign(document.createElement('input'), {
+      type: 'file',
+      multiple: true,
+      hidden: true,
+      id: 'pick-input',
+    });
     input.setAttribute('webkitdirectory', '');
     const hint = Object.assign(document.createElement('p'), { textContent: 'or drop the folder here' });
     hint.style.opacity = '0.7';
@@ -64,7 +96,9 @@ function askForFolder(body: HTMLElement, message: string): Promise<GameFile[]> {
         const files: GameFile[] = [];
         await walk(await picker.call(window), '', files, 1);
         resolve(files);
-      } catch { /* cancelled */ }
+      } catch {
+        /* cancelled */
+      }
     };
     input.onchange = () => input.files?.length && resolve(fromInput(input.files));
     body.ondragover = (e) => e.preventDefault();

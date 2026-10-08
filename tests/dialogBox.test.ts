@@ -121,6 +121,6 @@ describe('rasterizeText', () => {
     expect(img.height).toBe(6 * 3);
     expect(Array.from(img.data.slice(0, 4))).toEqual([1, 2, 3, 255]);
     // second glyph (space) is transparent
-    expect(img.data[(4 * 3) * 4 + 3]).toBe(0);
+    expect(img.data[4 * 3 * 4 + 3]).toBe(0);
   });
 });

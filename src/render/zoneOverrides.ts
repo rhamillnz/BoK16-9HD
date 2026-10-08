@@ -37,7 +37,9 @@ export async function prepareZoneOverrides(zone: ZoneData, overrides?: AssetOver
     const model = zone.table.models[item.type];
     return model && isHillModel(model.name);
   });
-  const scatterNames = overrides ? [...(hasHills ? SCATTER_MODELS : []), ...ROAD_STONES].filter((n) => overrides.has(n)) : [];
+  const scatterNames = overrides
+    ? [...(hasHills ? SCATTER_MODELS : []), ...ROAD_STONES].filter((n) => overrides.has(n))
+    : [];
 
   const loader = new THREE.TextureLoader();
   await Promise.all([

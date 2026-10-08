@@ -21,7 +21,9 @@ const TEXTURED_FILL = '#6a6258';
 /** Material flags whose colour byte indexes a texture (same set the 3D scene treats as textured). */
 const TEXTURED_MATERIALS = new Set([0x90, 0x91, 0xd1, 0x11, 0xc1]);
 
-export function overheadPolygons(data: Pick<ZoneData, 'zone' | 'items' | 'overheadTable' | 'palette'>): OverheadPolygon[] | undefined {
+export function overheadPolygons(
+  data: Pick<ZoneData, 'zone' | 'items' | 'overheadTable' | 'palette'>,
+): OverheadPolygon[] | undefined {
   if (!isUndergroundZone(data.zone) || !data.overheadTable) return undefined;
   const { models } = data.overheadTable;
   const { palette } = data;
@@ -48,7 +50,8 @@ export function overheadPolygons(data: Pick<ZoneData, 'zone' | 'items' | 'overhe
       if (points.length < 6) continue;
       const textured = TEXTURED_MATERIALS.has(face.material);
       const p = face.color * 4;
-      const fill = textured || palette[p + 3] === 0 ? TEXTURED_FILL : `rgb(${palette[p]},${palette[p + 1]},${palette[p + 2]})`;
+      const fill =
+        textured || palette[p + 3] === 0 ? TEXTURED_FILL : `rgb(${palette[p]},${palette[p + 1]},${palette[p + 2]})`;
       out.push({ points, fill, z: item.z });
     }
   }

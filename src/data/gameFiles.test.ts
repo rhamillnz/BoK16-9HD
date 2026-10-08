@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { MemoryStore, hasGameData, importGameFiles, installBakFetch, isCacheable, normaliseName, selectGameFiles } from './gameFiles';
+import {
+  MemoryStore,
+  hasGameData,
+  importGameFiles,
+  installBakFetch,
+  isCacheable,
+  normaliseName,
+  selectGameFiles,
+} from './gameFiles';
 
 const file = (path: string, text = 'x') => ({ path, blob: new Blob([text]) });
 
@@ -29,7 +37,11 @@ describe('gameFiles', () => {
   it('imports with progress and serves /bak/ from the store', async () => {
     const store = new MemoryStore();
     const seen: number[] = [];
-    await importGameFiles(store, [file('krondor.rmf', 'ab'), file('KRONDOR.001', 'cde'), file('music/bak02.ogg', 'z')], (d, t) => seen.push(d / t));
+    await importGameFiles(
+      store,
+      [file('krondor.rmf', 'ab'), file('KRONDOR.001', 'cde'), file('music/bak02.ogg', 'z')],
+      (d, t) => seen.push(d / t),
+    );
     expect(seen.at(-1)).toBe(1);
     expect(await hasGameData(store)).toBe(true);
     const f = installBakFetch(store, async () => new Response('real'));

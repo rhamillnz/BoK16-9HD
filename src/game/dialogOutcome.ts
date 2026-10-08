@@ -38,7 +38,12 @@ export interface DialogOutcomeOptions extends Omit<DialogEffectsContext, 'world'
 export function resolveDialogOutcome(o: DialogOutcomeOptions): DialogOutcome {
   const { session } = o;
   const effects = applyDialogEffects(
-    { ...o, world: o.world ?? session.world, party: o.party, dialogCharacters: o.dialogCharacters ?? session.dialogCharacters },
+    {
+      ...o,
+      world: o.world ?? session.world,
+      party: o.party,
+      dialogCharacters: o.dialogCharacters ?? session.dialogCharacters,
+    },
     session.pendingActions,
   );
   const warnings = [...session.warnings];

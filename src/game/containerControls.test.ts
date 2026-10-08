@@ -10,28 +10,66 @@ import { ITEM_PICKLOCK } from './locks';
 import { writeContainer } from '../formats/containers';
 import { SAVE_ZONE_CONTAINERS } from '../formats/containers';
 
-const skill = (max: number, trueSkill: number): Skill => ({ max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false });
+const skill = (max: number, trueSkill: number): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 0,
+  modifier: 0,
+  selected: false,
+  unseenImprovement: false,
+});
 function character(lockpick: number): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(0, 0)])) as Character['skills'];
   skills.health = skill(50, 30);
   skills.stamina = skill(40, 10);
   skills.lockpick = skill(100, lockpick);
   return {
-    index: 0, name: 'Owyn', unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index: 0,
+    name: 'Owyn',
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0 },
-    affectors: [], inventory: { capacity: 6, items: [] },
+    affectors: [],
+    inventory: { capacity: 6, items: [] },
   };
 }
-const key = (itemIndex: number) => ({ itemIndex, conditionOrQuantity: 1, status: 0, modifiers: 0, activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false });
-const def = (name: string, type: number): ItemDef => ({ name, type, stackSize: 1, defaultStackSize: 1 } as unknown as ItemDef);
+const key = (itemIndex: number) => ({
+  itemIndex,
+  conditionOrQuantity: 1,
+  status: 0,
+  modifiers: 0,
+  activated: false,
+  used: false,
+  broken: false,
+  repairable: false,
+  equipped: false,
+  poisoned: false,
+});
+const def = (name: string, type: number): ItemDef =>
+  ({ name, type, stackSize: 1, defaultStackSize: 1 }) as unknown as ItemDef;
 const defs: ItemDef[] = [];
 defs[10] = def('Sword', ItemType.Sword);
 defs[61] = def('Peasant key', ItemType.Key);
 defs[ITEM_PICKLOCK] = def('Lockpick', ItemType.Key);
 const item = (itemIndex: number) => ({ itemIndex, conditionOrQuantity: 100, status: 0, modifiers: 0 });
 const chest = (over: Partial<WorldContainer> = {}): WorldContainer => ({
-  id: '1:0', zone: 1, x: 1000, y: 1000, model: 3, fromChapter: 1, toChapter: 9, capacity: 3, items: [item(10)], unlocked: false, trapSpent: false, ...over,
+  id: '1:0',
+  zone: 1,
+  x: 1000,
+  y: 1000,
+  model: 3,
+  fromChapter: 1,
+  toChapter: 9,
+  capacity: 3,
+  items: [item(10)],
+  unlocked: false,
+  trapSpent: false,
+  ...over,
 });
 
 interface Rig {
@@ -44,19 +82,63 @@ interface Rig {
 }
 
 /** `picks` answers each menu in turn; -1 once they run out. `use` runs while the container screen is open. */
-function rig(c: WorldContainer, picks: number[], opts: { lockpick?: number; keys?: number[]; roll?: number[]; riddle?: string; solve?: boolean; use?: (v: ContainerView) => void; at?: { x: number; y: number } } = {}): Rig {
-  let party: PartyState = { gold: 0, characters: [character(opts.lockpick ?? 0)], activeCharacters: [0], partyKeys: { capacity: 8, items: (opts.keys ?? []).map(key) } };
-  let world: WorldState = { chapter: 1, ticks: 0, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [] };
+function rig(
+  c: WorldContainer,
+  picks: number[],
+  opts: {
+    lockpick?: number;
+    keys?: number[];
+    roll?: number[];
+    riddle?: string;
+    solve?: boolean;
+    use?: (v: ContainerView) => void;
+    at?: { x: number; y: number };
+  } = {},
+): Rig {
+  let party: PartyState = {
+    gold: 0,
+    characters: [character(opts.lockpick ?? 0)],
+    activeCharacters: [0],
+    partyKeys: { capacity: 8, items: (opts.keys ?? []).map(key) },
+  };
+  let world: WorldState = {
+    chapter: 1,
+    ticks: 0,
+    ticksLastSlept: 0,
+    bytes: new Uint8Array(0x4000),
+    expiringEvents: [],
+  };
   const store = new ContainerStore(() => [c]);
   const menus: string[] = [];
   const rolls = [...(opts.roll ?? [])];
   const shown: Rig['shown'] = {};
   const host: ContainerHost = {
-    items: defs, store, chapter: 1, zone: () => 1, position: () => opts.at ?? { x: 1000, y: 1000 },
-    getParty: () => party, setParty: (p) => (party = p), getWorld: () => world, setWorld: (w) => (world = w),
-    menu: async (text) => { menus.push(text); return picks.length ? picks.shift()! : -1; },
-    showContainer: async (v) => { shown.view = v; opts.use?.(v); v.onClose(); },
-    showWordLock: async (v: WordLockView, isSolved) => { if (opts.solve) for (let i = 0; i < 6 && !isSolved(); i++) for (let t = 0; t < v.state().position.length; t++) { if (v.state().puzzle.answer[t] !== v.state().puzzle.options[v.state().position[t]!]![t]) v.onTurn(t); } return isSolved(); },
+    items: defs,
+    store,
+    chapter: 1,
+    zone: () => 1,
+    position: () => opts.at ?? { x: 1000, y: 1000 },
+    getParty: () => party,
+    setParty: (p) => (party = p),
+    getWorld: () => world,
+    setWorld: (w) => (world = w),
+    menu: async (text) => {
+      menus.push(text);
+      return picks.length ? picks.shift()! : -1;
+    },
+    showContainer: async (v) => {
+      shown.view = v;
+      opts.use?.(v);
+      v.onClose();
+    },
+    showWordLock: async (v: WordLockView, isSolved) => {
+      if (opts.solve)
+        for (let i = 0; i < 6 && !isSolved(); i++)
+          for (let t = 0; t < v.state().position.length; t++) {
+            if (v.state().puzzle.answer[t] !== v.state().puzzle.options[v.state().position[t]!]![t]) v.onTurn(t);
+          }
+      return isSolved();
+    },
     riddleText: () => opts.riddle,
     roll: () => rolls.shift() ?? 99,
   };
@@ -186,9 +268,15 @@ describe('interact', () => {
 });
 
 describe('containerSource', () => {
-  const rec = (zone: number, x: number) => writeContainer({
-    address: 0, location: { kind: 'world', zone, fromChapter: 1, toChapter: 9, model: 1, unknown: 0, x, y: 0 }, locationType: 0, capacity: 2, flags: 0, items: [],
-  });
+  const rec = (zone: number, x: number) =>
+    writeContainer({
+      address: 0,
+      location: { kind: 'world', zone, fromChapter: 1, toChapter: 9, model: 1, unknown: 0, x, y: 0 },
+      locationType: 0,
+      capacity: 2,
+      flags: 0,
+      items: [],
+    });
 
   it('prefers the save image and falls back to OBJFIXED.DAT for zones the image lacks', () => {
     const [offset, count] = SAVE_ZONE_CONTAINERS[1]!;
@@ -208,14 +296,17 @@ describe('containerSource', () => {
 describe('containerTitle', () => {
   const plain = { lock: undefined } as WorldContainer;
   it('names bodies, gravestones and bushes from the model', () => {
-    for (const m of ['dbody1', 'dbody2', 'rogebody', 'morhbody', 'wyvrnbdy', 'giantbdy']) expect(containerTitle(plain, m)).toBe('Body');
+    for (const m of ['dbody1', 'dbody2', 'rogebody', 'morhbody', 'wyvrnbdy', 'giantbdy'])
+      expect(containerTitle(plain, m)).toBe('Body');
     expect(containerTitle(plain, 'tstone3')).toBe('Gravestone');
     expect(containerTitle(plain, 'tmbstone')).toBe('Gravestone');
     expect(containerTitle(plain, 'bush2')).toBe('Bush');
   });
   it('falls back to chest or container', () => {
     expect(containerTitle(plain, 'chest_nl')).toBe('Chest');
-    expect(containerTitle({ lock: { flag: 0, rating: 20, fairyChestIndex: 0, trapDamage: 0 } } as WorldContainer, 'house')).toBe('Chest');
+    expect(
+      containerTitle({ lock: { flag: 0, rating: 20, fairyChestIndex: 0, trapDamage: 0 } } as WorldContainer, 'house'),
+    ).toBe('Chest');
     expect(containerTitle(plain, 'rftshack')).toBe('Container');
     expect(containerTitle(plain)).toBe('Container');
   });

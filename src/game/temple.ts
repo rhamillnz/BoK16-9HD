@@ -88,7 +88,11 @@ export function cureCharacter(c: Character, templeNumber: number): Character {
     const { health, stamina } = next.skills;
     next = {
       ...next,
-      skills: { ...next.skills, health: { ...health, trueSkill: health.max }, stamina: { ...stamina, trueSkill: stamina.max } },
+      skills: {
+        ...next.skills,
+        health: { ...health, trueSkill: health.max },
+        stamina: { ...stamina, trueSkill: stamina.max },
+      },
     };
     next = addCondition(next, 'healing', 100);
   }
@@ -96,22 +100,36 @@ export function cureCharacter(c: Character, templeNumber: number): Character {
 }
 
 /** Characters (party order) that a visit could cure, with what each would pay. */
-export function cureQuotes(party: PartyState, cureFactor: number, templeNumber: number): { character: Character; cost: number }[] {
+export function cureQuotes(
+  party: PartyState,
+  cureFactor: number,
+  templeNumber: number,
+): { character: Character; cost: number }[] {
   return party.activeCharacters.flatMap((i) => {
     const character = party.characters.find((c) => c.index === i);
     return character ? [{ character, cost: cureCost(character, cureFactor, templeNumber) }] : [];
   });
 }
 
-export type CureResult = { ok: true; party: PartyState; cost: number } | { ok: false; reason: 'cannotAfford' | 'nothingToCure' };
+export type CureResult =
+  { ok: true; party: PartyState; cost: number } | { ok: false; reason: 'cannotAfford' | 'nothingToCure' };
 
 /** Pay for and apply a cure. */
-export function applyCure(party: PartyState, characterIndex: number, cureFactor: number, templeNumber: number): CureResult {
+export function applyCure(
+  party: PartyState,
+  characterIndex: number,
+  cureFactor: number,
+  templeNumber: number,
+): CureResult {
   const c = party.characters.find((x) => x.index === characterIndex);
   const cost = c ? cureCost(c, cureFactor, templeNumber) : 0;
   if (!c || cost === 0) return { ok: false, reason: 'nothingToCure' };
   if (cost > party.gold) return { ok: false, reason: 'cannotAfford' };
-  return { ok: true, cost, party: updateCharacter(loseRoyals(party, cost), characterIndex, (x) => cureCharacter(x, templeNumber)) };
+  return {
+    ok: true,
+    cost,
+    party: updateCharacter(loseRoyals(party, cost), characterIndex, (x) => cureCharacter(x, templeNumber)),
+  };
 }
 
 // ---- Blessings -----------------------------------------------------------------------------------------
@@ -123,7 +141,8 @@ const BLESSING_MASK = 0xe0;
 export const isBlessed = (item: Pick<InventoryItem, 'modifiers'>): boolean => (item.modifiers & BLESSING_MASK) !== 0;
 
 /** Only weapons (swords) and armour can be blessed. */
-export const canBless = (def: Pick<ItemDef, 'type'>): boolean => def.type === ItemType.Sword || def.type === ItemType.Armor;
+export const canBless = (def: Pick<ItemDef, 'type'>): boolean =>
+  def.type === ItemType.Sword || def.type === ItemType.Armor;
 
 /** The blessing a temple gives: its blessing level (1 to 3) picks the modifier bit. */
 export function blessingBit(shop: Pick<ShopStats, 'buyFactor'>): number {
@@ -141,8 +160,7 @@ export function blessedModifiers(modifiers: number, shop: Pick<ShopStats, 'buyFa
 }
 
 export type BlessResult =
-  | { ok: true; party: PartyState; cost: number }
-  | { ok: false; reason: 'cannotBless' | 'cannotAfford' | 'noSuchItem' };
+  { ok: true; party: PartyState; cost: number } | { ok: false; reason: 'cannotBless' | 'cannotAfford' | 'noSuchItem' };
 
 /** Pay for and apply a blessing to the item at `slot` of a character's inventory. */
 export function applyBlessing(
@@ -164,7 +182,9 @@ export function applyBlessing(
     ...x,
     inventory: {
       ...x.inventory,
-      items: x.inventory.items.map((it, i) => (i === slot ? { ...it, modifiers: blessedModifiers(it.modifiers, shop) } : it)),
+      items: x.inventory.items.map((it, i) =>
+        i === slot ? { ...it, modifiers: blessedModifiers(it.modifiers, shop) } : it,
+      ),
     },
   }));
   return { ok: true, party: blessed, cost };
@@ -191,7 +211,8 @@ export function teleportCost(
 }
 
 export const templeSeen = (w: WorldState, temple: number): boolean => getFlag(w, TEMPLE_SEEN_FLAG + temple);
-export const markTempleSeen = (w: WorldState, temple: number): WorldState => (templeSeen(w, temple) ? w : setFlag(w, TEMPLE_SEEN_FLAG + temple, true));
+export const markTempleSeen = (w: WorldState, temple: number): WorldState =>
+  templeSeen(w, temple) ? w : setFlag(w, TEMPLE_SEEN_FLAG + temple, true);
 
 /** Temples (1..12) the party has visited. */
 export function seenTemples(w: WorldState): number[] {

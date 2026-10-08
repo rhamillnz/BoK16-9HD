@@ -19,7 +19,12 @@ export function layoutJournal(width: number, height: number, rowCount = 8): Jour
   const rowH = unit * 1.5;
   const detailH = unit * 8;
   const panelH = Math.ceil(unit * 4 + rowCount * rowH + detailH + unit);
-  const panel: Rect = { x: Math.floor((width - panelW) / 2), y: Math.floor((height - panelH) / 2), width: panelW, height: panelH };
+  const panel: Rect = {
+    x: Math.floor((width - panelW) / 2),
+    y: Math.floor((height - panelH) / 2),
+    width: panelW,
+    height: panelH,
+  };
   const pad = unit;
   const title: Rect = { x: panel.x + pad, y: panel.y + pad, width: panelW - 2 * pad, height: unit };
   const rowsTop = title.y + unit * 2;
@@ -27,7 +32,12 @@ export function layoutJournal(width: number, height: number, rowCount = 8): Jour
     slot,
     rect: { x: panel.x + pad, y: rowsTop + slot * rowH, width: panelW - 2 * pad, height: rowH - scale * 2 },
   }));
-  const detail: Rect = { x: panel.x + pad, y: rowsTop + rowCount * rowH + unit / 2, width: panelW - 2 * pad, height: detailH };
+  const detail: Rect = {
+    x: panel.x + pad,
+    y: rowsTop + rowCount * rowH + unit / 2,
+    width: panelW - 2 * pad,
+    height: detailH,
+  };
   return { scale, panel, title, rows, detail };
 }
 
@@ -57,13 +67,24 @@ export function stepJournal(layout: JournalLayout, state: JournalState, count: n
   if (count === 0) return state;
   if (ev.type === 'key') {
     switch (ev.key) {
-      case 'ArrowUp': case 'w': case 'W': return move(state.selected - 1);
-      case 'ArrowDown': case 's': case 'S': return move(state.selected + 1);
-      case 'PageUp': return move(state.selected - rows);
-      case 'PageDown': return move(state.selected + rows);
-      case 'Home': return move(0);
-      case 'End': return move(count - 1);
-      default: return state;
+      case 'ArrowUp':
+      case 'w':
+      case 'W':
+        return move(state.selected - 1);
+      case 'ArrowDown':
+      case 's':
+      case 'S':
+        return move(state.selected + 1);
+      case 'PageUp':
+        return move(state.selected - rows);
+      case 'PageDown':
+        return move(state.selected + rows);
+      case 'Home':
+        return move(0);
+      case 'End':
+        return move(count - 1);
+      default:
+        return state;
     }
   }
   const row = layout.rows.find((r) => inside(r.rect, ev.x, ev.y));
@@ -79,9 +100,22 @@ export function clipLine(font: Font, text: string, maxWidth: number): string {
   return `${t.trimEnd()}...`;
 }
 
-const COLORS = { background: 'rgba(24, 16, 8, 0.94)', border: '#c8a050', text: '#f0e0b8', dim: '#a08860', row: '#2a1c0c', rowSelected: '#4a3418' };
+const COLORS = {
+  background: 'rgba(24, 16, 8, 0.94)',
+  border: '#c8a050',
+  text: '#f0e0b8',
+  dim: '#a08860',
+  row: '#2a1c0c',
+  rowSelected: '#4a3418',
+};
 
-export function drawJournal(ctx: CanvasRenderingContext2D, font: Font, layout: JournalLayout, state: JournalState, entries: readonly JournalEntry[]): void {
+export function drawJournal(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: JournalLayout,
+  state: JournalState,
+  entries: readonly JournalEntry[],
+): void {
   const { scale, panel } = layout;
   const c = COLORS;
   ctx.fillStyle = c.background;
@@ -91,7 +125,15 @@ export function drawJournal(ctx: CanvasRenderingContext2D, font: Font, layout: J
   ctx.strokeRect(panel.x + scale / 2, panel.y + scale / 2, panel.width - scale, panel.height - scale);
   drawText(ctx, font, 'Journal', layout.title.x, layout.title.y, scale, c.text);
   if (entries.length === 0) {
-    drawText(ctx, font, 'Nothing noted yet. Things people tell you are kept here.', layout.rows[0]!.rect.x, layout.rows[0]!.rect.y, scale, c.dim);
+    drawText(
+      ctx,
+      font,
+      'Nothing noted yet. Things people tell you are kept here.',
+      layout.rows[0]!.rect.x,
+      layout.rows[0]!.rect.y,
+      scale,
+      c.dim,
+    );
     return;
   }
   for (const r of layout.rows) {
@@ -101,15 +143,33 @@ export function drawJournal(ctx: CanvasRenderingContext2D, font: Font, layout: J
     ctx.fillStyle = index === state.selected ? c.rowSelected : c.row;
     ctx.fillRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height);
     const ty = r.rect.y + Math.floor((r.rect.height - font.height * scale) / 2);
-    drawText(ctx, font, clipLine(font, e.text, Math.floor((r.rect.width - 4 * scale) / scale)), r.rect.x + 2 * scale, ty, scale, c.text);
+    drawText(
+      ctx,
+      font,
+      clipLine(font, e.text, Math.floor((r.rect.width - 4 * scale) / scale)),
+      r.rect.x + 2 * scale,
+      ty,
+      scale,
+      c.text,
+    );
   }
   const sel = entries[state.selected];
   if (!sel) return;
   const lines = wrapParagraph(font, sel.text, Math.floor(layout.detail.width / scale));
   const rowH = (font.height + 1) * scale;
   const maxRows = Math.max(1, Math.floor(layout.detail.height / rowH) - 1);
-  lines.slice(0, maxRows).forEach((line, i) => drawText(ctx, font, line, layout.detail.x, layout.detail.y + i * rowH, scale, c.text));
-  drawText(ctx, font, `Zone ${sel.zone}   ${state.selected + 1} of ${entries.length}`, layout.detail.x, layout.detail.y + layout.detail.height - rowH, scale, c.dim);
+  lines
+    .slice(0, maxRows)
+    .forEach((line, i) => drawText(ctx, font, line, layout.detail.x, layout.detail.y + i * rowH, scale, c.text));
+  drawText(
+    ctx,
+    font,
+    `Zone ${sel.zone}   ${state.selected + 1} of ${entries.length}`,
+    layout.detail.x,
+    layout.detail.y + layout.detail.height - rowH,
+    scale,
+    c.dim,
+  );
 }
 
 /** The journal as a registered HUD screen ('journal', hotkey J): dialogue lines seen so far, newest first. */

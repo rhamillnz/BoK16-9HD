@@ -13,7 +13,8 @@ import type { EnemyRecord, PartyGridSlot } from './combatData';
 import { Direction, type GridPos } from './grid';
 import { monsterRace, RaceKind, type ArmorStats, type WeaponStats } from './rules';
 
-const raceKind = (r: Race): RaceKind => (r >= Race.Tsurani && r <= Race.Human ? (r as unknown as RaceKind) : RaceKind.None);
+const raceKind = (r: Race): RaceKind =>
+  r >= Race.Tsurani && r <= Race.Human ? (r as unknown as RaceKind) : RaceKind.None;
 
 /** The equipped sword or staff as weapon stats. */
 export function equippedWeapon(items: readonly InventoryItem[], defs: readonly ItemDef[]): WeaponStats | undefined {
@@ -54,7 +55,12 @@ export function equippedCrossbow(items: readonly InventoryItem[], defs: readonly
  * given this stand-in bolt so the enemy AI can shoot (**unverified**).
  */
 export const MONSTER_BOLT: WeaponStats = {
-  strengthSwing: 0, strengthThrust: 8, accuracySwing: 0, accuracyThrust: 0, condition: 100, race: RaceKind.None,
+  strengthSwing: 0,
+  strengthThrust: 8,
+  accuracySwing: 0,
+  accuracyThrust: 0,
+  condition: 100,
+  race: RaceKind.None,
 };
 /** Crossbow skill from which a monster shoots. */
 export const MONSTER_SHOOTER_SKILL = 30;
@@ -72,7 +78,9 @@ export const MONSTER_CAST_DIVISOR = 3;
  */
 export function monsterSpells(casting: number, defs: readonly SpellDef[]): SpellDef[] {
   if (casting < MONSTER_CASTER_SKILL) return [];
-  const usable = defs.filter((d) => d.objectRequired === undefined && (spellKind(d) === 'damage' || spellKind(d) === 'heal'));
+  const usable = defs.filter(
+    (d) => d.objectRequired === undefined && (spellKind(d) === 'damage' || spellKind(d) === 'heal'),
+  );
   const known = usable.filter((d) => d.minCost * MONSTER_CAST_DIVISOR <= casting);
   if (known.some((d) => spellKind(d) === 'damage')) return known;
   const cheapest = usable.filter((d) => spellKind(d) === 'damage').sort((a, b) => a.minCost - b.minCost)[0];
@@ -89,7 +97,13 @@ export function equippedArmor(items: readonly InventoryItem[], defs: readonly It
   return undefined;
 }
 
-export function partyFighter(c: Character, slot: PartyGridSlot | undefined, index: number, defs: readonly ItemDef[], spells: readonly SpellDef[] = []): Fighter {
+export function partyFighter(
+  c: Character,
+  slot: PartyGridSlot | undefined,
+  index: number,
+  defs: readonly ItemDef[],
+  spells: readonly SpellDef[] = [],
+): Fighter {
   const known = isSpellcaster(c) ? knownSpells(c, spells) : [];
   const skill = (n: Parameters<typeof effectiveSkill>[1]) => effectiveSkill(c, n);
   const bow = equippedCrossbow(c.inventory.items, defs);
@@ -117,7 +131,12 @@ export function partyFighter(c: Character, slot: PartyGridSlot | undefined, inde
   };
 }
 
-export function enemyFighter(e: EnemyRecord, name: string, index: number, spellDefs: readonly SpellDef[] = []): Fighter {
+export function enemyFighter(
+  e: EnemyRecord,
+  name: string,
+  index: number,
+  spellDefs: readonly SpellDef[] = [],
+): Fighter {
   const v = (n: keyof EnemyRecord['skills']) => Math.max(0, e.skills[n].trueSkill + e.skills[n].modifier);
   const spells = monsterSpells(v('casting'), spellDefs);
   return {

@@ -2,12 +2,18 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three/webgpu';
 import { resolveArtPath } from '../src/assets/artServe';
-import { buildOverrideMeshes, overriddenModelNames, placementMatrix, slotTextureUrl } from '../src/render/overrideResolve';
+import {
+  buildOverrideMeshes,
+  overriddenModelNames,
+  placementMatrix,
+  slotTextureUrl,
+} from '../src/render/overrideResolve';
 import { buildZoneScene } from '../src/render/zoneScene';
 import type { ModelTable } from '../src/formats/tbl';
 import type { WorldItem } from '../src/formats/world';
 
-const item = (type: number, x: number, y: number, z: number, zRot = 0): WorldItem => ({ type, x, y, z, zRot }) as WorldItem;
+const item = (type: number, x: number, y: number, z: number, zRot = 0): WorldItem =>
+  ({ type, x, y, z, zRot }) as WorldItem;
 const table = {
   names: ['ground', 'Inn', 'tree1'],
   models: [
@@ -57,7 +63,10 @@ describe('buildOverrideMeshes / buildZoneScene', () => {
   };
 
   it('instances each mesh over the placements, including the manifest transform', () => {
-    const meshes = buildOverrideMeshes('inn', makeScene(), [placementMatrix(item(1, 100, 0, 0)), placementMatrix(item(1, 0, 100, 0))]);
+    const meshes = buildOverrideMeshes('inn', makeScene(), [
+      placementMatrix(item(1, 100, 0, 0)),
+      placementMatrix(item(1, 0, 100, 0)),
+    ]);
     expect(meshes).toHaveLength(1);
     expect(meshes[0]!.count).toBe(2);
     const m = new THREE.Matrix4();

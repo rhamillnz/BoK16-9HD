@@ -121,7 +121,7 @@ export function decompressLZW(src: Uint8Array, outSize: number): Uint8Array {
         bitPos = 0;
       }
       const group = nBits << 3;
-      const padded = Math.ceil((groupBits) / group) * group;
+      const padded = Math.ceil(groupBits / group) * group;
       const extraBytes = (padded - groupBits) >> 3;
       bytePos += extraBytes;
       nBits = 9;

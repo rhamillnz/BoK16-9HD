@@ -8,7 +8,8 @@ if (!out) {
   console.error('usage: node scripts/shoot.mjs <out.png> [url] [keys...]');
   process.exit(1);
 }
-const exe = process.env.CHROMIUM ?? `${process.env.LOCALAPPDATA}\\ms-playwright\\chromium-1243\\chrome-win64\\chrome.exe`;
+const exe =
+  process.env.CHROMIUM ?? `${process.env.LOCALAPPDATA}\\ms-playwright\\chromium-1243\\chrome-win64\\chrome.exe`;
 const browser = await chromium.launch({
   executablePath: exe,
   headless: true,
@@ -19,7 +20,9 @@ const logs = [];
 page.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`pageerror: ${e.message}`));
 await page.goto(url);
-await page.waitForFunction(() => /fps/.test(document.getElementById('hud')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => {});
+await page
+  .waitForFunction(() => /fps/.test(document.getElementById('hud')?.textContent ?? ''), null, { timeout: 60000 })
+  .catch(() => {});
 for (const step of steps) {
   if (step.startsWith('wait:')) await page.waitForTimeout(Number(step.slice(5)));
   else if (step.startsWith('hold:')) {

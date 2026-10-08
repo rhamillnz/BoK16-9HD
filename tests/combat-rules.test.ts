@@ -15,15 +15,28 @@ import {
   type WeaponStats,
 } from '../src/combat/rules';
 
-const sword: WeaponStats = { strengthSwing: 12, strengthThrust: 8, accuracySwing: 10, accuracyThrust: 20, condition: 50, race: RaceKind.Human };
-const fighter = (over: Partial<MeleeStats> = {}): MeleeStats => ({ melee: 50, strength: 10, defense: 40, race: RaceKind.None, ...over });
+const sword: WeaponStats = {
+  strengthSwing: 12,
+  strengthThrust: 8,
+  accuracySwing: 10,
+  accuracyThrust: 20,
+  condition: 50,
+  race: RaceKind.Human,
+};
+const fighter = (over: Partial<MeleeStats> = {}): MeleeStats => ({
+  melee: 50,
+  strength: 10,
+  defense: 40,
+  race: RaceKind.None,
+  ...over,
+});
 const fixed = (n: number) => () => n;
 
 describe('hit chance', () => {
   it('scales weapon accuracy by race and condition', () => {
     // Human sword in the hands of a race-None wielder: -2%, then half condition.
-    expect(accuracyBonus(sword, RaceKind.None, 'thrust')).toBe(Math.trunc((Math.trunc((20 * 98) / 100)) * 50 / 100));
-    expect(accuracyBonus(sword, RaceKind.Elf, 'thrust')).toBe(Math.trunc((Math.trunc((20 * 98) / 100)) * 50 / 100));
+    expect(accuracyBonus(sword, RaceKind.None, 'thrust')).toBe(Math.trunc((Math.trunc((20 * 98) / 100) * 50) / 100));
+    expect(accuracyBonus(sword, RaceKind.Elf, 'thrust')).toBe(Math.trunc((Math.trunc((20 * 98) / 100) * 50) / 100));
     expect(accuracyBonus({ ...sword, race: RaceKind.None }, RaceKind.None, 'slash')).toBe(5);
   });
 

@@ -41,7 +41,13 @@ export function worldToGridPoint(party: Point, heading: number, world: Point): P
 }
 
 /** The grid cell under a world position, or undefined outside the grid. */
-export function worldToGridCell(party: Point, heading: number, world: Point, cols: number, rows: number): GridPos | undefined {
+export function worldToGridCell(
+  party: Point,
+  heading: number,
+  world: Point,
+  cols: number,
+  rows: number,
+): GridPos | undefined {
   const g = worldToGridPoint(party, heading, world);
   const cell = { x: Math.floor(g.x), y: Math.floor(g.y) };
   return cell.x >= 0 && cell.y >= 0 && cell.x < cols && cell.y < rows ? cell : undefined;

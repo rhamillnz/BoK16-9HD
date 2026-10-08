@@ -42,10 +42,22 @@ function standIn(def: CombatDef, i: number): EnemyRecord {
     dead: false,
     retreatFactor: 0,
     skills: {
-      health: skill(18), stamina: skill(14), speed: skill(5), strength: skill(8), defense: skill(24),
-      crossbow: FALLBACK_SKILL, melee: skill(50), casting: FALLBACK_SKILL, assessment: FALLBACK_SKILL,
-      armorcraft: FALLBACK_SKILL, weaponcraft: FALLBACK_SKILL, barding: FALLBACK_SKILL, haggling: FALLBACK_SKILL,
-      lockpick: FALLBACK_SKILL, scouting: FALLBACK_SKILL, stealth: FALLBACK_SKILL,
+      health: skill(18),
+      stamina: skill(14),
+      speed: skill(5),
+      strength: skill(8),
+      defense: skill(24),
+      crossbow: FALLBACK_SKILL,
+      melee: skill(50),
+      casting: FALLBACK_SKILL,
+      assessment: FALLBACK_SKILL,
+      armorcraft: FALLBACK_SKILL,
+      weaponcraft: FALLBACK_SKILL,
+      barding: FALLBACK_SKILL,
+      haggling: FALLBACK_SKILL,
+      lockpick: FALLBACK_SKILL,
+      scouting: FALLBACK_SKILL,
+      stealth: FALLBACK_SKILL,
     },
   };
 }
@@ -62,7 +74,10 @@ export function buildFighters(input: SetupInput): Fighter[] {
   };
   living.forEach((c, i) => place(partyFighter(c, input.partyGrid[c.index], i, input.items, input.spells)));
 
-  const records = input.enemies.length > 0 ? input.enemies.filter((e) => !e.dead) : input.def.combatants.map((_, i) => standIn(input.def, i));
+  const records =
+    input.enemies.length > 0
+      ? input.enemies.filter((e) => !e.dead)
+      : input.def.combatants.map((_, i) => standIn(input.def, i));
   const seen = new Map<number, number>();
   for (const e of records) {
     const n = seen.get(e.monster) ?? 0;

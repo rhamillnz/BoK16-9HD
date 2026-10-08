@@ -3,7 +3,14 @@ import { beyondFar } from './cullMath';
 import { FOG_FAR } from './sky';
 
 /** What is in the scene right now, for the F3 overlay: tells draw-call, shadow and grass cost apart. */
-export function sceneBreakdown(root: THREE.Object3D): { meshes: number; shadowCasters: number; shadowTris: number; lights: number; instances: number; grassInstances: number } {
+export function sceneBreakdown(root: THREE.Object3D): {
+  meshes: number;
+  shadowCasters: number;
+  shadowTris: number;
+  lights: number;
+  instances: number;
+  grassInstances: number;
+} {
   const r = { meshes: 0, shadowCasters: 0, shadowTris: 0, lights: 0, instances: 0, grassInstances: 0 };
   root.traverseVisible((o) => {
     const m = o as THREE.Mesh & { isLight?: boolean; isInstancedMesh?: boolean };
@@ -12,7 +19,11 @@ export function sceneBreakdown(root: THREE.Object3D): { meshes: number; shadowCa
     r.meshes++;
     const g = m.geometry as THREE.InstancedBufferGeometry;
     const tris = (g.index ? g.index.count : (g.getAttribute('position')?.count ?? 0)) / 3;
-    const n = m.isInstancedMesh ? (m as THREE.InstancedMesh).count : g.instanceCount !== Infinity && g.isInstancedBufferGeometry ? g.instanceCount : 1;
+    const n = m.isInstancedMesh
+      ? (m as THREE.InstancedMesh).count
+      : g.instanceCount !== Infinity && g.isInstancedBufferGeometry
+        ? g.instanceCount
+        : 1;
     r.instances += n;
     if (m.name === 'grass') r.grassInstances = n;
     if (m.castShadow) {
@@ -23,7 +34,12 @@ export function sceneBreakdown(root: THREE.Object3D): { meshes: number; shadowCa
   return r;
 }
 
-interface ChunkInfo { x: number; z: number; r: number; /** Own cull distance (default: the fog's far plane). */ far?: number }
+interface ChunkInfo {
+  x: number;
+  z: number;
+  r: number;
+  /** Own cull distance (default: the fog's far plane). */ far?: number;
+}
 
 /** Hide instanced billboard chunks that are fully inside the fog's far plane's shadow (beyond it). */
 export function cullChunks(root: THREE.Object3D, eyeX: number, eyeZ: number, far = FOG_FAR): number {
@@ -43,7 +59,8 @@ export function cullChunks(root: THREE.Object3D, eyeX: number, eyeZ: number, far
  */
 export function installPerf(renderer: THREE.WebGPURenderer, scene: THREE.Scene) {
   const el = document.createElement('pre');
-  el.style.cssText = 'position:fixed;right:8px;top:8px;margin:0;padding:6px 8px;background:#000a;color:#9f9;font:11px monospace;pointer-events:none;display:none;z-index:50';
+  el.style.cssText =
+    'position:fixed;right:8px;top:8px;margin:0;padding:6px 8px;background:#000a;color:#9f9;font:11px monospace;pointer-events:none;display:none;z-index:50';
   document.body.appendChild(el);
   let shown = false;
   window.addEventListener('keydown', (e) => {

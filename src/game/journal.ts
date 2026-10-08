@@ -17,7 +17,10 @@ let entries: JournalEntry[] = [];
 
 /** Plain text of a dialogue string: control codes removed, paragraphs joined with a space. */
 export function noteText(raw: string): string {
-  return splitParagraphs(raw).map((p) => p.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ');
+  return splitParagraphs(raw)
+    .map((p) => p.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join(' ');
 }
 
 /** Remember a dialogue line. Repeats move to the top rather than appearing twice. Returns whether it was kept. */
@@ -42,7 +45,12 @@ export function parseJournal(data: unknown): JournalEntry[] {
   if (!Array.isArray(data)) return [];
   const out: JournalEntry[] = [];
   for (const e of data) {
-    if (e && typeof e === 'object' && typeof (e as JournalEntry).text === 'string' && typeof (e as JournalEntry).zone === 'number') {
+    if (
+      e &&
+      typeof e === 'object' &&
+      typeof (e as JournalEntry).text === 'string' &&
+      typeof (e as JournalEntry).zone === 'number'
+    ) {
       out.push({ text: (e as JournalEntry).text, zone: (e as JournalEntry).zone });
     }
   }

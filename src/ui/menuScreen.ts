@@ -54,19 +54,43 @@ export function layoutMenu(model: MenuModel, width = HUD_WIDTH, height = HUD_HEI
   const lineH = unit * 1.3;
   const btnW = Math.min(innerW, 26 * unit);
   const panelH = Math.ceil(
-    pad + unit * 2 + model.lines.length * lineH + (model.lines.length ? unit : 0) + model.rows.length * rowH + (model.rows.length ? unit : 0) + unit * 1.5 + unit * 2 + unit * 2 + pad,
+    pad +
+      unit * 2 +
+      model.lines.length * lineH +
+      (model.lines.length ? unit : 0) +
+      model.rows.length * rowH +
+      (model.rows.length ? unit : 0) +
+      unit * 1.5 +
+      unit * 2 +
+      unit * 2 +
+      pad,
   );
-  const panel: Rect = { x: Math.floor((width - panelW) / 2), y: Math.floor((height - Math.min(panelH, height)) / 2), width: panelW, height: Math.min(panelH, height) };
+  const panel: Rect = {
+    x: Math.floor((width - panelW) / 2),
+    y: Math.floor((height - Math.min(panelH, height)) / 2),
+    width: panelW,
+    height: Math.min(panelH, height),
+  };
   let y = panel.y + pad;
   const title: Rect = { x: panel.x + pad, y, width: innerW, height: unit };
   y += unit * 2;
   const lines = model.lines.map((_, i) => ({ x: panel.x + pad, y: y + i * lineH, width: innerW, height: unit }));
   y += model.lines.length * lineH + (model.lines.length ? unit : 0);
-  const rows = model.rows.map((_, i) => ({ x: panel.x + pad, y: y + i * rowH, width: innerW, height: rowH - scale * 2 }));
+  const rows = model.rows.map((_, i) => ({
+    x: panel.x + pad,
+    y: y + i * rowH,
+    width: innerW,
+    height: rowH - scale * 2,
+  }));
   y += model.rows.length * rowH + (model.rows.length ? unit : 0);
   const message: Rect = { x: panel.x + pad, y, width: innerW, height: unit };
   y += unit * 2;
-  const buttons = model.buttons.map((_, i) => ({ x: panel.x + pad + i * (btnW + unit / 2), y, width: btnW, height: unit * 1.5 }));
+  const buttons = model.buttons.map((_, i) => ({
+    x: panel.x + pad + i * (btnW + unit / 2),
+    y,
+    width: btnW,
+    height: unit * 1.5,
+  }));
   return { scale, panel, title, lines, rows, buttons, message };
 }
 
@@ -86,18 +110,29 @@ function firstEnabled(model: MenuModel, from: number, dir: 1 | -1): number {
 
 const inside = (r: Rect, x: number, y: number) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
 
-export function stepMenu(layout: MenuLayout, model: MenuModel, state: MenuState, ev: MenuEvent): { state: MenuState; result: MenuResult } {
+export function stepMenu(
+  layout: MenuLayout,
+  model: MenuModel,
+  state: MenuState,
+  ev: MenuEvent,
+): { state: MenuState; result: MenuResult } {
   const none: MenuResult = { kind: 'none' };
   const all = entries(model);
   if (ev.type === 'key') {
     switch (ev.key) {
-      case 'ArrowUp': case 'ArrowLeft': return { state: { focus: firstEnabled(model, state.focus - 1, -1) }, result: none };
-      case 'ArrowDown': case 'ArrowRight': return { state: { focus: firstEnabled(model, state.focus + 1, 1) }, result: none };
-      case 'Enter': case ' ': {
+      case 'ArrowUp':
+      case 'ArrowLeft':
+        return { state: { focus: firstEnabled(model, state.focus - 1, -1) }, result: none };
+      case 'ArrowDown':
+      case 'ArrowRight':
+        return { state: { focus: firstEnabled(model, state.focus + 1, 1) }, result: none };
+      case 'Enter':
+      case ' ': {
         const item = all[state.focus];
         return { state, result: item && isEnabled(item) ? { kind: 'pick', id: item.id } : none };
       }
-      default: return { state, result: none };
+      default:
+        return { state, result: none };
     }
   }
   const rects = [...layout.rows, ...layout.buttons];
@@ -120,7 +155,15 @@ const COLORS = {
   message: '#e0a040',
 };
 
-function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
+function drawText(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  css: string,
+): void {
   if (text === '') return;
   ctx.fillStyle = css;
   let gx = x;
@@ -141,7 +184,13 @@ function textWidth(font: Font, text: string, scale: number): number {
   return w;
 }
 
-export function drawMenuScreen(ctx: CanvasRenderingContext2D, font: Font, layout: MenuLayout, model: MenuModel, state: MenuState): void {
+export function drawMenuScreen(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: MenuLayout,
+  model: MenuModel,
+  state: MenuState,
+): void {
   const { scale, panel } = layout;
   const c = COLORS;
   ctx.fillStyle = c.background;
@@ -158,7 +207,16 @@ export function drawMenuScreen(ctx: CanvasRenderingContext2D, font: Font, layout
     ctx.fillRect(r.x, r.y, r.width, r.height);
     const ty = r.y + Math.floor((r.height - font.height * scale) / 2);
     drawText(ctx, font, row.label, r.x + 2 * scale, ty, scale, on ? c.text : c.dim);
-    if (row.detail) drawText(ctx, font, row.detail, r.x + r.width - textWidth(font, row.detail, scale) - 2 * scale, ty, scale, on ? c.text : c.dim);
+    if (row.detail)
+      drawText(
+        ctx,
+        font,
+        row.detail,
+        r.x + r.width - textWidth(font, row.detail, scale) - 2 * scale,
+        ty,
+        scale,
+        on ? c.text : c.dim,
+      );
   });
   if (model.message) drawText(ctx, font, model.message, layout.message.x, layout.message.y, scale, c.message);
   model.buttons.forEach((b, i) => {
@@ -166,6 +224,14 @@ export function drawMenuScreen(ctx: CanvasRenderingContext2D, font: Font, layout
     const on = isEnabled(b);
     ctx.fillStyle = state.focus === model.rows.length + i ? c.focus : c.button;
     ctx.fillRect(r.x, r.y, r.width, r.height);
-    drawText(ctx, font, b.label, r.x + 2 * scale, r.y + Math.floor((r.height - font.height * scale) / 2), scale, on ? c.text : c.dim);
+    drawText(
+      ctx,
+      font,
+      b.label,
+      r.x + 2 * scale,
+      r.y + Math.floor((r.height - font.height * scale) / 2),
+      scale,
+      on ? c.text : c.dim,
+    );
   });
 }

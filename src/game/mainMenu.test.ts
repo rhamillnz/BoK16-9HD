@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, KEY_HELP, keyHelpModel, mainMenuModel, optionsModel, parseSettings, serializeSettings, stepFov, stepQuality, stepUiScale, stepVolume } from './mainMenu';
+import {
+  DEFAULT_SETTINGS,
+  KEY_HELP,
+  keyHelpModel,
+  mainMenuModel,
+  optionsModel,
+  parseSettings,
+  serializeSettings,
+  stepFov,
+  stepQuality,
+  stepUiScale,
+  stepVolume,
+} from './mainMenu';
 
 describe('settings', () => {
   it('round-trips and survives bad storage', () => {
@@ -39,8 +51,14 @@ describe('view settings', () => {
 
 describe('menus', () => {
   it('offers Resume only once started and disables Continue without saves', () => {
-    const ids = (started: boolean, hasSave: boolean) => mainMenuModel({ started, hasSave }).rows.map((r) => [r.id, r.enabled !== false]);
-    expect(ids(false, false)).toEqual([['new', true], ['continue', false], ['load', false], ['options', true]]);
+    const ids = (started: boolean, hasSave: boolean) =>
+      mainMenuModel({ started, hasSave }).rows.map((r) => [r.id, r.enabled !== false]);
+    expect(ids(false, false)).toEqual([
+      ['new', true],
+      ['continue', false],
+      ['load', false],
+      ['options', true],
+    ]);
     expect(ids(true, true)[0]).toEqual(['resume', true]);
   });
   it('reflects settings in the options rows', () => {

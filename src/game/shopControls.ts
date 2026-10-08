@@ -9,8 +9,25 @@ import type { ShopHudScreen, ShopView } from '../ui/shopHudScreen';
 import type { ShopModel, ShopRow } from '../ui/shopScreen';
 import { activeCharacters, type PartyState } from './party';
 import {
-  ItemFlag, UNPURCHASEABLE, applyHaggle, buy, buyPrice, canBuyItem, defaultRng, haggle, haggleSkill, isRefused, isRomneyGuildWars,
-  offeredItem, priceOf, sell, shopFromContainer, type PriceContext, type Refusal, type Rng, type ShopState,
+  ItemFlag,
+  UNPURCHASEABLE,
+  applyHaggle,
+  buy,
+  buyPrice,
+  canBuyItem,
+  defaultRng,
+  haggle,
+  haggleSkill,
+  isRefused,
+  isRomneyGuildWars,
+  offeredItem,
+  priceOf,
+  sell,
+  shopFromContainer,
+  type PriceContext,
+  type Refusal,
+  type Rng,
+  type ShopState,
 } from './shops';
 import { practiceCharacter } from './practice';
 import type { WorldState } from './state';
@@ -92,7 +109,9 @@ export function createShops(host: ShopHost) {
     romneyGuildWars: isRomneyGuildWars(shop.stats, host.zone(), host.getWorld()),
   });
   const nameOf = (i: InventoryItem, d: ItemDef) =>
-    (d.flags & (ItemFlag.Stackable | ItemFlag.ChargeBased | ItemFlag.QuantityBased)) !== 0 ? `${d.name} (${i.conditionOrQuantity})` : d.name;
+    (d.flags & (ItemFlag.Stackable | ItemFlag.ChargeBased | ItemFlag.QuantityBased)) !== 0
+      ? `${d.name} (${i.conditionOrQuantity})`
+      : d.name;
 
   const play = (key: number) => new Promise<ShopDialogEnd>((resolve) => host.playDialog(key, resolve));
 
@@ -113,15 +132,29 @@ export function createShops(host: ShopHost) {
         const d = defOf(item);
         if (!d) return [];
         const price = priceOf(shop, item, d, c);
-        return [{ label: nameOf(offeredItem(item, d), d), price: price === undefined ? 'sold' : formatRoyals(price), dim: price === undefined }];
+        return [
+          {
+            label: nameOf(offeredItem(item, d), d),
+            price: price === undefined ? 'sold' : formatRoyals(price),
+            dim: price === undefined,
+          },
+        ];
       });
       const pack: ShopRow[] = (who?.inventory.items ?? []).flatMap((item) => {
         const d = defOf(item);
         if (!d) return [];
         const wanted = canBuyItem(shop, item, d);
-        return [{ label: nameOf(item, d), price: wanted ? formatRoyals(buyPrice(item, d, shop.stats, c)) : '', dim: !wanted }];
+        return [
+          { label: nameOf(item, d), price: wanted ? formatRoyals(buyPrice(item, d, shop.stats, c)) : '', dim: !wanted },
+        ];
       });
-      return { title: 'Shop', purse: `Purse: ${formatRoyals(party.gold)}`, members: members().map((x) => x.name), stock, pack };
+      return {
+        title: 'Shop',
+        purse: `Purse: ${formatRoyals(party.gold)}`,
+        members: members().map((x) => x.name),
+        stock,
+        pack,
+      };
     };
 
     const reopen = (message = '') => {
@@ -132,8 +165,11 @@ export function createShops(host: ShopHost) {
     const refuse = async (reason: Refusal, price = 0, itemName = ''): Promise<void> => {
       extras = { itemValue: price, itemName };
       const keyFor: Partial<Record<Refusal, number>> = {
-        cantAfford: SHOP_DIALOG.cantAfford, tooDrunk: SHOP_DIALOG.tooDrunk, noRoom: SHOP_DIALOG.noRoom,
-        wontBuy: SHOP_DIALOG.wontBuy, onlyWeapon: SHOP_DIALOG.onlyWeapon,
+        cantAfford: SHOP_DIALOG.cantAfford,
+        tooDrunk: SHOP_DIALOG.tooDrunk,
+        noRoom: SHOP_DIALOG.noRoom,
+        wontBuy: SHOP_DIALOG.wontBuy,
+        onlyWeapon: SHOP_DIALOG.onlyWeapon,
       };
       const k = keyFor[reason];
       if (k !== undefined) await play(k);

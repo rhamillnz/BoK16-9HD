@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { deadzone, keyForCode, padFrame, type PadSnapshot } from './gamepad';
 
-const snap = (buttons: number[] = [], axes: number[] = [0, 0, 0, 0]): PadSnapshot => ({ buttons: Array.from({ length: 16 }, (_, i) => buttons.includes(i)), axes });
+const snap = (buttons: number[] = [], axes: number[] = [0, 0, 0, 0]): PadSnapshot => ({
+  buttons: Array.from({ length: 16 }, (_, i) => buttons.includes(i)),
+  axes,
+});
 
 describe('gamepad', () => {
   it('applies a rescaled dead zone', () => {

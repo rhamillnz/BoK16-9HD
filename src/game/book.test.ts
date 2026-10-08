@@ -7,15 +7,39 @@ import type { HudHost } from '../ui/hudRegistry';
 
 /** Every character 8 wide and 7 high (rows are 8 apart). */
 const font: Font = {
-  version: 0xff, maxWidth: 8, height: 7, baseline: 6, firstChar: 32,
+  version: 0xff,
+  maxWidth: 8,
+  height: 7,
+  baseline: 6,
+  firstChar: 32,
   glyphs: Array.from({ length: 96 }, (_, i) => ({ code: 32 + i, width: 8, height: 7, pixels: new Uint8Array(56) })),
 };
 
 const mkPage = (o: Partial<BookPage> = {}): BookPage => ({
-  x: 0, y: 0, width: 160, height: 32, displayNumber: 1, pageNumber: 1, previousPage: 0, nextPage: 0, showPageNumber: 0,
-  reservedAreas: [], images: [], paragraphs: [], ...o,
+  x: 0,
+  y: 0,
+  width: 160,
+  height: 32,
+  displayNumber: 1,
+  pageNumber: 1,
+  previousPage: 0,
+  nextPage: 0,
+  showPageNumber: 0,
+  reservedAreas: [],
+  images: [],
+  paragraphs: [],
+  ...o,
 });
-const para = (text: string) => ({ x: 0, y: 0, width: 100, lineSpacing: 0, wordSpacing: 0, startIndent: 0, alignment: 'left' as const, segments: [{ font: 1, yOffset: 0, color: 0, style: 1, text }] });
+const para = (text: string) => ({
+  x: 0,
+  y: 0,
+  width: 100,
+  lineSpacing: 0,
+  wordSpacing: 0,
+  startIndent: 0,
+  alignment: 'left' as const,
+  segments: [{ font: 1, yOffset: 0, color: 0, style: 1, text }],
+});
 
 /** A box of 80 x 16 scene pixels: 10 characters across, 2 rows. */
 const book = (text: string, pages = 3): Book => ({
@@ -28,7 +52,11 @@ describe('layoutBook', () => {
     expect(spreads.length).toBeGreaterThan(1);
     expect(spreads.every((s) => s.lines.length > 0)).toBe(true);
     expect(spreads.every((s) => s.lines.length <= 2 + 1)).toBe(true);
-    const words = spreads.flatMap((s) => s.lines.map((l) => l.text)).join(' ').split(/\s+/).filter(Boolean);
+    const words = spreads
+      .flatMap((s) => s.lines.map((l) => l.text))
+      .join(' ')
+      .split(/\s+/)
+      .filter(Boolean);
     expect(words).toEqual(['aaaa', 'bbbb', 'cccc', 'dddd', 'eeee', 'ffff', 'gggg']);
   });
 
@@ -82,7 +110,14 @@ describe('BookScreen', () => {
 describe('layoutBook beside pictures', () => {
   const size = (i: number) => (i === 0 ? { width: 32, height: 32 } : undefined); // 16 x 16 scene pixels
   const withInitial = (): Book => ({
-    pages: [mkPage({ width: 320, height: 160, images: [{ x: 0, y: 0, image: 0, mirroring: 0 }], paragraphs: [para('aaaa '.repeat(40))] })],
+    pages: [
+      mkPage({
+        width: 320,
+        height: 160,
+        images: [{ x: 0, y: 0, image: 0, mirroring: 0 }],
+        paragraphs: [para('aaaa '.repeat(40))],
+      }),
+    ],
   });
 
   it('indents the rows beside a drop cap and leaves the rest alone', () => {
@@ -95,8 +130,15 @@ describe('layoutBook beside pictures', () => {
 
   it('keeps every indented line inside the box and the words in order', () => {
     const spreads = layoutBook(withInitial(), font, size);
-    for (const l of spreads.flatMap((s) => s.lines)) expect(l.text.length * 8 + (l.indent ?? 0)).toBeLessThanOrEqual(160);
-    expect(spreads.flatMap((s) => s.lines.map((l) => l.text)).join(' ').split(/\s+/).filter(Boolean)).toHaveLength(40);
+    for (const l of spreads.flatMap((s) => s.lines))
+      expect(l.text.length * 8 + (l.indent ?? 0)).toBeLessThanOrEqual(160);
+    expect(
+      spreads
+        .flatMap((s) => s.lines.map((l) => l.text))
+        .join(' ')
+        .split(/\s+/)
+        .filter(Boolean),
+    ).toHaveLength(40);
   });
 
   it('lays out unchanged without picture sizes', () => {

@@ -1,4 +1,13 @@
-import { drawShopScreen, initialShopState, layoutShopScreen, stepShopScreen, type ShopLayout, type ShopModel, type ShopResult, type ShopScreenState } from './shopScreen';
+import {
+  drawShopScreen,
+  initialShopState,
+  layoutShopScreen,
+  stepShopScreen,
+  type ShopLayout,
+  type ShopModel,
+  type ShopResult,
+  type ShopScreenState,
+} from './shopScreen';
 import { registerHudScreen, type HudEvent, type HudHost, type HudScreenHandler } from './hudRegistry';
 
 /** What the game gives the shop screen: the rows to show for a party member and what to do with clicks. */
@@ -65,7 +74,8 @@ export class ShopHudScreen implements HudScreenHandler {
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
-    if (this.view && this.s) drawShopScreen(ctx, this.host.font, this.s.layout, this.s.state, this.view.model(this.s.state.member));
+    if (this.view && this.s)
+      drawShopScreen(ctx, this.host.font, this.s.layout, this.s.state, this.view.model(this.s.state.member));
   }
 }
 

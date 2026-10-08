@@ -5,7 +5,11 @@ const TEXT = 'OAK\n#\nOAK\nASH\nELM\n#Which tree is the oldest?';
 
 describe('word lock', () => {
   it('parses answer, option rows and hint', () => {
-    expect(parseWordLock(TEXT)).toEqual({ answer: 'OAK', options: ['OAK', 'ASH', 'ELM'], hint: 'Which tree is the oldest?' });
+    expect(parseWordLock(TEXT)).toEqual({
+      answer: 'OAK',
+      options: ['OAK', 'ASH', 'ELM'],
+      hint: 'Which tree is the oldest?',
+    });
     expect(parseWordLock(TEXT.replace(/\n/g, '\r\n'))?.answer).toBe('OAK');
   });
 

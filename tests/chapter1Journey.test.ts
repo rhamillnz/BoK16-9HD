@@ -10,7 +10,13 @@ import { ContainerFlag, findShop, parseShopContainers } from '../src/formats/gds
 import { SKILL_NAMES, type Character, type Skill } from '../src/formats/gam';
 import { ItemType, type ItemDef } from '../src/formats/objinfo';
 import { CELL_SIZE, TILE_SIZE } from '../src/formats/world';
-import { ContainerStore, nearestContainer, openedFlagUpdate, takeAll, type WorldContainer } from '../src/game/containers';
+import {
+  ContainerStore,
+  nearestContainer,
+  openedFlagUpdate,
+  takeAll,
+  type WorldContainer,
+} from '../src/game/containers';
 import { resolveDialogOutcome } from '../src/game/dialogOutcome';
 import { DialogSession, DialogStore, QUERY_NO, QUERY_YES } from '../src/game/encounterRunner';
 import { activeCharacters, type PartyState } from '../src/game/party';
@@ -42,34 +48,83 @@ const ZONE_ROAD = 3;
 
 const DEFS: ItemDef[] = [];
 const def = (index: number, o: Partial<ItemDef>) =>
-  (DEFS[index] = { index, name: `Item ${index}`, value: 100, stackSize: 1, defaultStackSize: 1, flags: 0, categories: 0, type: 0, ...o } as ItemDef);
+  (DEFS[index] = {
+    index,
+    name: `Item ${index}`,
+    value: 100,
+    stackSize: 1,
+    defaultStackSize: 1,
+    flags: 0,
+    categories: 0,
+    type: 0,
+    ...o,
+  } as ItemDef);
 def(ITEM_SWORD, { name: 'Sword', value: 100, type: ItemType.Sword, categories: 0x0080 });
-def(ITEM_RATIONS, { name: 'Rations', value: 10, type: ItemType.Ration, categories: 0x0002, flags: ItemFlag.Stackable, stackSize: 10, defaultStackSize: 5 });
+def(ITEM_RATIONS, {
+  name: 'Rations',
+  value: 10,
+  type: ItemType.Ration,
+  categories: 0x0002,
+  flags: ItemFlag.Stackable,
+  stackSize: 10,
+  defaultStackSize: 5,
+});
 def(ITEM_KEY, { name: 'Key', type: ItemType.Key });
 def(ITEM_GEM, { name: 'Gem', value: 50, categories: 0x0400 });
 def(53, { name: 'Sovereigns', value: 200, stackSize: 255 });
 def(54, { name: 'Royals', value: 1, stackSize: 255 });
 const PRICES: PriceContext = { scrollValues: [] };
 
-const skill = (max: number, trueSkill: number): Skill => ({ max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false });
+const skill = (max: number, trueSkill: number): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 0,
+  modifier: 0,
+  selected: false,
+  unseenImprovement: false,
+});
 
 function character(index: number, name: string): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(0, 0)])) as Character['skills'];
   Object.assign(skills, {
-    health: skill(40, 40), stamina: skill(30, 30), speed: skill(9, 9), strength: skill(12, 12), defense: skill(30, 30),
-    melee: skill(80, 80), haggling: skill(50, 50), lockpick: skill(40, 40),
+    health: skill(40, 40),
+    stamina: skill(30, 30),
+    speed: skill(9, 9),
+    strength: skill(12, 12),
+    defense: skill(30, 30),
+    melee: skill(80, 80),
+    haggling: skill(50, 50),
+    lockpick: skill(40, 40),
   });
   return {
-    index, name, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills, combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0 },
-    affectors: [], inventory: { capacity: 8, items: [] },
+    affectors: [],
+    inventory: { capacity: 8, items: [] },
   };
 }
 
 const startParty = (): PartyState => ({
-  gold: 150, characters: [character(0, 'Owyn'), character(1, 'Pug')], activeCharacters: [0, 1], partyKeys: { capacity: 8, items: [] },
+  gold: 150,
+  characters: [character(0, 'Owyn'), character(1, 'Pug')],
+  activeCharacters: [0, 1],
+  partyKeys: { capacity: 8, items: [] },
 });
-const startWorld = (): WorldState => ({ chapter: 1, ticks: 6 * 0x708, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [] });
+const startWorld = (): WorldState => ({
+  chapter: 1,
+  ticks: 6 * 0x708,
+  ticksLastSlept: 0,
+  bytes: new Uint8Array(0x4000),
+  expiringEvents: [],
+});
 
 /** A one-snippet dialogue (key 1) with an optional Yes/No query and the given actions. */
 function dialogue(actions: { type: number; words: number[] }[], world: WorldState, query = false): DialogSession {
@@ -108,18 +163,72 @@ function dialogue(actions: { type: number; words: number[] }[], world: WorldStat
 function shopBytes(): Uint8Array {
   const stats = [3, 20, 30, 50, 40, 25, 0, 0, 0, 0, 8, 12, 5, 9, 0x80, 0x02];
   const item = (index: number, quantity: number) => [index, quantity, 0, 0];
-  return new Uint8Array([0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 7, 2, 4, ContainerFlag.Shop, ...item(ITEM_SWORD, 100), ...item(ITEM_RATIONS, 10), 0, 0, 0, 0, 0, 0, 0, 0, ...stats]);
+  return new Uint8Array([
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    7,
+    2,
+    4,
+    ContainerFlag.Shop,
+    ...item(ITEM_SWORD, 100),
+    ...item(ITEM_RATIONS, 10),
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    ...stats,
+  ]);
 }
 
 const chestInRoad = (): WorldContainer => ({
-  id: `${ZONE_ROAD}:0`, zone: ZONE_ROAD, x: 5000, y: 5000, model: 3, fromChapter: 1, toChapter: 9, capacity: 4,
-  items: [{ itemIndex: ITEM_GEM, conditionOrQuantity: 100, status: 0, modifiers: 0 }, { itemIndex: 54, conditionOrQuantity: 25, status: 0, modifiers: 0 }],
-  unlocked: false, trapSpent: false, setFlag: FLAG_CHEST_OPENED,
+  id: `${ZONE_ROAD}:0`,
+  zone: ZONE_ROAD,
+  x: 5000,
+  y: 5000,
+  model: 3,
+  fromChapter: 1,
+  toChapter: 9,
+  capacity: 4,
+  items: [
+    { itemIndex: ITEM_GEM, conditionOrQuantity: 100, status: 0, modifiers: 0 },
+    { itemIndex: 54, conditionOrQuantity: 25, status: 0, modifiers: 0 },
+  ],
+  unlocked: false,
+  trapSpent: false,
+  setFlag: FLAG_CHEST_OPENED,
 });
 
 const fighter = (id: string, side: 'party' | 'enemy', x: number, y: number, over: Partial<Fighter> = {}): Fighter => ({
-  id, side, name: id, monster: 0, pos: { x, y }, facing: Direction.North,
-  health: 20, maxHealth: 20, stamina: 10, maxStamina: 10, speed: 5, strength: 8, defense: 0, melee: 90, race: RaceKind.None, ...over,
+  id,
+  side,
+  name: id,
+  monster: 0,
+  pos: { x, y },
+  facing: Direction.North,
+  health: 20,
+  maxHealth: 20,
+  stamina: 10,
+  maxStamina: 10,
+  speed: 5,
+  strength: 8,
+  defense: 0,
+  melee: 90,
+  race: RaceKind.None,
+  ...over,
 });
 
 // ---- the journey -----------------------------------------------------------------------------
@@ -135,11 +244,15 @@ describe('chapter 1 critical path', () => {
     expect(activeCharacters(party).map((c) => c.name)).toEqual(['Owyn', 'Pug']);
 
     // 2. First dialogue: the innkeeper offers rations and a sovereign; accepting hands them over and sets a flag.
-    const hello = dialogue([
-      { type: ActionType.GiveItem, words: [ITEM_RATIONS, 5, 0, 0] },
-      { type: ActionType.GiveItem, words: [53, 1, 0, 0] },
-      { type: ActionType.SetFlag, words: [FLAG_MET_INNKEEPER, 0, 0, 1] },
-    ], world, true);
+    const hello = dialogue(
+      [
+        { type: ActionType.GiveItem, words: [ITEM_RATIONS, 5, 0, 0] },
+        { type: ActionType.GiveItem, words: [53, 1, 0, 0] },
+        { type: ActionType.SetFlag, words: [FLAG_MET_INNKEEPER, 0, 0, 1] },
+      ],
+      world,
+      true,
+    );
     expect(hello.view?.mode).toBe('query');
     expect(hello.view?.options.map((o) => o.value)).toEqual([QUERY_YES, QUERY_NO]);
     hello.choose(QUERY_YES);
@@ -150,10 +263,19 @@ describe('chapter 1 critical path', () => {
     expect(getFlag(world, FLAG_MET_INNKEEPER)).toBe(true);
     expect(party.gold).toBe(150 + 10); // a sovereign is worth 10 royals
     expect(gift.lostItems).toEqual([]);
-    expect(activeCharacters(party).flatMap((c) => c.inventory.items).some((i) => i.itemIndex === ITEM_RATIONS)).toBe(true);
+    expect(
+      activeCharacters(party)
+        .flatMap((c) => c.inventory.items)
+        .some((i) => i.itemIndex === ITEM_RATIONS),
+    ).toBe(true);
 
     // 3. A town: the village gate asks "enter?" and, on Yes, leads to the town zone and its shop scene.
-    const townGate: ZoneTransition = { ...destinationAt(ZONE_TOWN, 2, 3, 4, 4, 0x4000), dialog: 1, hotspot: 7, hotspotChar: 0 };
+    const townGate: ZoneTransition = {
+      ...destinationAt(ZONE_TOWN, 2, 3, 4, 4, 0x4000),
+      dialog: 1,
+      hotspot: 7,
+      hotspotChar: 0,
+    };
     const gate = dialogue([], world, true);
     gate.choose(QUERY_YES);
     const entering = resolveDialogOutcome({ session: gate, party, transition: townGate });
@@ -213,12 +335,20 @@ describe('chapter 1 critical path', () => {
     const rewards = battleRewards(battle.fighters, battle.history, (lo) => lo);
     party = applyRewards(applyBattleToParty(party, battle.fighters), rewards);
     expect(rewards.experience.size).toBeGreaterThan(0);
-    expect(party.characters.every((c) => c.skills.health.trueSkill > 0 && c.skills.health.trueSkill <= before.characters[0]!.skills.health.trueSkill)).toBe(true);
+    expect(
+      party.characters.every(
+        (c) =>
+          c.skills.health.trueSkill > 0 && c.skills.health.trueSkill <= before.characters[0]!.skills.health.trueSkill,
+      ),
+    ).toBe(true);
     expect(party.gold).toBeGreaterThanOrEqual(before.gold);
 
     // 6. A chest: step up to it, open it, take everything; its flag is set and the loot is the party's.
     const store = new ContainerStore((z) => (z === ZONE_ROAD ? [chestInRoad()] : []));
-    registerSaveExtra('journeyContainers', { capture: () => store.snapshot(), restore: (d) => store.restore(d as never) });
+    registerSaveExtra('journeyContainers', {
+      capture: () => store.snapshot(),
+      restore: (d) => store.restore(d as never),
+    });
     pos = { x: 4900, y: 4800, heading: 64 };
     const chest = nearestContainer(store.zone(ZONE_ROAD), pos.x, pos.y, world.chapter, world)!;
     expect(chest.id).toBe(`${ZONE_ROAD}:0`);
@@ -230,12 +360,20 @@ describe('chapter 1 critical path', () => {
     world = openedFlagUpdate(chest, world);
     expect(getFlag(world, FLAG_CHEST_OPENED)).toBe(true);
     expect(party.gold).toBe(goldBefore + 25);
-    expect(activeCharacters(party).flatMap((c) => c.inventory.items).some((i) => i.itemIndex === ITEM_GEM)).toBe(true);
+    expect(
+      activeCharacters(party)
+        .flatMap((c) => c.inventory.items)
+        .some((i) => i.itemIndex === ITEM_GEM),
+    ).toBe(true);
     expect(store.snapshot()[chest.id]).toMatchObject({ items: [], unlocked: true });
 
     // 7. Zone transition: a signpost dialogue on the road sends the party back to the village.
     const home = dialogue([{ type: ActionType.Teleport, words: [0] }], world);
-    const leaving = resolveDialogOutcome({ session: home, party, teleports: [destinationAt(ZONE_VILLAGE, 0, 0, 2, 2, 0x8000)] });
+    const leaving = resolveDialogOutcome({
+      session: home,
+      party,
+      teleports: [destinationAt(ZONE_VILLAGE, 0, 0, 2, 2, 0x8000)],
+    });
     plan = planTransition(zone, leaving.destination!);
     expect(plan).toMatchObject({ reload: true, zone: ZONE_VILLAGE, heading: 0x80 });
     zone = plan.zone;
@@ -243,7 +381,16 @@ describe('chapter 1 critical path', () => {
 
     // 8. Save and load: everything above survives a round trip through the store, chest included.
     const games = new SaveGames(new MemorySaveStore());
-    const data: SaveGameData = { savedAt: 1, zone, x: pos.x, y: pos.y, heading: pos.heading, world, party, extras: captureSaveExtras() };
+    const data: SaveGameData = {
+      savedAt: 1,
+      zone,
+      x: pos.x,
+      y: pos.y,
+      heading: pos.heading,
+      world,
+      party,
+      extras: captureSaveExtras(),
+    };
     await games.save('quick', data);
     store.restore(undefined); // a new session knows nothing of the opened chest
     expect(store.zone(ZONE_ROAD)[0]!.items).toHaveLength(2);

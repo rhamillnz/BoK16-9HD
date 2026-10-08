@@ -6,12 +6,20 @@ import { HudScreens } from '../src/ui/hud';
 
 function testFont(): Font {
   const glyphs: Glyph[] = [];
-  for (let code = 32; code < 127; code++) glyphs.push({ code, width: 4, height: 6, pixels: new Uint8Array(24).fill(code === 32 ? 0 : 1) });
+  for (let code = 32; code < 127; code++)
+    glyphs.push({ code, width: 4, height: 6, pixels: new Uint8Array(24).fill(code === 32 ? 0 : 1) });
   return { version: 0xff, maxWidth: 4, height: 6, baseline: 5, firstChar: 32, glyphs };
 }
 
 function character(index: number, name: string): Character {
-  const skill = { max: 50, trueSkill: 40, current: 40, modifier: 0, selected: false, unseenImprovement: false } as unknown as Skill;
+  const skill = {
+    max: 50,
+    trueSkill: 40,
+    current: 40,
+    modifier: 0,
+    selected: false,
+    unseenImprovement: false,
+  } as unknown as Skill;
   return {
     index,
     name,
@@ -23,7 +31,10 @@ function character(index: number, name: string): Character {
   } as unknown as Character;
 }
 
-const save = { characters: [character(0, 'Owyn'), character(1, 'Pug')], activeCharacters: [0, 1] } as unknown as GamSave;
+const save = {
+  characters: [character(0, 'Owyn'), character(1, 'Pug')],
+  activeCharacters: [0, 1],
+} as unknown as GamSave;
 const hud = () => new HudScreens({ font: testFont(), save, items: [] });
 
 describe('HudScreens', () => {
@@ -74,7 +85,24 @@ describe('HudScreens', () => {
   });
 
   describe('town scene', () => {
-    const spot = { index: 0, x: 0, y: 0, width: 320, height: 200, chapterMask: 0, keyword: 1, action: 2, unknownD: 0, arg1: 0, arg2: 0, arg3: 0, tooltip: 0, unknown1a: 0, dialog: 0, checkEventState: 0 };
+    const spot = {
+      index: 0,
+      x: 0,
+      y: 0,
+      width: 320,
+      height: 200,
+      chapterMask: 0,
+      keyword: 1,
+      action: 2,
+      unknownD: 0,
+      arg1: 0,
+      arg2: 0,
+      arg3: 0,
+      tooltip: 0,
+      unknown1a: 0,
+      dialog: 0,
+      checkEventState: 0,
+    };
     function openTown() {
       const h = hud();
       const calls: string[] = [];
@@ -141,10 +169,18 @@ describe('screen registry', () => {
     const h = hud();
     h.register('shop', () => ({
       hotkey: 'KeyB',
-      open: () => { seen.push('open'); },
-      event: (ev) => { seen.push(ev.type); },
-      draw: () => { seen.push('draw'); },
-      close: () => { seen.push('close'); },
+      open: () => {
+        seen.push('open');
+      },
+      event: (ev) => {
+        seen.push(ev.type);
+      },
+      draw: () => {
+        seen.push('draw');
+      },
+      close: () => {
+        seen.push('close');
+      },
     }));
     expect(h.keyDown('KeyB', 'b')).toBe(true);
     expect(h.screen).toBe('shop');

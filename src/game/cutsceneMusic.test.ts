@@ -5,8 +5,14 @@ function fake(songId: number | null) {
   const log: string[] = [];
   const m = {
     songId,
-    play: async (n: number) => { log.push(`play ${n}`); m.songId = n; },
-    stop: () => { log.push('stop'); m.songId = null; },
+    play: async (n: number) => {
+      log.push(`play ${n}`);
+      m.songId = n;
+    },
+    stop: () => {
+      log.push('stop');
+      m.songId = null;
+    },
   };
   return { m, log };
 }
@@ -35,6 +41,10 @@ describe('cutsceneMusic', () => {
     c.change(300);
     c.restore();
     expect(log).toEqual([]);
-    expect(() => { const n = cutsceneMusic(undefined); n.change(1003); n.restore(); }).not.toThrow();
+    expect(() => {
+      const n = cutsceneMusic(undefined);
+      n.change(1003);
+      n.restore();
+    }).not.toThrow();
   });
 });

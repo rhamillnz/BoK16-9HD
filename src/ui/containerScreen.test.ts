@@ -5,12 +5,28 @@ import type { WordLockState } from '../game/wordLock';
 
 /** A HUD host whose close() closes the screen like HudScreens.close does. */
 function rig() {
-  const host = { width: 640, height: 360, party: [], closes: 0, screen: undefined as { close(): void } | undefined, close() { this.closes++; this.screen?.close(); } };
+  const host = {
+    width: 640,
+    height: 360,
+    party: [],
+    closes: 0,
+    screen: undefined as { close(): void } | undefined,
+    close() {
+      this.closes++;
+      this.screen?.close();
+    },
+  };
   return host;
 }
 const containerView = (closed: string[]): ContainerView => ({
-  title: 'Body', capacity: () => 2, items: () => [], message: () => '',
-  onTake: () => {}, onTakeAll: () => {}, onPut: () => {}, onClose: () => closed.push('close'),
+  title: 'Body',
+  capacity: () => 2,
+  items: () => [],
+  message: () => '',
+  onTake: () => {},
+  onTakeAll: () => {},
+  onPut: () => {},
+  onClose: () => closed.push('close'),
 });
 
 describe('ContainerScreen', () => {

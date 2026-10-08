@@ -1,6 +1,15 @@
 import type { MenuPanelScreen } from '../ui/menuHud';
 import type { MenuModel } from '../ui/menuScreen';
-import { ACTION_LABELS, BINDING_ACTIONS, DEFAULT_BINDINGS, cloneBindings, codeLabel, rebind, type BindingAction, type Bindings } from '../world/bindings';
+import {
+  ACTION_LABELS,
+  BINDING_ACTIONS,
+  DEFAULT_BINDINGS,
+  cloneBindings,
+  codeLabel,
+  rebind,
+  type BindingAction,
+  type Bindings,
+} from '../world/bindings';
 import { getBindings, setBindings } from './bindingsStore';
 
 export function controlsModel(b: Readonly<Bindings>, message?: string): MenuModel {
@@ -8,7 +17,11 @@ export function controlsModel(b: Readonly<Bindings>, message?: string): MenuMode
     title: 'Movement keys',
     lines: ['Pick an action, then press the new key. The second key stays as it is.'],
     rows: [
-      ...BINDING_ACTIONS.map((a) => ({ id: a, label: ACTION_LABELS[a], detail: `${codeLabel(b[a][0])} / ${codeLabel(b[a][1])}` })),
+      ...BINDING_ACTIONS.map((a) => ({
+        id: a,
+        label: ACTION_LABELS[a],
+        detail: `${codeLabel(b[a][0])} / ${codeLabel(b[a][1])}`,
+      })),
       { id: 'reset', label: 'Reset to defaults' },
     ],
     buttons: [{ id: 'back', label: 'Back' }],

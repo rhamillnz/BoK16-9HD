@@ -53,6 +53,8 @@ export function installCamp(host: CampHost): void {
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyR' || e.repeat || busy || !host.canCamp()) return;
     busy = true;
-    runCamp(host).finally(() => { busy = false; });
+    runCamp(host).finally(() => {
+      busy = false;
+    });
   });
 }

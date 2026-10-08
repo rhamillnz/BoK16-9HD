@@ -1,5 +1,17 @@
 import * as THREE from 'three/webgpu';
-import { Fn, float, mix, mx_noise_float, normalWorld, positionWorld, smoothstep, texture, uv, vec2, vec3 } from 'three/tsl';
+import {
+  Fn,
+  float,
+  mix,
+  mx_noise_float,
+  normalWorld,
+  positionWorld,
+  smoothstep,
+  texture,
+  uv,
+  vec2,
+  vec3,
+} from 'three/tsl';
 
 /** Noise scales in world units (1 unit = 100 game units): macro hides tiling, patches add colour drift. */
 export const TERRAIN_MACRO_SCALE = 0.035;

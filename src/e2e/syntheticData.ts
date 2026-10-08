@@ -11,7 +11,8 @@ import type { ZoneData } from '../world/zone';
 /** A plain 4x6 block font covering printable ASCII. */
 export function syntheticFont(): Font {
   const glyphs: Glyph[] = [];
-  for (let code = 32; code < 127; code++) glyphs.push({ code, width: 4, height: 6, pixels: new Uint8Array(24).fill(code === 32 ? 0 : 1) });
+  for (let code = 32; code < 127; code++)
+    glyphs.push({ code, width: 4, height: 6, pixels: new Uint8Array(24).fill(code === 32 ? 0 : 1) });
   return { version: 0xff, maxWidth: 4, height: 6, baseline: 5, firstChar: 32, glyphs };
 }
 
@@ -23,8 +24,14 @@ export function syntheticSave(): GamSave {
   v.setUint16(O.chapterCopy, 1, true);
   v.setUint32(O.gold, 500, true);
   v.setUint32(O.time, 6 * 1800, true); // 06:00 on day 0
-  [['Owyn', 0], ['Pug', 1]].forEach(([name, index]) => {
-    b.set([...(name as string)].map((c) => c.charCodeAt(0)), O.characterName + (index as number) * 10);
+  [
+    ['Owyn', 0],
+    ['Pug', 1],
+  ].forEach(([name, index]) => {
+    b.set(
+      [...(name as string)].map((c) => c.charCodeAt(0)),
+      O.characterName + (index as number) * 10,
+    );
     const s = O.characterSkills + (index as number) * CHARACTER_SKILL_STRIDE;
     for (let skill = 0; skill < 16; skill++) b.set([50, 40, 40, 0, 0], s + 8 + skill * 5);
     b[O.characterConditions + 7 * (index as number)] = 0;
@@ -40,7 +47,16 @@ const SPAN = 4800;
 const quad = (z: number, half: number): number[] => [-half, -half, z, half, -half, z, half, half, z, -half, half, z];
 
 const model = (name: string, extra: Partial<Model>): Model => ({
-  name, flags: 0, entityType: 0, terrainType: 0, scale: 0, radius: 128, vertices: [], faces: [], frames: 1, ...extra,
+  name,
+  flags: 0,
+  entityType: 0,
+  terrainType: 0,
+  scale: 0,
+  radius: 128,
+  vertices: [],
+  faces: [],
+  frames: 1,
+  ...extra,
 });
 
 /**
@@ -57,11 +73,18 @@ export function syntheticZone(): ZoneData {
   const ground = model('ground', { vertices: quad(0, SPAN / 2), faces: [face(1, [0, 1, 2, 3])] });
   const block = model('block', {
     vertices: [...quad(0, 150), ...quad(300, 150)],
-    faces: [face(2, [4, 5, 6, 7]), face(2, [0, 1, 5, 4]), face(2, [1, 2, 6, 5]), face(2, [2, 3, 7, 6]), face(2, [3, 0, 4, 7])],
+    faces: [
+      face(2, [4, 5, 6, 7]),
+      face(2, [0, 1, 5, 4]),
+      face(2, [1, 2, 6, 5]),
+      face(2, [2, 3, 7, 6]),
+      face(2, [3, 0, 4, 7]),
+    ],
   });
   const tree = model('tree', { radius: 128, sprite: { index: 0, offsetX: 0, offsetY: 0, baseVertex: 0, scale: 256 } });
   const treePixels = new Uint8Array(16 * 24);
-  for (let y = 0; y < 24; y++) for (let x = 0; x < 16; x++) treePixels[y * 16 + x] = y < 14 ? (x > 1 && x < 14 ? 1 : 0) : x > 6 && x < 10 ? 3 : 0;
+  for (let y = 0; y < 24; y++)
+    for (let x = 0; x < 16; x++) treePixels[y * 16 + x] = y < 14 ? (x > 1 && x < 14 ? 1 : 0) : x > 6 && x < 10 ? 3 : 0;
   const item = (type: number, x: number, y: number) => ({ type, xRot: 0, yRot: 0, zRot: 0, x, y, z: 0 });
   return {
     zone: 1,

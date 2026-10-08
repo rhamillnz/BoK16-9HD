@@ -7,7 +7,15 @@ import { DIALOG_FILE_COUNT, dialogFileName } from './encounterDriver';
 import { DialogStore } from './encounterRunner';
 import { songFromSoundIndex } from '../audio/songs';
 import type { MusicPlayer } from '../audio/music';
-import { chapterFinishCutscenes, chapterStartCutscenes, cutsceneDialogKey, loadCutscene, type CutsceneHost, type CutscenePlayer, type CutsceneStep } from './cutscene';
+import {
+  chapterFinishCutscenes,
+  chapterStartCutscenes,
+  cutsceneDialogKey,
+  loadCutscene,
+  type CutsceneHost,
+  type CutscenePlayer,
+  type CutsceneStep,
+} from './cutscene';
 import { SCENE_HEIGHT, SCENE_WIDTH, type FetchResources } from './townScene';
 
 /** Book chapter file of a TTM dialogue type 2 key: `C` and the key as two digits. */
@@ -17,7 +25,10 @@ export const bookFile = (key: number): string => `C${String(key % 100).padStart(
  * Music changes of one cutscene: sound indexes of 255 and up name a song (1000 + song). The song playing before the
  * first change is brought back by `restore` when the cutscene ends (silence if none was playing).
  */
-export function cutsceneMusic(music: Pick<MusicPlayer, 'play' | 'stop' | 'songId'> | undefined): { change(index: number): void; restore(): void } {
+export function cutsceneMusic(music: Pick<MusicPlayer, 'play' | 'stop' | 'songId'> | undefined): {
+  change(index: number): void;
+  restore(): void;
+} {
   let before: number | null | undefined;
   return {
     change(index) {
@@ -73,7 +84,11 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
       const files = new Map<number, DialogFile>();
       for (let n = 0; n < DIALOG_FILE_COUNT; n++) {
         const bytes = read(dialogFileName(n));
-        try { if (bytes) files.set(n, parseDDX(bytes)); } catch { /* skip an unreadable file */ }
+        try {
+          if (bytes) files.set(n, parseDDX(bytes));
+        } catch {
+          /* skip an unreadable file */
+        }
       }
       return new DialogStore(files);
     });
@@ -86,12 +101,22 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
     let view: CutsceneScreenView | undefined;
     let player: CutscenePlayer | undefined;
     /** A book or dialogue took the screen: put the cutscene back when it ends. */
-    const reopen = () => { if (view && player && !player.finished) host.hud.open('cutscene', view); };
-    const resume = (done: () => void) => () => { reopen(); done(); };
+    const reopen = () => {
+      if (view && player && !player.finished) host.hud.open('cutscene', view);
+    };
+    const resume = (done: () => void) => () => {
+      reopen();
+      done();
+    };
     const music = cutsceneMusic(host.music);
     const hooks: CutsceneHost = {
       text: (n) => store?.byKey(cutsceneDialogKey(n))?.snippet.text,
-      sound: host.sound ?? ((i) => { if (i < 255) playSfx(i); else music.change(i); }),
+      sound:
+        host.sound ??
+        ((i) => {
+          if (i < 255) playSfx(i);
+          else music.change(i);
+        }),
       book: host.playBook && ((key, done) => void host.playBook!(bookFile(key)).then(resume(done))),
       dialog: host.dialog && ((key, done) => void host.dialog!(cutsceneDialogKey(key)).then(resume(done))),
     };
@@ -129,7 +154,9 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
           if (!pl.image) return undefined;
           if (shown !== pl.image) {
             shown = pl.image;
-            canvas.getContext('2d')!.putImageData(new ImageData(pl.image as Uint8ClampedArray<ArrayBuffer>, SCENE_WIDTH, SCENE_HEIGHT), 0, 0);
+            canvas
+              .getContext('2d')!
+              .putImageData(new ImageData(pl.image as Uint8ClampedArray<ArrayBuffer>, SCENE_WIDTH, SCENE_HEIGHT), 0, 0);
           }
           return canvas;
         },
@@ -164,4 +191,3 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
   }
   return api;
 }
-

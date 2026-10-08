@@ -5,7 +5,16 @@ import type { ZoneData } from '../src/world/zone';
 
 const img = (w: number, h: number) => ({ width: w, height: h, pixels: new Uint8Array(w * h).fill(1) });
 const model = (sprite?: { index: number; scale: number }) => ({
-  name: 'tree', flags: 0, entityType: 0, terrainType: 0, scale: 0, radius: 128, vertices: [], faces: [], frames: 1, sprite,
+  name: 'tree',
+  flags: 0,
+  entityType: 0,
+  terrainType: 0,
+  scale: 0,
+  radius: 128,
+  vertices: [],
+  faces: [],
+  frames: 1,
+  sprite,
 });
 
 describe('instanced billboards', () => {

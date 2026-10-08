@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Reader } from '../src/formats/reader';
-import {
-  Compression,
-  decompress,
-  decompressLZSS,
-  decompressLZW,
-  decompressRLE,
-} from '../src/formats/compression';
+import { Compression, decompress, decompressLZSS, decompressLZW, decompressRLE } from '../src/formats/compression';
 import { findTag, requireTag } from '../src/formats/tagged';
 import { greyscalePalette, parsePalette } from '../src/formats/palette';
 
@@ -127,9 +121,7 @@ describe('Reader (src/formats/reader.ts)', () => {
     expect(rI16.atEnd()).toBe(true);
 
     // i32 LE: -1 (0xffffffff), -2147483648 (0x80000000), 42 (0x0000002a)
-    const rI32 = new Reader(
-      new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x80, 0x2a, 0x00, 0x00, 0x00]),
-    );
+    const rI32 = new Reader(new Uint8Array([0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x80, 0x2a, 0x00, 0x00, 0x00]));
     expect(rI32.i32()).toBe(-1);
     expect(rI32.i32()).toBe(-2147483648);
     expect(rI32.i32()).toBe(42);
@@ -285,11 +277,7 @@ describe('Compression (src/formats/compression.ts)', () => {
       // Then clear bit (0) -> back-reference:
       // offset = 0 (LE: 0x00, 0x00), length byte = 0 (copies 0 + 5 = 5 bytes)
       // Flag byte: bits 0..4 set (1), bit 5 clear (0) -> 0b00011111 = 0x1f
-      const src = new Uint8Array([
-        0x1f,
-        10, 20, 30, 40, 50,
-        0x00, 0x00, 0x00,
-      ]);
+      const src = new Uint8Array([0x1f, 10, 20, 30, 40, 50, 0x00, 0x00, 0x00]);
       const res = decompressLZSS(src, 10);
       expect(Array.from(res)).toEqual([10, 20, 30, 40, 50, 10, 20, 30, 40, 50]);
     });
@@ -308,11 +296,7 @@ describe('Compression (src/formats/compression.ts)', () => {
       // Followed by back-reference from offset 0, length byte = 4 (copies 4 + 5 = 9 bytes) (bit 3 = 0)
       // Replicates [1, 2, 3] 3 times -> 12 bytes total
       // Flag byte: 0b00000111 = 0x07
-      const src = new Uint8Array([
-        0x07,
-        1, 2, 3,
-        0x00, 0x00, 0x04,
-      ]);
+      const src = new Uint8Array([0x07, 1, 2, 3, 0x00, 0x00, 0x04]);
       const res = decompressLZSS(src, 12);
       expect(Array.from(res)).toEqual([1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]);
     });
@@ -320,10 +304,7 @@ describe('Compression (src/formats/compression.ts)', () => {
     it('decompresses across multiple flag bytes (> 8 items)', () => {
       // Flag 1: 0xFF (8 literals [1..8])
       // Flag 2: 0x01 (1 literal [9])
-      const src = new Uint8Array([
-        0xff, 1, 2, 3, 4, 5, 6, 7, 8,
-        0x01, 9,
-      ]);
+      const src = new Uint8Array([0xff, 1, 2, 3, 4, 5, 6, 7, 8, 0x01, 9]);
       const res = decompressLZSS(src, 9);
       expect(Array.from(res)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     });
@@ -355,7 +336,7 @@ describe('Compression (src/formats/compression.ts)', () => {
       // Repetitive pattern
       const pattern = new Uint8Array(120);
       for (let i = 0; i < pattern.length; i++) {
-        pattern[i] = (i % 3 === 0 ? 65 : i % 3 === 1 ? 66 : 67); // "ABCABC..."
+        pattern[i] = i % 3 === 0 ? 65 : i % 3 === 1 ? 66 : 67; // "ABCABC..."
       }
       const { encoded } = encodeLZW(pattern);
       const decoded = decompressLZW(encoded, pattern.length);
@@ -444,14 +425,16 @@ describe('Tagged chunks (src/formats/tagged.ts)', () => {
     const payload = new Uint8Array([0xaa, 0xbb, 0xcc, 0xdd]);
     const suffix = new Uint8Array([0x99, 0x88]);
 
-    const buffer = new Uint8Array(
-      prefix.length + tag.length + sizeBytes.length + payload.length + suffix.length,
-    );
+    const buffer = new Uint8Array(prefix.length + tag.length + sizeBytes.length + payload.length + suffix.length);
     let offset = 0;
-    buffer.set(prefix, offset); offset += prefix.length;
-    buffer.set(tag, offset); offset += tag.length;
-    buffer.set(sizeBytes, offset); offset += sizeBytes.length;
-    buffer.set(payload, offset); offset += payload.length;
+    buffer.set(prefix, offset);
+    offset += prefix.length;
+    buffer.set(tag, offset);
+    offset += tag.length;
+    buffer.set(sizeBytes, offset);
+    offset += sizeBytes.length;
+    buffer.set(payload, offset);
+    offset += payload.length;
     buffer.set(suffix, offset);
 
     const found = findTag(buffer, 'TEST');
@@ -473,9 +456,16 @@ describe('Tagged chunks (src/formats/tagged.ts)', () => {
   it('requireTag returns payload when tag exists and throws when missing', () => {
     // Valid tagged chunk: "DATA" with size 2, payload [7, 8]
     const valid = new Uint8Array([
-      0x44, 0x41, 0x54, 0x41, // "DATA"
-      0x02, 0x00, 0x00, 0x00, // size 2
-      0x07, 0x08,             // payload
+      0x44,
+      0x41,
+      0x54,
+      0x41, // "DATA"
+      0x02,
+      0x00,
+      0x00,
+      0x00, // size 2
+      0x07,
+      0x08, // payload
     ]);
     const payload = requireTag(valid, 'DATA');
     expect(Array.from(payload)).toEqual([0x07, 0x08]);
@@ -501,9 +491,15 @@ describe('Palette (src/formats/palette.ts)', () => {
     // Triple 2 (index 2): R=0, G=32, B=63
     // Expected RGBA: [0, 130, 255, 255] (alpha 255 for index 2)
     const triples = [
-      63, 0, 32, // index 0
-      32, 63, 0, // index 1
-      0, 32, 63, // index 2
+      63,
+      0,
+      32, // index 0
+      32,
+      63,
+      0, // index 1
+      0,
+      32,
+      63, // index 2
     ];
 
     const vgaPayload = new Uint8Array(triples);
@@ -522,18 +518,18 @@ describe('Palette (src/formats/palette.ts)', () => {
 
     // Index 0: 63 -> 255, 0 -> 0, 32 -> 130, alpha = 0
     expect(pal[0]).toBe(255); // R
-    expect(pal[1]).toBe(0);   // G
+    expect(pal[1]).toBe(0); // G
     expect(pal[2]).toBe(130); // B
-    expect(pal[3]).toBe(0);   // Alpha 0 for index 0
+    expect(pal[3]).toBe(0); // Alpha 0 for index 0
 
     // Index 1: 32 -> 130, 63 -> 255, 0 -> 0, alpha = 255
     expect(pal[4]).toBe(130); // R
     expect(pal[5]).toBe(255); // G
-    expect(pal[6]).toBe(0);   // B
+    expect(pal[6]).toBe(0); // B
     expect(pal[7]).toBe(255); // Alpha 255 for non-zero index
 
     // Index 2: 0 -> 0, 32 -> 130, 63 -> 255, alpha = 255
-    expect(pal[8]).toBe(0);   // R
+    expect(pal[8]).toBe(0); // R
     expect(pal[9]).toBe(130); // G
     expect(pal[10]).toBe(255); // B
     expect(pal[11]).toBe(255); // Alpha 255 for non-zero index

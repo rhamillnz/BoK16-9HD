@@ -32,7 +32,10 @@ export interface TurnCombatant {
 
 export function newCombatant(id: string, side: Side, speed: number, health = 1): TurnCombatant {
   return {
-    id, side, speed, health,
+    id,
+    side,
+    speed,
+    health,
     turnPending: true,
     dead: false,
     poisoned: false,

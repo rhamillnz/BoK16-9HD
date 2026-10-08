@@ -2,8 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
 import { experienceGain, practiceCharacter, practiceSkill, selectedSkillPool } from './practice';
 
-const skill = (max: number, trueSkill: number, o: Partial<Skill> = {}): Skill =>
-  ({ max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false, ...o });
+const skill = (max: number, trueSkill: number, o: Partial<Skill> = {}): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 0,
+  modifier: 0,
+  selected: false,
+  unseenImprovement: false,
+  ...o,
+});
 
 function character(over: Partial<Record<string, Skill>> = {}): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, over[n] ?? skill(0, 0)]));
@@ -30,7 +38,12 @@ describe('practice', () => {
     expect(practiceSkill(c, 'melee', 'direct', 1000).skills.melee.trueSkill).toBe(100);
   });
   it('updates a party member by index', () => {
-    const p = { gold: 0, characters: [character({ haggling: skill(50, 50) })], activeCharacters: [1], partyKeys: { items: [], capacity: 0 } } as never;
+    const p = {
+      gold: 0,
+      characters: [character({ haggling: skill(50, 50) })],
+      activeCharacters: [1],
+      partyKeys: { items: [], capacity: 0 },
+    } as never;
     const next = practiceCharacter(p, 1, 'haggling', 'direct', 256) as { characters: Character[] };
     expect(next.characters[0]!.skills.haggling.trueSkill).toBe(51);
   });

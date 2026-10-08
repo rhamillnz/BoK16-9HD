@@ -38,7 +38,11 @@ export function zoneMapFromTiles(tiles: readonly (readonly [number, number])[]):
 }
 
 /** The zone's map from ZxxMAP.DAT, or built from the zone's tile list when the file is missing. */
-export function loadZoneMap(archive: ResourceArchive, zone: number, tiles: readonly (readonly [number, number])[]): ZoneMap {
+export function loadZoneMap(
+  archive: ResourceArchive,
+  zone: number,
+  tiles: readonly (readonly [number, number])[],
+): ZoneMap {
   const name = `${zonePrefix(zone)}MAP.DAT`;
   return archive.has(name) ? parseZoneMap(archive.get(name)) : zoneMapFromTiles(tiles);
 }

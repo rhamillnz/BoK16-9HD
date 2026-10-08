@@ -25,9 +25,15 @@ table.models.forEach((m, i) => {
   seen.add(m.name);
   const used = [...new Set(m.faces.flatMap((f) => f.indices))].sort((x, y) => x - y);
   const remap = new Map(used.map((v, k) => [v, k + 1]));
-  const lines = [`# ${m.name} (zone ${zone}, model ${i}); 1 unit = 100 BaK units`, `mtllib ${m.name}.mtl`, `o ${m.name}`];
+  const lines = [
+    `# ${m.name} (zone ${zone}, model ${i}); 1 unit = 100 BaK units`,
+    `mtllib ${m.name}.mtl`,
+    `o ${m.name}`,
+  ];
   for (const v of used) {
-    const x = m.vertices[v * 3]!, y = m.vertices[v * 3 + 1]!, z = m.vertices[v * 3 + 2]!;
+    const x = m.vertices[v * 3]!,
+      y = m.vertices[v * 3 + 1]!,
+      z = m.vertices[v * 3 + 2]!;
     lines.push(`v ${(x / S).toFixed(4)} ${(z / S).toFixed(4)} ${(-y / S).toFixed(4)}`);
   }
   const mats = new Set<number>();
@@ -42,7 +48,9 @@ table.models.forEach((m, i) => {
     lines.push(`f ${f.indices.map((v) => remap.get(v)).join(' ')}`);
   }
   const mtl = [...mats].map((c) => {
-    const r = palette[c * 4]! / 255, g = palette[c * 4 + 1]! / 255, b = palette[c * 4 + 2]! / 255;
+    const r = palette[c * 4]! / 255,
+      g = palette[c * 4 + 1]! / 255,
+      b = palette[c * 4 + 2]! / 255;
     return `newmtl c${c}\nKd ${r.toFixed(4)} ${g.toFixed(4)} ${b.toFixed(4)}\nKa 0 0 0\nKs 0 0 0\nd 1\n`;
   });
   writeFileSync(path.join(outDir, `${m.name}.obj`), lines.join('\n') + '\n');

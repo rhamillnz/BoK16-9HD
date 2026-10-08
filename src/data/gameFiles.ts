@@ -36,10 +36,18 @@ export interface FileStore {
 
 export class MemoryStore implements FileStore {
   private readonly files = new Map<string, Blob>();
-  async get(name: string) { return this.files.get(normaliseName(name)); }
-  async put(name: string, blob: Blob) { this.files.set(normaliseName(name), blob); }
-  async has(name: string) { return this.files.has(normaliseName(name)); }
-  async clear() { this.files.clear(); }
+  async get(name: string) {
+    return this.files.get(normaliseName(name));
+  }
+  async put(name: string, blob: Blob) {
+    this.files.set(normaliseName(name), blob);
+  }
+  async has(name: string) {
+    return this.files.has(normaliseName(name));
+  }
+  async clear() {
+    this.files.clear();
+  }
 }
 
 /** OPFS keeps one flat file per game file; "/" is encoded so music files stay top-level. */
@@ -65,7 +73,9 @@ export class OpfsStore implements FileStore {
     }
   }
 
-  async has(name: string) { return (await this.get(name)) !== undefined; }
+  async has(name: string) {
+    return (await this.get(name)) !== undefined;
+  }
 
   async put(name: string, blob: Blob) {
     const handle = await this.dir.getFileHandle(encodeKey(name), { create: true });
@@ -111,7 +121,10 @@ export async function hasGameData(store: FileStore): Promise<boolean> {
 }
 
 /** Make `fetch('/bak/...')` read from the store; every other request goes to the real fetch. */
-export function installBakFetch(store: FileStore, realFetch: typeof fetch = globalThis.fetch.bind(globalThis)): typeof fetch {
+export function installBakFetch(
+  store: FileStore,
+  realFetch: typeof fetch = globalThis.fetch.bind(globalThis),
+): typeof fetch {
   return async (input, init) => {
     const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const path = raw.startsWith('/') ? raw : new URL(raw).pathname;

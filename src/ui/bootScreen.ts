@@ -6,7 +6,10 @@
 
 /** Startup failed because the original game files could not be fetched. */
 export class GameDataError extends Error {
-  constructor(readonly file: string, readonly status?: number) {
+  constructor(
+    readonly file: string,
+    readonly status?: number,
+  ) {
     super(`Game data not found: ${file}${status ? ` (HTTP ${status})` : ''}`);
     this.name = 'GameDataError';
   }
@@ -43,7 +46,8 @@ export function describeStartupError(err: unknown, caps: Capabilities = { webgpu
   if (err instanceof GameDataError || /game data not found/i.test(detail)) {
     return {
       title: 'Game data not found',
-      message: 'This remake needs the files from your own copy of Betrayal at Krondor, and the game could not read them.',
+      message:
+        'This remake needs the files from your own copy of Betrayal at Krondor, and the game could not read them.',
       hint: 'Point BAK_DIR at your install folder (the one with KRONDOR.RMF, KRONDOR.001 and STARTUP.GAM) and restart the dev server. See the README.',
       detail,
     };
@@ -58,10 +62,15 @@ export function describeStartupError(err: unknown, caps: Capabilities = { webgpu
       detail,
     };
   }
-  if (err instanceof RangeError || err instanceof TypeError || /unsupported|corrupt|invalid|unexpected|out of range|bounds/i.test(detail)) {
+  if (
+    err instanceof RangeError ||
+    err instanceof TypeError ||
+    /unsupported|corrupt|invalid|unexpected|out of range|bounds/i.test(detail)
+  ) {
     return {
       title: 'Game data looks wrong',
-      message: 'The game files were found but could not be understood. They may be damaged, incomplete or from a different edition.',
+      message:
+        'The game files were found but could not be understood. They may be damaged, incomplete or from a different edition.',
       hint: 'Check that the folder holds an unmodified install of the original DOS game (the CD or GOG version) and try again.',
       detail,
     };
@@ -92,7 +101,8 @@ export interface BootScreen {
   backend(backend: 'WebGPU' | 'WebGL2'): void;
 }
 
-const STYLE = 'position:fixed;inset:0;display:grid;place-items:center;background:#0d0a06;color:#f3e6c4;font:18px/1.5 system-ui,sans-serif;z-index:100;text-align:center;';
+const STYLE =
+  'position:fixed;inset:0;display:grid;place-items:center;background:#0d0a06;color:#f3e6c4;font:18px/1.5 system-ui,sans-serif;z-index:100;text-align:center;';
 
 export function installBootScreen(parent: HTMLElement = document.body): BootScreen {
   const overlay = Object.assign(document.createElement('div'), { id: 'boot-screen' });
@@ -100,7 +110,8 @@ export function installBootScreen(parent: HTMLElement = document.body): BootScre
   overlay.style.cssText = STYLE;
   const label = document.createElement('div');
   const bar = document.createElement('div');
-  bar.style.cssText = 'width:320px;height:8px;margin:14px auto 0;border:1px solid #c9a24a;border-radius:4px;overflow:hidden;';
+  bar.style.cssText =
+    'width:320px;height:8px;margin:14px auto 0;border:1px solid #c9a24a;border-radius:4px;overflow:hidden;';
   const fill = document.createElement('div');
   fill.style.cssText = 'height:100%;width:0;background:#c9a24a;transition:width 0.2s;';
   bar.append(fill);
@@ -132,7 +143,8 @@ export function installBootScreen(parent: HTMLElement = document.body): BootScre
       overlay.style.display = 'grid';
       overlay.replaceChildren();
       const card = document.createElement('div');
-      card.style.cssText = 'max-width:560px;padding:28px 34px;border:2px solid #c9a24a;border-radius:6px;background:#1b140b;';
+      card.style.cssText =
+        'max-width:560px;padding:28px 34px;border:2px solid #c9a24a;border-radius:6px;background:#1b140b;';
       const h = Object.assign(document.createElement('h1'), { textContent: e.title });
       h.style.cssText = 'margin:0 0 10px;font-size:28px;color:#e8c868;';
       const m = Object.assign(document.createElement('p'), { textContent: e.message });

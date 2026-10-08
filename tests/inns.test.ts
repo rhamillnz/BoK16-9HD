@@ -5,37 +5,74 @@ import { HotspotAction, type Hotspot } from '../src/formats/gds';
 import { ScriptedState, scriptedState } from '../src/game/dialogState';
 import { createInnHost, innCostRoyals, INN_DIALOG_KEY, sleepAtInn } from '../src/game/inn';
 import type { PartyState } from '../src/game/party';
-import { ITEM_RATIONS, applyTimeReport, canHeal, healthPool, hourlyEffects, improveNearDeath, rationCount, rest } from '../src/game/rest';
+import {
+  ITEM_RATIONS,
+  applyTimeReport,
+  canHeal,
+  healthPool,
+  hourlyEffects,
+  improveNearDeath,
+  rationCount,
+  rest,
+} from '../src/game/rest';
 import { QUERY_NO, QUERY_YES } from '../src/game/encounterRunner';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, setFlag, type WorldState } from '../src/game/state';
 import { TownController, type DialogEnd, type TownHooks } from '../src/game/townController';
 
 // ---- synthetic fixtures ----------------------------------------------------
 
-const skill = (max: number, trueSkill: number): Skill => ({ max, trueSkill, current: 0, experience: 0, modifier: 0, selected: false, unseenImprovement: false });
+const skill = (max: number, trueSkill: number): Skill => ({
+  max,
+  trueSkill,
+  current: 0,
+  experience: 0,
+  modifier: 0,
+  selected: false,
+  unseenImprovement: false,
+});
 
 function character(index: number, health = [40, 10], stamina = [30, 5]): Character {
   const skills = Object.fromEntries(SKILL_NAMES.map((n) => [n, skill(0, 0)])) as Character['skills'];
   skills.health = skill(health[0]!, health[1]!);
   skills.stamina = skill(stamina[0]!, stamina[1]!);
   return {
-    index, name: `C${index}`, unknownHeader: new Uint8Array(2), spellBytes: new Uint8Array(6), spells: [], skills,
-    combatCharIndex: 0, unknownTrailer: new Uint8Array(6),
+    index,
+    name: `C${index}`,
+    unknownHeader: new Uint8Array(2),
+    spellBytes: new Uint8Array(6),
+    spells: [],
+    skills,
+    combatCharIndex: 0,
+    unknownTrailer: new Uint8Array(6),
     conditions: { sick: 0, plagued: 0, poisoned: 0, drunk: 0, healing: 0, starving: 0, nearDeath: 0 },
-    affectors: [], inventory: { capacity: 8, items: [] },
+    affectors: [],
+    inventory: { capacity: 8, items: [] },
   };
 }
 
 const party = (gold = 1000): PartyState => ({
-  gold, characters: [character(0), character(1)], activeCharacters: [0, 1], partyKeys: { capacity: 4, items: [] },
+  gold,
+  characters: [character(0), character(1)],
+  activeCharacters: [0, 1],
+  partyKeys: { capacity: 4, items: [] },
 });
 
 const world = (hour = 20): WorldState => ({
-  chapter: 1, ticks: hour * TICKS_PER_HOUR, ticksLastSlept: 0, bytes: new Uint8Array(0x4000), expiringEvents: [],
+  chapter: 1,
+  ticks: hour * TICKS_PER_HOUR,
+  ticksLastSlept: 0,
+  bytes: new Uint8Array(0x4000),
+  expiringEvents: [],
 });
 
 /** One container record in the save layout; shop stats only when given. */
-function containerBytes(o: { number: number; letterIndex: number; capacity?: number; flags?: number; shop?: number[] }): number[] {
+function containerBytes(o: {
+  number: number;
+  letterIndex: number;
+  capacity?: number;
+  flags?: number;
+  shop?: number[];
+}): number[] {
   const capacity = o.capacity ?? 2;
   const flags = o.flags ?? (o.shop ? 0x04 : 0);
   const out = [0, 0, 0, 0, o.number, 0, 0, 0, o.letterIndex, 0, 0, 0, 0, 0, capacity, flags];
@@ -91,12 +128,34 @@ describe('rest maths', () => {
     expect(healthPool(hourlyEffects(poisoned, 0, 0))).toBe(15 - 3);
     const dying = { ...character(0), conditions: { ...character(0).conditions, nearDeath: 100 } };
     expect(healthPool(hourlyEffects(dying, 0x85, 0x64))).toBe(15); // ceiling is 1, pool is already above it
-    expect(improveNearDeath({ ...character(0), conditions: { ...character(0).conditions, nearDeath: 100 } }).conditions.nearDeath).toBe(99);
+    expect(
+      improveNearDeath({ ...character(0), conditions: { ...character(0).conditions, nearDeath: 100 } }).conditions
+        .nearDeath,
+    ).toBe(99);
   });
 
   it('eats a ration a day, or starves', () => {
     const fed = party();
-    fed.characters[0] = { ...fed.characters[0]!, inventory: { capacity: 8, items: [{ itemIndex: ITEM_RATIONS, conditionOrQuantity: 2, status: 0, modifiers: 0, activated: false, used: false, broken: false, repairable: false, equipped: false, poisoned: false }] } };
+    fed.characters[0] = {
+      ...fed.characters[0]!,
+      inventory: {
+        capacity: 8,
+        items: [
+          {
+            itemIndex: ITEM_RATIONS,
+            conditionOrQuantity: 2,
+            status: 0,
+            modifiers: 0,
+            activated: false,
+            used: false,
+            broken: false,
+            repairable: false,
+            equipped: false,
+            poisoned: false,
+          },
+        ],
+      },
+    };
     const report = { consumeRations: true } as Parameters<typeof applyTimeReport>[1];
     const rule = (i: number) => (i === ITEM_RATIONS ? { stackSize: 10, defaultStackSize: 1, isKey: false } : undefined);
     const next = applyTimeReport(fed, report, rule);
@@ -158,17 +217,40 @@ describe('inn', () => {
     const notes: string[] = [];
     const answers = [...opts.answers];
     const inn = createInnHost({
-      stats: (ref) => (ref.number === 2 && ref.letter === 'C' ? parseShopContainers(saveWith([containerBytes({ number: 2, letterIndex: 3, shop: innShop(8, 3) })]), SHOPS_OFFSET, 1)[0]!.stats : undefined),
+      stats: (ref) =>
+        ref.number === 2 && ref.letter === 'C'
+          ? parseShopContainers(
+              saveWith([containerBytes({ number: 2, letterIndex: 3, shop: innShop(8, 3) })]),
+              SHOPS_OFFSET,
+              1,
+            )[0]!.stats
+          : undefined,
       chapter: () => 1,
-      world: () => w, setWorld: (x) => { w = x; },
-      party: () => p, setParty: (x) => { p = x; },
+      world: () => w,
+      setWorld: (x) => {
+        w = x;
+      },
+      party: () => p,
+      setParty: (x) => {
+        p = x;
+      },
       playDialog: (key, done) => {
         calls.push({ key, context: scriptedState.context, value: scriptedState.itemValue });
         done(answers.shift() ?? { cancelled: true, endState: undefined });
       },
       notify: (m) => notes.push(m),
     });
-    return { inn, calls, notes, get world() { return w; }, get party() { return p; } };
+    return {
+      inn,
+      calls,
+      notes,
+      get world() {
+        return w;
+      },
+      get party() {
+        return p;
+      },
+    };
   }
 
   it('does nothing when the offer is refused or has no inn stats', () => {
@@ -216,16 +298,46 @@ describe('scripted dialogue state', () => {
 
 describe('TownController inn action', () => {
   const inn: Hotspot = {
-    index: 0, x: 0, y: 0, width: 10, height: 10, chapterMask: 0, keyword: 1, action: HotspotAction.Inn, unknownD: 0,
-    arg1: 0, arg2: 0, arg3: 0x10000, tooltip: 0, unknown1a: 0, dialog: 0, checkEventState: 0,
+    index: 0,
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 10,
+    chapterMask: 0,
+    keyword: 1,
+    action: HotspotAction.Inn,
+    unknownD: 0,
+    arg1: 0,
+    arg2: 0,
+    arg3: 0x10000,
+    tooltip: 0,
+    unknown1a: 0,
+    dialog: 0,
+    checkEventState: 0,
   };
   const scene = {
     ref: { number: 2, letter: 'C' },
-    gds: { resource: 'T', ttm: '', ads: '', templeIndex: 0, song: 0, sceneIndex1: 0, sceneIndex2: 0, flavourText: 0, hotspots: [inn] },
+    gds: {
+      resource: 'T',
+      ttm: '',
+      ads: '',
+      templeIndex: 0,
+      song: 0,
+      sceneIndex1: 0,
+      sceneIndex2: 0,
+      flavourText: 0,
+      hotspots: [inn],
+    },
     image: { width: 1, height: 1, rgba: new Uint8ClampedArray(4) },
   };
   const hooks = (extra: Partial<TownHooks>): TownHooks => ({
-    load: async () => scene, show: () => {}, hide: () => {}, playDialog: () => {}, activeHotspots: (s) => s.gds.hotspots, left: () => {}, ...extra,
+    load: async () => scene,
+    show: () => {},
+    hide: () => {},
+    playDialog: () => {},
+    activeHotspots: (s) => s.gds.hotspots,
+    left: () => {},
+    ...extra,
   });
 
   it('hands the scene to the inn hook', async () => {

@@ -20,7 +20,9 @@ const read = <T>(fn: (api: E2eApi) => T): Promise<T> => page.evaluate(`(${fn.toS
 const walk = async (key: string, distance: number) => {
   const from = await read((a) => a.pose);
   await page.keyboard.down(key);
-  await page.waitForFunction(`Math.hypot(window.__e2e.pose.x - ${from.x}, window.__e2e.pose.y - ${from.y}) >= ${distance}`);
+  await page.waitForFunction(
+    `Math.hypot(window.__e2e.pose.x - ${from.x}, window.__e2e.pose.y - ${from.y}) >= ${distance}`,
+  );
   await page.keyboard.up(key);
   await settle();
 };
@@ -88,7 +90,12 @@ describe('smoke', () => {
   });
 
   it('opens and closes the main HUD screens', async () => {
-    for (const [key, screen] of [['KeyI', 'inventory'], ['KeyC', 'sheet'], ['Tab', 'map'], ['F6', 'saves']] as const) {
+    for (const [key, screen] of [
+      ['KeyI', 'inventory'],
+      ['KeyC', 'sheet'],
+      ['Tab', 'map'],
+      ['F6', 'saves'],
+    ] as const) {
       await page.keyboard.press(key);
       await screenIs(screen);
       // Movement is blocked while a screen is open.

@@ -14,7 +14,13 @@ import { parsePalette } from '../formats/palette';
 import { parseGam } from '../formats/gam';
 import { parseObjInfo } from '../formats/objinfo';
 import { loadItemIcons } from '../data/itemIcons';
-import { EncounterDriver, dialogFileName, encounterResourceNames, loadEncounterRunner, prefetchResources } from './encounterDriver';
+import {
+  EncounterDriver,
+  dialogFileName,
+  encounterResourceNames,
+  loadEncounterRunner,
+  prefetchResources,
+} from './encounterDriver';
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
@@ -29,7 +35,13 @@ import { loadCombatSupport } from './combatController';
 import { EncounterType } from '../formats/encounters';
 import { partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
-import { entryPointForZone, parseTeleports, planTransition, type Destination, type ZoneTransition } from './transitions';
+import {
+  entryPointForZone,
+  parseTeleports,
+  planTransition,
+  type Destination,
+  type ZoneTransition,
+} from './transitions';
 import { QUERY_YES, runDialogSession, type DialogSession, type ShowDialog } from './encounterRunner';
 import { HotspotAction, gdsLetter, type TownEntry } from '../formats/gds';
 import { createTownHost, townExit } from './townHost';
@@ -89,12 +101,18 @@ const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
 // ?chapter=N loads that chapter's start up front, so the party spawns at the real start position and no
 // teleport races the scene load; the chapter transition (flags, items, start script) runs once the game is wired.
 const debugChapter = Math.min(LAST_CHAPTER, Math.max(1, Math.trunc(num('chapter', 1)) || 1));
-const chapterStart = { ...loadChapterStart(archive, debugChapter), timeElapsed: loadChapterStart(archive, 1).timeElapsed };
+const chapterStart = {
+  ...loadChapterStart(archive, debugChapter),
+  timeElapsed: loadChapterStart(archive, 1).timeElapsed,
+};
 const startZone = num('zone', chapterStart.zone);
 boot.loading('Building the world…', 0.5);
 const zoneHost = await ZoneHost.create(scene, archive, startZone);
 const [firstTileX, firstTileY] = zoneHost.current.data.tiles[0] ?? [0, 0];
-const entry = startZone === chapterStart.zone || !archive.has('TELEPORT.DAT') ? undefined : entryPointForZone(startZone, parseTeleports(archive.get('TELEPORT.DAT')));
+const entry =
+  startZone === chapterStart.zone || !archive.has('TELEPORT.DAT')
+    ? undefined
+    : entryPointForZone(startZone, parseTeleports(archive.get('TELEPORT.DAT')));
 const start =
   startZone === chapterStart.zone
     ? chapterStart
@@ -123,7 +141,14 @@ const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
 let flyMode = false;
 // Rebindable keys, gamepad, mouse-look, field of view and UI scale (Options in the main menu).
-const partyKeys = installInput({ party, camera, canvas: renderer.domElement, blocking: () => screens.blocking, combatActive: () => combat.active, flyMode: () => flyMode });
+const partyKeys = installInput({
+  party,
+  camera,
+  canvas: renderer.domElement,
+  blocking: () => screens.blocking,
+  combatActive: () => combat.active,
+  flyMode: () => flyMode,
+});
 party.applyToCamera(camera);
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'KeyF' || e.repeat) return;
@@ -146,7 +171,11 @@ const screens = mountHud(document.body, {
   portraits: portraitCanvases(parseBMX(archive.get('HEADS.BMX')), parsePalette(archive.get('OPTIONS.PAL'))),
 });
 
-screens.setMap(loadZoneMap(archive, start.zone, zoneHost.current.data.tiles), start.zone, overheadPolygons(zoneHost.current.data)); // Tab: map screen + compass
+screens.setMap(
+  loadZoneMap(archive, start.zone, zoneHost.current.data.tiles),
+  start.zone,
+  overheadPolygons(zoneHost.current.data),
+); // Tab: map screen + compass
 
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
 const music = createBrowserMusicPlayer({ volume: 0.7 });
@@ -168,20 +197,33 @@ let teleports: Destination[] = [];
 let travelling = false;
 
 const showView: ShowDialog = (view, done) =>
-  screens.showDialog(view.snippet, view.options.map((o) => o.label), (r) => r.kind !== 'none' && done(r));
+  screens.showDialog(
+    view.snippet,
+    view.options.map((o) => o.label),
+    (r) => r.kind !== 'none' && done(r),
+  );
 
 // A finished dialogue (from the world or a town scene): apply its effects and move the party if it asks.
 const applyDialog = (session: DialogSession, transition: ZoneTransition | undefined, cancelled: boolean) => {
   const out = resolveDialogOutcome({
-    session, transition, cancelled, teleports, items: objectItems,
-    party: partyState, world: encounters.runner.world,
+    session,
+    transition,
+    cancelled,
+    teleports,
+    items: objectItems,
+    party: partyState,
+    world: encounters.runner.world,
   });
   partyState = out.party;
   clock.state = out.world;
   encounters.runner.setWorld(out.world);
   screens.setParty(partyState);
   if (out.ticksElapsed > 0) sky.update(clock.minutes);
-  if (out.unhandled.length) console.log('dialogue actions with no effect yet:', out.unhandled.map((a) => a.name ?? a.type));
+  if (out.unhandled.length)
+    console.log(
+      'dialogue actions with no effect yet:',
+      out.unhandled.map((a) => a.name ?? a.type),
+    );
   if (out.warnings.length) console.warn(out.warnings);
   if (out.destination) {
     town.dismiss();
@@ -192,9 +234,17 @@ const applyDialog = (session: DialogSession, transition: ZoneTransition | undefi
 
 // Shops: buy, sell and haggle at shop hotspots of town scenes.
 const shops = createShops({
-  items: objectItems, scrollValues: parseObjInfo(archive.get('OBJINFO.DAT')).scrollValues, saveBytes: save.bytes, hud: screens,
-  getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); },
-  getWorld: () => clock.state, zone: () => zoneHost.current.zone,
+  items: objectItems,
+  scrollValues: parseObjInfo(archive.get('OBJINFO.DAT')).scrollValues,
+  saveBytes: save.bytes,
+  hud: screens,
+  getParty: () => partyState,
+  setParty: (p) => {
+    partyState = p;
+    screens.setParty(p);
+  },
+  getWorld: () => clock.state,
+  zone: () => zoneHost.current.zone,
   playDialog: (key, done) => town.playDialog(key, done),
 });
 
@@ -204,9 +254,16 @@ const inns = createInnHost({
   stats: (ref) => findShop(gdsContainers, ref)?.stats,
   chapter: () => start.chapter,
   world: () => clock.state,
-  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); sky.update(clock.minutes); },
+  setWorld: (w) => {
+    clock.state = w;
+    encounters.runner.setWorld(w);
+    sky.update(clock.minutes);
+  },
   party: () => partyState,
-  setParty: (p) => { partyState = p; screens.setParty(p); },
+  setParty: (p) => {
+    partyState = p;
+    screens.setParty(p);
+  },
   playDialog: (key, done) => town.playDialog(key, done),
   itemRule: (i) => ruleFor(objectItems, i),
   notify: createNotice(),
@@ -217,7 +274,9 @@ const town = createTownHost({
   shop: (ref) => shops.open(ref),
   fetch: (names) => prefetchResources(archive, names),
   hud: screens,
-  get chapter() { return start.chapter; },
+  get chapter() {
+    return start.chapter;
+  },
   world: () => clock.state,
   playDialog: (key, done) => {
     encounters.runner.setWorld(clock.state);
@@ -246,15 +305,30 @@ const spellDefs = archive.has('SPELLS.DAT') ? parseSpells(archive.get('SPELLS.DA
 
 // Combat encounters: a fight on the combat grid, then wounds applied and the encounter marked done (or a retreat).
 const combat = new CombatEncounters({
-  scene, camera, canvas: renderer.domElement, getHeight: zoneHost.getHeight,
+  scene,
+  camera,
+  canvas: renderer.domElement,
+  getHeight: zoneHost.getHeight,
   support: await loadCombatSupport(archive, save.bytes),
   items: objectItems,
   spells: spellDefs,
   position: () => ({ x: party.x, y: party.y, heading: party.heading8 }),
-  placeParty: (x, y, h) => { party.setPosition(x, y, h); prevX = x; prevY = y; encounters.runner.enterAt(x, y); },
+  placeParty: (x, y, h) => {
+    party.setPosition(x, y, h);
+    prevX = x;
+    prevY = y;
+    encounters.runner.enterAt(x, y);
+  },
   getParty: () => partyState,
-  setParty: (p) => { partyState = p; screens.setParty(p); },
-  markDone: (e) => { encounters.runner.setWorld(clock.state); encounters.runner.complete(e); clock.state = encounters.runner.world; },
+  setParty: (p) => {
+    partyState = p;
+    screens.setParty(p);
+  },
+  markDone: (e) => {
+    encounters.runner.setWorld(clock.state);
+    encounters.runner.complete(e);
+    clock.state = encounters.runner.world;
+  },
 });
 
 const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [number, number])[], world: WorldState) => {
@@ -262,7 +336,20 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
   const table = read('TELEPORT.DAT');
   teleports = table ? parseTeleports(table) : [];
   return new EncounterDriver(
-    loadEncounterRunner({ read, zone: zoneNumber, tiles, chapter: start.chapter, world, env: makeDialogEnv({ getParty: () => partyState, zone: zoneNumber, chapter: start.chapter, extras: shops.textExtras, castSpell: (n) => justCast(n, clock.state.ticks) }) }),
+    loadEncounterRunner({
+      read,
+      zone: zoneNumber,
+      tiles,
+      chapter: start.chapter,
+      world,
+      env: makeDialogEnv({
+        getParty: () => partyState,
+        zone: zoneNumber,
+        chapter: start.chapter,
+        extras: shops.textExtras,
+        castSpell: (n) => justCast(n, clock.state.ticks),
+      }),
+    }),
     showView,
     {
       other: (e) => {
@@ -312,7 +399,16 @@ let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, c
 
 // Save and load: F5 quick-save, F9 quick-load, F6 slot screen.
 await installSaveControls({
-  capture: () => ({ savedAt: Date.now(), zone: zoneHost.current.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState, shops: shops.snapshot() }),
+  capture: () => ({
+    savedAt: Date.now(),
+    zone: zoneHost.current.zone,
+    x: party.x,
+    y: party.y,
+    heading: party.heading,
+    world: clock.state,
+    party: partyState,
+    shops: shops.snapshot(),
+  }),
   restore: async (d) => {
     shops.restore(d.shops);
     clock.state = d.world;
@@ -322,79 +418,159 @@ await installSaveControls({
     await travelTo({ zone: d.zone, tileX: 0, tileY: 0, x: d.x, y: d.y, heading: d.heading });
   },
   canQuickSave: () => !screens.blocking && !encounters.busy && !travelling,
-  setSaveHandler: (h) => { screens.saveHandler = h; },
+  setSaveHandler: (h) => {
+    screens.saveHandler = h;
+  },
 });
 
 // Camping: R rests with healing, rations and time passing.
 installCamp({
   items: objectItems,
   getParty: () => partyState,
-  setParty: (p) => { partyState = p; screens.setParty(p); },
+  setParty: (p) => {
+    partyState = p;
+    screens.setParty(p);
+  },
   getWorld: () => clock.state,
-  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  setWorld: (w) => {
+    clock.state = w;
+    encounters.runner.setWorld(w);
+  },
   canCamp: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
-  menu: (text, choices) => new Promise((resolve) => screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
+  menu: (text, choices) =>
+    new Promise((resolve) =>
+      screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1)),
+    ),
   onTimePassed: () => sky.update(clock.minutes),
 });
-installItemControls({ items: objectItems, spells: spellDefs, getParty: () => partyState, setParty: (p) => { partyState = p; screens.setParty(p); }, setItemHandler: (h) => { screens.itemHandler = h; } });
+installItemControls({
+  items: objectItems,
+  spells: spellDefs,
+  getParty: () => partyState,
+  setParty: (p) => {
+    partyState = p;
+    screens.setParty(p);
+  },
+  setItemHandler: (h) => {
+    screens.itemHandler = h;
+  },
+});
 
 // Spells: V casts healing and light spells outside combat (combat casting lives in the fight panel, C).
 const cast = installCast({
   spells: spellDefs,
   getParty: () => partyState,
-  setParty: (p) => { partyState = p; screens.setParty(p); },
+  setParty: (p) => {
+    partyState = p;
+    screens.setParty(p);
+  },
   getTicks: () => clock.state.ticks,
   canCast: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
-  menu: (text, choices) => new Promise((resolve) => screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1))),
+  menu: (text, choices) =>
+    new Promise((resolve) =>
+      screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1)),
+    ),
 });
 
 // Temples: cure, bless and teleport at temple hotspots.
 installTempleControls({
-  town: town.controller, screens, items: objectItems, saveBytes: save.bytes,
+  town: town.controller,
+  screens,
+  items: objectItems,
+  saveBytes: save.bytes,
   getParty: () => partyState,
-  setParty: (p) => { partyState = p; screens.setParty(p); },
+  setParty: (p) => {
+    partyState = p;
+    screens.setParty(p);
+  },
   getWorld: () => clock.state,
-  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  setWorld: (w) => {
+    clock.state = w;
+    encounters.runner.setWorld(w);
+  },
   playDialog: (key, done) => town.playDialog(key, done),
   teleportLayout: archive.has('REQ_TELE.DAT') ? archive.get('REQ_TELE.DAT') : undefined,
-  travel: (i) => { const d = teleports[i]; if (d) void travelTo(d); },
+  travel: (i) => {
+    const d = teleports[i];
+    if (d) void travelTo(d);
+  },
 });
 
 // Chests and containers: E opens the one the party stands next to (locks, riddles, traps, take and put).
 const containerStore = await installContainers({
-  archive, items: objectItems, get chapter() { return start.chapter; }, saveBytes: save.bytes, hud: screens,
+  archive,
+  items: objectItems,
+  get chapter() {
+    return start.chapter;
+  },
+  saveBytes: save.bytes,
+  hud: screens,
   zone: () => zoneHost.current.zone,
   position: () => ({ x: party.x, y: party.y }),
   getParty: () => partyState,
-  setParty: (p) => { partyState = p; screens.setParty(p); },
+  setParty: (p) => {
+    partyState = p;
+    screens.setParty(p);
+  },
   getWorld: () => clock.state,
-  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
+  setWorld: (w) => {
+    clock.state = w;
+    encounters.runner.setWorld(w);
+  },
   canInteract: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
   modelName: (model) => zoneHost.current.data.table.names[model],
-  playDialog: (key) => new Promise<void>((done) => {
-    encounters.runner.setWorld(clock.state);
-    const session = encounters.runner.startDialog(key);
-    runDialogSession(session, showView, (cancelled) => { encounters.runner.finish(session); applyDialog(session, undefined, cancelled); done(); });
-  }),
+  playDialog: (key) =>
+    new Promise<void>((done) => {
+      encounters.runner.setWorld(clock.state);
+      const session = encounters.runner.startDialog(key);
+      runDialogSession(session, showView, (cancelled) => {
+        encounters.runner.finish(session);
+        applyDialog(session, undefined, cancelled);
+        done();
+      });
+    }),
 });
 
 // Cutscenes: ADS/TTM animations full screen (?cutscene=CHAPTER1.ADS,CHAPTER1.TTM plays one at start).
-const cutscenes = installCutscenes({ fetch: (names) => prefetchResources(archive, names), hud: screens, chapter: () => start.chapter, music, ...installBookPlayer({ fetch: (names) => prefetchResources(archive, names), hud: screens }) });
+const cutscenes = installCutscenes({
+  fetch: (names) => prefetchResources(archive, names),
+  hud: screens,
+  chapter: () => start.chapter,
+  music,
+  ...installBookPlayer({ fetch: (names) => prefetchResources(archive, names), hud: screens }),
+});
 
 // Chapter transitions: a dialogue or chapter-end hotspot ends the chapter (cutscenes, reset, start script, new start).
 const chapters = installChapters({
-  items: objectItems, containers: containerStore,
+  items: objectItems,
+  containers: containerStore,
   getParty: () => partyState,
-  setParty: (p) => { partyState = p; screens.setParty(p); },
+  setParty: (p) => {
+    partyState = p;
+    screens.setParty(p);
+  },
   getWorld: () => clock.state,
-  setWorld: (w) => { clock.state = w; encounters.runner.setWorld(w); },
-  playCutscenes: async (from, to) => { await cutscenes.playChapterFinish(from); await cutscenes.playChapterStart(to); },
+  setWorld: (w) => {
+    clock.state = w;
+    encounters.runner.setWorld(w);
+  },
+  playCutscenes: async (from, to) => {
+    await cutscenes.playChapterFinish(from);
+    await cutscenes.playChapterStart(to);
+  },
   loadStart: (n) => loadChapterStart(archive, n),
-  loadStore: async () => loadDialogStore(await prefetchResources(archive, Array.from({ length: 32 }, (_, n) => dialogFileName(n)))),
-  showText: (key) => new Promise<void>((done) => {
-    const session = encounters.runner.startDialog(key);
-    runDialogSession(session, showView, () => done());
-  }),
+  loadStore: async () =>
+    loadDialogStore(
+      await prefetchResources(
+        archive,
+        Array.from({ length: 32 }, (_, n) => dialogFileName(n)),
+      ),
+    ),
+  showText: (key) =>
+    new Promise<void>((done) => {
+      const session = encounters.runner.startDialog(key);
+      runDialogSession(session, showView, () => done());
+    }),
   arrive: async (c, teleport) => {
     town.dismiss();
     while (travelling) await new Promise((r) => setTimeout(r, 16)); // travelTo ignores calls while one runs
@@ -407,17 +583,37 @@ const chapters = installChapters({
 });
 town.controller.handle(HotspotAction.ChapterEnd, ({ done }) => void chapters.begin().finally(done));
 if (debugChapter > 1) {
-  await new Promise<void>((placed) => void chapters.begin(debugChapter, { cutscenes: false, arriveFirst: true, onArrived: placed }).then((ok) => ok || placed()));
+  await new Promise<void>(
+    (placed) =>
+      void chapters
+        .begin(debugChapter, { cutscenes: false, arriveFirst: true, onArrived: placed })
+        .then((ok) => ok || placed()),
+  );
 }
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
-const post = createPost(renderer, scene, camera, parseQuality(new URLSearchParams(location.search).get('post'), 'medium'));
+const post = createPost(
+  renderer,
+  scene,
+  camera,
+  parseQuality(new URLSearchParams(location.search).get('post'), 'medium'),
+);
 const toast = Object.assign(document.createElement('div'), { id: 'toast' });
 Object.assign(toast.style, {
-  position: 'absolute', top: '12%', left: '50%', transform: 'translateX(-50%)', padding: '10px 22px',
-  background: 'rgba(20,16,10,0.75)', border: '2px solid #c9a24a', color: '#f3e6c4', font: '600 22px system-ui, sans-serif',
-  borderRadius: '6px', pointerEvents: 'none', transition: 'opacity 0.4s', opacity: '0',
+  position: 'absolute',
+  top: '12%',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  padding: '10px 22px',
+  background: 'rgba(20,16,10,0.75)',
+  border: '2px solid #c9a24a',
+  color: '#f3e6c4',
+  font: '600 22px system-ui, sans-serif',
+  borderRadius: '6px',
+  pointerEvents: 'none',
+  transition: 'opacity 0.4s',
+  opacity: '0',
 });
 document.body.append(toast);
 let toastTimer = 0;
@@ -426,7 +622,11 @@ const applyGraphics = (announce: boolean) => {
   sky.setShadows(q !== 'low');
   zoneHost.current.grass.setQuality(q);
   if (!announce) return;
-  const detail = { low: 'no post-processing, no shadows, sparse grass', medium: 'bloom + colour grade, shadows, normal grass', high: 'adds ambient occlusion, dense grass' }[q];
+  const detail = {
+    low: 'no post-processing, no shadows, sparse grass',
+    medium: 'bloom + colour grade, shadows, normal grass',
+    high: 'adds ambient occlusion, dense grass',
+  }[q];
   toast.textContent = `Graphics: ${q.toUpperCase()} - ${detail}`;
   toast.style.opacity = '1';
   clearTimeout(toastTimer);
@@ -441,7 +641,13 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Main menu: shown at start and on Escape (new game, continue, load, options).
-installMainMenu({ screens, music, post, applyGraphics, canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode });
+installMainMenu({
+  screens,
+  music,
+  post,
+  applyGraphics,
+  canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode,
+});
 
 let last = performance.now();
 let frames = 0;
@@ -487,5 +693,8 @@ renderer.setAnimationLoop(() => {
     fpsTime = 0;
   }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneHost.current.info}\n${backend}  post ${post.quality} (P)  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position.toArray().map((v) => v.toFixed(1)).join(', ')}`;
+  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneHost.current.info}\n${backend}  post ${post.quality} (P)  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position
+    .toArray()
+    .map((v) => v.toFixed(1))
+    .join(', ')}`;
 });

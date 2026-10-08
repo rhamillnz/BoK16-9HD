@@ -49,7 +49,15 @@ mapBytes[0] = 1; // tile (0, 0) is on the map
 screens.setMap(parseZoneMap(mapBytes), zone.zone);
 
 await installSaveControls({
-  capture: () => ({ savedAt: Date.now(), zone: zone.zone, x: party.x, y: party.y, heading: party.heading, world: clock.state, party: partyState }),
+  capture: () => ({
+    savedAt: Date.now(),
+    zone: zone.zone,
+    x: party.x,
+    y: party.y,
+    heading: party.heading,
+    world: clock.state,
+    party: partyState,
+  }),
   restore: async (d) => {
     clock.state = d.world;
     partyState = d.party;
@@ -57,7 +65,9 @@ await installSaveControls({
     party.setPosition(d.x, d.y, d.heading);
   },
   canQuickSave: () => !screens.blocking,
-  setSaveHandler: (h) => { screens.saveHandler = h; },
+  setSaveHandler: (h) => {
+    screens.saveHandler = h;
+  },
 });
 
 let bookSpreads = 0;
@@ -80,41 +90,93 @@ renderer.setAnimationLoop(() => {
 const api = {
   backend,
   stats: zoneScene.stats,
-  get frames() { return frames; },
-  get pose() { return { x: party.x, y: party.y, heading: party.heading }; },
-  get screen() { return screens.screen; },
-  get gold() { return partyState.gold; },
-  get ticks() { return clock.state.ticks; },
+  get frames() {
+    return frames;
+  },
+  get pose() {
+    return { x: party.x, y: party.y, heading: party.heading };
+  },
+  get screen() {
+    return screens.screen;
+  },
+  get gold() {
+    return partyState.gold;
+  },
+  get ticks() {
+    return clock.state.ticks;
+  },
   /** Change something that is part of the save so a load visibly undoes it. */
-  setGold(gold: number) { partyState = { ...partyState, gold }; },
+  setGold(gold: number) {
+    partyState = { ...partyState, gold };
+  },
   /** True once the quick-save slot holds a save. */
-  async quickSaved() { return (await screens.saveHandler!.list()).some((s) => s.slot === 'quick' && !!s.summary); },
+  async quickSaved() {
+    return (await screens.saveHandler!.list()).some((s) => s.slot === 'quick' && !!s.summary);
+  },
   start: START,
   /** Time of day and the light spell, as the game's clock and spell effects drive them. */
-  setMinutes(m: number) { sky.update(m); },
-  setMagicLight(on: boolean) { sky.setMagicLight(on); },
+  setMinutes(m: number) {
+    sky.update(m);
+  },
+  setMagicLight(on: boolean) {
+    sky.setMagicLight(on);
+  },
   /** Point lights in the scene: how many are visible, and the strongest intensity. */
   get lights() {
     let visible = 0;
     let intensity = 0;
     scene.traverse((o) => {
-      if (o instanceof THREE.PointLight && o.visible) { visible++; intensity = Math.max(intensity, o.intensity); }
+      if (o instanceof THREE.PointLight && o.visible) {
+        visible++;
+        intensity = Math.max(intensity, o.intensity);
+      }
     });
     return { visible, intensity };
   },
   /** Open the cutscene book viewer on a two-page synthetic book; `bookDone` counts finished readings. */
   openBook() {
     const page = (text: string) => ({
-      x: 0, y: 0, width: 160, height: 32, displayNumber: 1, pageNumber: 1, previousPage: 0, nextPage: 0, showPageNumber: 0,
-      reservedAreas: [], images: [],
-      paragraphs: [{ x: 0, y: 0, width: 100, lineSpacing: 0, wordSpacing: 0, startIndent: 0, alignment: 'left' as const, segments: [{ font: 1, yOffset: 0, color: 0, style: 1, text }] }],
+      x: 0,
+      y: 0,
+      width: 160,
+      height: 32,
+      displayNumber: 1,
+      pageNumber: 1,
+      previousPage: 0,
+      nextPage: 0,
+      showPageNumber: 0,
+      reservedAreas: [],
+      images: [],
+      paragraphs: [
+        {
+          x: 0,
+          y: 0,
+          width: 100,
+          lineSpacing: 0,
+          wordSpacing: 0,
+          startIndent: 0,
+          alignment: 'left' as const,
+          segments: [{ font: 1, yOffset: 0, color: 0, style: 1, text }],
+        },
+      ],
     });
     const book: Book = { pages: [page('AAAA BBBB'), page('CCCC DDDD')] };
     bookSpreads = layoutBook(book, syntheticFont()).length;
-    screens.open('book', { book, images: [], done: () => { bookDone++; screens.end('book'); } });
+    screens.open('book', {
+      book,
+      images: [],
+      done: () => {
+        bookDone++;
+        screens.end('book');
+      },
+    });
   },
-  get bookSpreads() { return bookSpreads; },
-  get bookDone() { return bookDone; },
+  get bookSpreads() {
+    return bookSpreads;
+  },
+  get bookDone() {
+    return bookDone;
+  },
 };
 (window as unknown as { __e2e: typeof api }).__e2e = api;
 export type E2eApi = typeof api;

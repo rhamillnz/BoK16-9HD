@@ -59,12 +59,20 @@ export function formatRoyals(royals: number): string {
 }
 
 const CONDITION_LABELS: Record<(typeof CONDITION_NAMES)[number], string> = {
-  sick: 'Sick', plagued: 'Plagued', poisoned: 'Poisoned', drunk: 'Drunk', healing: 'Healing', starving: 'Starving', nearDeath: 'Near death',
+  sick: 'Sick',
+  plagued: 'Plagued',
+  poisoned: 'Poisoned',
+  drunk: 'Drunk',
+  healing: 'Healing',
+  starving: 'Starving',
+  nearDeath: 'Near death',
 };
 
 /** "Sick 20, Poisoned 5" for a character's ailments (Healing is a blessing, not an ailment). */
 export function ailments(c: Character): string {
-  const list = CONDITION_NAMES.filter((n) => n !== 'healing' && c.conditions[n] > 0).map((n) => `${CONDITION_LABELS[n]} ${c.conditions[n]}`);
+  const list = CONDITION_NAMES.filter((n) => n !== 'healing' && c.conditions[n] > 0).map(
+    (n) => `${CONDITION_LABELS[n]} ${c.conditions[n]}`,
+  );
   return list.length ? list.join(', ') : 'No ailments';
 }
 
@@ -119,7 +127,8 @@ export function installTemples(town: TownController, d: TempleDeps): void {
   function startCure(temple: number, shop: ShopStats, back: () => void): void {
     const first = cureQuotes(d.getParty(), shop.haggleDifficulty, temple).find((q) => q.cost > 0);
     if (!first) {
-      const key = temple === TEMPLE_OF_SUNG ? TEMPLE_DIALOG.healCantHealNotSick : TEMPLE_DIALOG.healCantHealNotSickEnough;
+      const key =
+        temple === TEMPLE_OF_SUNG ? TEMPLE_DIALOG.healCantHealNotSick : TEMPLE_DIALOG.healCantHealNotSickEnough;
       return d.playDialog(key, back);
     }
     cureMenu(temple, shop, first.character.index, '', back);
@@ -138,7 +147,9 @@ export function installTemples(town: TownController, d: TempleDeps): void {
     const needy = quotes.filter((x) => x.cost > 0);
     const lines = [c.name, ailments(c)];
     if (temple === TEMPLE_OF_SUNG) {
-      lines.push(`Health and stamina ${effectiveSkill(c, 'health') + effectiveSkill(c, 'stamina')} of ${effectiveSkill(c, 'health', 'max') + effectiveSkill(c, 'stamina', 'max')}`);
+      lines.push(
+        `Health and stamina ${effectiveSkill(c, 'health') + effectiveSkill(c, 'stamina')} of ${effectiveSkill(c, 'health', 'max') + effectiveSkill(c, 'stamina', 'max')}`,
+      );
     }
     lines.push(`Cost: ${formatRoyals(q.cost)}   You have: ${formatRoyals(party.gold)}`);
     d.menu.show(
@@ -193,13 +204,23 @@ export function installTemples(town: TownController, d: TempleDeps): void {
         const def = d.items[item.itemIndex];
         if (!def || !canBless(def)) return;
         const price = blessPrice(def, shop);
-        rows.push({ id: `${c.index}:${slot}`, label: `${c.name}: ${def.name}${isBlessed(item) ? ' (blessed)' : ''}`, detail: formatRoyals(price), enabled: price <= party.gold });
+        rows.push({
+          id: `${c.index}:${slot}`,
+          label: `${c.name}: ${def.name}${isBlessed(item) ? ' (blessed)' : ''}`,
+          detail: formatRoyals(price),
+          enabled: price <= party.gold,
+        });
       });
     }
     d.menu.show(
       {
         title: 'Blessings',
-        lines: [rows.length ? 'Choose a weapon or armour to bless. A new blessing replaces an old one.' : 'Nothing you carry can be blessed.', `You have: ${formatRoyals(party.gold)}`],
+        lines: [
+          rows.length
+            ? 'Choose a weapon or armour to bless. A new blessing replaces an old one.'
+            : 'Nothing you carry can be blessed.',
+          `You have: ${formatRoyals(party.gold)}`,
+        ],
         rows,
         message,
         buttons: [{ id: 'done', label: 'Done' }],
@@ -211,7 +232,12 @@ export function installTemples(town: TownController, d: TempleDeps): void {
         }
         const [who, slot] = id.split(':').map(Number) as [number, number];
         const r = applyBlessing(d.getParty(), who, slot, d.items, shop);
-        if (!r.ok) return blessMenu(shop, r.reason === 'cannotAfford' ? 'You cannot afford that.' : 'That cannot be blessed.', back);
+        if (!r.ok)
+          return blessMenu(
+            shop,
+            r.reason === 'cannotAfford' ? 'You cannot afford that.' : 'That cannot be blessed.',
+            back,
+          );
         d.setParty(r.party);
         playSfx(Snd.bless);
         blessMenu(shop, `Blessed for ${formatRoyals(r.cost)}.`, back);
@@ -226,7 +252,8 @@ export function installTemples(town: TownController, d: TempleDeps): void {
   // ---- Teleport: choose another temple you have seen -----------------------------------------------------
 
   function runTeleport(ctx: ActionContext, temple: number, shop: ShopStats | undefined): void {
-    if (teleportBlocked(d.getWorld(), temple)) return d.playDialog(TEMPLE_DIALOG.teleportBlockedSource, () => ctx.done());
+    if (teleportBlocked(d.getWorld(), temple))
+      return d.playDialog(TEMPLE_DIALOG.teleportBlockedSource, () => ctx.done());
     d.playDialog(TEMPLE_DIALOG.teleportIntro, (end) => {
       if (end.cancelled) return ctx.done();
       if (!shop || !d.teleportLayout || !canTeleportAnywhere(d.getWorld())) {
@@ -248,7 +275,12 @@ export function installTemples(town: TownController, d: TempleDeps): void {
       if (t === source || !here || !there) continue;
       const cost = teleportCost(here, there, shop.haggleAnnoyance, shop.categories);
       const closed = teleportBlocked(world, t);
-      rows.push({ id: String(t), label: label(t), detail: closed ? 'closed' : formatRoyals(cost), enabled: !closed && cost <= party.gold });
+      rows.push({
+        id: String(t),
+        label: label(t),
+        detail: closed ? 'closed' : formatRoyals(cost),
+        enabled: !closed && cost <= party.gold,
+      });
     }
     const leave = () => {
       d.menu.close();

@@ -6,7 +6,12 @@ const palette = new Uint8Array(256 * 4);
 palette.set([10, 20, 30, 255], 5 * 4);
 
 const square: Model = {
-  name: 'm_rm1_ug', flags: 0, entityType: 0, terrainType: 0, scale: 0, radius: 0,
+  name: 'm_rm1_ug',
+  flags: 0,
+  entityType: 0,
+  terrainType: 0,
+  scale: 0,
+  radius: 0,
   vertices: [0, 0, 0, 100, 0, 0, 100, 100, 0, 0, 100, 0],
   faces: [{ material: 0, color: 5, indices: [0, 1, 2, 3] }],
 } as unknown as Model;
@@ -20,7 +25,12 @@ describe('overheadPolygons', () => {
   });
 
   it('places and rotates flattened faces in world units with palette colour', () => {
-    const polys = overheadPolygons({ zone: 10, items: [item(1000, 2000), item(0, 0, 16384)], overheadTable: table, palette })!;
+    const polys = overheadPolygons({
+      zone: 10,
+      items: [item(1000, 2000), item(0, 0, 16384)],
+      overheadTable: table,
+      palette,
+    })!;
     expect(polys).toHaveLength(2);
     expect(polys[0]!.fill).toBe('rgb(10,20,30)');
     const moved = polys.find((p) => p.points[0] === 1000)!;
@@ -32,7 +42,12 @@ describe('overheadPolygons', () => {
   });
 
   it('draws higher items last and lists the tiles touched', () => {
-    const polys = overheadPolygons({ zone: 11, items: [item(0, 0, 0, 500), item(0, 0, 0, 0)], overheadTable: table, palette })!;
+    const polys = overheadPolygons({
+      zone: 11,
+      items: [item(0, 0, 0, 500), item(0, 0, 0, 0)],
+      overheadTable: table,
+      palette,
+    })!;
     expect(polys.map((p) => p.z)).toEqual([0, 500]);
     expect(overheadTiles(polys, 64000)).toEqual([[0, 0]]);
   });
