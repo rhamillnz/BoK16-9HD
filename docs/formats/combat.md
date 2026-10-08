@@ -1,6 +1,6 @@
 # Combat
 
-Notes on how combat works, for `src/combat/grid.ts` and `src/combat/turns.ts`. Derived from reading BaKGL (`game/combat/*`, `bak/combat/*`, `bak/coordinates.cpp`, `bak/constants.hpp`) to understand the rules; our code is written independently. Nothing here has been checked against the real game yet. Where BaKGL leaves something as a TODO or guess, it is marked **unverified**.
+Notes on how combat works, for `src/combat/grid.ts` and `src/combat/turns.ts`. Derived from reading BaKGL (`game/combat/*`, `bak/combat/*`, `bak/coordinates.cpp`, `bak/constants.hpp`) to understand the rules; our code is written independently. Nothing here has been checked against the real game yet. The rules audit against BaKGL is in [combat-audit.md](combat-audit.md); where it disagrees with the second-pass notes below, the audit is current (experience, wear and spell affordability changed). Where BaKGL leaves something as a TODO or guess, it is marked **unverified**.
 
 ## Grid
 
@@ -43,7 +43,7 @@ A living occupant makes its cell unreachable; a corpse does not. Disabled cells 
 - Any living enemy cell is attackable, however far. Clicking one moves the attacker to the best neighbour first. BaKGL applies **no speed limit to that approach** (the path is queued whole); whether the original does is **unverified**, so `planAttack` takes an optional `maxSteps`.
 - Best attack cell: the current cell if already orthogonally adjacent; otherwise the free orthogonal neighbour of the target with the shortest path (ties: north, south, east, west).
 - **Slash** (right click) is only allowed if no move is needed, and costs 1 stamina, so it needs more than 1 left. **Thrust** (left click) can follow a move. Ranged attacks, crossbows and spells are not part of the grid code in BaKGL; **unverified**.
-- To-hit (`CalculateMeleeResult`): roll 0-99 (+20 if the defender is defending); score = attacker Melee + weapon accuracy adjusted by race (`0` or `-1`/`-2` between race pairs), weapon condition and blessing, minus defender parry (Defense / 4, +blessing from armour, 0 if the defender cannot act), clamped to 2-98. Hit when roll < score. Not implemented here.
+- To-hit (`CalculateMeleeResult`): roll 0-99 (+20 if the defender is defending); score = attacker Melee + weapon accuracy adjusted by race (`0` or `-1`/`-2` between race pairs), weapon condition and blessing, minus defender parry (Defense / 4, +blessing from armour, 0 if the defender cannot act), clamped to 2-98. Hit when roll < score. Implemented in `src/combat/rules.ts`; see [combat-audit.md](combat-audit.md) for what matches BaKGL and what does not.
 
 ## Turns
 
@@ -105,9 +105,9 @@ How `src/game/combatEncounter.ts` turns a combat encounter into a fight. Everyth
 
 - **Crossbow** (`shoot` in battle.ts, formulas in rules.ts): a party member with an equipped, unbroken Crossbow item can shoot (key F or the Shoot toggle, then click an enemy). It needs no move and no ammunition (BaK crossbows use none; bowstrings are repair items), reaches `RANGED_RANGE` = 8 cells (Chebyshev distance, no line of sight) and uses the turn. Hit score = Crossbow skill + weapon thrust accuracy (by condition) - 3 per cell beyond the first - the target's parry, clamped to 2..98; the same 0-99 roll (+20 against a defender) is used. Damage = the larger of the item's two strengths scaled by condition (Strength does not add), then the usual armour reduction. Monsters with a Crossbow skill of 30 or more get a stand-in bolt of strength 8, since monster inventories are not parsed.
 - **History**: `BattleState.history` keeps every event of the fight; rewards and wear are computed from it (`src/combat/rewards.ts`).
-- **Experience** (win only): every hit landed gives 2 experience in Melee or Crossbow, every hit taken gives 1 in Defense, and each kill gives its victim's maximum Health / 5 (at least 1) to Melee or, for a mostly-shooting killer, Crossbow. This only adds to each skill's `experience` field; turning experience into skill levels is backlog item 8.
+- **Experience**: superseded by BaKGL's attack-by-attack practice (any outcome), see combat-audit.md. Still ours: 2 Crossbow experience per shot landed and 2 Casting experience per cast (win only).
 - **Loot** (win only): each slain enemy drops 0 to a quarter of its maximum Health in royals, added to the purse. Real drops come from the monsters' combat inventories, which are not parsed.
-- **Wear** (any outcome): each hit a character lands rolls the weapon's `dullChance` percent to lose 1 to `maxDullAmount` condition (a weapon at 0 is broken); every second hit a character takes costs their armour 1 condition.
+- **Wear** (any outcome): follows BaKGL's `UseCombatItemAndDull` (thrust half, slash and armour full), see combat-audit.md.
 
 ### Camera and grid
 

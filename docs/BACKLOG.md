@@ -49,7 +49,7 @@ Backlog 4 (from Opus real-data review of integration at 7e8a3b6, 2026-10-07):
 Backlog 5 (from Opus, 2026-10-08; start after open PRs and Backlog 4):
 - [x] 1 Standalone build without the dev server: on first run ask for the BaK folder with the File System Access API (`showDirectoryPicker`, with drag-and-drop / file-input fallback), cache KRONDOR.RMF/.001, STARTUP.GAM and music in OPFS, loading screen with progress; `npm run build` produces a static site that works from any static host; README section
 - [x] 2 Input: gamepad support (move/turn, menus, combat), key rebinding in Options, optional mouse-look in the party view, field-of-view and UI-scale sliders
-- [ ] 3 Combat and rules audit against BaKGL: hit chance, damage, armour, wounds, spell costs, skill gains; fix discrepancies; table-driven tests
+- [x] 3 Combat and rules audit against BaKGL: hit chance, damage, armour, wounds, spell costs, skill gains; fix discrepancies; table-driven tests (docs/formats/combat-audit.md; fixed wear, melee practice, blessings and enchantment damage, spell affordability; monster resistances and shields left open)
 - [x] 4 Chapter 1 critical-path e2e test with synthetic data: start, first dialogue, a town, a shop purchase, a combat, a chest, a zone transition, save and load (tests/chapter1Journey.test.ts)
 - [x] 5 Loading and error screens: zone-load progress, friendly errors for missing/wrong game data, WebGPU-not-available message noting the WebGL2 fallback
 - [~] 6 Code health: ESLint + Prettier in CI **done by Opus** (`npm run lint`, `npm run format:check`; run `npm run format` before committing). Still open: split src/game/main.ts into feature modules (mostly composition), remove dead code and stale probe scripts
