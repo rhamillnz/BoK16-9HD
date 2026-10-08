@@ -86,3 +86,6 @@
 - Checked in game: zone 1 x=660800 y=918000 h=192, walk W 5 s to the LaMut prompt, Enter: the town picture draws from the HD file (`shots/local/15-hd.png`), 57-58 fps. Original picture still used when a hash has no file.
 - Note for testing: the prompt triggers from y inside 913600-940800 walking east; at y=927000 a new obstacle blocks the walk.
 - The scene art only fills the upper ~half of the 320x200 frame (original layout), so the lower half is black.
+
+## Crystal footprints (fixed)
+- Cause: `build_props.py` fitted the box by assigning a per-axis scaled `matrix_world` to rotated parts, which Blender turns into shear that it then drops. Now all parts are baked and joined first and the fit is applied to the mesh vertices (`data.transform`). Rebuilt `props-last-sprites.json`: every model now exports at exactly its box (cryst1 3.40 x 3.40 x 10.00, etc.). Zone 9: `shots/local/13/cryst-fit.png`, 58 fps. Other prop jobs (outdoor, camp-graves, signs) were not rebuilt: their rotated parts are few and sizes already matched.
