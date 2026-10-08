@@ -15,7 +15,7 @@ import { toRGBA, type IndexedImage } from '../formats/bmx';
 import { Terrain } from '../formats/scx';
 import { EF_2D_OBJECT, type Face, type Model } from '../formats/tbl';
 import { angleToRadians } from '../formats/world';
-import { createTerrainMaterial } from './terrainMaterial';
+import { createGrassGroundMaterial, createTerrainMaterial } from './terrainMaterial';
 import { createHillMaterial } from './hillMaterial';
 import { hillTriangles, isHillModel } from './hillMesh';
 import { detailHill, type DetailedHill } from './hillDetail';
@@ -406,12 +406,16 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
     const src = zone.terrain[strip];
     if (!src) continue;
     const map = imageTexture(tileableTerrain(src, strip + 1), palette, true);
+    // Ground textures are a few pixels across: smooth them instead of showing each texel as a square.
+    map.magFilter = THREE.LinearFilter;
     const material =
       strip === Terrain.Road
         ? createRoadMaterial(map, ROAD_STYLE)
         : strip === Terrain.Path
           ? createRoadMaterial(map, PATH_STYLE)
-          : createTerrainMaterial(map, strip);
+          : strip === Terrain.Ground
+            ? createGrassGroundMaterial(map)
+            : createTerrainMaterial(map, strip);
     addMesh(batch, material, `terrain${strip}`);
   }
   for (const [image, batch] of slotBatches) {
