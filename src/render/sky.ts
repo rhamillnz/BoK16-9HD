@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { skyLight } from './skyUniforms';
 import {
   Fn,
   cameraPosition,
@@ -270,6 +271,11 @@ export function createSky(scene: THREE.Scene): Sky {
       setColor(uSunColor.value, s.sunColor);
       uSunVis.value = s.sunVisibility;
       uMoonVis.value = s.moonVisibility;
+      skyLight.zenith.value.copy(uZenith.value);
+      skyLight.horizon.value.copy(uHorizon.value);
+      skyLight.sunDir.value.copy(uSunDir.value);
+      skyLight.sunColor.value.copy(uSunColor.value);
+      skyLight.sunVis.value = s.sunVisibility;
       uStars.value = s.starAlpha;
 
       sunVis = s.sunVisibility;
