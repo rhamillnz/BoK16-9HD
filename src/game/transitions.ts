@@ -20,6 +20,11 @@ export interface Destination {
   hotspot?: number;
   /** Letter index of the scene within that town (see `gdsLetter`); present with `hotspot`. */
   hotspotChar?: number;
+  /**
+   * A town or temple teleport whose tile and cell are all zero: it names no map position, only the scene to open.
+   * The party stays where it stands (otherwise it would be left at the zone's origin cell, (800, 800)).
+   */
+  positionless?: boolean;
 }
 
 export interface ZoneTransition extends Destination {
@@ -65,7 +70,8 @@ export function parseTeleports(bytes: Uint8Array): Destination[] {
     const hotspot = r.u16() & 0xff;
     const hotspotChar = r.u16() & 0xff;
     const d = destinationAt(zone === SAME_ZONE ? undefined : zone, tileX, tileY, cellX, cellY, heading);
-    out.push(hotspot !== 0 ? { ...d, hotspot, hotspotChar } : d);
+    const positionless = hotspot !== 0 && tileX === 0 && tileY === 0 && cellX === 0 && cellY === 0;
+    out.push(hotspot !== 0 ? { ...d, hotspot, hotspotChar, ...(positionless ? { positionless } : {}) } : d);
   }
   return out;
 }
@@ -101,14 +107,19 @@ export interface TransitionPlan {
   hotspotChar?: number;
 }
 
-export function planTransition(currentZone: number, d: Destination): TransitionPlan {
+export function planTransition(
+  currentZone: number,
+  d: Destination,
+  here?: { x: number; y: number; heading: number },
+): TransitionPlan {
   const zone = d.zone ?? currentZone;
+  const stay = d.positionless && here && zone === currentZone;
   return {
     reload: zone !== currentZone,
     zone,
-    x: d.x,
-    y: d.y,
-    heading: d.heading,
+    x: stay ? here.x : d.x,
+    y: stay ? here.y : d.y,
+    heading: stay ? here.heading : d.heading,
     hotspot: d.hotspot,
     hotspotChar: d.hotspotChar,
   };
