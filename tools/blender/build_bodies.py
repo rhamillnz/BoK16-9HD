@@ -10,12 +10,14 @@ jobs.json entries:
    "extras": ["Male_Ranger_Head_Hood"],          # modular parts added to the outfit
    "base": "Superhero_Male_FullBody", "hair": "Hair_SimpleParted", "eyebrows": "Eyebrows_Regular",
    "action": "Death01", "length": 3.91,          # long axis of the lying figure in render units
-   "mirror": false, "yaw": 0.0, "ratio": 0.2, "preview": "shots/body-dbody2.png"}
+   "mirror": false, "yaw": 0.0, "ratio": 0.2, "tex": 256,
+   "tints": {"Body": {"color": [0.3, 0.16, 0.42], "target": 1.0}},   # per-part recolour, see tint_object
+   "preview": "shots/body-dbody2.png"}
 
 The outfit, base character, hair and the animation library share one 65-bone skeleton, so the action is
 assigned to every imported armature, the meshes are evaluated at the action's last frame (armature modifier applied),
 then laid along X, scaled uniformly so its length matches `length`, centred on the origin with its
-lowest point at z = 0, and exported as a static GLB (no armature). Textures are capped at 512 px.
+lowest point at z = 0, and exported as a static GLB (no armature). Textures are capped at `tex` px (default 256).
 """
 import json
 import math
@@ -62,12 +64,28 @@ def upstream(socket):
     return seen
 
 
+def bypass_vertex_colour(mat):
+    """Some outfit materials multiply the texture by a painted vertex colour (very dark on the rangers):
+    wire the texture straight into Base Color instead."""
+    nt = mat.node_tree
+    bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if bsdf is None:
+        return
+    ups = upstream(bsdf.inputs["Base Color"])
+    if not any(n.type == "VERTEX_COLOR" for n in ups):
+        return
+    tex = next((n for n in ups if n.type == "TEX_IMAGE"), None)
+    if tex is not None:
+        nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+
+
 def simplify_materials():
     """Keep the base-colour network: drop ORM/normal maps (weight, and some have no image data, which breaks
     three.js's GLTFLoader). Metal goes to zero, roughness to a matte 0.85."""
     for mat in bpy.data.materials:
         if not mat.use_nodes:
             continue
+        bypass_vertex_colour(mat)
         nt = mat.node_tree
         bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
         if bsdf is None:
@@ -83,6 +101,63 @@ def simplify_materials():
                 nt.nodes.remove(n)
             elif n.type == "NORMAL_MAP":
                 nt.nodes.remove(n)
+
+
+def tint_object(obj, spec):
+    """Recolour a baked part: keep the base-colour texture's light/dark pattern, replace its colour.
+
+    spec = {"color": [r, g, b], "target": 1.0}: the texture's luminance is rescaled to a median of
+    `target` and multiplied by `color` (linear, 0..1). Each slot gets its own copy of the material and
+    image, so parts sharing one atlas can be tinted differently.
+    """
+    import numpy as np
+    for slot in obj.material_slots:
+        mat = slot.material.copy()
+        slot.material = mat
+        bypass_vertex_colour(mat)
+        bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        tex = next((n for n in upstream(bsdf.inputs["Base Color"]) if n.type == "TEX_IMAGE"), None) if bsdf else None
+        if tex is None or tex.image is None or tex.image.size[0] == 0:
+            continue
+        img = tex.image.copy()
+        if max(img.size) > 1024:
+            img.scale(512, 512)
+        tex.image = img
+        w, h = img.size
+        px = np.empty(w * h * 4, dtype=np.float32)
+        img.pixels.foreach_get(px)
+        px = px.reshape(-1, 4)
+        lum = px[:, 0] * 0.3 + px[:, 1] * 0.55 + px[:, 2] * 0.15
+        mean = min(max(float(np.median(lum[px[:, 3] > 0.5])) if (px[:, 3] > 0.5).any() else float(lum.mean()), 0.02), 1.0)
+        px[:, :3] = np.clip((lum / mean * spec.get("target", 1.0))[:, None] * np.array(spec["color"], dtype=np.float32), 0, 1)
+        img.pixels.foreach_set(px.reshape(-1))
+        img.pack()
+
+
+# Base-character parts hidden under the outfit: decimation would let this skin poke through the clothes.
+COVERED_BONES = ("pelvis", "spine", "clavicle", "upperarm", "thigh", "calf", "foot", "ball")
+
+
+def strip_covered_skin(obj, group_names):
+    """Delete the vertices of a baked base character whose strongest bone is covered by clothing."""
+    import bmesh as bm_mod
+    bm = bm_mod.new()
+    bm.from_mesh(obj.data)
+    layer = bm.verts.layers.deform.active
+    if layer is None:
+        bm.free()
+        return
+    doomed = []
+    for v in bm.verts:
+        weights = v[layer]
+        if not weights:
+            continue
+        top = max(weights.items(), key=lambda kv: kv[1])[0]
+        if group_names[top].startswith(COVERED_BONES):
+            doomed.append(v)
+    bm_mod.ops.delete(bm, geom=doomed, context="VERTS")
+    bm.to_mesh(obj.data)
+    bm.free()
 
 
 def bake_pose(outfit_objs, action, scene):
@@ -106,11 +181,14 @@ def bake_pose(outfit_objs, action, scene):
         new = bpy.data.objects.new(o.name + "_baked", mesh)
         scene.collection.objects.link(new)
         new.matrix_world = ev.matrix_world.copy()
+        if o.name.lower().startswith("superhero"):
+            strip_covered_skin(new, [g.name for g in o.vertex_groups])
         baked.append(new)
     return baked
 
 
 def finish(scene, objs, job):
+    tex_cap = job.get("tex", 256)
     bpy.context.view_layer.update()
     lo, hi = bounds(objs)
     ext = hi - lo
@@ -141,14 +219,18 @@ def finish(scene, objs, job):
     bpy.ops.object.join()
     # Corpses are seen from a distance and there can be a dozen per zone: decimate the joined mesh.
     body = bpy.context.view_layer.objects.active
+    # Static mesh: drop skin weights and the extra UV sets the rig exports carry (they dominate the file size).
+    body.vertex_groups.clear()
+    while len(body.data.uv_layers) > 1:
+        body.data.uv_layers.remove(body.data.uv_layers[-1])
     mod = body.modifiers.new("decimate", "DECIMATE")
     mod.ratio = job.get("ratio", 0.2)
     bpy.ops.object.modifier_apply(modifier=mod.name)
     simplify_materials()
     for img in bpy.data.images:
         w, h = img.size
-        if max(w, h) > 512:
-            s = 512 / max(w, h)
+        if max(w, h) > tex_cap:
+            s = tex_cap / max(w, h)
             img.scale(max(1, int(w * s)), max(1, int(h * s)))
     os.makedirs(os.path.dirname(os.path.abspath(job["out"])), exist_ok=True)
     # Export only the joined body (the rig and widgets are deleted first).
@@ -198,6 +280,10 @@ def main():
         baked = bake_pose(imported, action, scene)
         for o in anim_objs + imported:
             bpy.data.objects.remove(o, do_unlink=True)
+        for o in baked:
+            for key, spec in job.get("tints", {}).items():
+                if key in o.name:
+                    tint_object(o, spec)
         finish(scene, baked, job)
 
 
