@@ -78,3 +78,28 @@ describe('BookScreen', () => {
     expect(new BookScreen(host).open(undefined)).toBe(false);
   });
 });
+
+describe('layoutBook beside pictures', () => {
+  const size = (i: number) => (i === 0 ? { width: 32, height: 32 } : undefined); // 16 x 16 scene pixels
+  const withInitial = (): Book => ({
+    pages: [mkPage({ width: 320, height: 160, images: [{ x: 0, y: 0, image: 0, mirroring: 0 }], paragraphs: [para('aaaa '.repeat(40))] })],
+  });
+
+  it('indents the rows beside a drop cap and leaves the rest alone', () => {
+    const lines = layoutBook(withInitial(), font, size)[0]!.lines;
+    // 16 px picture + 2 px gap spans rows 0 and 1 (rows are 8 apart, 7 high)
+    expect(lines[0]!.indent).toBe(18);
+    expect(lines[1]!.indent).toBe(18);
+    expect(lines[2]!.indent).toBeUndefined();
+  });
+
+  it('keeps every indented line inside the box and the words in order', () => {
+    const spreads = layoutBook(withInitial(), font, size);
+    for (const l of spreads.flatMap((s) => s.lines)) expect(l.text.length * 8 + (l.indent ?? 0)).toBeLessThanOrEqual(160);
+    expect(spreads.flatMap((s) => s.lines.map((l) => l.text)).join(' ').split(/\s+/).filter(Boolean)).toHaveLength(40);
+  });
+
+  it('lays out unchanged without picture sizes', () => {
+    expect(layoutBook(withInitial(), font)[0]!.lines.every((l) => l.indent === undefined)).toBe(true);
+  });
+});

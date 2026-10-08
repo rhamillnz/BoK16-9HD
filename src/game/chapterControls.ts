@@ -43,9 +43,17 @@ export interface ChapterHost {
   onTransitioned?(chapter: number): void;
 }
 
+export interface ChapterBeginOptions {
+  cutscenes?: boolean;
+  /** Place the party before the chapter caption is shown (debug starts), so the position never waits on a dialogue. */
+  arriveFirst?: boolean;
+  /** Called once the party is placed at the chapter start. */
+  onArrived?: () => void;
+}
+
 export interface ChapterControls {
   /** Leave the current chapter for `chapter` (default: the next one). Resolves false when there is none or one is running. */
-  begin(chapter?: number, opts?: { cutscenes?: boolean }): Promise<boolean>;
+  begin(chapter?: number, opts?: ChapterBeginOptions): Promise<boolean>;
   /** Call after a dialogue ends: starts the next chapter if the dialogue asked for it. */
   afterDialog(): Promise<boolean>;
   readonly busy: boolean;
@@ -55,7 +63,7 @@ export interface ChapterControls {
 export function installChapters(host: ChapterHost): ChapterControls {
   let busy = false;
 
-  const begin = async (target?: number, opts: { cutscenes?: boolean } = {}): Promise<boolean> => {
+  const begin = async (target?: number, opts: ChapterBeginOptions = {}): Promise<boolean> => {
     const from = host.getWorld().chapter;
     const chapter = target ?? from + 1;
     if (busy || chapter < 1 || chapter > LAST_CHAPTER) return false;
@@ -71,8 +79,15 @@ export function installChapters(host: ChapterHost): ChapterControls {
       host.setWorld(result.world);
       host.setParty(result.party);
       host.onTransitioned?.(chapter);
-      await host.showText(chapterStartTextKey(chapter));
-      await host.arrive(start, result.teleport);
+      if (opts.arriveFirst) {
+        await host.arrive(start, result.teleport);
+        opts.onArrived?.();
+        await host.showText(chapterStartTextKey(chapter));
+      } else {
+        await host.showText(chapterStartTextKey(chapter));
+        await host.arrive(start, result.teleport);
+        opts.onArrived?.();
+      }
       return true;
     } finally {
       busy = false;

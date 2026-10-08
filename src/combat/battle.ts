@@ -229,9 +229,10 @@ export function castPower(f: Fighter, def: SpellDef): number {
 /**
  * Cast a spell on the fighter at `target` without moving; the cast uses the turn. Damage spells
  * need an enemy in range, healing spells a living ally (or the caster); armour does not reduce
- * spell damage. The cost comes off Stamina, then Health (never below 1).
+ * spell damage. The cost comes off Stamina, then Health (never below 1); `maxSpend` caps the power
+ * (the enemy AI uses it to cast from Stamina only).
  */
-export function castSpell(s: BattleState, spellIndex: number, target: GridPos): BattleState | undefined {
+export function castSpell(s: BattleState, spellIndex: number, target: GridPos, maxSpend = Infinity): BattleState | undefined {
   if (isOver(s)) return undefined;
   const me = currentFighter(s);
   const def = castableSpells(s).find((d) => d.index === spellIndex);
@@ -242,7 +243,8 @@ export function castSpell(s: BattleState, spellIndex: number, target: GridPos): 
   if (!victim || chebyshevDistance(me.pos, victim.pos) > RANGED_RANGE) return undefined;
   if ((kind === 'damage') !== (victim.side !== me.side)) return undefined;
 
-  const power = castPower(me, def);
+  const power = Math.min(castPower(me, def), maxSpend);
+  if (power < def.minCost) return undefined;
   const amount = spellAmount(def, power);
   const fighters = s.fighters.map((f) => ({ ...f }));
   const caster = fighters[s.turn.current]!;

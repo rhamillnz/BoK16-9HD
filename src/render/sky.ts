@@ -74,7 +74,8 @@ export function createSky(scene: THREE.Scene): Sky {
 
   // Underground lantern: a point light that follows the camera, only lit in mine zones.
   const torch = new THREE.PointLight(MINE_LOOK.torchColor, 0, MINE_LOOK.torchDistance, MINE_LOOK.torchDecay);
-  torch.visible = false;
+  // Always visible (intensity 0 when off): toggling visibility changes the light count and recompiles every lit material,
+  // which left a mine zone loaded at start black.
   scene.add(torch);
   let underground = false;
   let magic = false;
@@ -179,7 +180,6 @@ export function createSky(scene: THREE.Scene): Sky {
     if (underground) return;
     const k = magic ? outdoorMagicStrength(sunVis) : 0;
     // Stay visible while the spell lasts (intensity 0 by day): toggling visibility changes the light count and recompiles every lit material.
-    torch.visible = magic;
     torch.intensity = MINE_LOOK.outdoorIntensity * k;
     torch.distance = MINE_LOOK.outdoorDistance;
   };
@@ -201,7 +201,6 @@ export function createSky(scene: THREE.Scene): Sky {
       if (enabled === underground) return;
       underground = enabled;
       dome.visible = !enabled;
-      torch.visible = enabled;
       torch.intensity = enabled ? MINE_LOOK.torchIntensity : 0;
       key.castShadow = shadowsWanted && !enabled;
       if (enabled) {
@@ -219,7 +218,7 @@ export function createSky(scene: THREE.Scene): Sky {
         torch.intensity = MINE_LOOK.torchIntensity * (magic ? MINE_LOOK.magicBoost : 1) * torchFlicker(performance.now() / 1000);
         return;
       }
-      if (torch.visible && sunVis < 1) {
+      if (magic && sunVis < 1) {
         torch.position.set(x, y + 2, z);
         torch.intensity = MINE_LOOK.outdoorIntensity * outdoorMagicStrength(sunVis) * torchFlicker(performance.now() / 1000);
       }

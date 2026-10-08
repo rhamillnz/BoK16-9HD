@@ -2,16 +2,20 @@
  * Enemy turns. BaKGL's combat AI is not part of what we have read, so this is our own stand-in
  * (**unverified**), in priority order:
  *  1. badly hurt (a quarter of Health or less) with a foe next to it: defend;
- *  2. a shooter with no foe next to it: shoot the weakest foe in range;
- *  3. strike the weakest foe it can reach this turn, slashing when it has stamina to spare;
- *  4. shoot if it can; otherwise step toward the nearest foe; otherwise wait.
+ *  2. a caster with Stamina to spend: heal an ally at half Health or less, else cast the strongest
+ *     damage spell it can pay for from Stamina alone at the weakest foe in range (never at the
+ *     cost of its own Health);
+ *  3. a shooter with no foe next to it: shoot the weakest foe in range;
+ *  4. strike the weakest foe it can reach this turn, slashing when it has stamina to spare;
+ *  5. shoot if it can; otherwise step toward the nearest foe; otherwise wait.
  */
 
 import {
-  attack, currentFighter, defend, gridFor, isOver, moveTo, rest, shoot, shootTargets,
+  attack, castableSpells, castPower, castSpell, currentFighter, defend, gridFor, isOver, moveTo, rest, shoot, shootTargets,
   type BattleState, type Fighter,
 } from './battle';
-import { isDead, type Roll } from './rules';
+import { isDead, RANGED_RANGE, type Roll } from './rules';
+import { spellAmount, spellKind } from '../game/spells';
 import { isAdjacent, type GridPos } from './grid';
 
 const manhattan = (a: GridPos, b: GridPos) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
@@ -32,6 +36,9 @@ export function enemyTurn(s: BattleState, roll: Roll): BattleState {
     const next = defend(s);
     if (next) return next;
   }
+
+  const cast = castTurn(s);
+  if (cast) return cast;
 
   const shootWeakest = (): BattleState | undefined => {
     const targets = shootTargets(s).sort((a, b) => toughness(a) - toughness(b));
@@ -71,4 +78,33 @@ export function enemyTurn(s: BattleState, roll: Roll): BattleState {
     }
   }
   return rest(s) ?? s;
+}
+
+/** Fraction of Health at or below which a caster heals an ally. */
+export const HEAL_BELOW = 0.5;
+
+/** A spell turn for the current fighter, or undefined when it has no worthwhile cast. */
+function castTurn(s: BattleState): BattleState | undefined {
+  const me = currentFighter(s);
+  const spells = castableSpells(s).filter((d) => d.minCost <= me.stamina);
+  if (spells.length === 0) return undefined;
+  const power = (d: (typeof spells)[number]) => Math.min(castPower(me, d), me.stamina);
+  const inRange = (f: Fighter) => Math.max(Math.abs(f.pos.x - me.pos.x), Math.abs(f.pos.y - me.pos.y)) <= RANGED_RANGE;
+  const strongest = (kind: string) =>
+    spells.filter((d) => spellKind(d) === kind).sort((a, b) => spellAmount(b, power(b)) - spellAmount(a, power(a)))[0];
+
+  const hurt = s.fighters
+    .filter((f) => f.side === me.side && !isDead(f) && inRange(f) && f.health <= f.maxHealth * HEAL_BELOW)
+    .sort((a, b) => a.health / a.maxHealth - b.health / b.maxHealth)[0];
+  const heal = strongest('heal');
+  if (hurt && heal) {
+    const next = castSpell(s, heal.index, hurt.pos, me.stamina);
+    if (next) return next;
+  }
+
+  const foe = s.fighters
+    .filter((f) => f.side !== me.side && !isDead(f) && inRange(f))
+    .sort((a, b) => toughness(a) - toughness(b))[0];
+  const harm = strongest('damage');
+  return foe && harm ? castSpell(s, harm.index, foe.pos, me.stamina) : undefined;
 }

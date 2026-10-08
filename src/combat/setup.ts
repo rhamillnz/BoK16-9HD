@@ -67,7 +67,7 @@ export function buildFighters(input: SetupInput): Fighter[] {
   for (const e of records) {
     const n = seen.get(e.monster) ?? 0;
     seen.set(e.monster, n + 1);
-    place(enemyFighter(e, input.monsterNames[e.monster] ?? `Monster ${e.monster}`, n));
+    place(enemyFighter(e, input.monsterNames[e.monster] ?? `Monster ${e.monster}`, n, input.spells));
   }
   return fighters;
 }

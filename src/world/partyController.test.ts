@@ -98,3 +98,23 @@ describe('PartyController', () => {
     expect(p.eyeZ).toBe(30 + EYE_HEIGHT);
   });
 });
+
+describe('analog input and mouse-look', () => {
+  it('moves and turns in proportion to the stick', () => {
+    const p = new PartyController(0, 0, 0);
+    p.update(1, { ...NO_INPUT, moveAxis: 0.5 });
+    expect(p.y).toBeCloseTo(WALK_SPEED * 0.5, 6);
+    p.update(1, { ...NO_INPUT, turnAxis: 0.5 });
+    expect(p.heading).toBeCloseTo(TURN_RATE * 0.5, 6);
+  });
+  it('clamps keys plus stick to full speed', () => {
+    const p = new PartyController(0, 0, 0);
+    p.update(1, { ...NO_INPUT, forward: true, moveAxis: 1 });
+    expect(p.y).toBeCloseTo(WALK_SPEED, 6);
+  });
+  it('turnBy wraps', () => {
+    const p = new PartyController(0, 0, 250);
+    p.turnBy(10);
+    expect(p.heading).toBeCloseTo(4, 9);
+  });
+});

@@ -588,8 +588,10 @@ To initialize and render **Zone 1** (`Z01`) at the start of Chapter 1, execute t
 Zones 10, 11 and 12 are mines (our own summary of how BaKGL treats them):
 
 - The tunnels, rooms and their ceilings are ordinary models in `Z10.TBL` / `Z11.TBL` / `Z12.TBL` (`m_` pieces such as `m_rm1`, `m_door`), placed by the tile `.WLD` files like any other item. There is no separate ceiling layer.
-- `ZxxM.TBL` (e.g. `Z10M.TBL`) has the same model indices again, each model replaced by a flattened overhead variant (name + `_ug`, e.g. `m_door_ug`, with `m_doorgi_ug` for an open door). The original uses them for the overhead map. We load them as `ZoneData.overheadTable` but do not draw them yet.
+- `ZxxM.TBL` (e.g. `Z10M.TBL`) has the same model indices again, each model replaced by a flattened overhead variant (name + `_ug`, e.g. `m_door_ug`, with `m_doorgi_ug` for an open door). The original uses them for the overhead map. We load them as `ZoneData.overheadTable` and draw them on the Tab map: `overheadPolygons` (src/world/overheadMap.ts) flattens each placed item's overhead faces onto the ground plane, in palette colours (textured faces get a stone grey), higher items last, and the map screen fills them instead of the plain tile blocks.
 - No sky: the background is black. Walking is half speed.
 - Entity types that matter below ground: tunnel, pit, entrance and door.
 
 Our rendering (src/world/underground.ts, `Sky.setUnderground`): the sky dome and sun are hidden, fog is near-black and short, a faint cool hemisphere light keeps stone readable, and a flickering warm point light follows the party as its lantern. An active light spell (castControls) widens and brightens it. Grass is skipped, the ground-strip sheet (`ZxxL.SCX`) is optional, and walking runs at `UNDERGROUND_SPEED_SCALE`.
+
+Debug start (`?zone=N`): the party starts at the first plain TELEPORT.DAT entry that targets zone N (the tunnel entrance for a mine), falling back to the centre of the zone's first tile. The lantern light stays in the scene at intensity 0 outside mines, because toggling its visibility changes the light count and left a mine loaded at start black.
