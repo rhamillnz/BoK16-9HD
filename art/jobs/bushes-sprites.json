@@ -1,0 +1,4 @@
+[
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Bush_Common.gltf", "out": "public/models/nature/bush3.glb", "height": 3.4 },
+  { "src": "art/incoming/stylized-nature-megakit/glTF/Bush_Common_Flowers.gltf", "out": "public/models/nature/bush5.glb", "height": 2.7 }
+]

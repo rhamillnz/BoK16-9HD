@@ -50,3 +50,18 @@
 - `build_props.py` now takes `<jobs.json> <kit dirs...>`; new types `chest` (kit `Chest_Wood`, textured, 2.5k tris, replaces the crate for `chest`, `chest_nl`, `box`), `tent` (canvas A-frame prism, flat colours, 22 polys), `gravestone` variants 0-4 (rounded, cross, block, tall slab, broken; flat stone with a moss mound). Jobs in `art/jobs/props-camp-graves.json`; models `public/models/props/{chest,tent,tstone1-5,tmbstone}.glb`; manifest entries added. Rig widget meshes ("Icosphere") are skipped when importing kit pieces.
 - Screenshots `shots/local/10/graves.png` (zone 1 graveyard), `tent.png` (zone 6), 60 fps.
 - Left as sprites: `sign1-4`, `signpost` (painted symbols would be lost). The tent is plain and boxy: a real tent model would be better. Gravestones are blank (no carving).
+
+## Round 3, item 1: signs and other remaining props (zones 1-9)
+- `build_props.py` new types: signboard (`sign1`, `signpost`), waymark (`sign2-4`: the originals are carved stone markers, not wooden signs), scarecrow, rope, column, marker/slab (rocks), catapult (beams, 4 wheels, A-frame, arm, bucket, kit crate counterweight, fitted to 16.4x13.8x10.2). Jobs: `art/jobs/props-signs-misc.json`; also `bush3`/`bush5` as sprite replacements from nature-kit bushes (`art/jobs/bushes-sprites.json`). Manifest updated.
+- Screenshots `shots/local/11/before-*` / `after-*` (catapult zone 6, waymark zone 2, column zone 9, scarecrow zone 6), 60 fps.
+- Still sprites/palette: `trap`, `engine` (zone 6), `deadbug`, `cryst*` (zone 9 crystals, palette meshes), `corn`, `db*` (decals), `entrance`, `invis`. The waymarks and signs lose the original painted glyphs; `well` was already a model.
+- The Fantasy Props kit has no wooden sign boards, so signs are built shapes.
+
+## Round 3, item 2: scatter boulder material
+- New `src/render/scatterRockMaterial.ts`: one shared node material (grey-brown banded stone, lichen on upward faces, bounce emissive so shadowed sides stay readable), applied to `scatter_rock1-3` in `zoneScene.ts`'s placement loop (3-line change; hillMaterial.ts untouched).
+- I could not frame a close boulder in the new hill layout (scatter is sparse now), so the look is unverified in game; check near hills. Roadside stones are separate and unchanged.
+
+## Round 3, item 3: HD town scenes (pipeline done, NOT verifiable yet)
+- Scene pictures are composed at load time (`composeScene`), so replacements are keyed by a hash of the composed pixels: `src/game/sceneHd.ts` (`sceneHash`, `loadSceneHd`, served from `/art/scenes-4x/<hash>.png`; dev server serves `art/reference`), hooked in `townHost.ts` only (`load` fetches the HD image, `show` passes it as the picture). Drawing and hotspot code untouched; falls back to the 320x200 picture when no file exists.
+- `scripts/export-town-scenes.ts` writes every distinct composed scene (117 scenes x 9 chapters) to `art/derived/scenes/<hash>.png`, for `tools/upscale/upscale.py art/derived/scenes art/reference/scenes-4x`.
+- Blocked: every scene currently composes to the same all-black image (the bug the cloud is fixing), so the export gives 1 file. After that fix: rerun the export, run the upscaler, check a scene in game. Tests cover hash/URL only.
