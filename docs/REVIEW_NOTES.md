@@ -89,3 +89,8 @@
 
 ## Crystal footprints (fixed)
 - Cause: `build_props.py` fitted the box by assigning a per-axis scaled `matrix_world` to rotated parts, which Blender turns into shear that it then drops. Now all parts are baked and joined first and the fit is applied to the mesh vertices (`data.transform`). Rebuilt `props-last-sprites.json`: every model now exports at exactly its box (cryst1 3.40 x 3.40 x 10.00, etc.). Zone 9: `shots/local/13/cryst-fit.png`, 58 fps. Other prop jobs (outdoor, camp-graves, signs) were not rebuilt: their rotated parts are few and sizes already matched.
+
+## "Obstacle" on the LaMut approach: none (zone 1, ?x=660800&y=927000&h=192)
+- No collision polygon lies within 700 BaK units of (661300, 927000) (checked every clipped item of zone 1 with `placeClip`), and the party controller only collides with polygons, so nothing blocks the party there.
+- The walk is just slower than before: holding W for 5 s now gets to x=6616 (and 6613 in an earlier run), holding 12 s reaches x=6624.1 where the LaMut prompt triggers (encounter rect starts at x=662400). The page loads and renders more per frame than this morning (hills, water, scatter), so the first seconds of the hold are spent at low fps. y=918000 still triggered within 5 s because the run there started when the scene was settled.
+- So: not a collision, not the entrance wedge, nothing we changed in the world; for scripted tests use `wait:6000` before the hold and hold 12 s.
