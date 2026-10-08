@@ -21,3 +21,4 @@ tools/upscale/models/
 
 # Textures derived from third-party packs (regenerate with tools/upscale/green_leaves.py)
 art/derived/
+__pycache__/
