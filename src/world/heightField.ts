@@ -15,8 +15,8 @@ export const HEIGHT_CELL_SIZE = 1600;
  */
 export function buildHeightField(triangles: ArrayLike<number>, cellSize = HEIGHT_CELL_SIZE): HeightField {
   const count = Math.floor(triangles.length / 9);
-  const cells = new Map<string, number[]>();
-  const key = (cx: number, cy: number) => `${cx},${cy}`;
+  const cells = new Map<number, number[]>();
+  const key = (cx: number, cy: number) => (cx & 0xffff) | ((cy & 0xffff) << 16);
 
   for (let t = 0; t < count; t++) {
     const o = t * 9;
