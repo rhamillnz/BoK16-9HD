@@ -29,6 +29,7 @@ import {
   type InventoryState,
 } from './inventory';
 import { drawMap } from './mapScreen';
+import { JumpMapScreen } from './jumpMapScreen';
 import {
   drawSaveScreen,
   initialSaveScreenState,
@@ -296,3 +297,4 @@ registerHudScreen('inventory', (h) => new InventoryScreen(h));
 registerHudScreen('sheet', (h) => new SheetScreen(h));
 registerHudScreen('saves', (h) => new SavesScreen(h));
 registerHudScreen('map', (h) => new MapScreen(h));
+registerHudScreen('jumpmap', (h) => new JumpMapScreen(h));

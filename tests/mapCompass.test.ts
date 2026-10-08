@@ -27,7 +27,7 @@ import type { GamSave } from '../src/formats/gam';
 describe('zone map bitmask', () => {
   it('uses byte (x<<3)+(y>>3) and bit y&7', () => {
     const bytes = new Uint8Array(ZONE_MAP_BYTES);
-    bytes[(6 << 3) + 0] = 1 << 7; // x=6, y=7
+    bytes[(7 << 3) + 0] = 1 << 6; // x=6, y=7: row y, bit x
     bytes[(49 << 3) + 6] = 1 << 1; // x=49, y=49
     const map = parseZoneMap(bytes);
     expect(isTilePresent(map, 6, 7)).toBe(true);
