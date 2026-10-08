@@ -337,20 +337,22 @@ def bounds(objs):
 def finish(scene, kit, job):
     parts = kit.parts
     bpy.context.view_layer.update()
-    lo, hi = bounds(parts)
-    bx = job["box"]
-    size = Vector((bx[3] - bx[0], bx[4] - bx[1], bx[5] - bx[2]))
-    s = Vector([size[i] / max(1e-6, (hi - lo)[i]) for i in range(3)])
-    fit = Matrix.Translation((bx[0], bx[1], bx[2])) @ Matrix.Diagonal((s.x, s.y, s.z, 1.0)) @ Matrix.Translation(-lo)
-    for o in parts:
-        o.matrix_world = fit @ o.matrix_world
-    bpy.context.view_layer.update()
+    # Bake every part's transform into its mesh and join first: scaling rotated parts per axis through
+    # matrix_world would shear them (Blender drops the shear), so the footprint came out too wide.
     for o in bpy.context.scene.objects:
         o.select_set(o in parts)
     bpy.context.view_layer.objects.active = parts[0]
     bpy.ops.object.make_single_user(object=True, obdata=True)
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     bpy.ops.object.join()
+    joined = bpy.context.view_layer.objects.active
+    lo, hi = bounds([joined])
+    bx = job["box"]
+    size = Vector((bx[3] - bx[0], bx[4] - bx[1], bx[5] - bx[2]))
+    s = Vector([size[i] / max(1e-6, (hi - lo)[i]) for i in range(3)])
+    fit = Matrix.Translation((bx[0], bx[1], bx[2])) @ Matrix.Diagonal((s.x, s.y, s.z, 1.0)) @ Matrix.Translation(-lo)
+    joined.data.transform(fit)
+    joined.data.update()
     for img in bpy.data.images:
         w, h = img.size
         if max(w, h) > 512:
