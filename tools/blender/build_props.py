@@ -1,7 +1,7 @@
 """Build small prop models from Medieval Village / Stylised Nature kit pieces and primitives, fitted to a box.
 
 Usage (headless):
-  blender --background --factory-startup --python tools/blender/build_props.py -- <village_gltf_dir> <nature_gltf_dir> <jobs.json>
+  blender --background --factory-startup --python tools/blender/build_props.py -- <jobs.json> <gltf_dir> [<gltf_dir> ...]   (village, nature and fantasy-props kits)
 
 jobs.json entries:
   {"name": "fence", "out": "public/models/props/fence.glb", "type": "fence",
@@ -10,7 +10,8 @@ jobs.json entries:
 
 Types: fence (row of wooden panels along X), crate (kit crate), well (brick ring, posts, tiled roof),
 rocks (cluster of nature-kit rocks), slab (one tall rock), firepit (stone ring, ashes, logs),
-dirtpile (low mound), stump (cut trunk with root flare).
+dirtpile (low mound), stump (cut trunk with root flare),
+chest (Fantasy Props Chest_Wood), tent (cloth A-frame), gravestone ("variant" 0-4).
 
 Each type is built at a natural size, then scaled per axis to `box` and placed so the box minimum
 is at (xmin, ymin, zmin). Coordinates match the game (Blender X/Y/Z = BaK x/y/z), so the glTF
@@ -51,7 +52,8 @@ class Kit:
             before = set(bpy.data.objects)
             bpy.ops.import_scene.gltf(filepath=path)
             new = [o for o in bpy.data.objects if o not in before]
-            meshes = [o for o in new if o.type == "MESH"]
+            # "Icosphere" is the bone-shape widget some rigged kit pieces ship with, not part of the prop.
+            meshes = [o for o in new if o.type == "MESH" and not o.name.startswith("Icosphere")]
             for o in new:
                 o.matrix_world = o.matrix_world.copy()
             for o in new:
@@ -102,7 +104,7 @@ class Kit:
         o.data.materials.append(material)
         o.matrix_world = Matrix.Translation(loc) @ Euler([math.radians(a) for a in rot_deg]).to_matrix().to_4x4() @ Matrix.Diagonal((*size, 1.0))
         for p in o.data.polygons:
-            p.use_smooth = kind in ("mound", "cylinder", "cone")
+            p.use_smooth = kind == "mound"
         self.parts.append(o)
         return o
 
@@ -184,7 +186,54 @@ def build_stump(kit, job):
         kit.primitive("box", (math.cos(math.radians(a)) * 0.7, math.sin(math.radians(a)) * 0.7, 0.12), (0.7, 0.18, 0.24), bark, rot_deg=(0, 0, a))
 
 
-BUILDERS = {"fence": build_fence, "crate": build_crate, "well": build_well, "rocks": build_rocks, "slab": build_slab,
+def build_chest(kit, job):
+    kit.place("Chest_Wood", (0, 0, 0))
+
+
+def build_tent(kit, job):
+    """Canvas A-frame: ridge pole, two slopes and a closed back; the front (-X) stays open and dark."""
+    cloth = flat_material("canvas", (0.5, 0.42, 0.28), 1.0)
+    inside = flat_material("canvas_inside", (0.16, 0.13, 0.08), 1.0)
+    wood = flat_material("pole", (0.18, 0.1, 0.05))
+    L, W, H = 3.0, 2.4, 1.8
+    verts = [(-L / 2, 0, H), (L / 2, 0, H), (-L / 2, -W / 2, 0), (L / 2, -W / 2, 0), (-L / 2, W / 2, 0), (L / 2, W / 2, 0)]
+    faces = [(0, 1, 3, 2), (1, 0, 4, 5), (1, 5, 3), (0, 2, 4)]
+    mesh = bpy.data.meshes.new("tent")
+    mesh.from_pydata(verts, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new("tent", mesh)
+    kit.scene.collection.objects.link(obj)
+    mesh.materials.append(cloth)
+    mesh.materials.append(inside)
+    mesh.polygons[3].material_index = 1  # front opening shows the dark inside
+    kit.parts.append(obj)
+    for sx in (-1, 1):
+        kit.primitive("box", (sx * L / 2, 0, H / 2), (0.08, 0.08, H + 0.2), wood)
+    kit.primitive("box", (0, 0, H + 0.06), (L + 0.4, 0.08, 0.08), wood)
+
+
+def build_gravestone(kit, job):
+    stone = flat_material("stone", (0.2, 0.2, 0.19), 1.0)
+    moss = flat_material("moss", (0.07, 0.11, 0.05), 1.0)
+    v = job.get("variant", 0)
+    if v == 0:  # rounded headstone
+        kit.primitive("box", (0, 0, 0.5), (1.0, 0.25, 1.0), stone)
+        kit.primitive("cylinder", (0, 0, 1.0), (1.0, 1.0, 0.25), stone, rot_deg=(90, 0, 0), segments=14)
+    elif v == 1:  # cross
+        kit.primitive("box", (0, 0, 0.7), (0.3, 0.25, 1.4), stone)
+        kit.primitive("box", (0, 0, 1.0), (0.9, 0.25, 0.28), stone)
+    elif v == 2:  # square block
+        kit.primitive("box", (0, 0, 0.45), (1.0, 0.35, 0.9), stone)
+        kit.primitive("box", (0, 0, 0.93), (1.1, 0.4, 0.1), stone)
+    elif v == 3:  # tall slab
+        kit.primitive("box", (0, 0, 0.8), (0.7, 0.22, 1.6), stone, rot_deg=(0, 4, 0))
+    else:  # leaning, broken
+        kit.primitive("box", (0, 0, 0.5), (1.0, 0.25, 0.9), stone, rot_deg=(0, 9, 0))
+        kit.primitive("box", (0.55, 0.1, 0.12), (0.45, 0.25, 0.25), stone, rot_deg=(0, 0, 25))
+    kit.primitive("mound", (0, 0.3, 0), (1.0, 0.5, 0.12), moss, segments=10)
+
+
+BUILDERS = {"chest": build_chest, "tent": build_tent, "gravestone": build_gravestone, "fence": build_fence, "crate": build_crate, "well": build_well, "rocks": build_rocks, "slab": build_slab,
             "firepit": build_firepit, "dirtpile": build_dirtpile, "stump": build_stump}
 
 
@@ -241,12 +290,12 @@ def finish(scene, kit, job):
 
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:]
-    village, nature, jobs_path = argv
+    jobs_path, kit_dirs = argv[0], argv[1:]
     with open(jobs_path, encoding="utf-8") as f:
         jobs = json.load(f)
     for job in jobs:
         scene = reset()
-        kit = Kit([village, nature], scene)
+        kit = Kit(kit_dirs, scene)
         BUILDERS[job["type"]](kit, job)
         finish(scene, kit, job)
 

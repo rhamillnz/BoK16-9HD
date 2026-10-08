@@ -1,0 +1,10 @@
+[
+  {"name": "chest", "out": "public/models/props/chest.glb", "type": "chest", "box": [-1.25, -0.95, -0.05, 1.25, 0.95, 1.22], "preview": "shots/prop-chest.png"},
+  {"name": "tent", "out": "public/models/props/tent.glb", "type": "tent", "box": [-3.6, -2.2, 0, 3.6, 2.2, 3.16], "preview": "shots/prop-tent.png"},
+  {"name": "tstone1", "out": "public/models/props/tstone1.glb", "type": "gravestone", "box": [-1.5, -0.35, 0, 1.5, 0.45, 2.82], "preview": "shots/prop-tstone1.png", "variant": 0},
+  {"name": "tstone2", "out": "public/models/props/tstone2.glb", "type": "gravestone", "box": [-1.4, -0.35, 0, 1.4, 0.45, 2.6], "preview": "shots/prop-tstone2.png", "variant": 1},
+  {"name": "tstone3", "out": "public/models/props/tstone3.glb", "type": "gravestone", "box": [-1.45, -0.35, 0, 1.45, 0.45, 2.23], "preview": "shots/prop-tstone3.png", "variant": 2},
+  {"name": "tstone4", "out": "public/models/props/tstone4.glb", "type": "gravestone", "box": [-1.2, -0.35, 0, 1.2, 0.45, 2.8], "preview": "shots/prop-tstone4.png", "variant": 3},
+  {"name": "tstone5", "out": "public/models/props/tstone5.glb", "type": "gravestone", "box": [-1.5, -0.35, 0, 1.5, 0.45, 2.4], "preview": "shots/prop-tstone5.png", "variant": 4},
+  {"name": "tmbstone", "out": "public/models/props/tmbstone.glb", "type": "gravestone", "box": [-0.85, -0.35, 0, 0.85, 0.45, 1.84], "preview": "shots/prop-tmbstone.png", "variant": 0}
+]
