@@ -61,6 +61,7 @@ The same list is in the game: press **Esc** and choose Options, then Keys.
 | Esc | Open the main menu (new game, continue, load, options); closes any open screen |
 | I | Inventory. Arrows or WASD move the selection, E or Tab switches character; Enter or U uses an item, X equips, T gives it to the next character, R repairs |
 | C | Character sheet |
+| J | Journal: the dialogue lines you have heard, newest first (Up/Down or W/S, PageUp/PageDown, or the mouse); saved with the game |
 | Tab | Map and compass (in mines the map shows the overhead tunnel plan) |
 | E | Open the chest or container beside you |
 | R | Camp and rest in the wild |
@@ -95,6 +96,10 @@ Add these to the game address, for example `http://localhost:5173/game.html?zone
 | `cutscene=ADS,TTM` | Play a cutscene on load, e.g. `cutscene=CHAPTER1.ADS,CHAPTER1.TTM` |
 | `fov=N` | Camera field of view in degrees for this session. Overrides the Options setting |
 | `chapter=N` | Start in chapter N (2 to 9): runs the chapter reset and start script without cutscenes |
+
+## Loading and errors
+
+The game page shows a loading screen with progress while it starts and whenever a zone loads. If startup fails it shows a plain-language error instead of a blank page: game data missing (set `BAK_DIR`), game data that cannot be read, or no graphics support at all. When the browser has no WebGPU the game runs on the WebGL2 fallback and says so in a note at the bottom of the screen for a few seconds. There are no new keys or URL options.
 
 ## Saves and settings
 

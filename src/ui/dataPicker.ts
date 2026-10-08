@@ -35,7 +35,7 @@ function fromInput(list: FileList): GameFile[] {
 
 function overlay(): { root: HTMLElement; body: HTMLElement } {
   const root = document.createElement('div');
-  root.style.cssText = 'position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:#120d08;color:#e8dcc4;font:15px Georgia,serif;text-align:center';
+  root.style.cssText = 'position:fixed;inset:0;z-index:200;display:grid;place-items:center;background:#120d08;color:#e8dcc4;font:15px Georgia,serif;text-align:center';
   const body = document.createElement('div');
   body.style.cssText = 'max-width:34em;padding:2em;border:2px solid #7a5c2e;background:#1d150d;border-radius:6px';
   root.append(body);
