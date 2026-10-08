@@ -72,6 +72,41 @@ describe('planTransition', () => {
     expect(planTransition(2, d(2)).reload).toBe(false);
     expect(planTransition(2, d(undefined))).toMatchObject({ reload: false, zone: 2, heading: 0x80 });
   });
+
+  // The chapter starts from docs/BACKLOG.md: a start-script teleport into a town names no position (all-zero
+  // tile and cell), and must leave the party on the chapter's recorded start instead of at (800, 800).
+  const chapterStarts: [number, number, number, number, number, number, number][] = [
+    [2, 11, 11, 11, 10, 10, 0],
+    [3, 3, 23, 18, 15, 32, 0],
+    [4, 12, 10, 10, 35, 35, 0],
+    [5, 5, 23, 17, 20, 17, 0],
+    [6, 11, 11, 11, 10, 10, 0],
+    [7, 7, 13, 15, 18, 17, 0],
+    [8, 9, 11, 13, 34, 18, 0],
+    [9, 10, 14, 13, 9, 21, 0],
+  ];
+  it.each(chapterStarts)(
+    'chapter %i keeps its start through a positionless town teleport',
+    (_c, zone, tx, ty, cx, cy) => {
+      const start = destinationAt(zone, tx, ty, cx, cy, 0);
+      const record = new Uint8Array(TELEPORT_RECORD_SIZE);
+      record.set([zone, 0, 0, 0, 0, 0, 0, 5, 0, 1, 0]);
+      const [teleport] = parseTeleports(record);
+      expect(teleport).toMatchObject({ x: 800, y: 800, hotspot: 5, positionless: true });
+      expect(planTransition(zone, teleport!, { x: start.x, y: start.y, heading: 64 })).toMatchObject({
+        reload: false,
+        x: start.x,
+        y: start.y,
+        heading: 64,
+        hotspot: 5,
+      });
+    },
+  );
+
+  it('still moves the party for a teleport that names a position', () => {
+    const named = { ...destinationAt(undefined, 1, 1, 2, 2, 0), hotspot: 5 };
+    expect(planTransition(3, named, { x: 9, y: 9, heading: 0 })).toMatchObject({ x: named.x, y: named.y });
+  });
 });
 
 // ---- outcome of a finished dialogue ----------------------------------------
