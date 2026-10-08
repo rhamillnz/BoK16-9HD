@@ -94,3 +94,12 @@
 - No collision polygon lies within 700 BaK units of (661300, 927000) (checked every clipped item of zone 1 with `placeClip`), and the party controller only collides with polygons, so nothing blocks the party there.
 - The walk is just slower than before: holding W for 5 s now gets to x=6616 (and 6613 in an earlier run), holding 12 s reaches x=6624.1 where the LaMut prompt triggers (encounter rect starts at x=662400). The page loads and renders more per frame than this morning (hills, water, scatter), so the first seconds of the hold are spent at low fps. y=918000 still triggered within 5 s because the run there started when the scene was settled.
 - So: not a collision, not the entrance wedge, nothing we changed in the world; for scripted tests use `wait:6000` before the hold and hold 12 s.
+
+## Upscaler comparison for the town pictures (for Reuben)
+- Weights: only `RealESRGAN_x4plus_anime_6B.pth` was present; fetched the official `RealESRGAN_x4plus.pth` (67 MB, xinntao/Real-ESRGAN v0.1.0) into `tools/upscale/models/` (gitignored). New `tools/upscale/compare_models.py` builds the sheets: `python tools/upscale/compare_models.py town=<hash> ...` (needs `art/derived/scenes` from `scripts/export-town-scenes.ts` and the current 4x in `art/reference/scenes-4x`). The game's HD files are unchanged.
+- Each sheet is 3880x850: original (nearest 4x) | anime_6B (current) | x4plus. Also saved: the x4plus result alone, `<name>-x4plus.png`.
+- `art/reference/compare/town.png` (LaMut, GDS1A, hash a7c906e9): x4plus keeps the painted texture better: thatch and timber grain survive, the anime model flattens roofs and walls into smooth cartoon shapes.
+- `art/reference/compare/shop.png` (GDS1C, 40899e00): x4plus again keeps the floor-plank and brush grain; anime_6B gives cleaner edges on the helmet and bench but looks vector-flat. Close call, slight edge x4plus.
+- `art/reference/compare/inn.png` (GDS1B, c589d5df): x4plus keeps the wood-grain and the rough painted faces (anime_6B turns the barrel and the barkeep's face into smooth airbrushed shapes); x4plus is a little noisier in dark areas.
+- `art/reference/compare/temple.png` (GDS2D, e34fd734): nearly equal; anime_6B has crisper outlines on the curtains and brazier, x4plus keeps a touch more canvas grain in the wall. Either works.
+- My view overall: x4plus keeps the original paintings' texture better in 3 of 4 scenes; anime_6B is cleaner but more cartoonish. If wanted, rerun `tools/upscale/upscale.py ... --model tools/upscale/models/RealESRGAN_x4plus.pth` over the 101 scenes (~15 min).
