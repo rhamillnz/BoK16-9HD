@@ -192,6 +192,16 @@ export interface ChoiceSlot {
   rect: Rect;
 }
 
+/** Who speaks a snippet: the name titles the box, the portrait stands above it. */
+export interface SpeakerInfo {
+  name: string;
+  /** Portrait size in source pixels; absent when the actor has no portrait. */
+  portrait?: { width: number; height: number };
+}
+
+/** Gap between a portrait's bottom and the box top, and between the title and the text, in scaled pixels. */
+const SPEAKER_GAP = 2;
+
 export interface DialogLayout {
   box: Rect;
   scale: number;
@@ -201,6 +211,10 @@ export interface DialogLayout {
   /** Canvas-pixel rect of the text area. */
   textArea: Rect;
   choices: ChoiceSlot[];
+  /** Speaker name at the top of the box (canvas pixels; centred in `box`). */
+  title?: { text: string; x: number; y: number };
+  /** Canvas-pixel rect the speaker's portrait is drawn into, standing on the top edge of the box. */
+  portrait?: Rect;
 }
 
 /**
@@ -213,15 +227,18 @@ export function layoutDialog(
   snippet: Pick<DialogSnippet, 'text' | 'displayStyle3'>,
   choiceLabels: string[],
   opts: BoxLayoutOptions,
+  speaker?: SpeakerInfo,
 ): DialogLayout {
   const { scale, box, padding } = opts;
   const spacing = opts.spacing ?? 0;
   const lineGap = opts.lineGap ?? 1;
   const rowH = (font.height + lineGap) * scale;
   const innerW = box.width - 2 * padding;
-  const innerH = box.height - 2 * padding;
+  // A speaker's name takes the first row of the box; the text starts below it.
+  const titleH = speaker ? rowH + SPEAKER_GAP * scale : 0;
+  const innerH = box.height - 2 * padding - titleH;
   const maxWidth = Math.floor(innerW / scale);
-  const textArea: Rect = { x: box.x + padding, y: box.y + padding, width: innerW, height: innerH };
+  const textArea: Rect = { x: box.x + padding, y: box.y + padding + titleH, width: innerW, height: innerH };
 
   const isQuery = (snippet.displayStyle3 & 0x2) !== 0;
   const columns =
@@ -252,7 +269,26 @@ export function layoutDialog(
       });
     });
   }
-  return { box, scale, rowsPerPage, pages, textArea, choices };
+  const layout: DialogLayout = { box, scale, rowsPerPage, pages, textArea, choices };
+  if (speaker) {
+    const w = (measureString(font, speaker.name, spacing) + 1) * scale; // +1: the bold overstrike
+    layout.title = { text: speaker.name, x: box.x + Math.floor((box.width - w) / 2), y: box.y + padding };
+    const p = speaker.portrait;
+    if (p && p.width > 0 && p.height > 0) {
+      const room = box.y - SPEAKER_GAP * scale;
+      let s = scale;
+      while (s > 1 && p.height * s > room) s--;
+      const width = p.width * s;
+      const height = p.height * s;
+      layout.portrait = {
+        x: box.x + Math.floor((box.width - width) / 2),
+        y: Math.max(0, box.y - SPEAKER_GAP * scale - height),
+        width,
+        height,
+      };
+    }
+  }
+  return layout;
 }
 
 /** Columns for a choice grid: as many as fit with the widest label, capped at 3. */
@@ -468,7 +504,7 @@ export function drawDialog(
   font: Font,
   layout: DialogLayout,
   state: DialogState,
-  opts: { spacing?: number; lineGap?: number; colors?: DialogColors } = {},
+  opts: { spacing?: number; lineGap?: number; colors?: DialogColors; portrait?: CanvasImageSource } = {},
 ): void {
   const colors = opts.colors ?? DEFAULT_COLORS;
   const spacing = opts.spacing ?? 0;
@@ -476,11 +512,24 @@ export function drawDialog(
   const { box, scale, textArea } = layout;
   const rowH = (font.height + lineGap) * scale;
 
+  if (layout.portrait && opts.portrait) {
+    const smoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    const r = layout.portrait;
+    ctx.drawImage(opts.portrait, r.x, r.y, r.width, r.height);
+    ctx.imageSmoothingEnabled = smoothing;
+  }
   ctx.fillStyle = colors.background;
   ctx.fillRect(box.x, box.y, box.width, box.height);
   ctx.strokeStyle = colors.border;
   ctx.lineWidth = scale;
   ctx.strokeRect(box.x + scale / 2, box.y + scale / 2, box.width - scale, box.height - scale);
+
+  if (layout.title) {
+    const t = layout.title;
+    drawText(ctx, font, t.text, t.x, t.y, scale, colors.emphasis, spacing);
+    drawText(ctx, font, t.text, t.x + scale, t.y, scale, colors.emphasis, spacing); // bold
+  }
 
   let y = textArea.y;
   for (const line of layout.pages[state.page] ?? []) {

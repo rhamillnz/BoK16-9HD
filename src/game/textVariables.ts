@@ -1,4 +1,5 @@
 import { SKILL_NAMES } from '../formats/gam';
+import type { SpeakerContext } from './speaker';
 import { ROYALS_PER_SOVEREIGN, type PartyState } from './party';
 
 /**
@@ -80,8 +81,19 @@ export class TextVariables {
     return (this.ctx.random ?? ((k: number) => Math.floor(Math.random() * k)))(n);
   }
 
-  private nameOf(index: number): string | undefined {
+  nameOf(index: number): string | undefined {
     return this.ctx.party.characters.find((c) => c.index === index)?.name;
+  }
+
+  /** What `resolveSpeaker` needs to turn a snippet's actor into a character. */
+  speakerContext(keywords: readonly string[]): SpeakerContext {
+    return {
+      keywords,
+      dialogCharacters: this.characters,
+      leader: this.leader(),
+      firstActive: this.ctx.party.activeCharacters[0],
+      characterName: (i) => this.nameOf(i),
+    };
   }
 
   /** The party leader: Pug if he is in the party, else the chapter's. */

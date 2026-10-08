@@ -14,6 +14,7 @@ import { Reader } from '../formats/reader';
 import { isEncounterActive, type EncounterMap, type PlacedEncounter } from '../world/encounters';
 import { getFlag, hourOfDay, setFlag, type WorldState } from './state';
 import { GAME_STATE_CHAPTER_TRANSITION, scriptedState } from './dialogState';
+import { resolveSpeaker, type Speaker } from './speaker';
 import { TextVariables, type TextVariableContext } from './textVariables';
 import type { ZoneTransition } from './transitions';
 
@@ -251,6 +252,8 @@ export interface DialogView {
   /** Text and choices to show. Empty `options` means "click to continue". */
   options: DialogOption[];
   mode: 'text' | 'query' | 'conversation';
+  /** Who speaks the snippet; absent for narration. */
+  speaker?: Speaker;
 }
 
 export const GOODBYE = -1;
@@ -455,6 +458,13 @@ export class DialogSession {
   }
 
   private buildView(snippet: DialogSnippet): DialogView {
+    const view = this.buildViewBase(snippet);
+    const ctx = this.textVars?.speakerContext(this.keywords);
+    const speaker = resolveSpeaker(snippet.actor, ctx ?? { keywords: this.keywords });
+    return speaker ? { ...view, speaker } : view;
+  }
+
+  private buildViewBase(snippet: DialogSnippet): DialogView {
     if (isConversation(snippet)) {
       const options: DialogOption[] = [];
       for (const c of snippet.choices) {
