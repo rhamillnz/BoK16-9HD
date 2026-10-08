@@ -65,3 +65,18 @@
 - Scene pictures are composed at load time (`composeScene`), so replacements are keyed by a hash of the composed pixels: `src/game/sceneHd.ts` (`sceneHash`, `loadSceneHd`, served from `/art/scenes-4x/<hash>.png`; dev server serves `art/reference`), hooked in `townHost.ts` only (`load` fetches the HD image, `show` passes it as the picture). Drawing and hotspot code untouched; falls back to the 320x200 picture when no file exists.
 - `scripts/export-town-scenes.ts` writes every distinct composed scene (117 scenes x 9 chapters) to `art/derived/scenes/<hash>.png`, for `tools/upscale/upscale.py art/derived/scenes art/reference/scenes-4x`.
 - Blocked: every scene currently composes to the same all-black image (the bug the cloud is fixing), so the export gives 1 file. After that fix: rerun the export, run the upscaler, check a scene in game. Tests cover hash/URL only.
+
+## Round 4, item 1: dark shape on the zone 1 hill
+- It was a scattered fern/bush (nature-kit materials go near-black in shade). `scatterRockMaterial.ts` now gives scatter bushes (`bush1/2/4`, `fern`) a cached bounce-lit copy of their material (emissive = own colour x 0.45). `shots/local/13/blob.png` (before) vs `blob3.png` (after: green). fps there is 42-43 both before and after (water/hills, not this change).
+
+## Round 4, item 2: last sprites/palette props
+- New builders in `tools/blender/props_last.py` (hooked into `build_props.py`): `crystal` (cluster of 3-6 hexagonal shards with pointed tips, emissive in the crystal's own colour; the 13 `cryst*` models, colours from the original palettes: blues, purple, cyan, amber, smoky white), `corn` (5-stalk golden clump with leaves and cobs), `carcass` (`trap`: dead stag with antlers and a snare ring), `engine` (hide-hung wooden siege tower, 6.8 x 8.4), `beetle` (`deadbug`). Jobs `art/jobs/props-last-sprites.json`, 17 models, manifest updated.
+- Screenshots `shots/local/13/{cryst,corn,bug,engine}.png`: zone 9 crystal field, zone 1 corn behind the fence, 60 fps.
+- Crystal footprints come out ~20-30% wider than the original boxes (fit uses vertex bounds before joining); heights match. Whites glow quite bright.
+- `entrance` skipped on purpose: it is not a prop but a landscape piece (a big hill/canyon wedge with black faces at the zone 1/2/6 town entrances: `shots/local/13/entrance.png`, from zone 1 x=646400 y=855000). It belongs with the hill meshes (`isHillModel` does not include it), so I left it for you.
+
+## Round 4, item 3: tree variety
+- Finding: the tree sprites are the same in zones 1-5 and 7 (only the zone 6 set is recoloured, cold blue-grey; zone 8 has dark ferns and groves; zones 5/7 add darker pines, slots 35-38), so a per-zone model mix would not match the originals. Instead every plant instance now varies and each zone gets a foliage tint.
+- New `src/render/treeStyle.ts`: `styleInstances(zone, placements)` gives each tree/grove/fern/bush a height (+-22%), width, brightness (+-14%) and a small warm/cool shift, hashed from its position (stable between loads), times `ZONE_FOLIAGE[zone]` (zone 5 and 7 slightly darker, 6 cold blue, 8 dark); `applyInstanceColors` writes them as per-instance colours. Wired into the placement loop in `zoneScene.ts` (5 lines). Tests: `treeStyle.test.ts`.
+- Screenshots `shots/local/14/{z5,z6,z1,z8}.png`; 60 fps in zones 1, 5, 6 and 8 (no extra draw calls, one instance-colour buffer per mesh).
+- Limits: the tint is subtle on the frost zone; the kit models are the same ones as before (no extra species added), so the mix of species per zone is unchanged. The bounce-lit scatter bush material ignores the instance colour.

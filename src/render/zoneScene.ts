@@ -20,6 +20,7 @@ import { createWaterMaterial } from './waterMaterial';
 import { createHillMaterial } from './hillMaterial';
 import { hillTriangles, isHillModel } from './hillMesh';
 import { detailHill, type DetailedHill } from './hillDetail';
+import { applyInstanceColors, isPlantModel, styleInstances } from './treeStyle';
 import { applyScatterRockMaterial } from './scatterRockMaterial';
 import { DEFAULT_SCATTER, SCATTER_MODELS, scatterOnTriangles } from './scatter';
 import { PATH_STYLE, ROAD_STYLE, createRoadMaterial } from './roadMaterial';
@@ -455,7 +456,10 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
   }
 
   for (const [name, placements] of overridePlacements) {
-    const meshes = buildOverrideMeshes(name, overrides!.models.get(name)!, placements);
+    // Trees and other plants: per-instance size and tint (plus the zone's foliage colour), so forests are not clones.
+    const styled = isPlantModel(name) ? styleInstances(zone.zone, placements) : undefined;
+    const meshes = buildOverrideMeshes(name, overrides!.models.get(name)!, styled?.matrices ?? placements);
+    if (styled) applyInstanceColors(meshes, styled.colors);
     applyScatterRockMaterial(name, meshes);
     for (const mesh of meshes) {
       group.add(mesh);

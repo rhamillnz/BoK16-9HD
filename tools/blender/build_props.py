@@ -12,6 +12,7 @@ Types: fence (row of wooden panels along X), crate (kit crate), well (brick ring
 rocks (cluster of nature-kit rocks), slab (one tall rock), firepit (stone ring, ashes, logs),
 dirtpile (low mound), stump (cut trunk with root flare),
 signboard (post with a hanging board), waymark (stone marker, variant 0-2), scarecrow, rope (hanging),
+crystal, corn, carcass, engine, beetle (see props_last.py),
 column (fluted pillar), marker (low rock), catapult (siege engine from beams, wheels and a crate),
 chest (Fantasy Props Chest_Wood), tent (cloth A-frame), gravestone ("variant" 0-4).
 
@@ -111,12 +112,16 @@ class Kit:
         return o
 
 
-def flat_material(name, rgb, roughness=0.9):
+def flat_material(name, rgb, roughness=0.9, glow=0.0):
+    """Plain colour material; `glow` > 0 also emits the same colour (strength 1) scaled by `glow`."""
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     bsdf = m.node_tree.nodes["Principled BSDF"]
     bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
     bsdf.inputs["Roughness"].default_value = roughness
+    if glow > 0:
+        bsdf.inputs["Emission Color"].default_value = (*[c * glow for c in rgb], 1.0)
+        bsdf.inputs["Emission Strength"].default_value = 1.0
     return m
 
 
@@ -314,6 +319,10 @@ def build_catapult(kit, job):
     kit.primitive("cylinder", (-1.6, 0, 3.0), (0.1, 0.1, 1.6), rope, rot_deg=(0, -24, 0), segments=6)
 
 
+# Extra types live in props_last.py (crystal, corn, carcass, engine, beetle).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import props_last  # noqa: E402
+
 BUILDERS = {"signboard": build_signboard, "waymark": build_waymark, "scarecrow": build_scarecrow, "rope": build_rope, "column": build_column, "marker": build_marker, "catapult": build_catapult, "chest": build_chest, "tent": build_tent, "gravestone": build_gravestone, "fence": build_fence, "crate": build_crate, "well": build_well, "rocks": build_rocks, "slab": build_slab,
             "firepit": build_firepit, "dirtpile": build_dirtpile, "stump": build_stump}
 
@@ -377,7 +386,10 @@ def main():
     for job in jobs:
         scene = reset()
         kit = Kit(kit_dirs, scene)
-        BUILDERS[job["type"]](kit, job)
+        if job["type"] in props_last.BUILDERS:
+            props_last.BUILDERS[job["type"]](kit, job, flat_material)
+        else:
+            BUILDERS[job["type"]](kit, job)
         finish(scene, kit, job)
 
 
