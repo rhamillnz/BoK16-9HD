@@ -29,6 +29,7 @@ import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { speakerPortraitLoader } from '../ui/speakerPortraits';
 import { loadChapterStart } from '../world/zone';
+import { warnIfOffMap } from './chapterStartCheck';
 import { TILE_SIZE } from '../formats/world';
 import { loadZoneMap } from '../formats/zoneMap';
 import { ZoneHost } from './zoneHost';
@@ -602,6 +603,7 @@ const chapters = installChapters({
     start.chapter = c.chapter;
     encounters = await makeEncounters(zoneHost.current.zone, zoneHost.current.data.tiles, clock.state);
     await travelTo({ zone: c.zone, tileX: c.tileX, tileY: c.tileY, x: c.x, y: c.y, heading: c.heading });
+    warnIfOffMap(c, zoneHost.current.data.tiles, teleport);
     if (teleport !== undefined && teleports[teleport]) await travelTo(teleports[teleport]!);
   },
   onTransitioned: () => sky.update(clock.minutes),
