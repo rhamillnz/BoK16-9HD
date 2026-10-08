@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  layoutZoneButtons,
-  zoneButtonAtClick,
-  tileAtClick,
-  destinationFromTile,
-} from './jumpMapScreen';
+import { layoutZoneButtons, zoneButtonAtClick, tileAtClick, destinationFromTile } from './jumpMapScreen';
 import { type MapViewport } from './mapMath';
 import { TILE_SIZE } from '../formats/world';
 
@@ -25,12 +20,17 @@ describe('jumpMapScreen pure logic', () => {
       }
     });
 
-    it('fits buttons within width margins', () => {
-      const buttons = layoutZoneButtons(640, 360);
-      const sideMargin = 12;
-      expect(buttons[0]!.x).toBeGreaterThanOrEqual(sideMargin);
-      const lastBtn = buttons[11]!;
-      expect(lastBtn.x + lastBtn.width).toBeLessThanOrEqual(640 - sideMargin);
+    it('fits the buttons on screen without overlapping, at any HUD size', () => {
+      for (const [w, h] of [
+        [640, 360],
+        [2560, 1440],
+      ]) {
+        const buttons = layoutZoneButtons(w!, h!);
+        expect(buttons[0]!.x).toBeGreaterThan(0);
+        expect(buttons[11]!.x + buttons[11]!.width).toBeLessThan(w!);
+        for (let i = 1; i < buttons.length; i++)
+          expect(buttons[i]!.x).toBeGreaterThanOrEqual(buttons[i - 1]!.x + buttons[i - 1]!.width);
+      }
     });
 
     it('all buttons have consistent height', () => {
@@ -137,5 +137,22 @@ describe('jumpMapScreen pure logic', () => {
       const dest12 = destinationFromTile(12, 5, 5);
       expect(dest12.zone).toBe(12);
     });
+  });
+});
+
+describe('drawn tiles and clicks agree', () => {
+  it('a click in the middle of a drawn tile picks that tile', async () => {
+    const { fitViewport, tileBounds, tileRect } = await import('./mapMath');
+    const tiles: [number, number][] = [
+      [10, 20],
+      [11, 20],
+      [10, 21],
+      [12, 23],
+    ];
+    const v = fitViewport(tileBounds(tiles), { x: 50, y: 80, width: 400, height: 300 });
+    for (const [tx, ty] of tiles) {
+      const r = tileRect(v, tx, ty);
+      expect(tileAtClick(v, r.x + r.size / 2, r.y + r.size / 2)).toEqual([tx, ty]);
+    }
   });
 });

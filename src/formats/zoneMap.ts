@@ -14,10 +14,13 @@ export function parseZoneMap(bytes: Uint8Array): ZoneMap {
   return { bytes: bytes.subarray(0, ZONE_MAP_BYTES) };
 }
 
-/** True when tile (x, y), both 0..49, is marked present. */
+/**
+ * True when tile (x, y), both 0..49, is marked present. The mask is 8 bytes per tile row y, bit
+ * (x & 7) of byte (x >> 3): checked against every zone's REF tile list, which it matches exactly.
+ */
 export function isTilePresent(map: ZoneMap, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= MAP_GRID || y >= MAP_GRID) return false;
-  return (map.bytes[(x << 3) + (y >> 3)]! & (1 << (y & 7))) !== 0;
+  return (map.bytes[(y << 3) + (x >> 3)]! & (1 << (x & 7))) !== 0;
 }
 
 /** Every present tile as [x, y], x-major. */
@@ -32,7 +35,7 @@ export function zoneMapFromTiles(tiles: readonly (readonly [number, number])[]):
   const bytes = new Uint8Array(ZONE_MAP_BYTES);
   for (const [x, y] of tiles) {
     if (x < 0 || y < 0 || x >= MAP_GRID || y >= MAP_GRID) continue;
-    bytes[(x << 3) + (y >> 3)]! |= 1 << (y & 7);
+    bytes[(y << 3) + (x >> 3)]! |= 1 << (x & 7);
   }
   return { bytes };
 }

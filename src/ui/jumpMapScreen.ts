@@ -1,5 +1,8 @@
-import { type MapLayout, type PartyPose, layoutMap, MAP_COLORS } from './mapScreen';
-import { type MapViewport } from './mapMath';
+import { type MapLayout, layoutMap, MAP_COLORS } from './mapScreen';
+import { tileRect, worldToMap, type MapViewport } from './mapMath';
+import { chooseScale } from './dialogBox';
+import { drawText } from './inventory';
+import { measureString } from '../formats/fnt';
 import { TILE_SIZE } from '../formats/world';
 import { type ZoneMap } from '../formats/zoneMap';
 import { type Destination } from '../game/transitions';
@@ -16,12 +19,13 @@ export type OnTravelTo = (d: Destination) => void;
  */
 export function layoutZoneButtons(
   width: number,
-  _height: number,
-  buttonHeight: number = 24,
+  height: number,
+  buttonHeight: number = 16 * chooseScale(height),
 ): { x: number; y: number; width: number; height: number }[] {
-  const topMargin = 8;
-  const sideMargin = 12;
-  const spacing = 4;
+  const scale = chooseScale(height);
+  const topMargin = 6 * scale;
+  const sideMargin = 8 * scale;
+  const spacing = 3 * scale;
   const availableWidth = width - 2 * sideMargin;
   const buttonWidth = Math.floor((availableWidth - (ZONE_COUNT - 1) * spacing) / ZONE_COUNT);
 
@@ -135,25 +139,23 @@ export class JumpMapScreen implements HudScreenHandler {
     try {
       const { map } = await this.loadZoneMap(zone);
       if (this.state !== s) return; // screen was closed
-      const layout = layoutMap(map, this.host.width, this.host.height);
-      // Adjust layout to account for zone buttons at the top
-      const buttonAreaHeight = s.buttons[0]!.height + s.buttons[0]!.y + 8;
+      // Lay the map out in the space below the zone buttons, then move all of it down there.
+      const top = this.buttonAreaHeight(s);
+      const layout = layoutMap(map, this.host.width, this.host.height - top);
       s.layouts.set(zone, {
         ...layout,
-        panel: {
-          ...layout.panel,
-          y: layout.panel.y + buttonAreaHeight,
-          height: Math.max(20, layout.panel.height - buttonAreaHeight),
-        },
-        title: {
-          ...layout.title,
-          y: layout.title.y + buttonAreaHeight,
-        },
+        panel: { ...layout.panel, y: layout.panel.y + top },
+        title: { ...layout.title, y: layout.title.y + top },
+        viewport: { ...layout.viewport, originY: layout.viewport.originY + top },
       });
       this.host.invalidate();
     } finally {
       s.loading.delete(zone);
     }
+  }
+
+  private buttonAreaHeight(s: JumpMapState): number {
+    return s.buttons[0]!.y + s.buttons[0]!.height;
   }
 
   close(): void {
@@ -179,8 +181,7 @@ export class JumpMapScreen implements HudScreenHandler {
       }
 
       // Check if click is on the map (below the buttons)
-      const buttonAreaHeight = s.buttons[0]!.height + s.buttons[0]!.y + 8;
-      if (ev.y < buttonAreaHeight) return; // Click is in the button area but not on a button
+      if (ev.y < this.buttonAreaHeight(s)) return; // Click is in the button area but not on a button
 
       // Map click to tile
       const layout = s.layouts.get(s.selectedZone);
@@ -200,103 +201,61 @@ export class JumpMapScreen implements HudScreenHandler {
     if (!s) return;
 
     const h = this.host;
-    const { width, height } = h;
+    const { width, height, font } = h;
+    const scale = chooseScale(height);
+    const label = (text: string, x: number, y: number, align: 'left' | 'centre' | 'right' = 'left') => {
+      const w = measureString(font, text) * scale;
+      const lx = align === 'centre' ? x - w / 2 : align === 'right' ? x - w : x;
+      drawText(ctx, font, text, Math.round(lx), Math.round(y), scale, MAP_COLORS.text);
+    };
 
-    // Draw background
     ctx.fillStyle = MAP_COLORS.backdrop;
     ctx.fillRect(0, 0, width, height);
 
-    // Draw zone buttons
-    for (let i = 0; i < s.buttons.length; i++) {
-      const btn = s.buttons[i]!;
-      const isSelected = s.selectedZone === i + 1;
-
-      ctx.fillStyle = isSelected ? MAP_COLORS.tileEdge : MAP_COLORS.tile;
+    // Zone buttons
+    s.buttons.forEach((btn, i) => {
+      ctx.fillStyle = s.selectedZone === i + 1 ? MAP_COLORS.tileEdge : MAP_COLORS.tile;
       ctx.fillRect(btn.x, btn.y, btn.width, btn.height);
       ctx.strokeStyle = MAP_COLORS.border;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = scale;
       ctx.strokeRect(btn.x, btn.y, btn.width, btn.height);
+      label(`Zone ${i + 1}`, btn.x + btn.width / 2, btn.y + (btn.height - font.height * scale) / 2, 'centre');
+    });
 
-      // Draw zone number text
-      ctx.fillStyle = MAP_COLORS.text;
-      ctx.font = '12px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`${i + 1}`, btn.x + btn.width / 2, btn.y + btn.height / 2);
-    }
-
-    // Draw map for selected zone if loaded
     const layout = s.layouts.get(s.selectedZone);
-    if (layout) {
-      const isCurrentZone = s.selectedZone === (h.map?.zone ?? 0);
-      const pose: PartyPose = isCurrentZone ? h.pose : { x: -999999, y: -999999, heading: 0 };
+    if (!layout) {
+      label(s.loading.has(s.selectedZone) ? 'Loading...' : 'No map for this zone', width / 2, height / 2, 'centre');
+      return;
+    }
+    const { panel, viewport } = layout;
+    ctx.fillStyle = MAP_COLORS.panel;
+    ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
+    ctx.strokeStyle = MAP_COLORS.border;
+    ctx.lineWidth = 2 * scale;
+    ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
 
-      // Draw the map panel background and border
-      const { scale, panel } = layout;
-      ctx.fillStyle = MAP_COLORS.panel;
-      ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
-      ctx.strokeStyle = MAP_COLORS.border;
-      ctx.lineWidth = 2 * scale;
-      ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
-
-      // Draw tiles
-      for (const [tx, ty] of layout.tiles) {
-        const { x, y, size } = (() => {
-          const { bounds, cell, originX, originY } = layout.viewport;
-          const rows = bounds.maxY - bounds.minY + 1;
-          const p = { x: originX + (tx - bounds.minX) * cell, y: originY + (rows - (ty - bounds.minY)) * cell };
-          return { x: p.x, y: p.y, size: cell };
-        })();
-
-        ctx.fillStyle = MAP_COLORS.tile;
-        ctx.fillRect(x, y, size, size);
-        ctx.strokeStyle = MAP_COLORS.tileEdge;
-        ctx.lineWidth = Math.max(1, scale / 2);
-        ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
-      }
-
-      // Draw party position if in current zone
-      if (isCurrentZone) {
-        const { x, y } = (() => {
-          const { bounds, cell, originX, originY } = layout.viewport;
-          const rows = bounds.maxY - bounds.minY + 1;
-          return {
-            x: originX + (pose.x / TILE_SIZE - bounds.minX) * cell,
-            y: originY + (rows - (pose.y / TILE_SIZE - bounds.minY)) * cell,
-          };
-        })();
-
-        const size = Math.max(6 * scale, layout.viewport.cell * 0.35);
-        ctx.fillStyle = MAP_COLORS.arrow;
-        ctx.beginPath();
-        ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = MAP_COLORS.arrowEdge;
-        ctx.lineWidth = Math.max(1, scale);
-        ctx.stroke();
-      }
-
-      // Draw zone title
-      ctx.fillStyle = MAP_COLORS.text;
-      ctx.font = '12px monospace';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(`Zone ${s.selectedZone}`, layout.title.x, layout.title.y);
-    } else {
-      // Show loading or unloaded message
-      const loading = s.loading.has(s.selectedZone);
-      ctx.fillStyle = MAP_COLORS.text;
-      ctx.font = '12px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(loading ? 'Loading...' : 'Click to load', width / 2, height / 2);
+    for (const [tx, ty] of layout.tiles) {
+      const r = tileRect(viewport, tx, ty);
+      ctx.fillStyle = MAP_COLORS.tile;
+      ctx.fillRect(r.x, r.y, r.size, r.size);
+      ctx.strokeStyle = MAP_COLORS.tileEdge;
+      ctx.lineWidth = Math.max(1, scale / 2);
+      ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.size - 1, r.size - 1);
     }
 
-    // Draw hint text
-    ctx.fillStyle = MAP_COLORS.text;
-    ctx.font = '12px monospace';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.fillText('F7 or Esc: close', width - 12, 8);
+    // The party, when this is the zone it is in.
+    if (s.selectedZone === h.map?.zone) {
+      const p = worldToMap(viewport, h.pose.x, h.pose.y);
+      ctx.fillStyle = MAP_COLORS.arrow;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(4 * scale, viewport.cell * 0.18), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = MAP_COLORS.arrowEdge;
+      ctx.lineWidth = Math.max(1, scale);
+      ctx.stroke();
+    }
+
+    label(`Zone ${s.selectedZone}: click a tile to go there`, layout.title.x, layout.title.y);
+    label('F7 or Esc: close', panel.x + panel.width - 6 * scale, layout.title.y, 'right');
   }
 }

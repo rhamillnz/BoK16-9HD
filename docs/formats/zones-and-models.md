@@ -304,8 +304,9 @@ Defines the rectangular 3D render viewport within the native $320 \times 200$ sc
 A compact bitmask of explored/valid tiles across a $50 \times 50$ tile grid:
 - Size: exactly **400 bytes** (`0x190`).
 - Tile bit extraction formula:
-  $$\text{byteIndex} = (x \ll 3) + (y \gg 3)$$
-  $$\text{bitMask} = 1 \ll (y \mathbin{\&} 7)$$
+  $$\text{byteIndex} = (y \ll 3) + (x \gg 3)$$
+  $$\text{bitMask} = 1 \ll (x \mathbin{\&} 7)$$
+  (8 bytes per tile row $y$. Earlier notes had $x$ and $y$ the other way round, which drew every zone map mirrored across the diagonal; this order matches each zone's REF tile list exactly.)
   $$\text{isTilePresent} = (\text{mapBytes}[\text{byteIndex}] \mathbin{\&} \text{bitMask}) \ne 0$$
 - Tile $(x, y)$ is the world tile `T<zone><XX><YY>`; world position $(wx, wy)$ falls in tile $(\lfloor wx/64000 \rfloor, \lfloor wy/64000 \rfloor)$. Implemented in `src/formats/zoneMap.ts`; the map screen (`src/ui/mapMath.ts`) draws north up.
 
