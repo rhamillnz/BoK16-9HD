@@ -43,7 +43,9 @@ export async function prefetchResources(archive: ResourceArchive, names: readonl
     names.map(async (name) => {
       if (archive.has(name)) return void found.set(name, archive.get(name));
       const res = await fetch(`/bak/${name}`).catch(() => undefined);
-      if (res?.ok) found.set(name, new Uint8Array(await res.arrayBuffer()));
+      // A static host may answer a missing file with its HTML page (status 200): that is not game data.
+      if (res?.ok && !(res.headers.get('content-type') ?? '').startsWith('text/html'))
+        found.set(name, new Uint8Array(await res.arrayBuffer()));
     }),
   );
   return (name) => found.get(name);

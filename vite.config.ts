@@ -11,11 +11,14 @@ function serveGameData(): Plugin {
   return {
     name: 'serve-bak-data',
     configureServer(server) {
-      server.middlewares.use('/bak/', (req, res, next) => {
+      server.middlewares.use('/bak/', (req, res) => {
         const name = decodeURIComponent((req.url ?? '').split('?')[0] ?? '').replace(/^\/+/, '');
         const file = path.resolve(BAK_DIR, name);
+        // Misses must be real 404s: the SPA fallback would answer with index.html (status 200), which
+        // the game then parses as data (a missing tile encounter file read past its end in chapter 6).
         if (!file.startsWith(path.resolve(BAK_DIR)) || !existsSync(file) || !statSync(file).isFile()) {
-          return next();
+          res.statusCode = 404;
+          return res.end();
         }
         res.setHeader('Content-Type', 'application/octet-stream');
         createReadStream(file).pipe(res);
