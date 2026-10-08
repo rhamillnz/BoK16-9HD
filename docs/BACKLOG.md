@@ -55,9 +55,9 @@ Backlog 5 (from Opus, 2026-10-08; start after open PRs and Backlog 4):
 - [~] 6 Code health: ESLint + Prettier in CI **done by Opus** (`npm run lint`, `npm run format:check`; run `npm run format` before committing). Still open: split src/game/main.ts into feature modules (mostly composition), remove dead code and stale probe scripts
 - [x] 7 Journal/notes screen: research BaKGL for a bookmark or quest log; otherwise a simple notes screen of key dialogue lines seen (BaKGL not readable from the cloud, so this is the simple notes screen: J, dialogue lines kept via saveExtras)
 
-Backlog 6 (from Opus and the local real-data checks, 2026-10-08; do these before Backlog 5 items 3 and 6):
+Backlog 6 (from Opus and the local real-data checks, 2026-10-08; do these before Backlog 5 items 3 and 6; item 1 first, it blocks towns, shops, inns and temples):
 - [ ] 1 **Town scenes go black**: in zone 1 at `?zone=1&x=660800&y=927000&h=192`, walk forward ~4.5 s into the LaMut dialogue and answer Yes: the whole page turns black (no picture, hotspots or HUD) with no console error. Town scenes must draw their background and hotspots again; add a test that fails today
 - [ ] 2 **`?chapter=2` starts at (8, -8) in zone 11, a black void**. #67 made it deterministic but the position is still the unscaled one: apply the chapter's real start (zone, tile, cell to BaK units, as `loadChapterStart` does for chapter 1) and check chapters 2-9 each land on geometry; table test over the start records
-- [ ] 3 Main menu panel spans the whole window width: make it a compact centred box
+- [x] 3 Main menu panel spans the whole window width: make it a compact centred box (done locally with the new title screen)
 - [ ] 4 Combat in zone 7 (`?zone=7&x=791141&y=988500&h=0`): two torch-like sprites float above the grid near the hill; find what they are and place or hide them properly
 - [ ] 5 The code is now Prettier-formatted (commit 5d6c027, see .git-blame-ignore-revs): merge main into any old branch before continuing it
