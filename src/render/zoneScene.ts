@@ -38,7 +38,10 @@ import { buildOverrideMeshes, placementMatrix, type ZoneOverridePlan } from './o
 
 export const WORLD_SCALE = 100;
 
-/** Detailed hill surfaces per placed item: the scene and the height field both need them. */
+/**
+ * Detailed hill surfaces per placed item. (Hills carry the 2D-object flag, so they are scenery the
+ * party never walks on: the height field skips them, like the original's.)
+ */
 const hillDetailCache = new WeakMap<object, DetailedHill>();
 function detailedHill(item: object, loops: THREE.Vector3[][]): DetailedHill {
   let d = hillDetailCache.get(item);
@@ -497,18 +500,6 @@ export function collectTerrainTriangles(zone: ZoneData): number[] {
       const vz = v[i * 3 + 2]!;
       return [item.x + vx * cos - vy * sin, item.y + vx * sin + vy * cos, item.z + vz] as const;
     };
-    if (isHillModel(model.name)) {
-      // Walk on the same sculpted surface that is drawn (render space back to BaK units).
-      const toRender = (p: readonly [number, number, number]) =>
-        new THREE.Vector3(p[0] / WORLD_SCALE, p[2] / WORLD_SCALE, -p[1] / WORLD_SCALE);
-      const loops = model.faces
-        .filter((f) => f.indices.length >= 3)
-        .map((f) => f.indices.map((i) => toRender(world(i))));
-      const r = detailedHill(item, loops).positions;
-      for (let i = 0; i < r.length; i += 3)
-        out.push(r[i]! * WORLD_SCALE, -r[i + 2]! * WORLD_SCALE, r[i + 1]! * WORLD_SCALE);
-      continue;
-    }
     for (const face of model.faces) {
       if (face.indices.length < 3) continue;
       const loop = face.indices.map(world);
