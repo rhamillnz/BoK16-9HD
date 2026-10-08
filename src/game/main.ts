@@ -26,6 +26,7 @@ import { createBrowserMusicPlayer } from '../audio/music';
 import { songForZone } from '../audio/songs';
 import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
+import { speakerPortraitLoader } from '../ui/speakerPortraits';
 import { loadChapterStart } from '../world/zone';
 import { TILE_SIZE } from '../formats/world';
 import { loadZoneMap } from '../formats/zoneMap';
@@ -169,6 +170,7 @@ const screens = mountHud(document.body, {
   items: parseObjInfo(archive.get('OBJINFO.DAT')).items,
   icons: loadItemIcons(archive),
   portraits: portraitCanvases(parseBMX(archive.get('HEADS.BMX')), parsePalette(archive.get('OPTIONS.PAL'))),
+  speakerPortrait: speakerPortraitLoader(archive),
 });
 
 screens.setMap(
@@ -198,7 +200,7 @@ let travelling = false;
 
 const showView: ShowDialog = (view, done) =>
   screens.showDialog(
-    view.snippet,
+    { ...view.snippet, speaker: view.speaker },
     view.options.map((o) => o.label),
     (r) => r.kind !== 'none' && done(r),
   );

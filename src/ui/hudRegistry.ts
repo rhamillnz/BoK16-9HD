@@ -31,6 +31,8 @@ export interface HudHost {
   readonly font: Font;
   readonly items: ItemDef[];
   readonly icons: ItemIconSet | undefined;
+  /** Portrait (ACTnnn image 0) of a dialogue actor, when the game has one. */
+  speakerPortrait?(actor: number): (CanvasImageSource & { width: number; height: number }) | undefined;
   /** The active party, rebuilt whenever `setParty` is called. */
   readonly party: Character[];
   readonly pose: PartyPose;

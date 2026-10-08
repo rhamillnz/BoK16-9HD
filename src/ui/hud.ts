@@ -40,6 +40,8 @@ export interface HudData {
   icons?: ItemIconSet;
   /** HEADS.BMX portraits by character index; the party bar draws plain slots without them. */
   portraits?: PortraitSet;
+  /** Portrait of a dialogue actor (ACTnnn.BMX), if there is one. */
+  speakerPortrait?: (actor: number) => HTMLCanvasElement | undefined;
 }
 
 type DialogSnippet = Parameters<DialogScreen['show']>[0];
@@ -87,6 +89,10 @@ export class HudScreens implements HudHost {
   get items(): ItemDef[] {
     return this.data.items;
   }
+  speakerPortrait(actor: number): HTMLCanvasElement | undefined {
+    return this.data.speakerPortrait?.(actor);
+  }
+
   get icons(): ItemIconSet | undefined {
     return this.data.icons;
   }

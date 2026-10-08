@@ -49,7 +49,10 @@ import type { SlotInfo } from '../game/saveGame';
 import type { Hotspot } from '../formats/gds';
 import { registerHudScreen, type HudEvent, type HudHost, type HudScreenHandler } from './hudRegistry';
 
-type DialogSnippet = Parameters<typeof layoutDialog>[1];
+type DialogSnippet = Parameters<typeof layoutDialog>[1] & {
+  /** Who speaks it; the box shows the name and, when the HUD has one, the portrait. */
+  speaker?: { actor: number; name: string };
+};
 
 /** A town or temple scene shown full-screen: the picture, its available hotspots and what clicks do. */
 export interface TownView {
@@ -247,12 +250,19 @@ export class TownScreen implements HudScreenHandler {
 /** A dialogue box; `done` gets the choice or finish result and the screen ends. */
 export class DialogScreen implements HudScreenHandler {
   modal = true;
-  private s: { layout: DialogLayout; state: DialogState; done: (r: DialogResult) => void } | undefined;
+  private s:
+    | { layout: DialogLayout; state: DialogState; done: (r: DialogResult) => void; portrait?: CanvasImageSource }
+    | undefined;
   constructor(private readonly host: HudHost) {}
   show(snippet: DialogSnippet, choiceLabels: string[], done: (r: DialogResult) => void): void {
     const h = this.host;
-    const layout = layoutDialog(h.font, snippet, choiceLabels, defaultBoxOptions(h.width, h.height));
-    this.s = { layout, state: initialState(layout), done };
+    const portrait = snippet.speaker ? h.speakerPortrait?.(snippet.speaker.actor) : undefined;
+    const speaker = snippet.speaker && {
+      name: snippet.speaker.name,
+      portrait: portrait && { width: Number(portrait.width), height: Number(portrait.height) },
+    };
+    const layout = layoutDialog(h.font, snippet, choiceLabels, defaultBoxOptions(h.width, h.height), speaker);
+    this.s = { layout, state: initialState(layout), done, portrait };
   }
   open(): boolean {
     return this.s !== undefined;
@@ -275,7 +285,7 @@ export class DialogScreen implements HudScreenHandler {
     if (r.result.kind !== 'none') this.finish(r.result);
   }
   draw(ctx: CanvasRenderingContext2D): void {
-    if (this.s) drawDialog(ctx, this.host.font, this.s.layout, this.s.state);
+    if (this.s) drawDialog(ctx, this.host.font, this.s.layout, this.s.state, { portrait: this.s.portrait });
   }
 }
 

@@ -1,3 +1,4 @@
+import { playSfx } from '../audio/sfxBus';
 import { effectiveSkill, SKILL_NAMES } from '../formats/gam';
 import { ITEM_ROYALS, ITEM_SOVEREIGNS, ROYALS_PER_SOVEREIGN, activeCharacters, type PartyState } from './party';
 import { GAME_STATE_ITEM_VALUE } from './dialogEffects';
@@ -39,6 +40,8 @@ export function partyHasItem(p: PartyState, item: number): boolean {
 export function makeDialogEnv(o: DialogEnvOptions): DialogEnv {
   return {
     random: o.random,
+    // A call or a door creak belongs with the line it comes with, not after the conversation.
+    playSound: playSfx,
     textContext: () => ({ party: o.getParty(), chapter: o.chapter, random: o.random, ...o.extras?.() }),
     haveItem: (item) => partyHasItem(o.getParty(), item),
     haveNote: o.haveNote,
