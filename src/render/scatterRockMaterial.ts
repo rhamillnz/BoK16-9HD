@@ -11,7 +11,7 @@ import {
   smoothstep,
   vec3,
 } from 'three/tsl';
-import { SCATTER_ROCKS } from './scatter';
+import { SCATTER_BUSHES, SCATTER_ROCKS } from './scatter';
 import { bumpedNormal } from './bump';
 
 /** Stone colours (linear), close to the hill rock in hillMaterial.ts: weathered grey-brown with pale lichen. */
@@ -50,8 +50,29 @@ export function scatterRockMaterial(): THREE.MeshStandardNodeMaterial {
   return material;
 }
 
-/** Give scattered boulders the stone material in place of the .glb's own (near-black) one. */
+/** Share of the foliage colour added as unlit bounce light (the kit's bush materials go near-black in shade). */
+const FOLIAGE_BOUNCE = 0.45;
+const foliageCache = new Map<THREE.Material, THREE.Material>();
+
+/** A copy of a foliage material that also glows with its own colour, so shaded plants stay green. */
+function foliageMaterial(src: THREE.Material): THREE.Material {
+  let out = foliageCache.get(src);
+  if (out) return out;
+  const m = (src as THREE.MeshStandardMaterial).clone();
+  m.emissive = new THREE.Color(FOLIAGE_BOUNCE, FOLIAGE_BOUNCE, FOLIAGE_BOUNCE);
+  m.emissiveMap = m.map;
+  if (!m.map) m.emissive.copy(m.color).multiplyScalar(FOLIAGE_BOUNCE);
+  foliageCache.set(src, (out = m));
+  return out;
+}
+
+/** Scatter models drawn with their own look: boulders get the stone material, bushes a bounce-lit copy of theirs. */
 export function applyScatterRockMaterial(name: string, meshes: readonly THREE.Mesh[]): void {
-  if (!isScatterRock(name)) return;
-  for (const mesh of meshes) mesh.material = scatterRockMaterial();
+  if (isScatterRock(name)) {
+    for (const mesh of meshes) mesh.material = scatterRockMaterial();
+  } else if ((SCATTER_BUSHES as readonly string[]).includes(name)) {
+    for (const mesh of meshes) {
+      if (!Array.isArray(mesh.material)) mesh.material = foliageMaterial(mesh.material);
+    }
+  }
 }

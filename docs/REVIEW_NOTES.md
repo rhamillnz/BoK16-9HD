@@ -65,3 +65,6 @@
 - Scene pictures are composed at load time (`composeScene`), so replacements are keyed by a hash of the composed pixels: `src/game/sceneHd.ts` (`sceneHash`, `loadSceneHd`, served from `/art/scenes-4x/<hash>.png`; dev server serves `art/reference`), hooked in `townHost.ts` only (`load` fetches the HD image, `show` passes it as the picture). Drawing and hotspot code untouched; falls back to the 320x200 picture when no file exists.
 - `scripts/export-town-scenes.ts` writes every distinct composed scene (117 scenes x 9 chapters) to `art/derived/scenes/<hash>.png`, for `tools/upscale/upscale.py art/derived/scenes art/reference/scenes-4x`.
 - Blocked: every scene currently composes to the same all-black image (the bug the cloud is fixing), so the export gives 1 file. After that fix: rerun the export, run the upscaler, check a scene in game. Tests cover hash/URL only.
+
+## Round 4, item 1: dark shape on the zone 1 hill
+- It was a scattered fern/bush (nature-kit materials go near-black in shade). `scatterRockMaterial.ts` now gives scatter bushes (`bush1/2/4`, `fern`) a cached bounce-lit copy of their material (emissive = own colour x 0.45). `shots/local/13/blob.png` (before) vs `blob3.png` (after: green). fps there is 42-43 both before and after (water/hills, not this change).
