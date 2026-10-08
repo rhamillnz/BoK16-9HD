@@ -7,11 +7,13 @@ import { TILE_SIZE } from '../formats/world';
 import { type ZoneMap } from '../formats/zoneMap';
 import { type Destination } from '../game/transitions';
 import { type HudEvent, type HudHost, type HudScreenHandler } from './hudRegistry';
+import { fitText, zoneButtonLines } from '../formats/fullMap';
 
 const ZONE_COUNT = 12;
 
 export type ZoneMapLoader = (zone: number) => Promise<{ map: ZoneMap; tiles: [number, number][] }>;
 export type OnTravelTo = (d: Destination) => void;
+export type ZoneNameLoader = () => Promise<string[]>;
 
 /**
  * Pure logic: layout zone selection buttons.
@@ -20,7 +22,7 @@ export type OnTravelTo = (d: Destination) => void;
 export function layoutZoneButtons(
   width: number,
   height: number,
-  buttonHeight: number = 16 * chooseScale(height),
+  buttonHeight: number = 26 * chooseScale(height),
 ): { x: number; y: number; width: number; height: number }[] {
   const scale = chooseScale(height);
   const topMargin = 6 * scale;
@@ -98,6 +100,7 @@ interface JumpMapState {
   layouts: Map<number, MapLayout>;
   buttons: ReturnType<typeof layoutZoneButtons>;
   loading: Set<number>; // zones currently being loaded
+  zoneNames: string[]; // Names for zones 1..12
 }
 
 export class JumpMapScreen implements HudScreenHandler {
@@ -106,29 +109,52 @@ export class JumpMapScreen implements HudScreenHandler {
   private state: JumpMapState | undefined;
   private onTravelTo: OnTravelTo | undefined;
   private loadZoneMap: ZoneMapLoader | undefined;
+  private loadZoneNames: ZoneNameLoader | undefined;
 
   constructor(private readonly host: HudHost) {}
 
   /** Set up the callback for loading zone maps and traveling. */
-  setCallbacks(loadZoneMap: ZoneMapLoader, onTravelTo: OnTravelTo): void {
+  setCallbacks(loadZoneMap: ZoneMapLoader, onTravelTo: OnTravelTo, loadZoneNames?: ZoneNameLoader): void {
     this.loadZoneMap = loadZoneMap;
     this.onTravelTo = onTravelTo;
+    this.loadZoneNames = loadZoneNames;
   }
 
   open(): boolean {
     if (!this.host.map || !this.loadZoneMap) return false;
 
     const buttons = layoutZoneButtons(this.host.width, this.host.height);
+    const zoneNames = Array.from({ length: ZONE_COUNT }, (_, i) => `Zone ${i + 1}`);
+
     this.state = {
       selectedZone: this.host.map.zone,
       layouts: new Map(),
       buttons,
       loading: new Set(),
+      zoneNames,
     };
+
+    // Load zone names if available
+    if (this.loadZoneNames) {
+      void this.loadZoneNamesAsync();
+    }
 
     // Start loading the current zone's map
     void this.loadZoneMapIfNeeded(this.host.map.zone);
     return true;
+  }
+
+  private async loadZoneNamesAsync(): Promise<void> {
+    if (!this.loadZoneNames || !this.state) return;
+    try {
+      const names = await this.loadZoneNames();
+      if (this.state) {
+        this.state.zoneNames = names;
+        this.host.invalidate();
+      }
+    } catch (e) {
+      console.error('Failed to load zone names:', e);
+    }
   }
 
   private async loadZoneMapIfNeeded(zone: number): Promise<void> {
@@ -219,7 +245,12 @@ export class JumpMapScreen implements HudScreenHandler {
       ctx.strokeStyle = MAP_COLORS.border;
       ctx.lineWidth = scale;
       ctx.strokeRect(btn.x, btn.y, btn.width, btn.height);
-      label(`Zone ${i + 1}`, btn.x + btn.width / 2, btn.y + (btn.height - font.height * scale) / 2, 'centre');
+      const [area, which] = zoneButtonLines(i + 1, s.zoneNames[i] || `Zone ${i + 1}`);
+      const fit = (t: string) => fitText(t, btn.width - 6 * scale, (x) => measureString(font, x) * scale);
+      const lineH = (font.height + 3) * scale;
+      const top = btn.y + (btn.height - 2 * lineH) / 2 + scale;
+      label(fit(area), btn.x + btn.width / 2, top, 'centre');
+      label(which, btn.x + btn.width / 2, top + lineH, 'centre');
     });
 
     const layout = s.layouts.get(s.selectedZone);
@@ -255,7 +286,8 @@ export class JumpMapScreen implements HudScreenHandler {
       ctx.stroke();
     }
 
-    label(`Zone ${s.selectedZone}: click a tile to go there`, layout.title.x, layout.title.y);
+    const selectedZoneName = s.zoneNames[s.selectedZone - 1] || `Zone ${s.selectedZone}`;
+    label(`Zone ${s.selectedZone} - ${selectedZoneName}: click a tile to go there`, layout.title.x, layout.title.y);
     label('F7 or Esc: close', panel.x + panel.width - 6 * scale, layout.title.y, 'right');
   }
 }

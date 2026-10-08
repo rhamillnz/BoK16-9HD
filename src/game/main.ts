@@ -9,6 +9,7 @@ import { PartyController, NO_INPUT } from '../world/partyController';
 import { DEBUG_TIME_STEP, GameClock } from './clock';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
+import { parseFMapTowns, parseFMapXY, generateZoneNames } from '../formats/fullMap';
 import { parseBMX } from '../formats/bmx';
 import { parsePalette } from '../formats/palette';
 import { parseGam } from '../formats/gam';
@@ -183,12 +184,21 @@ screens.setMap(
 
 // Jump map screen (F7): debug tool to teleport to any zone/tile
 const jumpMapScreen = screens.screenHandler<JumpMapScreen>('jumpmap');
+let zoneNamesCache: string[] | undefined;
 jumpMapScreen.setCallbacks(
   async (zone: number) => {
     const zoneData = loadZone(archive, zone);
     return { map: loadZoneMap(archive, zone, zoneData.tiles), tiles: zoneData.tiles };
   },
   (d: Destination) => void travelTo(d),
+  async () => {
+    if (!zoneNamesCache) {
+      const towns = parseFMapTowns(archive.get('FMAP_TWN.DAT'));
+      const zones = parseFMapXY(archive.get('FMAP_XY.DAT'));
+      zoneNamesCache = generateZoneNames(towns, zones);
+    }
+    return zoneNamesCache;
+  },
 );
 
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
