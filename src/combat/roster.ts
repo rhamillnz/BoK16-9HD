@@ -11,6 +11,7 @@ import { ItemType, Race, type ItemDef } from '../formats/objinfo';
 import type { Fighter } from './battle';
 import type { EnemyRecord, PartyGridSlot } from './combatData';
 import { Direction, type GridPos } from './grid';
+import { ItemFlag } from '../game/shops';
 import { monsterRace, RaceKind, type ArmorStats, type WeaponStats } from './rules';
 
 const raceKind = (r: Race): RaceKind =>
@@ -28,6 +29,10 @@ export function equippedWeapon(items: readonly InventoryItem[], defs: readonly I
       accuracyThrust: def.accuracyThrust,
       condition: it.conditionOrQuantity,
       race: raceKind(def.race),
+      index: it.itemIndex,
+      conditionBased: (def.flags & ItemFlag.ConditionBased) !== 0,
+      modifiers: it.modifiers,
+      poisoned: it.poisoned,
     };
   }
   return undefined;
@@ -92,7 +97,13 @@ export function equippedArmor(items: readonly InventoryItem[], defs: readonly It
   for (const it of items) {
     const def = defs[it.itemIndex];
     if (!it.equipped || !def || def.type !== ItemType.Armor) continue;
-    return { rating: def.accuracySwing, condition: it.conditionOrQuantity, race: raceKind(def.race) };
+    return {
+      rating: def.accuracySwing,
+      condition: it.conditionOrQuantity,
+      race: raceKind(def.race),
+      modifiers: it.modifiers,
+      poisoned: it.poisoned,
+    };
   }
   return undefined;
 }

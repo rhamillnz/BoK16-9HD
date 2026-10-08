@@ -400,7 +400,7 @@ async function travelTo(d: Destination): Promise<void> {
   if (travelling) return;
   travelling = true;
   try {
-    const plan = planTransition(zoneHost.current.zone, d);
+    const plan = planTransition(zoneHost.current.zone, d, { x: party.x, y: party.y, heading: party.heading });
     if (plan.reload) {
       boot.loading(`Loading zone ${plan.zone}…`);
       const next = await zoneHost.switchTo(plan.zone);

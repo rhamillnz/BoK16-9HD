@@ -1,5 +1,5 @@
 import type * as THREE from 'three/webgpu';
-import { applyRewards, applyWear } from '../combat/rewards';
+import { applyCombatPractice, applyRewards, applyWear } from '../combat/rewards';
 import { rollFrom } from '../combat/rules';
 import { buildFighters, applyBattleToParty, retreatDestination } from '../combat/setup';
 import type { Fighter } from '../combat/battle';
@@ -131,6 +131,7 @@ export class CombatEncounters {
   ): void {
     let party = applyBattleToParty(this.d.getParty(), fighters);
     party = applyWear(party, result.history, this.d.items, rollFrom(Math.random));
+    party = applyCombatPractice(party, result.history);
     if (outcome === 'won') {
       if (result.rewards) party = applyRewards(party, result.rewards);
       this.d.markDone(e);

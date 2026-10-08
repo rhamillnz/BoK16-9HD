@@ -133,10 +133,10 @@ describe('rewards', () => {
     expect(tallyBattle(s.history).get('enemy1')).toMatchObject({ hitsTaken: 1 });
   });
 
-  it('awards crossbow experience and a purse for the kill', () => {
+  it('awards crossbow experience per shot landed and a purse for the kill', () => {
     const s = won();
     const r = battleRewards(s.fighters, s.history, high);
-    expect(r.experience.get('party0')).toEqual({ crossbow: 2 + 4 });
+    expect(r.experience.get('party0')).toEqual({ crossbow: 2 });
     expect(r.royals).toBe(5);
     expect(r.lines.join(' ')).toContain('5 royals');
   });
@@ -187,7 +187,7 @@ describe('wear', () => {
   } as unknown as PartyState;
   const defs = [def(ItemType.Sword), def(ItemType.Armor), def(ItemType.Crossbow)];
 
-  it('dulls the weapon per hit landed and wears armour per two hits taken', () => {
+  it('dulls the sword by half per thrust landed and the armour in full per hit taken', () => {
     const history = [
       { type: 'attack', attacker: 'party0', target: 'e', kind: 'thrust', hit: true, damage: 1, killed: false },
       { type: 'attack', attacker: 'party0', target: 'e', kind: 'thrust', hit: true, damage: 1, killed: false },
@@ -196,8 +196,9 @@ describe('wear', () => {
     ] as const;
     const next = applyWear(party, history, defs, high);
     const items = next.characters[0]!.inventory.items;
-    expect(items[0]!.conditionOrQuantity).toBe(82);
-    expect(items[1]!.conditionOrQuantity).toBe(89);
+    // High rolls: dull amount 3 (maxDullAmount 4 - 1); a thrust halves it (1), a hit on armour is full (3).
+    expect(items[0]!.conditionOrQuantity).toBe(88);
+    expect(items[1]!.conditionOrQuantity).toBe(84);
     expect(items[2]!.conditionOrQuantity).toBe(5);
   });
 

@@ -1,7 +1,7 @@
 /**
- * What a fight leaves behind: experience, loot and wear on the party's gear. All worked out from
- * the battle's event history. BaKGL has no data for these (monster inventories are not parsed, and
- * skill improvement is the next backlog item), so the numbers are our own stand-ins (**unverified**).
+ * What a fight leaves behind: skill practice, loot and wear on the party's gear, all worked out from
+ * the battle's event history. Practice and wear follow BaKGL (docs/formats/combat-audit.md); the
+ * loot and the ranged and casting experience are our own stand-ins (**unverified**).
  */
 
 import { practiceSkill } from '../game/practice';
@@ -9,7 +9,7 @@ import type { Character, SkillName } from '../formats/gam';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import { updateCharacter, type PartyState } from '../game/party';
 import type { BattleEvent, Fighter } from './battle';
-import type { Roll } from './rules';
+import { DULL_FULL, DULL_HALF, dullCondition, type Roll } from './rules';
 
 export interface FighterTally {
   meleeHits: number;
@@ -52,9 +52,6 @@ export function tallyBattle(history: readonly BattleEvent[]): Map<string, Fighte
 }
 
 export const XP_PER_HIT = 2;
-export const XP_PER_HIT_TAKEN = 1;
-/** Experience for a kill is the victim's maximum Health divided by this, at least 1. */
-export const KILL_XP_DIVISOR = 5;
 
 export interface Rewards {
   /** Experience to add per party fighter id and skill. */
@@ -66,8 +63,11 @@ export interface Rewards {
 }
 
 /**
- * Rewards for a won fight: skill experience for what each party member did, and a purse of royals
- * from each slain enemy (up to a quarter of its maximum Health).
+ * Rewards for a won fight. Melee, Strength and Defense practice is not here: BaKGL grants it
+ * attack by attack, win or lose (see `applyCombatPractice`) and has no experience for kills or for
+ * hits taken. What is left are our own stand-ins (**unverified**): 2 Crossbow experience per shot
+ * landed and 2 Casting experience per cast, and a purse of up to a quarter of each slain enemy's
+ * maximum Health in royals.
  */
 export function battleRewards(fighters: readonly Fighter[], history: readonly BattleEvent[], roll: Roll): Rewards {
   const tally = tallyBattle(history);
@@ -77,19 +77,9 @@ export function battleRewards(fighters: readonly Fighter[], history: readonly Ba
     if (f.side !== 'party') continue;
     const t = tally.get(f.id);
     if (!t) continue;
-    const bounty = t.slain.reduce(
-      (sum, id) => sum + Math.max(1, Math.trunc((fighters.find((v) => v.id === id)?.maxHealth ?? 0) / KILL_XP_DIVISOR)),
-      0,
-    );
     const xp: Partial<Record<SkillName, number>> = {};
-    // A kill's bounty goes to the skill the killer leaned on more.
-    const caster = t.casts > 0 && t.meleeHits === 0 && t.rangedHits === 0;
-    const shooter = t.rangedHits > t.meleeHits;
-    if (t.meleeHits > 0 || (bounty > 0 && !shooter && !caster))
-      xp.melee = t.meleeHits * XP_PER_HIT + (shooter || caster ? 0 : bounty);
-    if (t.rangedHits > 0) xp.crossbow = t.rangedHits * XP_PER_HIT + (shooter ? bounty : 0);
-    if (t.casts > 0) xp.casting = t.casts * XP_PER_HIT + (caster ? bounty : 0);
-    if (t.hitsTaken > 0) xp.defense = t.hitsTaken * XP_PER_HIT_TAKEN;
+    if (t.rangedHits > 0) xp.crossbow = t.rangedHits * XP_PER_HIT;
+    if (t.casts > 0) xp.casting = t.casts * XP_PER_HIT;
     if (Object.keys(xp).length === 0) continue;
     experience.set(f.id, xp);
     lines.push(
@@ -119,12 +109,46 @@ export function applyRewards(party: PartyState, rewards: Rewards): PartyState {
   return next;
 }
 
-/** An unarmed-on-the-defender's-side rule: armour loses 1 condition per this many hits taken. */
-export const HITS_PER_ARMOR_WEAR = 2;
+/** Practice a melee attack earns, as `fraction` percentages of the current skill (BaKGL: 3 each). */
+export const PRACTICE_FRACTION = 3;
 
 /**
- * Wear on equipment: each hit a character lands may dull the weapon they used (the item's dull
- * chance, losing 1 to its maximum dull amount), and every second hit they take wears their armour.
+ * Skill practice from the melee exchanges in a battle's history, applied in order so each gain
+ * uses the skill as it was at that moment. Every attack, hit or miss, practises the attacker's
+ * Melee and the defender's Defense; a hit also practises the attacker's Melee and Strength again;
+ * a miss practises the defender's Defense twice more. Only party members have skills to improve.
+ * Granted whatever the outcome of the fight.
+ */
+export function applyCombatPractice(party: PartyState, history: readonly BattleEvent[]): PartyState {
+  let next = party;
+  const practise = (id: string, name: SkillName, times: number) => {
+    if (!id.startsWith('party')) return;
+    next = updateCharacter(next, indexOf(id), (c) => {
+      let out = c;
+      for (let i = 0; i < times; i++) out = practiceSkill(out, name, 'fraction', PRACTICE_FRACTION);
+      return out;
+    });
+  };
+  for (const e of history) {
+    if (e.type !== 'attack') continue;
+    practise(e.attacker, 'melee', 1);
+    practise(e.target, 'defense', 1);
+    if (e.hit) {
+      practise(e.attacker, 'melee', 1);
+      practise(e.attacker, 'strength', 1);
+    } else {
+      practise(e.target, 'defense', 2);
+    }
+  }
+  return next;
+}
+
+/**
+ * Wear on equipment, one use at a time in battle order (`dullCondition` has the rule). A melee hit
+ * dulls the attacker's sword (not a staff) by half for a thrust and in full for a slash, and the
+ * defender's armour in full; a shot that lands dulls the shooter's crossbow and the target's armour.
+ * Misses wear nothing (BaKGL also dulls the attacker's sword on some misses, a branch its own author
+ * doubts, so it is left out).
  */
 export function applyWear(
   party: PartyState,
@@ -132,34 +156,30 @@ export function applyWear(
   defs: readonly ItemDef[],
   roll: Roll,
 ): PartyState {
-  const tally = tallyBattle(history);
   let next = party;
-  for (const [id, t] of tally) {
-    if (!id.startsWith('party')) continue;
-    next = updateCharacter(next, indexOf(id), (c) => wearCharacter(c, t, defs, roll));
+  const wear = (id: string, type: number, factor: number) => {
+    if (!id.startsWith('party')) return;
+    next = updateCharacter(next, indexOf(id), (c) => dullEquipped(c, type, defs, factor, roll));
+  };
+  for (const e of history) {
+    if ((e.type !== 'attack' && e.type !== 'shoot') || !e.hit) continue;
+    if (e.type === 'attack') wear(e.attacker, ItemType.Sword, e.kind === 'thrust' ? DULL_HALF : DULL_FULL);
+    else wear(e.attacker, ItemType.Crossbow, DULL_FULL);
+    wear(e.target, ItemType.Armor, DULL_FULL);
   }
   return next;
 }
 
-function wearCharacter(c: Character, t: FighterTally, defs: readonly ItemDef[], roll: Roll): Character {
-  const dull = (it: Character['inventory']['items'][number], hits: number) => {
-    const def = defs[it.itemIndex];
-    let cond = it.conditionOrQuantity;
-    for (let i = 0; i < hits && cond > 0; i++) {
-      if (def && roll(0, 99) < def.dullChance) cond = Math.max(0, cond - roll(1, Math.max(1, def.maxDullAmount)));
-    }
-    return { ...it, conditionOrQuantity: cond, broken: it.broken || cond <= 0 };
-  };
+function dullEquipped(c: Character, type: number, defs: readonly ItemDef[], factor: number, roll: Roll): Character {
+  let changed = false;
   const items = c.inventory.items.map((it) => {
-    if (!it.equipped) return it;
-    const type = defs[it.itemIndex]?.type;
-    if (type === ItemType.Sword || type === ItemType.Staff) return dull(it, t.meleeHits);
-    if (type === ItemType.Crossbow) return dull(it, t.rangedHits);
-    if (type === ItemType.Armor) {
-      const wear = Math.trunc(t.hitsTaken / HITS_PER_ARMOR_WEAR);
-      return wear > 0 ? { ...it, conditionOrQuantity: Math.max(0, it.conditionOrQuantity - wear) } : it;
-    }
-    return it;
+    const def = defs[it.itemIndex];
+    if (changed || !it.equipped || it.broken || !def || def.type !== type) return it;
+    changed = true;
+    const condition = dullCondition(it.conditionOrQuantity, def, factor, roll, type === ItemType.Crossbow);
+    return condition === it.conditionOrQuantity
+      ? it
+      : { ...it, conditionOrQuantity: condition, used: true, repairable: true, broken: condition <= 0 };
   });
   return { ...c, inventory: { ...c.inventory, items } };
 }

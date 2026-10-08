@@ -3,7 +3,7 @@ import { enemyTurn } from '../src/combat/ai';
 import { attack, currentFighter, isOver, startBattle, type Fighter } from '../src/combat/battle';
 import { Direction } from '../src/combat/grid';
 import { RaceKind } from '../src/combat/rules';
-import { applyRewards, battleRewards } from '../src/combat/rewards';
+import { applyCombatPractice, applyRewards, battleRewards } from '../src/combat/rewards';
 import { applyBattleToParty } from '../src/combat/setup';
 import { ActionType, parseDDX } from '../src/formats/ddx';
 import { ContainerFlag, findShop, parseShopContainers } from '../src/formats/gdsContainers';
@@ -334,7 +334,12 @@ describe('chapter 1 critical path', () => {
     const before = party;
     const rewards = battleRewards(battle.fighters, battle.history, (lo) => lo);
     party = applyRewards(applyBattleToParty(party, battle.fighters), rewards);
-    expect(rewards.experience.size).toBeGreaterThan(0);
+    party = applyCombatPractice(party, battle.history);
+    // Melee practice is granted attack by attack, so the fighter's Melee experience moved.
+    const meleeXp = (p: typeof party) => p.characters.find((c) => c.index === 0)!.skills.melee;
+    expect(
+      meleeXp(party).experience !== meleeXp(before).experience || meleeXp(party).trueSkill > meleeXp(before).trueSkill,
+    ).toBe(true);
     expect(
       party.characters.every(
         (c) =>

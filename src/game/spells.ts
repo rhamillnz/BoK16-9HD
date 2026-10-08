@@ -42,9 +42,9 @@ export function knownSpells(c: Character, defs: readonly SpellDef[]): SpellDef[]
   return c.spells.flatMap((i) => (defs[i] ? [defs[i]!] : []));
 }
 
-/** Whether `c` can cast now: a caster who knows it, can pay the minimum and (for the world) the spell has a world effect. */
+/** Whether `c` can cast now: a caster who knows it, can pay the minimum (Health + Stamina at least `minCost`, as BaKGL checks) and (for the world) the spell has a world effect. */
 export function canCast(c: Character, s: SpellDef): boolean {
-  return isSpellcaster(c) && c.spells.includes(s.index) && c.skills.health.trueSkill > 0 && castingPool(c) > s.minCost;
+  return isSpellcaster(c) && c.spells.includes(s.index) && c.skills.health.trueSkill > 0 && castingPool(c) >= s.minCost;
 }
 
 /** Strongest power affordable: capped by `maxCost`, and the caster always keeps at least 1 point. */
