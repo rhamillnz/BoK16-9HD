@@ -47,6 +47,7 @@ function serveArt(): Plugin {
 }
 
 export default defineConfig({
+  base: './', // relative asset URLs: the build works from any static host or sub-path
   plugins: [serveGameData(), serveArt()],
   build: {
     target: 'es2022',
