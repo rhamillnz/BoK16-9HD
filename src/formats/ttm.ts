@@ -80,8 +80,10 @@ export function parseTtm(bytes: Uint8Array): Map<number, TtmScript> {
 
   const scripts = new Map<number, TtmScript>();
   let current: TtmScript | undefined;
-  let imageSlot: number | undefined;
-  let paletteSlot: number | undefined;
+  // Slots start at 0 and persist across scripts, as in the cutscene renderer: many scripts load their
+  // palette, picture and images without ever selecting a slot.
+  let imageSlot = 0;
+  let paletteSlot = 0;
   let edge = 0xf;
   let fill = 0xf;
 
@@ -103,13 +105,13 @@ export function parseTtm(bytes: Uint8Array): Map<number, TtmScript> {
       name = asciiUpper(name);
       if (!current) continue;
       if (code === OP.loadPalette) {
-        if (paletteSlot !== undefined) current.palettes.set(paletteSlot, name);
+        current.palettes.set(paletteSlot, name);
       } else if (code === OP.loadImage) {
         const n = packedName(name);
         current.ops.push({ op: 'loadImage', name: n });
-        if (imageSlot !== undefined) current.images.set(imageSlot, { name: n, palette: paletteSlot ?? imageSlot });
+        current.images.set(imageSlot, { name: n, palette: paletteSlot });
       } else if (code === OP.loadScreen) {
-        if (paletteSlot !== undefined) current.screen = { name: packedName(name), palette: paletteSlot };
+        current.screen = { name: packedName(name), palette: paletteSlot };
       }
       continue;
     }
@@ -123,7 +125,6 @@ export function parseTtm(bytes: Uint8Array): Map<number, TtmScript> {
         if (count >= 1) {
           current = { id: a(0), images: new Map(), palettes: new Map(), screen: undefined, ops: [] };
           scripts.set(current.id, current);
-          imageSlot = undefined;
           edge = 0xf;
           fill = 0xf;
         }
