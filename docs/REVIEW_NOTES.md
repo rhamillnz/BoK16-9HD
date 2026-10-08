@@ -44,3 +44,9 @@
 - Matched to the original sprites (`art/reference/Z01/slots-4x/16.png` etc.): dbody2 and morhbody = purple hooded cloak, grey legs, brown boots (Moredhel; morhbody mirrored/yawed); dbody1 = green tunic, red-brown legs; rogebody = brown hooded leathers.
 - Sizes: dbody1 283 KB, others ~384 KB (were 0.4-1.2 MB). Screenshot `shots/local/9/start-body.png` (chapter 1 start body, zone 1). 57-58 fps there, but the 371k tris come from the new hill detail, not the bodies (6k tris each).
 - Known: no Moredhel ears or skin tone; the cloak is a tinted ranger body, so it keeps ranger straps.
+
+## Props from the Fantasy Props MegaKit
+- Kit unpacked to `art/incoming/fantasy-props-megakit/` (gitignored). It has no tents, gravestones or signs (94 pieces: furniture, barrels, chests, market stalls, books, bottles...).
+- `build_props.py` now takes `<jobs.json> <kit dirs...>`; new types `chest` (kit `Chest_Wood`, textured, 2.5k tris, replaces the crate for `chest`, `chest_nl`, `box`), `tent` (canvas A-frame prism, flat colours, 22 polys), `gravestone` variants 0-4 (rounded, cross, block, tall slab, broken; flat stone with a moss mound). Jobs in `art/jobs/props-camp-graves.json`; models `public/models/props/{chest,tent,tstone1-5,tmbstone}.glb`; manifest entries added. Rig widget meshes ("Icosphere") are skipped when importing kit pieces.
+- Screenshots `shots/local/10/graves.png` (zone 1 graveyard), `tent.png` (zone 6), 60 fps.
+- Left as sprites: `sign1-4`, `signpost` (painted symbols would be lost). The tent is plain and boxy: a real tent model would be better. Gravestones are blank (no carving).
