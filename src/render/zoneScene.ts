@@ -16,6 +16,7 @@ import { Terrain } from '../formats/scx';
 import { EF_2D_OBJECT, type Face, type Model } from '../formats/tbl';
 import { angleToRadians } from '../formats/world';
 import { createGrassGroundMaterial, createTerrainMaterial } from './terrainMaterial';
+import { createWaterMaterial } from './waterMaterial';
 import { createHillMaterial } from './hillMaterial';
 import { hillTriangles, isHillModel } from './hillMesh';
 import { detailHill, type DetailedHill } from './hillDetail';
@@ -415,7 +416,9 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
           ? createRoadMaterial(map, PATH_STYLE)
           : strip === Terrain.Ground
             ? createGrassGroundMaterial(map)
-            : createTerrainMaterial(map, strip);
+            : strip === Terrain.River
+              ? createWaterMaterial(map)
+              : createTerrainMaterial(map, strip);
     addMesh(batch, material, `terrain${strip}`);
   }
   for (const [image, batch] of slotBatches) {
