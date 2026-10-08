@@ -121,3 +121,11 @@ export function planTransition(currentZone: number, d: Destination): TransitionP
 export function entryPointForZone(zone: number, teleports: readonly Destination[]): Destination | undefined {
   return teleports.find((t) => t.zone === zone && t.hotspot === undefined);
 }
+
+/** Whether a destination's tile is one of the zone's tiles (otherwise the party would land in a void). */
+export function landsOnZoneTile(
+  tiles: readonly (readonly [number, number])[],
+  d: Pick<Destination, 'tileX' | 'tileY'>,
+) {
+  return tiles.some(([tx, ty]) => tx === d.tileX && ty === d.tileY);
+}
