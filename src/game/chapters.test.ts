@@ -199,6 +199,12 @@ describe('installChapters', () => {
     await installChapters(u.h).begin(3, { cutscenes: false });
     expect(u.log[0]).toBe('done 3');
   });
+  it('arriveFirst places the party before the caption and reports it', async () => {
+    let arrived = 0;
+    const t = host({ showText: async () => { t.log.push(`text after arrive=${arrived}`); } });
+    await installChapters(t.h).begin(2, { cutscenes: false, arriveFirst: true, onArrived: () => { arrived++; } });
+    expect(t.log).toEqual(['done 2', 'arrive 2 7', 'text after arrive=1']);
+  });
   it('does nothing after the last chapter or out of range', async () => {
     const t = host();
     const c = installChapters(t.h);

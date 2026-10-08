@@ -5,7 +5,7 @@ import { FlyCamera } from '../render/flyCamera';
 import { createPost } from '../render/post';
 import { parseQuality } from '../render/postSettings';
 import { createSky, DOME_RADIUS } from '../render/sky';
-import { PartyController, PartyKeyboard, NO_INPUT } from '../world/partyController';
+import { PartyController, NO_INPUT } from '../world/partyController';
 import { DEBUG_TIME_STEP, GameClock } from './clock';
 import { ResourceArchive } from '../formats/archive';
 import { parseFNT } from '../formats/fnt';
@@ -48,17 +48,25 @@ import { installCast, justCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
+import { LAST_CHAPTER } from './chapters';
+import { installJournal } from './journalControls';
 import { installPerf } from '../render/perf';
 import { installBookPlayer } from './bookControls';
 import { installCutscenes } from './cutsceneControls';
+import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
 import { installMainMenu } from './mainMenuControls';
+import { GameDataError, installBootScreen } from '../ui/bootScreen';
+import { installInput } from './inputControls';
 
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
+const boot = installBootScreen(); // loading and error screens
+boot.loading('Starting graphics…');
 
 const { renderer, camera, backend } = await createStage(stageEl);
+boot.backend(backend);
 const scene = new THREE.Scene();
 const sky = createSky(scene);
 
@@ -68,16 +76,20 @@ camera.far = DOME_RADIUS * 4;
 camera.updateProjectionMatrix();
 
 // Original game data, served by the dev server from the local install (see vite.config.ts).
-hud.textContent = 'Loading game data…';
+boot.loading('Loading game data…', 0.2);
 const [rmf, data] = await Promise.all([fetch('/bak/KRONDOR.RMF'), fetch('/bak/KRONDOR.001')]);
-if (!rmf.ok || !data.ok) throw new Error('Game data not found: set BAK_DIR to your Betrayal at Krondor install');
+if (!rmf.ok || !data.ok) throw new GameDataError(rmf.ok ? 'KRONDOR.001' : 'KRONDOR.RMF', (rmf.ok ? data : rmf).status);
 const archive = new ResourceArchive(new Uint8Array(await rmf.arrayBuffer()), new Uint8Array(await data.arrayBuffer()));
 // Debug: ?zone=N starts in zone N at the centre of its first tile; ?x=&y=&h= (BaK units,
 // 8-bit heading) override the start position.
 const q = new URLSearchParams(location.search);
 const num = (k: string, d: number) => (q.has(k) ? Number(q.get(k)) : d);
-const chapterStart = loadChapterStart(archive, 1);
+// ?chapter=N loads that chapter's start up front, so the party spawns at the real start position and no
+// teleport races the scene load; the chapter transition (flags, items, start script) runs once the game is wired.
+const debugChapter = Math.min(LAST_CHAPTER, Math.max(1, Math.trunc(num('chapter', 1)) || 1));
+const chapterStart = { ...loadChapterStart(archive, debugChapter), timeElapsed: loadChapterStart(archive, 1).timeElapsed };
 const startZone = num('zone', chapterStart.zone);
+boot.loading('Building the world…', 0.5);
 const zoneHost = await ZoneHost.create(scene, archive, startZone);
 const [firstTileX, firstTileY] = zoneHost.current.data.tiles[0] ?? [0, 0];
 const entry = startZone === chapterStart.zone || !archive.has('TELEPORT.DAT') ? undefined : entryPointForZone(startZone, parseTeleports(archive.get('TELEPORT.DAT')));
@@ -90,6 +102,7 @@ const start =
 
 // Game clock: the world state starts at the chapter's CHAP time; [ and ] step it by 30 minutes.
 const startup = await fetch('/bak/STARTUP.GAM');
+if (!startup.ok) throw new GameDataError('STARTUP.GAM', startup.status);
 const save = parseGam(new Uint8Array(await startup.arrayBuffer()));
 const clock = GameClock.forChapter(save, 1, start.timeElapsed);
 sky.update(clock.minutes);
@@ -104,10 +117,11 @@ const party = new PartyController(num('x', start.x), num('y', start.y), num('h',
 party.polygons = zoneHost.current.scene.collision;
 const tickPerf = installPerf(renderer, scene);
 const updateUnderground = installUnderground(sky, party);
-const partyKeys = new PartyKeyboard();
 const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
 let flyMode = false;
+// Rebindable keys, gamepad, mouse-look, field of view and UI scale (Options in the main menu).
+const partyKeys = installInput({ party, camera, canvas: renderer.domElement, blocking: () => screens.blocking, combatActive: () => combat.active, flyMode: () => flyMode });
 party.applyToCamera(camera);
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'KeyF' || e.repeat) return;
@@ -129,7 +143,7 @@ const screens = mountHud(document.body, {
   portraits: portraitCanvases(parseBMX(archive.get('HEADS.BMX')), parsePalette(archive.get('OPTIONS.PAL'))),
 });
 
-screens.setMap(loadZoneMap(archive, start.zone, zoneHost.current.data.tiles), start.zone); // Tab: map screen + compass
+screens.setMap(loadZoneMap(archive, start.zone, zoneHost.current.data.tiles), start.zone, overheadPolygons(zoneHost.current.data)); // Tab: map screen + compass
 
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
 const music = createBrowserMusicPlayer({ volume: 0.7 });
@@ -138,6 +152,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
 });
 installSfx(); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
+installJournal({ hud: screens, zone: () => zoneHost.current.zone }); // J: dialogue lines seen
 
 let prevX = party.x;
 let prevY = party.y;
@@ -271,10 +286,11 @@ async function travelTo(d: Destination): Promise<void> {
   try {
     const plan = planTransition(zoneHost.current.zone, d);
     if (plan.reload) {
+      boot.loading(`Loading zone ${plan.zone}…`);
       const next = await zoneHost.switchTo(plan.zone);
       party.polygons = next.scene.collision;
       next.grass.setQuality(post.quality);
-      screens.setMap(loadZoneMap(archive, plan.zone, next.data.tiles), plan.zone);
+      screens.setMap(loadZoneMap(archive, plan.zone, next.data.tiles), plan.zone, overheadPolygons(next.data));
       encounters = await makeEncounters(plan.zone, next.data.tiles, clock.state);
       void music.play(songForZone(plan.zone)).catch((err) => console.warn('Music unavailable:', err));
     }
@@ -284,6 +300,7 @@ async function travelTo(d: Destination): Promise<void> {
     encounters.runner.enterAt(plan.x, plan.y);
     if (plan.hotspot !== undefined) void town.enter({ number: plan.hotspot, letter: gdsLetter(plan.hotspotChar ?? 0) });
   } finally {
+    boot.done();
     travelling = false;
   }
 }
@@ -376,6 +393,7 @@ const chapters = installChapters({
   }),
   arrive: async (c, teleport) => {
     town.dismiss();
+    while (travelling) await new Promise((r) => setTimeout(r, 16)); // travelTo ignores calls while one runs
     start.chapter = c.chapter;
     encounters = await makeEncounters(zoneHost.current.zone, zoneHost.current.data.tiles, clock.state);
     await travelTo({ zone: c.zone, tileX: c.tileX, tileY: c.tileY, x: c.x, y: c.y, heading: c.heading });
@@ -384,7 +402,9 @@ const chapters = installChapters({
   onTransitioned: () => sky.update(clock.minutes),
 });
 town.controller.handle(HotspotAction.ChapterEnd, ({ done }) => void chapters.begin().finally(done));
-if (q.has('chapter') && num('chapter', 1) > 1) void chapters.begin(num('chapter', 1), { cutscenes: false });
+if (debugChapter > 1) {
+  await new Promise<void>((placed) => void chapters.begin(debugChapter, { cutscenes: false, arriveFirst: true, onArrived: placed }).then((ok) => ok || placed()));
+}
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
@@ -423,6 +443,7 @@ let last = performance.now();
 let frames = 0;
 let fpsTime = 0;
 let fps = 0;
+boot.done();
 renderer.setAnimationLoop(() => {
   const now = performance.now();
   const dt = Math.min(0.1, (now - last) / 1000);

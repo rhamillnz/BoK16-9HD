@@ -7,11 +7,24 @@ export interface GameSettings {
   /** Music volume, 0 to 1 in steps of 0.1. */
   volume: number;
   muted: boolean;
+  /** Vertical field of view of the party camera, in degrees. */
+  fov: number;
+  /** Size of the HUD canvas relative to the full 16:9 window (1 = fills the window). */
+  uiScale: number;
+  /** Turn with the mouse in the party view (click the game to capture the pointer). */
+  mouseLook: boolean;
 }
 
-export const DEFAULT_SETTINGS: GameSettings = { quality: 'medium', volume: 0.7, muted: false };
+export const DEFAULT_SETTINGS: GameSettings = { quality: 'medium', volume: 0.7, muted: false, fov: 60, uiScale: 1, mouseLook: false };
+export const FOV_MIN = 50;
+export const FOV_MAX = 100;
+export const FOV_STEP = 5;
+export const UI_SCALE_MIN = 0.6;
 export const SETTINGS_KEY = 'bok.settings';
 export const VOLUME_STEP = 0.1;
+
+const clampFov = (v: number): number => Math.round(Math.min(FOV_MAX, Math.max(FOV_MIN, v)) / FOV_STEP) * FOV_STEP;
+const clampUiScale = (v: number): number => Math.round(Math.min(1, Math.max(UI_SCALE_MIN, v)) * 10) / 10;
 
 const clampVolume = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 10) / 10;
 
@@ -28,6 +41,9 @@ export function parseSettings(json: string | null | undefined): GameSettings {
     quality: parseQuality(typeof raw.quality === 'string' ? raw.quality : null, DEFAULT_SETTINGS.quality),
     volume: typeof raw.volume === 'number' && Number.isFinite(raw.volume) ? clampVolume(raw.volume) : DEFAULT_SETTINGS.volume,
     muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
+    fov: typeof raw.fov === 'number' && Number.isFinite(raw.fov) ? clampFov(raw.fov) : DEFAULT_SETTINGS.fov,
+    uiScale: typeof raw.uiScale === 'number' && Number.isFinite(raw.uiScale) ? clampUiScale(raw.uiScale) : DEFAULT_SETTINGS.uiScale,
+    mouseLook: typeof raw.mouseLook === 'boolean' ? raw.mouseLook : DEFAULT_SETTINGS.mouseLook,
   };
 }
 
@@ -39,8 +55,13 @@ export function stepQuality(q: PostQuality): PostQuality {
 
 export const stepVolume = (v: number, dir: 1 | -1): number => clampVolume(v + dir * VOLUME_STEP);
 
+/** Next field of view, wrapping from the widest back to the narrowest. */
+export const stepFov = (v: number): number => (v + FOV_STEP > FOV_MAX ? FOV_MIN : clampFov(v + FOV_STEP));
+/** Next UI scale, wrapping from full size back to the smallest. */
+export const stepUiScale = (v: number): number => (v + 0.1 > 1.05 ? UI_SCALE_MIN : clampUiScale(v + 0.1));
+
 export type MainMenuId = 'resume' | 'new' | 'continue' | 'load' | 'options';
-export type OptionsId = 'quality' | 'volDown' | 'volUp' | 'mute' | 'keys' | 'back';
+export type OptionsId = 'quality' | 'volDown' | 'volUp' | 'mute' | 'fov' | 'uiScale' | 'mouseLook' | 'controls' | 'keys' | 'back';
 
 export interface MainMenuState {
   /** The game is running (the menu was opened over it) so Resume makes sense. */
@@ -80,6 +101,10 @@ export function optionsModel(s: GameSettings): MenuModel {
       { id: 'volDown', label: 'Music volume down', enabled: s.volume > 0 },
       { id: 'volUp', label: 'Music volume up', enabled: s.volume < 1 },
       { id: 'mute', label: 'Music', detail: s.muted ? 'off' : 'on' },
+      { id: 'fov', label: 'Field of view', detail: `${s.fov}°` },
+      { id: 'uiScale', label: 'UI scale', detail: `${Math.round(s.uiScale * 100)}%` },
+      { id: 'mouseLook', label: 'Mouse-look', detail: s.mouseLook ? 'on' : 'off' },
+      { id: 'controls', label: 'Rebind movement keys' },
       { id: 'keys', label: 'Key help' },
     ],
     buttons: [{ id: 'back', label: 'Back' }],
@@ -89,7 +114,10 @@ export function optionsModel(s: GameSettings): MenuModel {
 
 /** Every key the game uses, as [keys, what it does]. Keep in step with the controls in src/. */
 export const KEY_HELP: readonly (readonly [string, string])[] = [
-  ['W A S D / arrows', 'Walk and turn'],
+  ['W A S D / arrows', 'Walk and turn (rebindable in Options)'],
+  ['Shift', 'Run'],
+  ['Mouse', 'Turn, when Mouse-look is on in Options (click the game to capture)'],
+  ['Gamepad', 'Sticks walk and turn, RT run, A open, X character, Y inventory, LB cast, RB camp, Back map, Start menu'],
   ['Esc', 'This menu; closes any open screen'],
   ['I', 'Inventory'],
   ['C', 'Character sheet'],

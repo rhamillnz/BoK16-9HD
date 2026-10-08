@@ -1,5 +1,7 @@
 import { glyphFor, measureString, type Font } from '../formats/fnt';
 import { presentTiles, type ZoneMap } from '../formats/zoneMap';
+import { TILE_SIZE } from '../formats/world';
+import { overheadTiles, type OverheadPolygon } from '../world/overheadMap';
 import { HUD_HEIGHT, HUD_WIDTH, chooseScale, type Rect } from './dialogBox';
 import { COMPASS_POINTS, compassAngle, compassPoint, fitViewport, headingToMapDir, insideBounds, tileBounds, tileRect, worldToMap, type MapViewport } from './mapMath';
 
@@ -40,17 +42,19 @@ export interface MapLayout {
   title: { x: number; y: number };
   viewport: MapViewport;
   tiles: [number, number][];
+  /** Mines: overhead model polygons drawn over the tile blocks. */
+  overhead?: OverheadPolygon[];
 }
 
-export function layoutMap(map: ZoneMap, width = HUD_WIDTH, height = HUD_HEIGHT): MapLayout {
+export function layoutMap(map: ZoneMap, width = HUD_WIDTH, height = HUD_HEIGHT, overhead?: OverheadPolygon[]): MapLayout {
   const scale = chooseScale(height);
   const panel: Rect = { x: Math.floor(width * 0.2), y: Math.floor(height * 0.06), width: Math.floor(width * 0.6), height: Math.floor(height * 0.88) };
   const pad = 12 * scale;
   const title = { x: panel.x + pad, y: panel.y + pad };
   const top = title.y + 14 * scale;
   const area = { x: panel.x + pad, y: top, width: panel.width - 2 * pad, height: panel.y + panel.height - pad - top };
-  const tiles = presentTiles(map);
-  return { scale, panel, title, viewport: fitViewport(tileBounds(tiles, 1), area), tiles };
+  const tiles = overhead?.length ? overheadTiles(overhead, TILE_SIZE) : presentTiles(map);
+  return { scale, panel, title, viewport: fitViewport(tileBounds(tiles, 1), area), tiles, overhead };
 }
 
 function drawText(ctx: CanvasRenderingContext2D, font: Font, text: string, x: number, y: number, scale: number, css: string): void {
@@ -77,6 +81,21 @@ function arrowPath(ctx: CanvasRenderingContext2D, cx: number, cy: number, dir: {
   ctx.closePath();
 }
 
+/** Fill each overhead polygon (BaK world units) in its palette colour. */
+function drawOverhead(ctx: CanvasRenderingContext2D, polys: readonly OverheadPolygon[], v: MapViewport): void {
+  for (const poly of polys) {
+    ctx.beginPath();
+    for (let i = 0; i < poly.points.length; i += 2) {
+      const p = worldToMap(v, poly.points[i]!, poly.points[i + 1]!);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = poly.fill;
+    ctx.fill();
+  }
+}
+
 /** Full-screen map: parchment-dark panel, explored-style tile blocks, party arrow. */
 export function drawMap(ctx: CanvasRenderingContext2D, font: Font, layout: MapLayout, pose: PartyPose, zone: number, colors: MapColors = MAP_COLORS): void {
   const { scale, panel, viewport: v } = layout;
@@ -90,7 +109,8 @@ export function drawMap(ctx: CanvasRenderingContext2D, font: Font, layout: MapLa
 
   drawText(ctx, font, `Map of zone ${zone}   facing ${compassPoint(pose.heading)}`, layout.title.x, layout.title.y, scale, colors.text);
 
-  for (const [tx, ty] of layout.tiles) {
+  if (layout.overhead?.length) drawOverhead(ctx, layout.overhead, v);
+  else for (const [tx, ty] of layout.tiles) {
     const r = tileRect(v, tx, ty);
     ctx.fillStyle = colors.tile;
     ctx.fillRect(r.x, r.y, r.size, r.size);

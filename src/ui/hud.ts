@@ -2,6 +2,7 @@ import type { ItemIconSet } from '../data/itemIcons';
 import type { Font } from '../formats/fnt';
 import type { GamSave } from '../formats/gam';
 import type { ItemDef } from '../formats/objinfo';
+import type { OverheadPolygon } from '../world/overheadMap';
 import type { ZoneMap } from '../formats/zoneMap';
 import { partyCharacters } from './characterSheet';
 import { HUD_HEIGHT, HUD_WIDTH, type DialogResult } from './dialogBox';
@@ -100,9 +101,9 @@ export class HudScreens implements HudHost {
     if (Math.floor(pose.heading) !== Math.floor(old.heading) || (this.screen === 'map' && (pose.x !== old.x || pose.y !== old.y))) this.dirty = true;
   }
 
-  /** Set the zone's map (ZxxMAP.DAT); Tab opens it. */
-  setMap(map: ZoneMap, zone: number): void {
-    this.map = { layout: layoutMap(map, this.width, this.height), zone };
+  /** Set the zone's map (ZxxMAP.DAT); Tab opens it. Mines pass their overhead model polygons. */
+  setMap(map: ZoneMap, zone: number, overhead?: OverheadPolygon[]): void {
+    this.map = { layout: layoutMap(map, this.width, this.height, overhead), zone };
     this.dirty = true;
   }
 
@@ -241,7 +242,7 @@ export function mountHud(parent: HTMLElement, data: HudData): HudScreens {
   const canvas = document.createElement('canvas');
   canvas.width = screens.width;
   canvas.height = screens.height;
-  canvas.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:16/9;width:min(100vw,177.78vh);pointer-events:none;image-rendering:pixelated';
+  canvas.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:16/9;width:calc(min(100vw,177.78vh) * var(--ui-scale,1));pointer-events:none;image-rendering:pixelated';
   parent.appendChild(canvas);
   const ctx = canvas.getContext('2d')!;
 

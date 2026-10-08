@@ -2,9 +2,11 @@ import type { Post } from '../render/post';
 import type { HudScreens } from '../ui/hud';
 import { MENU_SCREEN_ID, type MenuPanelScreen } from '../ui/menuHud';
 import type { MusicPlayer } from '../audio/music';
+import { showControlsMenu } from './rebindMenu';
+import { getSettings, setSettings } from './settingsStore';
 import {
-  keyHelpModel, mainMenuModel, optionsModel, parseSettings, serializeSettings, SETTINGS_KEY, stepQuality, stepVolume,
-  type GameSettings, type MainMenuId, type OptionsId,
+  keyHelpModel, mainMenuModel, optionsModel, stepFov, stepQuality, stepUiScale, stepVolume,
+  type MainMenuId, type OptionsId,
 } from './mainMenu';
 
 export interface MainMenuHost {
@@ -19,33 +21,17 @@ export interface MainMenuHost {
 
 const SKIP_KEY = 'bok.skipMenu';
 
-function storage(): Storage | undefined {
-  try {
-    return window.localStorage;
-  } catch {
-    return undefined;
-  }
-}
-
-export const loadSettings = (): GameSettings => parseSettings(storage()?.getItem(SETTINGS_KEY));
-
 /**
  * The main menu: shown when the game starts and on Escape when nothing else is open. New game, Continue
  * (the newest save), Load (the F6 slot screen) and Options (graphics, music, key help).
  */
 export function installMainMenu(h: MainMenuHost): void {
   const panel = h.screens.screenHandler<MenuPanelScreen>(MENU_SCREEN_ID);
-  let settings = loadSettings();
+  let settings = getSettings();
   let started = false;
   let hasSave = false;
 
-  const persist = () => {
-    try {
-      storage()?.setItem(SETTINGS_KEY, serializeSettings(settings));
-    } catch {
-      // storage unavailable: the options still apply this session
-    }
-  };
+  const persist = () => setSettings(settings);
   h.music.setVolume(settings.volume);
   h.music.setMuted(settings.muted);
   if (h.post.quality !== settings.quality && !new URLSearchParams(location.search).has('post')) h.post.setQuality(settings.quality);
@@ -117,6 +103,18 @@ export function installMainMenu(h: MainMenuHost): void {
         settings = { ...settings, muted: !settings.muted };
         h.music.setMuted(settings.muted);
         break;
+      case 'fov':
+        settings = { ...settings, fov: stepFov(settings.fov) };
+        break;
+      case 'uiScale':
+        settings = { ...settings, uiScale: stepUiScale(settings.uiScale) };
+        break;
+      case 'mouseLook':
+        settings = { ...settings, mouseLook: !settings.mouseLook };
+        break;
+      case 'controls':
+        showControlsMenu(panel, () => showOptions('controls'));
+        return;
       case 'keys':
         panel.show(keyHelpModel(), () => showOptions('keys'), () => showOptions('keys'));
         return;
