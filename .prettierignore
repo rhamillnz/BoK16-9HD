@@ -1,0 +1,7 @@
+public/
+art/
+dist/
+node_modules/
+tools/upscale/
+*.md
+*.glb

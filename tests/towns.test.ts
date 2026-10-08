@@ -16,7 +16,7 @@ vi.mock('../src/formats/scx', () => ({
 
 // ---- synthetic fixtures ----------------------------------------------------
 
-interface HotspotSpec extends Partial<Hotspot> {}
+type HotspotSpec = Partial<Hotspot>;
 
 const hotspot = (index: number, spec: HotspotSpec = {}): Hotspot => ({
   index, x: 0, y: 0, width: 10, height: 10, chapterMask: 0, keyword: 1, action: HotspotAction.Dialog, unknownD: 0,
