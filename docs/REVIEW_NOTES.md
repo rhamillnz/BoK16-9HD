@@ -74,3 +74,9 @@
 - Screenshots `shots/local/13/{cryst,corn,bug,engine}.png`: zone 9 crystal field, zone 1 corn behind the fence, 60 fps.
 - Crystal footprints come out ~20-30% wider than the original boxes (fit uses vertex bounds before joining); heights match. Whites glow quite bright.
 - `entrance` skipped on purpose: it is not a prop but a landscape piece (a big hill/canyon wedge with black faces at the zone 1/2/6 town entrances: `shots/local/13/entrance.png`, from zone 1 x=646400 y=855000). It belongs with the hill meshes (`isHillModel` does not include it), so I left it for you.
+
+## Round 4, item 3: tree variety
+- Finding: the tree sprites are the same in zones 1-5 and 7 (only the zone 6 set is recoloured, cold blue-grey; zone 8 has dark ferns and groves; zones 5/7 add darker pines, slots 35-38), so a per-zone model mix would not match the originals. Instead every plant instance now varies and each zone gets a foliage tint.
+- New `src/render/treeStyle.ts`: `styleInstances(zone, placements)` gives each tree/grove/fern/bush a height (+-22%), width, brightness (+-14%) and a small warm/cool shift, hashed from its position (stable between loads), times `ZONE_FOLIAGE[zone]` (zone 5 and 7 slightly darker, 6 cold blue, 8 dark); `applyInstanceColors` writes them as per-instance colours. Wired into the placement loop in `zoneScene.ts` (5 lines). Tests: `treeStyle.test.ts`.
+- Screenshots `shots/local/14/{z5,z6,z1,z8}.png`; 60 fps in zones 1, 5, 6 and 8 (no extra draw calls, one instance-colour buffer per mesh).
+- Limits: the tint is subtle on the frost zone; the kit models are the same ones as before (no extra species added), so the mix of species per zone is unchanged. The bounce-lit scatter bush material ignores the instance colour.
