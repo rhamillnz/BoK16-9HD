@@ -1,0 +1,13 @@
+[
+  {"name": "sign1", "out": "public/models/props/sign1.glb", "type": "signboard", "box": [-0.65, -0.15, 0, 0.65, 0.15, 3.4], "preview": "shots/prop-sign1.png", "boards": 1},
+  {"name": "signpost", "out": "public/models/props/signpost.glb", "type": "signboard", "box": [-0.13, -0.13, 0, 0.13, 0.13, 1.88], "preview": "shots/prop-signpost.png", "boards": 2},
+  {"name": "sign2", "out": "public/models/props/sign2.glb", "type": "waymark", "box": [-1.0, -1.0, 0, 1.0, 1.0, 3.3], "preview": "shots/prop-sign2.png", "variant": 0},
+  {"name": "sign3", "out": "public/models/props/sign3.glb", "type": "waymark", "box": [-1.05, -1.05, 0, 1.05, 1.05, 3.1], "preview": "shots/prop-sign3.png", "variant": 1},
+  {"name": "sign4", "out": "public/models/props/sign4.glb", "type": "waymark", "box": [-0.95, -0.95, 0, 0.95, 0.95, 3.3], "preview": "shots/prop-sign4.png", "variant": 2},
+  {"name": "scarcrow", "out": "public/models/props/scarcrow.glb", "type": "scarecrow", "box": [-1.9, -0.3, 0, 1.9, 0.3, 4.4], "preview": "shots/prop-scarcrow.png"},
+  {"name": "rope", "out": "public/models/props/rope.glb", "type": "rope", "box": [-0.6, -0.6, 0, 0.6, 0.6, 10.8], "preview": "shots/prop-rope.png"},
+  {"name": "column", "out": "public/models/props/column.glb", "type": "column", "box": [-0.9, -0.9, 0, 0.9, 0.9, 6.8], "preview": "shots/prop-column.png"},
+  {"name": "marker", "out": "public/models/props/marker.glb", "type": "marker", "box": [-1.55, -0.8, 0, 1.55, 0.8, 1.6], "preview": "shots/prop-marker.png"},
+  {"name": "slab", "out": "public/models/props/slab.glb", "type": "marker", "box": [-1.55, -1.0, 0, 1.55, 1.0, 3.5], "preview": "shots/prop-slab.png"},
+  {"name": "catapult", "out": "public/models/props/catapult.glb", "type": "catapult", "box": [-8.2, -6.9, 0, 8.2, 6.9, 10.2], "preview": "shots/prop-catapult.png"}
+]

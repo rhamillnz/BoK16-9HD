@@ -11,6 +11,8 @@ jobs.json entries:
 Types: fence (row of wooden panels along X), crate (kit crate), well (brick ring, posts, tiled roof),
 rocks (cluster of nature-kit rocks), slab (one tall rock), firepit (stone ring, ashes, logs),
 dirtpile (low mound), stump (cut trunk with root flare),
+signboard (post with a hanging board), waymark (stone marker, variant 0-2), scarecrow, rope (hanging),
+column (fluted pillar), marker (low rock), catapult (siege engine from beams, wheels and a crate),
 chest (Fantasy Props Chest_Wood), tent (cloth A-frame), gravestone ("variant" 0-4).
 
 Each type is built at a natural size, then scaled per axis to `box` and placed so the box minimum
@@ -233,7 +235,86 @@ def build_gravestone(kit, job):
     kit.primitive("mound", (0, 0.3, 0), (1.0, 0.5, 0.12), moss, segments=10)
 
 
-BUILDERS = {"chest": build_chest, "tent": build_tent, "gravestone": build_gravestone, "fence": build_fence, "crate": build_crate, "well": build_well, "rocks": build_rocks, "slab": build_slab,
+def build_signboard(kit, job):
+    wood = flat_material("post", (0.2, 0.11, 0.055))
+    plank = flat_material("board", (0.34, 0.22, 0.12))
+    kit.primitive("box", (0, 0, 1.0), (0.18, 0.18, 2.0), wood)
+    if job.get("boards", 1) >= 1:
+        kit.primitive("box", (0.4, 0, 1.7), (1.0, 0.07, 0.34), plank)
+    if job.get("boards", 1) >= 2:
+        kit.primitive("box", (-0.4, 0, 1.25), (0.95, 0.07, 0.3), plank, rot_deg=(0, 0, 4))
+
+
+def build_waymark(kit, job):
+    """Stone waymarker: square shaft, a cap and a pyramid top (the originals carry painted glyphs)."""
+    stone = flat_material("waystone", (0.27, 0.27, 0.26), 1.0)
+    dark = flat_material("waystone_dark", (0.16, 0.17, 0.17), 1.0)
+    v = job.get("variant", 0)
+    w = (0.9, 1.0, 0.85)[v]
+    kit.primitive("box", (0, 0, 0.12), (w * 1.3, w * 1.3, 0.24), dark)
+    kit.primitive("box", (0, 0, 1.0), (w, w, 1.5), stone)
+    kit.primitive("box", (0, 0, 1.85), (w * 1.2, w * 1.2, 0.2), dark)
+    kit.primitive("cone", (0, 0, 2.3), (w * 1.1, w * 1.1, 0.7), stone, rot_deg=(0, 0, 45), segments=4)
+
+
+def build_scarecrow(kit, job):
+    wood = flat_material("pole", (0.2, 0.12, 0.06))
+    cloth = flat_material("tunic", (0.18, 0.2, 0.3), 1.0)
+    straw = flat_material("straw", (0.55, 0.45, 0.2), 1.0)
+    kit.primitive("box", (0, 0, 1.1), (0.14, 0.14, 2.2), wood)
+    kit.primitive("box", (0, 0, 1.75), (2.4, 0.1, 0.12), wood)
+    kit.primitive("box", (0, 0, 1.45), (0.8, 0.35, 1.0), cloth)
+    kit.primitive("mound", (0, 0, 1.95), (0.5, 0.5, 0.5), straw, segments=10)
+    for sx in (-1, 1):
+        kit.primitive("box", (sx * 0.95, 0, 1.55), (0.7, 0.2, 0.2), cloth)
+        kit.primitive("box", (sx * 0.3, 0, 0.6), (0.2, 0.2, 0.9), straw)
+
+
+def build_rope(kit, job):
+    rope = flat_material("rope", (0.32, 0.25, 0.14), 1.0)
+    kit.primitive("cylinder", (0, 0, 2.5), (0.18, 0.18, 5.0), rope, segments=6)
+    kit.primitive("mound", (0, 0, 0), (0.7, 0.7, 0.25), rope, segments=8)
+
+
+def build_column(kit, job):
+    stone = flat_material("pillar", (0.16, 0.18, 0.3), 0.8)
+    kit.primitive("box", (0, 0, 0.25), (1.8, 1.8, 0.5), stone)
+    kit.primitive("cylinder", (0, 0, 3.4), (1.2, 1.2, 5.8), stone, segments=12)
+    kit.primitive("box", (0, 0, 6.5), (1.7, 1.7, 0.6), stone)
+
+
+def build_marker(kit, job):
+    kit.place("Rock_Medium_1", (0, 0, 0), (0, 0, 40))
+    kit.place("Rock_Medium_2", (0.9, 0.3, 0), (0, 0, 120), (0.5, 0.5, 0.5))
+
+
+def build_catapult(kit, job):
+    wood = flat_material("timber", (0.27, 0.16, 0.08))
+    dark = flat_material("timber_dark", (0.16, 0.09, 0.05))
+    rope = flat_material("rope", (0.4, 0.33, 0.2), 1.0)
+    # Chassis: two long rails and cross beams on four wheels; the arm pivots on two A-frame uprights.
+    for sy in (-1, 1):
+        kit.primitive("box", (0, sy * 1.6, 0.9), (8.0, 0.4, 0.5), wood)
+        for sx in (-1, 1):
+            kit.primitive("cylinder", (sx * 2.8, sy * 2.2, 0.8), (1.6, 1.6, 0.35), dark, rot_deg=(90, 0, 0), segments=14)
+            kit.primitive("box", (sx * 2.8, sy * 1.85, 0.8), (0.2, 0.2, 0.2), dark)
+    for sx in (-3.4, 0.0, 3.4):
+        kit.primitive("box", (sx, 0, 0.9), (0.4, 3.6, 0.4), wood)
+    for sy in (-1, 1):
+        for lean in (-1, 1):
+            kit.primitive("box", (lean * 0.55, sy * 1.35, 2.3), (0.3, 0.3, 3.0), wood, rot_deg=(0, lean * -12, 0))
+    kit.primitive("cylinder", (0, 0, 3.6), (0.4, 0.4, 3.4), dark, rot_deg=(90, 0, 0), segments=8)
+    # Throwing arm, cocked back, with a bucket and a crate as the counterweight.
+    kit.primitive("box", (1.5, 0, 4.3), (8.0, 0.4, 0.4), wood, rot_deg=(0, -24, 0))
+    kit.primitive("box", (5.3, 0, 6.0), (1.6, 1.6, 0.25), dark)
+    for sy in (-1, 1):
+        kit.primitive("box", (5.3, sy * 0.8, 6.3), (1.6, 0.15, 0.6), dark)
+    kit.primitive("box", (5.9, 0, 6.3), (0.15, 1.6, 0.6), dark)
+    kit.place("Prop_Crate", (-2.4, 0, 2.2), (0, 0, 0), (2.0, 2.0, 2.0))
+    kit.primitive("cylinder", (-1.6, 0, 3.0), (0.1, 0.1, 1.6), rope, rot_deg=(0, -24, 0), segments=6)
+
+
+BUILDERS = {"signboard": build_signboard, "waymark": build_waymark, "scarecrow": build_scarecrow, "rope": build_rope, "column": build_column, "marker": build_marker, "catapult": build_catapult, "chest": build_chest, "tent": build_tent, "gravestone": build_gravestone, "fence": build_fence, "crate": build_crate, "well": build_well, "rocks": build_rocks, "slab": build_slab,
             "firepit": build_firepit, "dirtpile": build_dirtpile, "stump": build_stump}
 
 

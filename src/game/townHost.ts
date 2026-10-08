@@ -3,7 +3,8 @@ import { sceneCanvas } from '../ui/townScreen';
 import type { TownView } from '../ui/hud';
 import { destinationAt, type Destination } from './transitions';
 import { TownController, type DialogEnd } from './townController';
-import { activeHotspots, loadTownScene, type FetchResources } from './townScene';
+import { activeHotspots, loadTownScene, type FetchResources, type TownScene } from './townScene';
+import { loadSceneHd } from './sceneHd';
 import type { WorldState } from './state';
 
 export interface TownHostOptions {
@@ -27,12 +28,19 @@ export function townExit(entry: TownEntry, tileX: number, tileY: number): Destin
 /** Connects the town scene controller to the HUD and the dialogue player. */
 export function createTownHost(o: TownHostOptions) {
   let exitDialog = 0;
+  // Upscaled pictures (see sceneHd.ts) by loaded scene; scenes without one keep the original 320x200 picture.
+  const hdPictures = new WeakMap<TownScene, HTMLImageElement>();
   const controller: TownController = new TownController({
-    load: (ref) => loadTownScene(o.fetch, ref, o.chapter),
+    load: async (ref) => {
+      const scene = await loadTownScene(o.fetch, ref, o.chapter);
+      const hd = await loadSceneHd(scene.image.rgba);
+      if (hd) hdPictures.set(scene, hd);
+      return scene;
+    },
     show: (scene) => {
       const hotspots = activeHotspots(scene.gds, o.world(), o.chapter);
       o.hud.showTown({
-        picture: sceneCanvas(scene.image),
+        picture: hdPictures.get(scene) ?? sceneCanvas(scene.image),
         hotspots,
         onClick: (h) => controller.click(h),
         onDescribe: (h) => controller.describe(h),

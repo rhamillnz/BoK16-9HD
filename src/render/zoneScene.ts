@@ -19,6 +19,7 @@ import { createGrassGroundMaterial, createTerrainMaterial } from './terrainMater
 import { createHillMaterial } from './hillMaterial';
 import { hillTriangles, isHillModel } from './hillMesh';
 import { detailHill, type DetailedHill } from './hillDetail';
+import { applyScatterRockMaterial } from './scatterRockMaterial';
 import { DEFAULT_SCATTER, SCATTER_MODELS, scatterOnTriangles } from './scatter';
 import { PATH_STYLE, ROAD_STYLE, createRoadMaterial } from './roadMaterial';
 import { buildCollisionPolygons, type CollisionPolygon } from '../world/collision';
@@ -451,7 +452,9 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
   }
 
   for (const [name, placements] of overridePlacements) {
-    for (const mesh of buildOverrideMeshes(name, overrides!.models.get(name)!, placements)) {
+    const meshes = buildOverrideMeshes(name, overrides!.models.get(name)!, placements);
+    applyScatterRockMaterial(name, meshes);
+    for (const mesh of meshes) {
       group.add(mesh);
       drawCalls++;
     }
