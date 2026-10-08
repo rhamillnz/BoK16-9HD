@@ -57,6 +57,7 @@ import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
 import { installMainMenu } from './mainMenuControls';
+import { ensureGameData } from '../ui/dataPicker';
 import { GameDataError, installBootScreen } from '../ui/bootScreen';
 import { installInput } from './inputControls';
 
@@ -76,6 +77,7 @@ camera.far = DOME_RADIUS * 4;
 camera.updateProjectionMatrix();
 
 // Original game data, served by the dev server from the local install (see vite.config.ts).
+await ensureGameData(); // standalone build: folder picker + OPFS cache
 boot.loading('Loading game data…', 0.2);
 const [rmf, data] = await Promise.all([fetch('/bak/KRONDOR.RMF'), fetch('/bak/KRONDOR.001')]);
 if (!rmf.ok || !data.ok) throw new GameDataError(rmf.ok ? 'KRONDOR.001' : 'KRONDOR.RMF', (rmf.ok ? data : rmf).status);
