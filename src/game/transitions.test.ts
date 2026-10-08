@@ -7,6 +7,7 @@ import type { PartyState } from './party';
 import type { WorldState } from './state';
 import {
   destinationAt,
+  entryPointForZone,
   parseTeleports,
   parseZoneTransitions,
   planTransition,
@@ -145,5 +146,21 @@ describe('resolveDialogOutcome', () => {
     const yes = session([], true);
     yes.choose(QUERY_YES);
     expect(resolveDialogOutcome({ session: yes, party, transition: stay }).destination?.zone).toBe(5);
+  });
+});
+
+describe('entryPointForZone', () => {
+  it('returns the first plain teleport into the zone', () => {
+    const a = destinationAt(undefined, 1, 1, 0, 0, 0);
+    const b = destinationAt(10, 3, 4, 5, 6, 0x4000);
+    const c = destinationAt(10, 9, 9, 0, 0, 0);
+    expect(entryPointForZone(10, [a, b, c])).toBe(b);
+    expect(entryPointForZone(11, [a, b, c])).toBeUndefined();
+  });
+
+  it('skips teleports into a town or temple', () => {
+    const town = { ...destinationAt(10, 1, 1, 0, 0, 0), hotspot: 3 };
+    const plain = destinationAt(10, 2, 2, 0, 0, 0);
+    expect(entryPointForZone(10, [town, plain])).toBe(plain);
   });
 });

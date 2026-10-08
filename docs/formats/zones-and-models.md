@@ -593,3 +593,5 @@ Zones 10, 11 and 12 are mines (our own summary of how BaKGL treats them):
 - Entity types that matter below ground: tunnel, pit, entrance and door.
 
 Our rendering (src/world/underground.ts, `Sky.setUnderground`): the sky dome and sun are hidden, fog is near-black and short, a faint cool hemisphere light keeps stone readable, and a flickering warm point light follows the party as its lantern. An active light spell (castControls) widens and brightens it. Grass is skipped, the ground-strip sheet (`ZxxL.SCX`) is optional, and walking runs at `UNDERGROUND_SPEED_SCALE`.
+
+Debug start (`?zone=N`): the party starts at the first plain TELEPORT.DAT entry that targets zone N (the tunnel entrance for a mine), falling back to the centre of the zone's first tile. The lantern light stays in the scene at intensity 0 outside mines, because toggling its visibility changes the light count and left a mine loaded at start black.

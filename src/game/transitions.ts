@@ -105,3 +105,11 @@ export function planTransition(currentZone: number, d: Destination): TransitionP
   return { reload: zone !== currentZone, zone, x: d.x, y: d.y, heading: d.heading, hotspot: d.hotspot, hotspotChar: d.hotspotChar };
 }
 
+
+/**
+ * Debug start for `?zone=N`: the first teleport that lands in zone N (its entry point), so a mine
+ * starts inside the tunnels. Undefined when no teleport targets the zone.
+ */
+export function entryPointForZone(zone: number, teleports: readonly Destination[]): Destination | undefined {
+  return teleports.find((t) => t.zone === zone && t.hotspot === undefined);
+}

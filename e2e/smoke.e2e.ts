@@ -145,7 +145,7 @@ describe('smoke', () => {
     expect(noon.intensity).toBe(0);
     await read((a) => a.setMagicLight(false));
     await settle();
-    expect((await read((a) => a.lights)).visible).toBe(0);
+    expect((await read((a) => a.lights)).intensity).toBe(0); // always registered, just dark
   });
 
   it('plays a book: pages turn with Space and Escape skips', async () => {
