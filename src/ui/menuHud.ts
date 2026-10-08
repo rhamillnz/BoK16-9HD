@@ -8,6 +8,7 @@ import {
   type MenuModel,
   type MenuState,
 } from './menuScreen';
+import { drawTitleScreen, layoutTitle, type TitleArt } from './titleScreen';
 import { registerHudScreen, type HudEvent, type HudHost, type HudScreenHandler } from './hudRegistry';
 
 export const MENU_SCREEN_ID = 'menuPanel';
@@ -22,14 +23,25 @@ export class MenuPanelScreen implements HudScreenHandler {
   private s:
     | { model: MenuModel; layout: MenuLayout; state: MenuState; onPick: (id: string) => void; onCancel: () => void }
     | undefined;
+  /** When set, the panel sits on the title screen (art, logo, heroes) instead of over the game. */
+  private title: { art: TitleArt; since: number } | undefined;
+  private frame = 0;
   constructor(private readonly host: HudHost) {}
+
+  /** Show (or with undefined, hide) the title screen behind the panel. */
+  setTitle(art: TitleArt | undefined): void {
+    if (!art) this.title = undefined;
+    else if (!this.title) this.title = { art, since: performance.now() };
+    this.host.invalidate();
+  }
 
   /** Replace what the panel shows. Open it with `HudScreens.open(MENU_SCREEN_ID)` when it is not already up. */
   show(model: MenuModel, onPick: (id: string) => void, onCancel: () => void, focusId?: string): void {
     const state = initialMenuState(model);
     const at = [...model.rows, ...model.buttons].findIndex((i) => i.id === focusId && i.enabled !== false);
     if (at >= 0) state.focus = at;
-    this.s = { model, layout: layoutMenu(model, this.host.width, this.host.height), state, onPick, onCancel };
+    const place = this.title && model.theme ? { top: layoutTitle(this.host.width, this.host.height).menuTop } : {};
+    this.s = { model, layout: layoutMenu(model, this.host.width, this.host.height, place), state, onPick, onCancel };
     this.host.invalidate();
   }
 
@@ -41,6 +53,8 @@ export class MenuPanelScreen implements HudScreenHandler {
   dismiss(): void {
     if (!this.s) return;
     this.s = undefined;
+    this.title = undefined;
+    cancelAnimationFrame(this.frame);
     this.host.end(MENU_SCREEN_ID);
   }
 
@@ -72,6 +86,14 @@ export class MenuPanelScreen implements HudScreenHandler {
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
+    if (this.title) {
+      const { width, height, font } = this.host;
+      const seconds = (performance.now() - this.title.since) / 1000;
+      drawTitleScreen(ctx, font, this.title.art, layoutTitle(width, height), seconds, width, height);
+      // Keep the candle shimmer and the fade moving while the title is up.
+      cancelAnimationFrame(this.frame);
+      this.frame = requestAnimationFrame(() => this.title && this.host.invalidate());
+    }
     if (this.s) drawMenuScreen(ctx, this.host.font, this.s.layout, this.s.model, this.s.state);
   }
 }

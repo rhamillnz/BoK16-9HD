@@ -2,6 +2,7 @@ import type { Post } from '../render/post';
 import type { HudScreens } from '../ui/hud';
 import { MENU_SCREEN_ID, type MenuPanelScreen } from '../ui/menuHud';
 import type { MusicPlayer } from '../audio/music';
+import type { TitleArt } from '../ui/titleScreen';
 import { showControlsMenu } from './rebindMenu';
 import { getSettings, setSettings } from './settingsStore';
 import {
@@ -22,6 +23,8 @@ export interface MainMenuHost {
   post: Post;
   /** Applies a changed graphics quality (shadows, grass) and may announce it. */
   applyGraphics(announce: boolean): void;
+  /** Pictures for the title screen shown behind the menu when the game starts. */
+  titleArt?: TitleArt;
   /** False while a fight, travel or other flow owns the game. */
   canOpen(): boolean;
 }
@@ -45,7 +48,7 @@ export function installMainMenu(h: MainMenuHost): void {
     h.post.setQuality(settings.quality);
 
   const close = () => {
-    panel.dismiss();
+    panel.dismiss(); // also takes the title screen down
     started = true;
   };
   const refreshSaves = async () => {
@@ -140,6 +143,8 @@ export function installMainMenu(h: MainMenuHost): void {
 
   const open = async () => {
     await refreshSaves();
+    // The first menu of a session is the title screen; later Escape menus sit over the game.
+    panel.setTitle(started ? undefined : h.titleArt);
     showMain();
     h.screens.open(MENU_SCREEN_ID);
   };

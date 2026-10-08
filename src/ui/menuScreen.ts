@@ -24,6 +24,17 @@ export interface MenuModel {
   buttons: MenuItem[];
   /** One line of feedback under the rows ("Not enough money"). */
   message?: string;
+  /** Panel width in layout units (10 canvas pixels per scale step); default is as wide as the canvas allows. */
+  width?: number;
+  /** Leave out the title and the button strip (the main menu sits under the title art). */
+  compact?: boolean;
+  /** 'parchment' paints the panel like the original game's menu scrolls. */
+  theme?: 'parchment';
+}
+
+/** Where to put the panel: its top edge, in canvas pixels (default: vertically centred). */
+export interface MenuPlacement {
+  top?: number;
 }
 
 export interface MenuLayout {
@@ -44,36 +55,43 @@ export interface MenuState {
 export type MenuEvent = { type: 'key'; key: string } | { type: 'click' | 'hover'; x: number; y: number };
 export type MenuResult = { kind: 'none' } | { kind: 'pick'; id: string };
 
-export function layoutMenu(model: MenuModel, width = HUD_WIDTH, height = HUD_HEIGHT): MenuLayout {
+export function layoutMenu(
+  model: MenuModel,
+  width = HUD_WIDTH,
+  height = HUD_HEIGHT,
+  place: MenuPlacement = {},
+): MenuLayout {
   const scale = chooseScale(height);
   const unit = scale * 10;
   const rowH = unit * 1.6;
   const pad = unit;
-  const panelW = Math.min(width, 120 * unit);
+  const panelW = Math.min(width, (model.width ?? 120) * unit);
   const innerW = panelW - 2 * pad;
   const lineH = unit * 1.3;
   const btnW = Math.min(innerW, 26 * unit);
+  const head = model.compact ? 0 : unit * 2;
+  const foot = model.compact ? 0 : unit * 2;
   const panelH = Math.ceil(
     pad +
-      unit * 2 +
+      head +
       model.lines.length * lineH +
       (model.lines.length ? unit : 0) +
       model.rows.length * rowH +
       (model.rows.length ? unit : 0) +
-      unit * 1.5 +
-      unit * 2 +
-      unit * 2 +
+      (model.compact ? 0 : unit * 1.5) +
+      (model.compact && !model.message ? 0 : unit * 2) +
+      foot +
       pad,
   );
   const panel: Rect = {
     x: Math.floor((width - panelW) / 2),
-    y: Math.floor((height - Math.min(panelH, height)) / 2),
+    y: place.top ?? Math.floor((height - Math.min(panelH, height)) / 2),
     width: panelW,
     height: Math.min(panelH, height),
   };
   let y = panel.y + pad;
   const title: Rect = { x: panel.x + pad, y, width: innerW, height: unit };
-  y += unit * 2;
+  y += head;
   const lines = model.lines.map((_, i) => ({ x: panel.x + pad, y: y + i * lineH, width: innerW, height: unit }));
   y += model.lines.length * lineH + (model.lines.length ? unit : 0);
   const rows = model.rows.map((_, i) => ({
@@ -143,6 +161,19 @@ export function stepMenu(
   return { state: { focus: i }, result: { kind: 'pick', id: item!.id } };
 }
 
+const COLORS_PARCHMENT = {
+  background: '#c9a56a',
+  border: '#4a2c12',
+  text: '#2b1a0c',
+  dim: '#8a7048',
+  button: '#b08c54',
+  focus: '#6b3a1c',
+  row: 'rgba(0,0,0,0)',
+  rowFocus: '#4a2c12',
+  rowFocusText: '#f4dfae',
+  message: '#7a2810',
+};
+
 const COLORS = {
   background: 'rgba(24, 16, 8, 0.94)',
   border: '#c8a050',
@@ -192,13 +223,13 @@ export function drawMenuScreen(
   state: MenuState,
 ): void {
   const { scale, panel } = layout;
-  const c = COLORS;
+  const c = model.theme === 'parchment' ? COLORS_PARCHMENT : { ...COLORS, rowFocusText: COLORS.text };
   ctx.fillStyle = c.background;
   ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
   ctx.strokeStyle = c.border;
   ctx.lineWidth = scale;
   ctx.strokeRect(panel.x + scale / 2, panel.y + scale / 2, panel.width - scale, panel.height - scale);
-  drawText(ctx, font, model.title, layout.title.x, layout.title.y, scale, c.text);
+  if (!model.compact) drawText(ctx, font, model.title, layout.title.x, layout.title.y, scale, c.text);
   model.lines.forEach((line, i) => drawText(ctx, font, line, layout.lines[i]!.x, layout.lines[i]!.y, scale, c.text));
   model.rows.forEach((row, i) => {
     const r = layout.rows[i]!;
@@ -206,17 +237,10 @@ export function drawMenuScreen(
     ctx.fillStyle = state.focus === i ? c.rowFocus : c.row;
     ctx.fillRect(r.x, r.y, r.width, r.height);
     const ty = r.y + Math.floor((r.height - font.height * scale) / 2);
-    drawText(ctx, font, row.label, r.x + 2 * scale, ty, scale, on ? c.text : c.dim);
+    const ink = !on ? c.dim : state.focus === i ? c.rowFocusText : c.text;
+    drawText(ctx, font, row.label, r.x + 2 * scale, ty, scale, ink);
     if (row.detail)
-      drawText(
-        ctx,
-        font,
-        row.detail,
-        r.x + r.width - textWidth(font, row.detail, scale) - 2 * scale,
-        ty,
-        scale,
-        on ? c.text : c.dim,
-      );
+      drawText(ctx, font, row.detail, r.x + r.width - textWidth(font, row.detail, scale) - 2 * scale, ty, scale, ink);
   });
   if (model.message) drawText(ctx, font, model.message, layout.message.x, layout.message.y, scale, c.message);
   model.buttons.forEach((b, i) => {
