@@ -70,6 +70,7 @@ import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
 import { installMainMenu } from './mainMenuControls';
+import { loadTitleArt } from './titleArt';
 import { ensureGameData } from '../ui/dataPicker';
 import { GameDataError, installBootScreen } from '../ui/bootScreen';
 import { installInput } from './inputControls';
@@ -660,6 +661,7 @@ installMainMenu({
   music,
   post,
   applyGraphics,
+  titleArt: loadTitleArt(archive),
   canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode,
 });
 

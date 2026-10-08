@@ -95,6 +95,9 @@ export function mainMenuModel(s: MainMenuState, message?: string): MenuModel {
     ],
     buttons: [],
     message,
+    width: 22,
+    compact: true,
+    ...(s.started ? {} : { theme: 'parchment' as const }),
   };
 }
 
