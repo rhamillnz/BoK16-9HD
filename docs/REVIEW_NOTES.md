@@ -80,3 +80,9 @@
 - New `src/render/treeStyle.ts`: `styleInstances(zone, placements)` gives each tree/grove/fern/bush a height (+-22%), width, brightness (+-14%) and a small warm/cool shift, hashed from its position (stable between loads), times `ZONE_FOLIAGE[zone]` (zone 5 and 7 slightly darker, 6 cold blue, 8 dark); `applyInstanceColors` writes them as per-instance colours. Wired into the placement loop in `zoneScene.ts` (5 lines). Tests: `treeStyle.test.ts`.
 - Screenshots `shots/local/14/{z5,z6,z1,z8}.png`; 60 fps in zones 1, 5, 6 and 8 (no extra draw calls, one instance-colour buffer per mesh).
 - Limits: the tint is subtle on the frost zone; the kit models are the same ones as before (no extra species added), so the mix of species per zone is unchanged. The bounce-lit scatter bush material ignores the instance colour.
+
+## HD town scenes (unblocked by the cloud's scene fix)
+- After merging main (town scenes compose again) `scripts/export-town-scenes.ts` finds 101 distinct pictures (117 scenes x 9 chapters); all 101 upscaled 4x (1280x800) with `tools/upscale/upscale.py` into `art/reference/scenes-4x/<hash>.png` (gitignored, like the other upscales; ~15 min on this PC).
+- Checked in game: zone 1 x=660800 y=918000 h=192, walk W 5 s to the LaMut prompt, Enter: the town picture draws from the HD file (`shots/local/15-hd.png`), 57-58 fps. Original picture still used when a hash has no file.
+- Note for testing: the prompt triggers from y inside 913600-940800 walking east; at y=927000 a new obstacle blocks the walk.
+- The scene art only fills the upper ~half of the 320x200 frame (original layout), so the lower half is black.
