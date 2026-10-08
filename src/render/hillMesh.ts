@@ -1,8 +1,8 @@
 import * as THREE from 'three/webgpu';
 import type { HillCorner } from './hillDetail';
 
-/** Original landscape/mountain models: palette-coloured, flat-shaded faces (zero1..9, one1..3, landscp1..4, genmtn, stonemtn). */
-const HILL_NAME = /^(zero\d|one\d|landscp\d|genmtn|stonemtn)/i;
+/** Original landscape/mountain models: palette-coloured, flat-shaded faces (zero1..9, one1..3, landscp1..4, genmtn, stonemtn; also `entrance`, the valley wedges at town entrances). */
+const HILL_NAME = /^(zero\d|one\d|landscp\d|genmtn|stonemtn|entrance)/i;
 
 export const isHillModel = (name: string): boolean => HILL_NAME.test(name);
 
