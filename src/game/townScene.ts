@@ -154,8 +154,14 @@ export function composeScene(scripts: readonly TtmScript[], read: ReadResource):
     return imageSets.get(name);
   };
 
+  // Slots carry over from script to script, as in the original: a scene's first script typically
+  // loads the picture and palette and a later one draws it, so each script sees what came before.
+  const slotImages = new Map<number, { name: string; palette: number }>();
+  const slotPalettes = new Map<number, string>();
   for (const script of scripts) {
-    const palFor = (slot: number) => palette(script.palettes.get(slot) ?? script.palettes.get(0));
+    for (const [slot, img] of script.images) slotImages.set(slot, img);
+    for (const [slot, name] of script.palettes) slotPalettes.set(slot, name);
+    const palFor = (slot: number) => palette(slotPalettes.get(slot) ?? slotPalettes.get(0));
     let clip = full;
 
     if (script.screen) {
@@ -189,7 +195,7 @@ export function composeScene(scripts: readonly TtmScript[], read: ReadResource):
           y1: Math.min(SCENE_HEIGHT, op.bottom),
         };
       } else if (op.op === 'sprite') {
-        const slot = script.images.get(op.slot);
+        const slot = slotImages.get(op.slot);
         const set = slot && images(slot.name);
         const sprite = set?.[op.index];
         const pal = slot && palFor(slot.palette);
@@ -205,7 +211,7 @@ export function composeScene(scripts: readonly TtmScript[], read: ReadResource):
           }
         }
       } else if (op.op === 'actor') {
-        const slot = script.images.get(1);
+        const slot = slotImages.get(1);
         const sprite = slot && images(slot.name)?.[0];
         const pal = palFor(0);
         if (sprite && pal)

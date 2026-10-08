@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseTtm } from '../formats/ttm';
+import { parseTtm, type TtmScript } from '../formats/ttm';
 import { composeScene } from './townScene';
 
 const u16 = (v: number) => [v & 0xff, (v >> 8) & 0xff];
@@ -51,5 +51,29 @@ describe('town scene composition', () => {
       Array.from(image.rgba.subarray((y * image.width + x) * 4, (y * image.width + x) * 4 + 3));
     expect(at(15, 15)).toEqual([255, 0, 0]);
     expect(at(100, 100)).toEqual([0, 0, 0]);
+  });
+});
+
+describe('scenes spread over several scripts', () => {
+  it('lets a later script use what an earlier one loaded (the usual town layout)', () => {
+    // As in G_TOWN.TTM: the background script only loads the palette and picture, the next one draws.
+    const loads: TtmScript = {
+      id: 10,
+      images: new Map([[0, { name: 'PIC.BMX', palette: 0 }]]),
+      palettes: new Map([[0, 'TOWN.PAL']]),
+      ops: [],
+      screen: undefined,
+    };
+    const draws: TtmScript = {
+      id: 13,
+      images: new Map(),
+      palettes: new Map(),
+      screen: undefined,
+      ops: [{ op: 'rect', x: 10, y: 10, width: 20, height: 20, filled: true, edge: 1, fill: 1 }],
+    } as TtmScript;
+    const image = composeScene([loads, draws], (name) => (name === 'TOWN.PAL' ? palFile() : undefined));
+    const at = (x: number, y: number) =>
+      Array.from(image.rgba.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3));
+    expect(at(15, 15)).not.toEqual([0, 0, 0]);
   });
 });
