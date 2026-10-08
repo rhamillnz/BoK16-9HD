@@ -13,19 +13,19 @@ import {
   vertexColor,
 } from 'three/tsl';
 import { bumpedNormal } from './bump';
-import { SLOPE_END, SLOPE_START, TERRAIN_MACRO_SCALE, TERRAIN_PATCH_SCALE } from './terrainMaterial';
+import { SLOPE_START, TERRAIN_MACRO_SCALE, TERRAIN_PATCH_SCALE } from './terrainMaterial';
 
-/** Rock colour (linear) the steep and high parts of hills fade towards. */
-const ROCK_LOW = vec3(0.12, 0.105, 0.085);
-const ROCK_HIGH = vec3(0.22, 0.2, 0.18);
-/** World heights (render units) where hills start and finish turning to bare rock. */
+/** Rock colours (linear): dark weathered stone, lighter grey-brown faces, and pale lichen. */
+const ROCK_LOW = vec3(0.1, 0.09, 0.075);
+const ROCK_HIGH = vec3(0.26, 0.235, 0.205);
+const LICHEN = vec3(0.3, 0.3, 0.2);
 /** Exponent applied to the palette colour (< 1 brightens dark colours most). */
 export const HILL_GAMMA = 0.55;
 /** Fraction of the albedo added as unlit bounce light. */
 export const HILL_BOUNCE = 0.35;
 export const HILL_ROCK_ALTITUDE = [10, 28] as const;
 /** Height (render units) of the fine shader relief; the mesh carries the large shapes (hillDetail.ts). */
-export const HILL_BUMP = 0.18;
+export const HILL_BUMP = 0.28;
 
 /** Small-scale relief: lumps, gullies and rocky grain, in world space so it never swims. */
 const relief = Fn(() => {
@@ -41,9 +41,8 @@ const relief = Fn(() => {
 });
 
 /**
- * Stylised hills: the original palette colour per face (kept for recognisability), lifted by
- * low-frequency noise, with steep or high ground blending to mottled rock. Used with smooth
- * normals, so the facets of the low-poly model read as rolling slopes rather than crystals.
+ * Rocky hills: bare, banded stone everywhere, with grass (the original palette colour, so the
+ * landscape keeps its look from a distance) surviving only on gentle, low ground and in hollows.
  */
 export function createHillMaterial(): THREE.MeshStandardNodeMaterial {
   const material = new THREE.MeshStandardNodeMaterial({ roughness: 1, metalness: 0, side: THREE.DoubleSide });
@@ -59,20 +58,31 @@ export function createHillMaterial(): THREE.MeshStandardNodeMaterial {
       .mul(tint)
       .mul(float(1.1).add(patch.mul(0.2)));
 
+    // Grass only where it could hold on: gentle, low ground, in patches. Everything else is rock.
     const slope = float(1).sub(normalWorld.y.abs());
-    const steep = smoothstep(SLOPE_START + 0.1, SLOPE_END, slope);
-    const high = smoothstep(HILL_ROCK_ALTITUDE[0], HILL_ROCK_ALTITUDE[1], positionWorld.y);
-    const rockAmt = steep
-      .add(high.mul(0.7))
-      .min(1)
-      .mul(smoothstep(0.2, 0.7, macro.add(steep.mul(0.4))));
+    const gentle = float(1).sub(smoothstep(SLOPE_START * 0.5, SLOPE_START + 0.05, slope));
+    const low = float(1).sub(smoothstep(HILL_ROCK_ALTITUDE[0] * 0.3, HILL_ROCK_ALTITUDE[0], positionWorld.y));
+    const grassPatch = smoothstep(0.35, 0.65, macro.add(patch.mul(0.25)));
+    const rockAmt = float(1).sub(gentle.mul(grassPatch).mul(low.mul(0.6).add(0.4)).mul(0.9));
     const strata = mx_noise_float(vec3(positionWorld.x.mul(0.5), positionWorld.y.mul(1.4), positionWorld.z.mul(0.5)))
       .mul(0.5)
       .add(0.5);
     const crack = mx_noise_float(positionWorld.mul(0.35)).mul(0.5).add(0.5);
-    const rock = mix(ROCK_LOW, ROCK_HIGH, mx_noise_float(p.mul(0.4)).mul(0.5).add(0.5))
+    const bands = mx_noise_float(vec3(positionWorld.x.mul(0.05), positionWorld.y.mul(2.2), positionWorld.z.mul(0.05)))
+      .mul(0.5)
+      .add(0.5);
+    const stone = mix(ROCK_LOW, ROCK_HIGH, mx_noise_float(p.mul(0.4)).mul(0.5).add(0.5).mul(bands.mul(0.6).add(0.4)))
       .mul(strata.mul(0.5).add(0.7))
       .mul(crack.mul(0.4).add(0.8));
+    // Lichen and a little of the hill's own colour on the upward faces of the rock.
+    const lichen = smoothstep(0.55, 0.8, mx_noise_float(positionWorld.mul(0.9).add(2.2)).mul(0.5).add(0.5)).mul(
+      normalWorld.y.max(0),
+    );
+    const rock = mix(
+      mix(stone, LICHEN.mul(stone.length().add(0.4)), lichen.mul(0.5)),
+      lit,
+      normalWorld.y.max(0).mul(0.15),
+    );
     return mix(lit, rock, rockAmt);
   })();
   material.colorNode = albedo;

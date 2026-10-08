@@ -22,7 +22,7 @@ export interface ScatterOptions {
 
 export const DEFAULT_SCATTER: Omit<ScatterOptions, 'seed'> = {
   bushDensity: 0.012,
-  rockDensity: 0.004,
+  rockDensity: 0.012,
   steep: 0.3,
   steepRockBoost: 5,
   bushMaxAltitude: 14,

@@ -45,7 +45,9 @@ describe('scatterOnTriangles', () => {
       const e = p.matrix.elements;
       expect(e[12]).toBeGreaterThanOrEqual(0);
       expect(e[12]).toBeLessThanOrEqual(40);
-      expect(e[13]).toBeCloseTo(2);
+      // On the surface (y = 2); rocks sink up to 0.8 x their largest scale (2.0) into it.
+      expect(e[13]).toBeLessThanOrEqual(2 + 1e-9);
+      expect(e[13]).toBeGreaterThanOrEqual(2 - 1.6 - 1e-9);
     }
   });
   it('only uses models that loaded', () => {
