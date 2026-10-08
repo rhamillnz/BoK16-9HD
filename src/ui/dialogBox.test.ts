@@ -26,11 +26,15 @@ describe('layoutDialog with a speaker', () => {
     const plain = layoutDialog(font, snippet, [], opts);
     const l = layoutDialog(font, snippet, [], opts, { name: 'Gorath' });
     const t = l.title!;
+    const rowH = (font.height + 1) * opts.scale; // lineGap defaults to 1
     expect(t.text).toBe('Gorath');
-    expect(t.y).toBe(opts.box.y + opts.padding);
-    // 6 chars * 4px + 1px bold = 25 font px = 50 canvas px, centred in 200.
-    expect(t.x).toBe(100 + 75);
-    expect(l.textArea.y).toBeGreaterThan(t.y + font.height * 2);
+    // Centred horizontally in the box
+    expect(t.x).toBe(opts.box.x + opts.box.width / 2);
+    // Cinzel font size calculated (may be larger than rowH, so text can overlap padding)
+    expect(t.fontSizePx).toBeGreaterThan(0);
+    expect(t.fontSizePx).toBeLessThanOrEqual(Math.floor(font.height * 1.6 * opts.scale));
+    // Text area moved down by at least one bitmap row
+    expect(l.textArea.y).toBeGreaterThan(opts.box.y + opts.padding + rowH);
     expect(l.rowsPerPage).toBeLessThan(plain.rowsPerPage);
   });
 

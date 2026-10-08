@@ -28,6 +28,7 @@ import {
   type SaveHandler,
   type ItemHandler,
 } from './hudRegistry';
+import { loadSpeakerFont } from './speakerFont';
 
 export { registerHudScreen, type HudHost, type HudScreen, type HudScreenHandler, type SaveHandler, type ItemHandler };
 export type { TownView };
@@ -81,6 +82,8 @@ export class HudScreens implements HudHost {
       layout: layoutPartyBar(data.font, members.length, { canvasWidth: width, canvasHeight: height }),
     };
     for (const [id, factory] of registeredHudScreens()) this.register(id, factory);
+    // Load the Cinzel font early for speaker names in dialogue boxes
+    void loadSpeakerFont();
   }
 
   get font(): Font {

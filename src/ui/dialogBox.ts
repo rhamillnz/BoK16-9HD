@@ -8,6 +8,7 @@ import {
   type StyledRun,
   type TextStyle,
 } from '../formats/textCodes';
+import { drawSpeakerName, fitSpeakerName } from './speakerFont';
 
 /** HUD canvas size (16:9). */
 export const HUD_WIDTH = 2560;
@@ -212,7 +213,7 @@ export interface DialogLayout {
   textArea: Rect;
   choices: ChoiceSlot[];
   /** Speaker name at the top of the box (canvas pixels; centred in `box`). */
-  title?: { text: string; x: number; y: number };
+  title?: { text: string; x: number; y: number; fontSizePx: number };
   /** Canvas-pixel rect the speaker's portrait is drawn into, standing on the top edge of the box. */
   portrait?: Rect;
 }
@@ -271,8 +272,18 @@ export function layoutDialog(
   }
   const layout: DialogLayout = { box, scale, rowsPerPage, pages, textArea, choices };
   if (speaker) {
-    const w = (measureString(font, speaker.name, spacing) + 1) * scale; // +1: the bold overstrike
-    layout.title = { text: speaker.name, x: box.x + Math.floor((box.width - w) / 2), y: box.y + padding };
+    // Calculate Cinzel font size for the speaker name
+    // Target: cap height roughly 1.6x the bitmap font's height
+    const targetFontSizePx = Math.floor(font.height * 1.6 * scale);
+    const maxWidth = box.width - 2 * padding;
+    const { size: fontSizePx } = fitSpeakerName(speaker.name, maxWidth, targetFontSizePx);
+
+    layout.title = {
+      text: speaker.name,
+      x: box.x + Math.floor(box.width / 2), // centred; actual centering done by drawSpeakerName
+      y: box.y + padding + Math.floor((rowH - fontSizePx) / 2), // vertically centred in title row
+      fontSizePx,
+    };
     const p = speaker.portrait;
     if (p && p.width > 0 && p.height > 0) {
       const room = box.y - SPEAKER_GAP * scale;
@@ -527,8 +538,17 @@ export function drawDialog(
 
   if (layout.title) {
     const t = layout.title;
-    drawText(ctx, font, t.text, t.x, t.y, scale, colors.emphasis, spacing);
-    drawText(ctx, font, t.text, t.x + scale, t.y, scale, colors.emphasis, spacing); // bold
+    // Draw speaker name with Cinzel font
+    drawSpeakerName(
+      ctx,
+      t.text,
+      t.x,
+      t.y + Math.floor(t.fontSizePx * 0.8), // baseline adjustment for Cinzel
+      t.fontSizePx,
+      colors.emphasis, // gold fill
+      'rgba(0, 0, 0, 0.8)', // dark outline
+      Math.max(1, Math.floor(t.fontSizePx * 0.08)), // outline width proportional to font size
+    );
   }
 
   let y = textArea.y;
