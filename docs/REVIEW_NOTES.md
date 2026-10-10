@@ -129,3 +129,6 @@
 - (b) Placement: `npcPlacement(e, roadPoints)` picks the road-edge point (from `roadEdgePoints`, computed once per zone when the figures are built) nearest the trigger rectangle (inside beats outside; ties to the centre), clamped onto the rectangle's cells; no road within 60 units: centre as before. Squire Phillip now stands at the road edge on the east side of his line (`shots/local/r6/r7-phillip.png`) instead of mid-field.
 - (c) Variants: dwarf now has a beard (kit `Hair_Beard`). The kit has no pointed ears, so moredhel stays a hooded ranger.
 - Tests added for placement. Note: I ran a bare `git stash` once by mistake and restored it at once (apply + drop of my own entry, nothing lost).
+
+## Round 7, item 2: fog follows the sky
+- `sky.ts`: `scene.fogNode` = TSL `fog(color, rangeFogFactor(FOG_NEAR, FOG_FAR))` whose colour is the horizon colour plus the sunset glow (same `uGlow` and `towards-the-sun` falloff as the dome band, by view azimuth), so distant terrain takes the glow on the sun side. Same fog range as before; the old `THREE.Fog` stays for its near/far and is used underground (`fogNode` is cleared there and restored outdoors). Zone 1 at 17:30: `shots/local/r6/fog-dusk-w.png` (towards the sun), `fog-dusk-e.png`; 60 fps. By day/night the glow is 0 so the fog is unchanged.
