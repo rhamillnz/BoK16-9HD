@@ -1,52 +1,62 @@
 /**
- * Song numbers for the original soundtrack. BaKGL addresses songs by a sound
- * index of 1000 + N, and the GOG files music/bakNN.ogg hold the same songs by
- * number N (see songUrl in music.ts).
+ * Song numbers for the original soundtrack. A song number here is the number of its GOG file,
+ * music/bakNN.ogg (see songUrl in music.ts). The game data addresses songs by a sound index of
+ * 1000 + N, and that song is in file N + 1: matching the MIDI lengths in FRP.SX against the OGG
+ * lengths shows the offset (the run of very short sounds 1046-1055 is in bak47-bak56, sound 1009
+ * in bak10, 1035 in bak36, 1059 in bak60), and there are 62 of each.
  *
- * What BaKGL pins down (audio/audio.hpp, gui/mainMenuScreen.hpp, bak/bard.cpp,
+ * What BaKGL pins down by sound index (audio/audio.hpp, gui/mainMenuScreen.hpp, bak/bard.cpp,
  * bak/hotspot.cpp):
  *  - fixed situation songs: main menu 1015, puzzle chest 1003, bard results
  *    1008 (failed), 1040 (poor), 1039 (good), 1007 (best);
  *  - building/temple/inn scenes carry their own song in the GDS hotspot
  *    record (`mSong`, a u16 sound index; 0 = keep the current music).
  * BaKGL has no overworld zone -> song table (it never starts music for the
- * main view), so the per-zone entries below are PROVISIONAL: edit ZONE_SONGS
- * after listening. `?song=N` in the URL overrides the zone song for testing.
+ * main view), so exploring rotates through the songs nothing else uses
+ * (EXPLORE_SONGS). `?song=N` in the URL plays file N on a loop instead.
  */
 
 export const SOUND_INDEX_BASE = 1000;
 
-export const SONG_MAIN_MENU = 15;
+export const SONG_MAIN_MENU = 16;
 /** Our title menu's song, chosen by ear (2026-10-11); the original's menu plays SONG_MAIN_MENU. */
 export const SONG_TITLE = 22;
-export const SONG_PUZZLE_CHEST = 3;
-export const SONG_BARD_FAILED = 8;
-export const SONG_BARD_POOR = 40;
-export const SONG_BARD_GOOD = 39;
-export const SONG_BARD_BEST = 7;
+export const SONG_PUZZLE_CHEST = 4;
+export const SONG_BARD_FAILED = 9;
+export const SONG_BARD_POOR = 41;
+export const SONG_BARD_GOOD = 40;
+export const SONG_BARD_BEST = 8;
 
 /**
- * Songs the dialogues play as cues (PlaySound 1000 + N in DIAL_Z*.DDX; song 2 alone is used 44 times,
- * e.g. after the first talk with Gorath). They play once over the music, so exploring must use another.
+ * Songs the dialogues play as cues (PlaySound 1000 + N in DIAL_Z*.DDX, here as file numbers). File 3
+ * (sound 1002) alone is used 44 times, e.g. the dread after burying the body with Gorath.
  */
 export const DIALOGUE_SONGS: readonly number[] = [
-  1, 2, 3, 4, 6, 7, 11, 12, 13, 14, 17, 18, 19, 24, 25, 28, 29, 30, 32, 34, 36, 37, 38, 39, 41, 42, 43, 44, 46, 47, 48,
-  49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
+  2, 3, 4, 5, 7, 8, 12, 13, 14, 15, 18, 19, 20, 25, 26, 29, 30, 31, 33, 35, 37, 38, 39, 40, 42, 43, 44, 45, 47, 48, 49,
+  50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
+];
+
+/** Songs the chapter cutscenes play (TTM sound 1000 + N; file 22 is in the chapter 9 cutscene C92). */
+export const CUTSCENE_SONGS: readonly number[] = [
+  2, 10, 11, 19, 20, 21, 22, 24, 26, 31, 32, 36, 37, 43, 45, 46, 58, 61,
 ];
 
 /**
- * Song used for exploring when a zone has no entry of its own (provisional): a long track that no dialogue,
- * cutscene or the title menu uses.
+ * Exploring music: the long songs that no dialogue, cutscene, menu or bard result uses. They play one
+ * after another, each once, so the music changes as you travel.
  */
-export const DEFAULT_ZONE_SONG = 62;
+export const EXPLORE_SONGS: readonly number[] = [6, 17, 23, 27, 28, 34, 62, 63];
 
-/** Zone number -> song number. Provisional: BaKGL does not document this. */
+/** Song used for exploring a zone with no rotation (the first of EXPLORE_SONGS). */
+export const DEFAULT_ZONE_SONG = EXPLORE_SONGS[0]!;
+
+/** Zone number -> song number, for a zone that should keep one song instead of the rotation. */
 export const ZONE_SONGS: Readonly<Record<number, number>> = {};
 
-/** Convert a BaKGL sound index (1001..1063) to a song number, or null if it is not a song. */
+/** Convert a sound index (1001..1062) to a song (file) number, or null if it is not a song. */
 export function songFromSoundIndex(soundIndex: number): number | null {
   const n = soundIndex - SOUND_INDEX_BASE;
-  return Number.isInteger(n) && n >= 1 && n <= 63 ? n : null;
+  return Number.isInteger(n) && n >= 1 && n <= 62 ? n + 1 : null;
 }
 
 /** Song to play while exploring a zone. */

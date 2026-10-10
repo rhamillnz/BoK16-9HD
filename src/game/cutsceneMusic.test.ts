@@ -24,7 +24,8 @@ describe('cutsceneMusic', () => {
     c.change(1003);
     c.change(1007);
     c.restore();
-    expect(log).toEqual(['play 3', 'play 7', 'play 2']);
+    // Sound 1000 + N is in file N + 1 (songs.ts).
+    expect(log).toEqual(['play 4', 'play 8', 'play 2']);
   });
 
   it('stops at the end when nothing played before', () => {
@@ -32,7 +33,21 @@ describe('cutsceneMusic', () => {
     const c = cutsceneMusic(m);
     c.change(1015);
     c.restore();
-    expect(log).toEqual(['play 15', 'stop']);
+    expect(log).toEqual(['play 16', 'stop']);
+  });
+
+  it('goes back to the exploring rotation when it was playing', () => {
+    const { m, log } = fake(6);
+    const r = Object.assign(m, {
+      rotating: true,
+      resumeRotation: async () => {
+        log.push('rotation');
+      },
+    });
+    const c = cutsceneMusic(r);
+    c.change(1003);
+    c.restore();
+    expect(log).toEqual(['play 4', 'rotation']);
   });
 
   it('ignores non-song indexes, restores nothing without a change, and works without a player', () => {

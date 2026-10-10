@@ -25,21 +25,26 @@ export const bookFile = (key: number): string => `C${String(key % 100).padStart(
  * Music changes of one cutscene: sound indexes of 255 and up name a song (1000 + song). The song playing before the
  * first change is brought back by `restore` when the cutscene ends (silence if none was playing).
  */
-export function cutsceneMusic(music: Pick<MusicPlayer, 'play' | 'stop' | 'songId'> | undefined): {
+export function cutsceneMusic(
+  music:
+    | (Pick<MusicPlayer, 'play' | 'stop' | 'songId'> & Partial<Pick<MusicPlayer, 'rotating' | 'resumeRotation'>>)
+    | undefined,
+): {
   change(index: number): void;
   restore(): void;
 } {
-  let before: number | null | undefined;
+  let before: number | 'rotation' | null | undefined;
   return {
     change(index) {
       const song = songFromSoundIndex(index);
       if (song === null || !music) return;
-      if (before === undefined) before = music.songId;
+      if (before === undefined) before = music.rotating ? 'rotation' : music.songId;
       void music.play(song).catch((err) => console.warn('Cutscene music unavailable:', err));
     },
     restore() {
       if (before === undefined || !music) return;
       if (before === null) music.stop();
+      else if (before === 'rotation') void music.resumeRotation?.().catch(() => undefined);
       else void music.play(before).catch(() => undefined);
       before = undefined;
     },
@@ -52,7 +57,7 @@ export interface CutsceneControlsHost {
   hud: HudScreens;
   chapter(): number;
   /** Where music changes of a cutscene (sound index 255 and up, 1000 + song) play; the previous song returns at its end. */
-  music?: Pick<MusicPlayer, 'play' | 'stop' | 'songId'>;
+  music?: Pick<MusicPlayer, 'play' | 'stop' | 'songId'> & Partial<Pick<MusicPlayer, 'rotating' | 'resumeRotation'>>;
   /** A sound effect, or a music track from 255 up. Defaults to the sound-effect bus for effects and `music` for tracks. */
   sound?(index: number): void;
   /** Run a full dialogue; resolve when it ends. */

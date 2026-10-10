@@ -66,8 +66,12 @@ export interface MusicOptions {
 
 const GESTURE_EVENTS = ['pointerdown', 'keydown', 'touchstart'] as const;
 
+/** loop: until told otherwise; once: a dialogue sting, then back to what it replaced; rotation: see playRotation. */
+export type PlayMode = 'loop' | 'once' | 'rotation';
+
 interface Voice {
   songId: number;
+  mode: PlayMode;
   source: SourceNodeLike;
   gain: GainNodeLike;
 }
@@ -80,8 +84,9 @@ export class MusicPlayer {
   private readonly cache = new Map<number, Promise<unknown>>();
   private current: Voice | null = null;
   private requested: number | null = null;
-  /** The song to go back to when a song played once (a dialogue sting) ends. */
-  private returnTo: number | null = null;
+  /** What to go back to when a song played once (a dialogue sting) ends. */
+  private returnTo: number | 'rotation' | null = null;
+  private rotation: { songs: readonly number[]; next: number } | null = null;
   private vol: number;
   private muted = false;
   private gestureCleanup: (() => void) | null = null;
@@ -107,14 +112,48 @@ export class MusicPlayer {
     return this.muted;
   }
 
+  /** True while the exploring rotation is playing (or will resume after a sting). */
+  get rotating(): boolean {
+    return this.current?.mode === 'rotation' || this.returnTo === 'rotation';
+  }
+
   /**
-   * Start a song, crossfading from the current one. No-op if already playing it. With `once` (a
-   * dialogue sting) it plays through a single time and then the song it replaced comes back.
+   * Play `songs` one after another, each once, wrapping round, starting at index `start`. A dialogue
+   * sting in between returns to the rotation. No-op when this list is already rotating.
    */
-  async play(songId: number, once = false): Promise<void> {
+  playRotation(songs: readonly number[], start = 0): Promise<void> {
+    const r = this.rotation;
+    if (this.rotating && r && r.songs.length === songs.length && r.songs.every((s, i) => s === songs[i]))
+      return Promise.resolve();
+    this.rotation = { songs: [...songs], next: start };
+    return this.advance();
+  }
+
+  /** Go on with the rotation after something else (a cutscene) had the music. */
+  resumeRotation(): Promise<void> {
+    return this.rotation ? this.advance() : Promise.resolve();
+  }
+
+  private advance(): Promise<void> {
+    const r = this.rotation!;
+    const song = r.songs[r.next % r.songs.length]!;
+    r.next = (r.next + 1) % r.songs.length;
+    return this.play(song, 'rotation');
+  }
+
+  /**
+   * Start a song, crossfading from the current one. No-op if already playing it. `once` (a dialogue
+   * sting) plays through a single time and then the song or rotation it replaced comes back.
+   */
+  async play(songId: number, mode: PlayMode | boolean = 'loop'): Promise<void> {
+    if (mode === true) mode = 'once';
+    else if (mode === false) mode = 'loop';
     if (!isValidSongId(songId)) throw new RangeError(`Invalid song id ${songId}`);
     if (this.requested === songId) return;
-    const back = once ? (this.returnTo ?? this.current?.songId ?? null) : null;
+    const back =
+      mode === 'once'
+        ? (this.returnTo ?? (this.current?.mode === 'rotation' ? 'rotation' : (this.current?.songId ?? null)))
+        : null;
     this.requested = songId;
 
     let buffer: unknown;
@@ -137,10 +176,11 @@ export class MusicPlayer {
 
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
-    source.loop = !once;
+    source.loop = mode === 'loop';
     source.connect(gain);
     source.start(now);
-    if (once) {
+    if (mode !== 'loop') {
+      const ended = mode;
       // A crossfade to another song replaces this handler (fadeOut), so this runs only on a natural end.
       source.onended = () => {
         source.disconnect();
@@ -148,14 +188,15 @@ export class MusicPlayer {
         if (this.current?.source !== source) return;
         this.current = null;
         this.requested = null;
-        const to = this.returnTo;
+        const to = ended === 'rotation' ? 'rotation' : this.returnTo;
         this.returnTo = null;
-        if (to !== null) void this.play(to);
+        const next = to === 'rotation' ? this.resumeRotation() : to !== null ? this.play(to) : undefined;
+        void next?.catch((err) => console.warn('Music unavailable:', err));
       };
     }
 
     const old = this.current;
-    this.current = { songId, source, gain };
+    this.current = { songId, mode, source, gain };
     if (old) this.fadeOut(old, now);
   }
 

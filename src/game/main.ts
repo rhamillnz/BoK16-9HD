@@ -24,7 +24,7 @@ import {
 } from './encounterDriver';
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
-import { SONG_TITLE, songForZone } from '../audio/songs';
+import { EXPLORE_SONGS, SONG_TITLE, ZONE_SONGS } from '../audio/songs';
 import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { speakerPortraitLoader } from '../ui/speakerPortraits';
@@ -225,7 +225,17 @@ jumpMapScreen.setCallbacks(
 
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
 const music = createBrowserMusicPlayer({ volume: DEFAULT_SETTINGS.volume });
-void music.play(num('song', songForZone(start.zone))).catch((err) => console.warn('Music unavailable:', err));
+/** Exploring music: `?song=N` loops file N, a zone with its own song loops that, otherwise the rotation. */
+const zoneMusic = (zone: number): void => {
+  const forced = new URLSearchParams(location.search).get('song');
+  const own = forced !== null ? Number(forced) : ZONE_SONGS[zone];
+  const started =
+    own !== undefined
+      ? music.play(own)
+      : music.playRotation(EXPLORE_SONGS, Math.floor(Math.random() * EXPLORE_SONGS.length));
+  void started.catch((err) => console.warn('Music unavailable:', err));
+};
+zoneMusic(start.zone);
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) {
     music.toggleMute();
@@ -433,7 +443,7 @@ async function travelTo(d: Destination): Promise<void> {
       next.grass.setQuality(post.quality);
       screens.setMap(loadZoneMap(archive, plan.zone, next.data.tiles), plan.zone, overheadPolygons(next.data));
       encounters = await makeEncounters(plan.zone, next.data.tiles, clock.state);
-      void music.play(songForZone(plan.zone)).catch((err) => console.warn('Music unavailable:', err));
+      zoneMusic(plan.zone);
     }
     party.setPosition(plan.x, plan.y, plan.heading);
     prevX = plan.x;
@@ -711,7 +721,7 @@ installMainMenu({
   titleArt: loadTitleArt(archive),
   canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode,
   titleSong: SONG_TITLE,
-  gameSong: () => num('song', songForZone(zoneHost.current.zone)),
+  startGameMusic: () => zoneMusic(zoneHost.current.zone),
 });
 
 let last = performance.now();
@@ -768,7 +778,7 @@ renderer.setAnimationLoop(() => {
     fpsTime = 0;
   }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : 'on'}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneHost.current.info}\n${backend}  post ${post.quality} (P)  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position
+  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : `on (${music.songId ?? '-'})`}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneHost.current.info}\n${backend}  post ${post.quality} (P)  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position
     .toArray()
     .map((v) => v.toFixed(1))
     .join(', ')}`;

@@ -135,6 +135,29 @@ describe('MusicPlayer', () => {
     expect(context.sources[3]!.loop).toBe(true);
   });
 
+  it('rotates through a list, each song once, and returns to it after a sting', async () => {
+    const { context, player } = setup();
+    const tick = async () => {
+      for (let i = 0; i < 4; i++) await Promise.resolve();
+    };
+    await player.playRotation([6, 17, 23], 1);
+    expect(player.songId).toBe(17);
+    expect(context.sources[0]!.loop).toBe(false);
+    expect(player.rotating).toBe(true);
+    // Asking for the same rotation again (a zone change) keeps the song going.
+    await player.playRotation([6, 17, 23]);
+    expect(context.sources).toHaveLength(1);
+    context.sources[0]!.onended!();
+    await tick();
+    expect(player.songId).toBe(23);
+    // A sting, then the rotation goes on with the next song, wrapping round.
+    await player.play(3, true);
+    expect(player.rotating).toBe(true);
+    context.sources[2]!.onended!();
+    await tick();
+    expect(player.songId).toBe(6);
+  });
+
   it('a song started during a sting cancels the return', async () => {
     const { context, player } = setup();
     await player.play(2);
