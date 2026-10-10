@@ -153,6 +153,24 @@ describe('buildFighters', () => {
     expect(f.find((x) => x.name === 'Owyn')!.pos).toEqual({ x: 3, y: 1 });
   });
 
+  it('never places a fighter on a disabled cell', () => {
+    const disabled = [
+      { x: 3, y: 1 },
+      { x: 2, y: 10 },
+    ];
+    const f = buildFighters({
+      def: combatDef,
+      enemies: [enemy(9, 3, 2, 10)],
+      party,
+      partyGrid: grid,
+      monsterNames: names,
+      items,
+      disabled,
+    });
+    for (const x of f) expect(disabled).not.toContainEqual(x.pos);
+    expect(f.find((x) => x.name === 'Owyn')!.pos).not.toEqual({ x: 3, y: 1 });
+  });
+
   it('names enemies from the table and numbers repeats; dead ones stay out', () => {
     const f = buildFighters({
       def: combatDef,
