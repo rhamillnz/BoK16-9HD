@@ -2,6 +2,7 @@
 // content hash, ready for tools/upscale. Writes art/derived/scenes/<hash>.png; the upscaled results go to
 // art/reference/scenes-4x/<hash>.png (see src/game/sceneHd.ts).
 //   npx tsx scripts/export-town-scenes.ts
+//   tools/upscale/.venv/Scripts/python tools/upscale/upscale.py art/derived/scenes art/reference/scenes-4x   (x4plus is picked for this folder)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { ResourceArchive } from '../src/formats/archive';
