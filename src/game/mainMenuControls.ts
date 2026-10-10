@@ -27,6 +27,9 @@ export interface MainMenuHost {
   titleArt?: TitleArt;
   /** False while a fight, travel or other flow owns the game. */
   canOpen(): boolean;
+  /** Song for the title menu; `gameSong` takes over when the menu first closes into the game. */
+  titleSong?: number;
+  gameSong?: () => number;
 }
 
 const SKIP_KEY = 'bok.skipMenu';
@@ -49,6 +52,8 @@ export function installMainMenu(h: MainMenuHost): void {
 
   const close = () => {
     panel.dismiss(); // also takes the title screen down
+    if (!started && h.titleSong !== undefined && h.gameSong)
+      void h.music.play(h.gameSong()).catch((err) => console.warn('Music unavailable:', err));
     started = true;
   };
   const refreshSaves = async () => {
@@ -167,5 +172,9 @@ export function installMainMenu(h: MainMenuHost): void {
   const params = new URLSearchParams(location.search);
   if (['book', 'cutscene', 'chapter', 'zone'].some((k) => params.has(k))) skip = true;
   if (skip) started = true;
-  else void open();
+  else {
+    if (h.titleSong !== undefined)
+      void h.music.play(h.titleSong).catch((err) => console.warn('Music unavailable:', err));
+    void open();
+  }
 }

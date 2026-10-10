@@ -24,7 +24,7 @@ import {
 } from './encounterDriver';
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
-import { songForZone } from '../audio/songs';
+import { SONG_TITLE, songForZone } from '../audio/songs';
 import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { speakerPortraitLoader } from '../ui/speakerPortraits';
@@ -710,6 +710,8 @@ installMainMenu({
   applyGraphics,
   titleArt: loadTitleArt(archive),
   canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode,
+  titleSong: SONG_TITLE,
+  gameSong: () => num('song', songForZone(zoneHost.current.zone)),
 });
 
 let last = performance.now();

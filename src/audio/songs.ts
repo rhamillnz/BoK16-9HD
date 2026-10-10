@@ -17,6 +17,8 @@
 export const SOUND_INDEX_BASE = 1000;
 
 export const SONG_MAIN_MENU = 15;
+/** Our title menu's song, chosen by ear (2026-10-11); the original's menu plays SONG_MAIN_MENU. */
+export const SONG_TITLE = 22;
 export const SONG_PUZZLE_CHEST = 3;
 export const SONG_BARD_FAILED = 8;
 export const SONG_BARD_POOR = 40;
@@ -32,8 +34,11 @@ export const DIALOGUE_SONGS: readonly number[] = [
   49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
 ];
 
-/** Song used for exploring when a zone has no entry of its own (provisional): a long track no dialogue uses. */
-export const DEFAULT_ZONE_SONG = 22;
+/**
+ * Song used for exploring when a zone has no entry of its own (provisional): a long track that no dialogue,
+ * cutscene or the title menu uses.
+ */
+export const DEFAULT_ZONE_SONG = 62;
 
 /** Zone number -> song number. Provisional: BaKGL does not document this. */
 export const ZONE_SONGS: Readonly<Record<number, number>> = {};
