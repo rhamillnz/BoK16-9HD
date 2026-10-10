@@ -80,6 +80,7 @@ import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
 import { currentLight } from './spells';
 import { installMainMenu } from './mainMenuControls';
+import { DEFAULT_SETTINGS } from './mainMenu';
 import { loadTitleArt } from './titleArt';
 import { ensureGameData } from '../ui/dataPicker';
 import { GameDataError, installBootScreen } from '../ui/bootScreen';
@@ -222,7 +223,7 @@ jumpMapScreen.setCallbacks(
 );
 
 // Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
-const music = createBrowserMusicPlayer({ volume: 0.7 });
+const music = createBrowserMusicPlayer({ volume: DEFAULT_SETTINGS.volume });
 void music.play(num('song', songForZone(start.zone))).catch((err) => console.warn('Music unavailable:', err));
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) {

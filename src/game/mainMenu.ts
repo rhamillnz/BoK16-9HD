@@ -17,7 +17,7 @@ export interface GameSettings {
 
 export const DEFAULT_SETTINGS: GameSettings = {
   quality: 'medium',
-  volume: 0.7,
+  volume: 0.5,
   muted: false,
   fov: 60,
   uiScale: 1,
@@ -113,8 +113,8 @@ export function optionsModel(s: GameSettings): MenuModel {
     lines: [],
     rows: [
       { id: 'quality', label: 'Graphics quality', detail: s.quality },
-      { id: 'volDown', label: 'Music volume down', enabled: s.volume > 0 },
-      { id: 'volUp', label: 'Music volume up', enabled: s.volume < 1 },
+      { id: 'volDown', label: 'Music volume down', detail: `${Math.round(s.volume * 100)}%`, enabled: s.volume > 0 },
+      { id: 'volUp', label: 'Music volume up', detail: `${Math.round(s.volume * 100)}%`, enabled: s.volume < 1 },
       { id: 'mute', label: 'Music', detail: s.muted ? 'off' : 'on' },
       { id: 'fov', label: 'Field of view', detail: `${s.fov}°` },
       { id: 'uiScale', label: 'UI scale', detail: `${Math.round(s.uiScale * 100)}%` },
