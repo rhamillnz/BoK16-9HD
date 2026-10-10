@@ -168,6 +168,49 @@ describe('trigger rectangles', () => {
   });
 });
 
+describe('EncounterMap.all', () => {
+  it('is empty before any tile is loaded', () => {
+    expect(new EncounterMap(1).all()).toEqual([]);
+  });
+
+  it('gathers the encounters of every loaded tile, each keeping its own tile position', () => {
+    const map = new EncounterMap(1);
+    map.addTile(0, 0, tileFile([[{ type: EncounterType.Dialog, l: 1, t: 1, r: 1, b: 1, idx: 7 }]]));
+    map.addTile(
+      2,
+      5,
+      tileFile([
+        [
+          { type: EncounterType.Combat, l: 0, t: 0, r: 0, b: 0, idx: 8 },
+          { type: EncounterType.Zone, l: 3, t: 3, r: 3, b: 3, idx: 9 },
+        ],
+      ]),
+    );
+    const all = map.all();
+    expect(all.map((e) => [e.tileX, e.tileY, e.record.index])).toEqual([
+      [0, 0, 0],
+      [2, 5, 0],
+      [2, 5, 1],
+    ]);
+    expect(all.map((e) => e.record.tableIndex)).toEqual([7, 8, 9]);
+  });
+
+  it('replaces a tile reloaded at the same position rather than duplicating it', () => {
+    const map = new EncounterMap(1);
+    map.addTile(1, 1, tileFile([[{ type: EncounterType.Dialog, l: 0, t: 0, r: 0, b: 0, idx: 1 }]]));
+    map.addTile(1, 1, tileFile([[{ type: EncounterType.Block, l: 0, t: 0, r: 0, b: 0, idx: 2 }]]));
+    expect(map.all().map((e) => e.record.tableIndex)).toEqual([2]);
+  });
+
+  it('returns a fresh array, so changing it leaves the map alone', () => {
+    const map = new EncounterMap(1);
+    map.addTile(0, 0, tileFile([[{ type: EncounterType.Dialog, l: 0, t: 0, r: 0, b: 0 }]]));
+    map.all().pop();
+    expect(map.all()).toHaveLength(1);
+    expect(map.all()).not.toBe(map.all());
+  });
+});
+
 describe('triggeredAt', () => {
   const map = new EncounterMap(1);
   map.addTile(
