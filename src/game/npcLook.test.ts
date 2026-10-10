@@ -41,4 +41,21 @@ describe('npcPlacement', () => {
     const e = placeEncounter(rec, 1, 0);
     expect(npcPlacement(e)).toEqual({ x: 68800, y: 8000 });
   });
+
+  it('stands on the road edge nearest the rectangle', () => {
+    const rec = { left: 0, right: 9, top: 0, bottom: 0 } as Parameters<typeof placeEncounter>[0];
+    const e = placeEncounter(rec, 0, 0); // x 0..16000, y 0..1600
+    const road: [number, number][] = [
+      [3000, 900], // inside
+      [9000, 5000], // outside
+    ];
+    expect(npcPlacement(e, road)).toEqual({ x: 3000, y: 900 });
+  });
+
+  it('clamps an outside road point onto the rectangle and ignores far roads', () => {
+    const rec = { left: 0, right: 1, top: 0, bottom: 0 } as Parameters<typeof placeEncounter>[0];
+    const e = placeEncounter(rec, 0, 0); // x 0..3200, y 0..1600
+    expect(npcPlacement(e, [[1000, 3000]])).toEqual({ x: 1000, y: 1599 });
+    expect(npcPlacement(e, [[90000, 90000]])).toEqual({ x: 1600, y: 800 });
+  });
 });

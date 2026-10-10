@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { positionLocal, sin, smoothstep, time, vec3 } from 'three/tsl';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { npcPlacement, npcVariant, type ClothingColors, type NpcVariant } from '../game/npcLook';
 import type { EncounterRunner } from '../game/encounterRunner';
@@ -20,10 +21,52 @@ export const NPC_LINGER_DISTANCE = 4000;
 
 interface Figure {
   encounter: PlacedEncounter;
+  /** BaK position the figure stands at. */
+  x: number;
+  y: number;
   object: THREE.Object3D;
   /** The encounter fired and the party is still near: keep the figure until it walks away. */
   lingering: boolean;
   gone: boolean;
+}
+
+/**
+ * A node copy of a model material with a gentle idle: the body leans from side to side (weight shift)
+ * and the chest breathes, both growing with height so the feet stay put. `phase` desynchronises figures.
+ */
+function idleMaterial(
+  m: THREE.MeshStandardMaterial,
+  rgb: readonly [number, number, number] | undefined,
+  phase: number,
+  height: number,
+): THREE.MeshStandardNodeMaterial {
+  const out = new THREE.MeshStandardNodeMaterial({
+    map: m.map,
+    color: m.color,
+    roughness: 0.85,
+    metalness: 0,
+    side: m.side,
+    transparent: m.transparent,
+    alphaTest: m.alphaTest,
+  });
+  out.name = m.name;
+  if (rgb) out.color.setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);
+  const h = positionLocal.y.div(height).clamp(0, 1);
+  const lean = h.mul(h);
+  const breath = sin(time.mul(1.6).add(phase))
+    .mul(0.012)
+    .mul(smoothstep(0.35, 0.7, h))
+    .add(1);
+  out.positionNode = vec3(
+    positionLocal.x.add(sin(time.mul(0.7).add(phase)).mul(0.05).mul(lean)),
+    positionLocal.y.mul(breath),
+    positionLocal.z.add(
+      sin(time.mul(0.5).add(phase * 1.7))
+        .mul(0.025)
+        .mul(lean),
+    ),
+  );
+  return out;
 }
 
 const PRIMARY_PARTS = new Set(['tint_body', 'tint_arms', 'tint_head_hood']);
@@ -76,50 +119,59 @@ export class NpcFigures {
     this.figures = [];
   }
 
-  private async build(runner: EncounterRunner, getHeight: (x: number, y: number) => number): Promise<void> {
+  private async build(
+    runner: EncounterRunner,
+    getHeight: (x: number, y: number) => number,
+    roads: () => readonly (readonly [number, number])[],
+  ): Promise<void> {
     const gen = this.generation;
+    const roadPoints = roads();
     for (const npc of runner.npcEncounters()) {
       const template = await this.model(npcVariant(npc.name));
       if (!template || gen !== this.generation) return;
       const object = template.clone(true);
       const palette = this.colors(npc.actor);
+      const phase = (npc.actor * 2.399) % (Math.PI * 2);
+      const height = new THREE.Box3().setFromObject(object).max.y || 3;
       object.traverse((o) => {
         const mesh = o as THREE.Mesh;
         if (!mesh.isMesh) return;
         mesh.castShadow = true;
-        const tint = (m: THREE.Material): THREE.Material => {
+        const convert = (m: THREE.Material): THREE.Material => {
           const rgb = PRIMARY_PARTS.has(m.name)
             ? palette?.primary
             : m.name === 'tint_legs'
               ? palette?.secondary
               : undefined;
-          if (!rgb) return m;
-          const copy = m.clone() as THREE.MeshStandardMaterial;
-          copy.color.setRGB(rgb[0], rgb[1], rgb[2], THREE.SRGBColorSpace);
-          return copy;
+          return idleMaterial(m as THREE.MeshStandardMaterial, rgb, phase, height);
         };
-        mesh.material = Array.isArray(mesh.material) ? mesh.material.map(tint) : tint(mesh.material);
+        mesh.material = Array.isArray(mesh.material) ? mesh.material.map(convert) : convert(mesh.material);
       });
-      const at = npcPlacement(npc.encounter);
+      const at = npcPlacement(npc.encounter, roadPoints);
       object.position.set(at.x / WORLD_SCALE, getHeight(at.x, at.y) / WORLD_SCALE, -at.y / WORLD_SCALE);
       object.visible = false;
       this.group.add(object);
-      this.figures.push({ encounter: npc.encounter, object, lingering: false, gone: false });
+      this.figures.push({ encounter: npc.encounter, x: at.x, y: at.y, object, lingering: false, gone: false });
     }
   }
 
   /** Call every frame with the zone's encounter runner (a new one means a new zone or chapter). */
-  update(runner: EncounterRunner, getHeight: (x: number, y: number) => number, partyX: number, partyY: number): void {
+  update(
+    runner: EncounterRunner,
+    getHeight: (x: number, y: number) => number,
+    roads: () => readonly (readonly [number, number])[],
+    partyX: number,
+    partyY: number,
+  ): void {
     if (runner !== this.runner) {
       this.runner = runner;
       this.clear();
-      void this.build(runner, getHeight);
+      void this.build(runner, getHeight, roads);
     }
     for (const f of this.figures) {
       if (f.gone) continue;
-      const at = npcPlacement(f.encounter);
-      const dx = partyX - at.x;
-      const dy = partyY - at.y;
+      const dx = partyX - f.x;
+      const dy = partyY - f.y;
       const dist = Math.hypot(dx, dy);
       const pending = runner.isPending(f.encounter);
       if (!pending && f.object.visible) f.lingering = true;
