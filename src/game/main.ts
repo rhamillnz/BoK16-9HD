@@ -30,6 +30,10 @@ import { portraitCanvases } from '../ui/partyBar';
 import { speakerPortraitLoader } from '../ui/speakerPortraits';
 import { clothingColors } from './npcLook';
 import { roadEdgePoints } from '../render/grassGround';
+import { Weather } from '../render/weather';
+import { parseWeatherParam, WEATHER_KINDS, type WeatherKind } from '../render/weatherPlan';
+import { TICKS_PER_DAY, hourOfDay } from './state';
+import { isUndergroundZone } from '../world/underground';
 import { NpcFigures } from '../render/npcFigures';
 import { loadChapterStart } from '../world/zone';
 import { warnIfOffMap } from './chapterStartCheck';
@@ -145,6 +149,16 @@ window.addEventListener('keydown', (e) => {
 const party = new PartyController(num('x', start.x), num('y', start.y), num('h', start.heading), zoneHost.getHeight);
 party.polygons = zoneHost.current.scene.collision;
 const tickPerf = installPerf(renderer, scene);
+
+// Weather: a seeded schedule per zone and time (mostly clear); ?weather=rain|drizzle|mist|clear or F8 forces one.
+const weather = new Weather(scene);
+weather.force(parseWeatherParam(new URLSearchParams(location.search).get('weather')));
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'F8' || e.repeat) return;
+  e.preventDefault();
+  const order: (WeatherKind | undefined)[] = [undefined, ...WEATHER_KINDS];
+  weather.force(order[(order.indexOf(weather.forcedKind) + 1) % order.length]);
+});
 const updateUnderground = installUnderground(sky, party);
 const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
@@ -723,6 +737,14 @@ renderer.setAnimationLoop(() => {
     }
     npcFigures.update(encounters.runner, zoneHost.getHeight, npcRoadPoints, party.x, party.y);
   }
+  weather.schedule(
+    zoneHost.current.zone,
+    Math.floor(clock.state.ticks / TICKS_PER_DAY),
+    hourOfDay(clock.state.ticks),
+    isUndergroundZone(zoneHost.current.zone),
+  );
+  weather.update(dt);
+  sky.setOvercast(weather.overcast);
   tickPerf(camera, dt);
   sky.followShadow(camera.position.x, camera.position.y, camera.position.z);
   post.render();

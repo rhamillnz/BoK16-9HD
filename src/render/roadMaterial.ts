@@ -16,6 +16,7 @@ import {
   vec3,
 } from 'three/tsl';
 import { bumpedNormal } from './bump';
+import { weatherLight } from './weatherUniforms';
 
 /**
  * Dusty cart track: packed earth in the original road colour, two wheel ruts worn into it, a
@@ -90,8 +91,13 @@ export function createRoadMaterial(map: THREE.Texture, style: RoadStyle): THREE.
     const surface = mix(mix(dust.mul(float(1).add(rim.mul(0.18))), groove, rut), grass, weeds.mul(0.75));
     // Banks and slopes darken a little, like the rest of the terrain.
     const slope = float(1).sub(normalWorld.y.abs());
-    return surface.mul(float(1).sub(smoothstep(0.12, 0.6, slope).mul(0.35)));
+    const dry = surface.mul(float(1).sub(smoothstep(0.12, 0.6, slope).mul(0.35)));
+    // Wet: darker and richer, most in the ruts.
+    return dry.mul(float(1).sub(weatherLight.wet.mul(float(0.28).add(rut.mul(0.2)))));
   })();
+
+  // Wet roads shine: roughness falls with the wetness (the sky reflection comes from the lights).
+  material.roughnessNode = mix(float(1), float(0.32), weatherLight.wet.mul(float(0.7).add(rut.mul(0.3))));
 
   // Ruts sink in, the crown and the dust are lumpy: bump only, the strip itself stays flat.
   const lumps = mx_noise_float(p.mul(2.3))
