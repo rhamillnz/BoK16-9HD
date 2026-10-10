@@ -135,6 +135,11 @@ export class Weather {
     this.rain.visible = this.current.rain > 0.01;
   }
 
+  /** The current amounts (rain, overcast, mist, wet), for the ambience. */
+  get amounts(): WeatherAmounts {
+    return this.current;
+  }
+
   /** Overcast amount now (0..1), for the key light. */
   get overcast(): number {
     return this.current.overcast;

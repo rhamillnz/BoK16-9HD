@@ -30,6 +30,7 @@ import { portraitCanvases } from '../ui/partyBar';
 import { speakerPortraitLoader } from '../ui/speakerPortraits';
 import { clothingColors } from './npcLook';
 import { roadEdgePoints } from '../render/grassGround';
+import { WeatherAmbience } from '../audio/ambience';
 import { Weather } from '../render/weather';
 import { parseWeatherParam, WEATHER_KINDS, type WeatherKind } from '../render/weatherPlan';
 import { TICKS_PER_DAY, hourOfDay } from './state';
@@ -224,8 +225,12 @@ jumpMapScreen.setCallbacks(
 const music = createBrowserMusicPlayer({ volume: 0.7 });
 void music.play(num('song', songForZone(start.zone))).catch((err) => console.warn('Music unavailable:', err));
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyM' && !e.repeat) music.toggleMute();
+  if (e.code === 'KeyM' && !e.repeat) {
+    music.toggleMute();
+    ambience.setMuted(music.isMuted);
+  }
 });
+const ambience = new WeatherAmbience(); // synthesised rain and wind, scaled by the weather; M mutes it with the music
 installSfx(); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
 installJournal({ hud: screens, zone: () => zoneHost.current.zone }); // J: dialogue lines seen
 
@@ -745,6 +750,7 @@ renderer.setAnimationLoop(() => {
   );
   weather.update(dt);
   sky.setOvercast(weather.overcast);
+  ambience.update(weather.amounts, isUndergroundZone(zoneHost.current.zone));
   tickPerf(camera, dt);
   sky.followShadow(camera.position.x, camera.position.y, camera.position.z);
   post.render();
