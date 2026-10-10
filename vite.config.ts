@@ -61,6 +61,27 @@ function serveArt(): Plugin {
   };
 }
 
+// Songs rendered from the game's note data by scripts/render-music.mjs (gitignored art/derived/music/),
+// served at /derived-music/ for the music browser, e.g. /derived-music/gs/bak03.ogg.
+function serveDerivedMusic(): Plugin {
+  const root = path.resolve('art/derived/music');
+  return {
+    name: 'serve-derived-music',
+    configureServer(server) {
+      server.middlewares.use('/derived-music/', (req, res) => {
+        const file = path.resolve(root, decodeURIComponent((req.url ?? '').split('?')[0] ?? '').replace(/^\/+/, ''));
+        if (!file.startsWith(root) || !/\.ogg$/i.test(file) || !existsSync(file)) {
+          res.statusCode = 404;
+          return res.end();
+        }
+        res.setHeader('Content-Type', 'audio/ogg');
+        res.setHeader('Content-Length', statSync(file).size);
+        createReadStream(file).pipe(res);
+      });
+    },
+  };
+}
+
 // The music browser (music.html) keeps the player's notes on each track in docs/music-notes.json.
 function musicNotes(): Plugin {
   const file = path.resolve('docs/music-notes.json');
@@ -92,7 +113,7 @@ function musicNotes(): Plugin {
 
 export default defineConfig({
   base: './', // relative asset URLs: the build works from any static host or sub-path
-  plugins: [serveGameData(), serveArt(), musicNotes()],
+  plugins: [serveGameData(), serveArt(), serveDerivedMusic(), musicNotes()],
   build: {
     target: 'es2022',
     rollupOptions: {

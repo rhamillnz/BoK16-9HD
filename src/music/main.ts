@@ -17,6 +17,10 @@ const player = $<HTMLAudioElement>('player');
 const nowLabel = $<HTMLSpanElement>('nowLabel');
 const filter = $<HTMLSelectElement>('filter');
 const search = $<HTMLInputElement>('search');
+const tempo = $<HTMLSelectElement>('tempo');
+tempo.onchange = () => {
+  player.playbackRate = Number(tempo.value);
+};
 
 const fetchBytes = async (url: string) => {
   const res = await fetch(url);
@@ -135,6 +139,19 @@ function trackRow(n: number, uses: SongUse[], name: string | undefined): HTMLEle
     nowLabel.textContent = `Track ${n}: note version (sound ${soundIndex(n)})`;
     markPlaying(row);
   };
+  const gs = el(
+    'button',
+    { title: 'Rendered from the note data with GeneralUser GS (scripts/render-music.mjs)' },
+    '♫ GS render',
+  );
+  gs.onclick = () => {
+    synth.stopAll();
+    player.src = `/derived-music/gs/bak${String(n).padStart(2, '0')}.ogg`;
+    player.playbackRate = Number(tempo.value);
+    void player.play();
+    nowLabel.textContent = `Track ${n}: GS render at ${Math.round(Number(tempo.value) * 100)}% speed`;
+    markPlaying(row);
+  };
   const stop = el('button', {}, '■');
   stop.onclick = () => {
     player.pause();
@@ -149,7 +166,7 @@ function trackRow(n: number, uses: SongUse[], name: string | undefined): HTMLEle
     el('small', { className: 'name', title: 'Name in the game data (FRP.SX)' }, name ?? '?'),
     el('small', {}, `sound ${soundIndex(n)}`),
     length,
-    el('div', { className: 'btns' }, play, notesBtn, stop),
+    el('div', { className: 'btns' }, play, gs, notesBtn, stop),
   );
 
   const mark = el('div', { className: 'saved' });
