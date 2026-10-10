@@ -128,6 +128,8 @@ export interface CombatLaunch {
   /** The party's position and heading when the fight began. */
   party: { x: number; y: number };
   heading: number;
+  /** Cells nobody may enter (see `fitCombatGrid`). */
+  disabled?: readonly GridPos[];
   spriteFor: (monster: number) => CombatSprite | undefined;
   palette: Uint8Array;
 }
@@ -173,7 +175,7 @@ export class CombatController {
     this.shooting = false;
     this.casting = -1;
     this.rewards = undefined;
-    this.state = startBattle(launch.fighters);
+    this.state = startBattle(launch.fighters, launch.disabled);
     this.view = new CombatView(
       {
         party: launch.party,
