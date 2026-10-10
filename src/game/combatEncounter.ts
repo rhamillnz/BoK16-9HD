@@ -1,6 +1,8 @@
 import type * as THREE from 'three/webgpu';
 import { applyCombatPractice, applyRewards, applyWear } from '../combat/rewards';
 import { rollFrom } from '../combat/rules';
+import { fitCombatGrid } from '../combat/gridFit';
+import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS } from '../combat/grid';
 import { buildFighters, applyBattleToParty, retreatDestination } from '../combat/setup';
 import type { Fighter } from '../combat/battle';
 import type { CombatOutcome } from '../combat/turns';
@@ -92,7 +94,11 @@ export class CombatEncounters {
     this.starting = true;
     try {
       const enemies = enemiesOf(s, def);
+      const pos = this.d.position();
+      // Slide the grid off any rock face the party is facing; cells that stay on one are disabled.
+      const fit = fitCombatGrid(pos, pos.heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, this.d.getHeight);
       const fighters = buildFighters({
+        disabled: fit.disabled,
         def,
         enemies,
         party: activeCharacters(this.d.getParty()),
@@ -105,11 +111,11 @@ export class CombatEncounters {
         s,
         fighters.map((f) => f.monster),
       );
-      const pos = this.d.position();
       this.controller.begin(
         {
           fighters,
-          party: pos,
+          party: fit.anchor,
+          disabled: fit.disabled,
           heading: pos.heading,
           spriteFor: spriteLookup(s, sheets),
           palette: s.palette ?? new Uint8Array(1024).fill(255),

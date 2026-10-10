@@ -26,6 +26,8 @@ export interface SetupInput {
   items: readonly ItemDef[];
   /** SPELLS.DAT; lets magic-users cast in the fight. */
   spells?: readonly SpellDef[];
+  /** Cells nobody may stand on (cliffs, see gridFit.ts); fighters are placed around them. */
+  disabled?: readonly { x: number; y: number }[];
 }
 
 const FALLBACK_SKILL = { max: 12, trueSkill: 12, modifier: 0 };
@@ -66,7 +68,7 @@ function standIn(def: CombatDef, i: number): EnemyRecord {
 export function buildFighters(input: SetupInput): Fighter[] {
   const living = input.party.filter((c) => c.skills.health.trueSkill > 0);
   const fighters: Fighter[] = [];
-  const taken: { x: number; y: number }[] = [];
+  const taken: { x: number; y: number }[] = [...(input.disabled ?? [])];
   const place = (f: Fighter) => {
     f.pos = freeCell(taken, f.pos, COMBAT_GRID_COLS, COMBAT_GRID_ROWS);
     taken.push(f.pos);
