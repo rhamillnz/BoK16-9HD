@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { skyLight } from './skyUniforms';
+import { weatherLight } from './weatherUniforms';
 import {
   Fn,
   cameraPosition,
@@ -46,6 +47,8 @@ export interface Sky {
   followShadow(x: number, y: number, z: number): void;
   /** Turn sun/moon shadows on or off (graphics quality). */
   setShadows(enabled: boolean): void;
+  /** Weather: dim the key light by the overcast amount (0..1); the dome and fog read the shared weather uniforms. */
+  setOvercast(amount: number): void;
   /** Underground: no sky or sun, black cave fog, a faint ambient and a flickering lantern on the party. */
   setUnderground(enabled: boolean): void;
   /** Underground: an active light spell widens and brightens the lantern. */
@@ -89,6 +92,11 @@ export function createSky(scene: THREE.Scene): Sky {
   let sunVis = 1;
   let lastMinutes = 12 * 60;
   let shadowsWanted = true;
+  let baseKeyIntensity = 1;
+  let overcast = 0;
+  const applyKey = () => {
+    key.intensity = baseKeyIntensity * (1 - 0.5 * overcast);
+  };
 
   // Sun shadows: an orthographic frustum that follows the party, snapped to shadow-map texels so
   // the shadows don't swim while walking. Soft edges come from the PCF radius.
@@ -130,9 +138,16 @@ export function createSky(scene: THREE.Scene): Sky {
       const flat = normalize(vec2(view.x, view.z).add(vec2(0.0001, 0)));
       const sunFlat = normalize(vec2(uSunDir.x, uSunDir.z).add(vec2(0.0001, 0)));
       const towards = pow(saturate(dot(flat, sunFlat)), 3);
-      return uFogColor.mul(1).add(uGlow.mul(towards.mul(1.2).add(0.18)));
+      const base = uFogColor.mul(1).add(uGlow.mul(towards.mul(1.2).add(0.18)));
+      // Overcast greys the fog.
+      const grey = vec3(dot(base, vec3(0.3, 0.55, 0.15)).mul(0.9));
+      return mix(base, grey, weatherLight.overcast.mul(0.45));
     })(),
-    rangeFogFactor(FOG_NEAR, FOG_FAR),
+    // Mist pulls the fog in close.
+    rangeFogFactor(
+      float(FOG_NEAR).mul(float(1).sub(weatherLight.mist.mul(0.6))),
+      float(FOG_FAR).mul(float(1).sub(weatherLight.mist.mul(0.72))),
+    ),
   );
   scene.fogNode = sunsetFog;
 
@@ -145,6 +160,10 @@ export function createSky(scene: THREE.Scene): Sky {
     const gradient = mix(uHorizon, uZenith, up);
     const belowT = float(1).sub(smoothstep(-0.35, 0, h));
     const col = mix(gradient, uHorizon.mul(0.5), belowT).toVar();
+    // Overcast: the sky itself goes flat grey.
+    const oc = weatherLight.overcast;
+    col.assign(mix(col, vec3(dot(col, vec3(0.3, 0.55, 0.15)).mul(0.7)), oc.mul(0.9)));
+    const sunDim = float(1).sub(oc.mul(0.9));
 
     // Sun: disc + tight glow + wide halo, tinted by the sunlight colour.
     const sd = dot(dir, uSunDir);
@@ -153,7 +172,7 @@ export function createSky(scene: THREE.Scene): Sky {
     const sunGlow = pow(saturate(sd), 48)
       .mul(0.6)
       .add(pow(saturate(sd), 6).mul(0.08));
-    col.addAssign(uSunColor.mul(sunDisc.mul(8).add(sunGlow)).mul(uSunVis));
+    col.addAssign(uSunColor.mul(sunDisc.mul(8).add(sunGlow)).mul(uSunVis).mul(sunDim));
 
     // Moon: pale disc with a faint halo.
     const md = dot(dir, uMoonDir);
@@ -175,7 +194,7 @@ export function createSky(scene: THREE.Scene): Sky {
     // Sunset glow: a warm band along the horizon, strongest towards the sun.
     const band = pow(float(1).sub(saturate(h.mul(2.2))), 3);
     const towardSun = pow(saturate(sd), 3).mul(1.2).add(0.18);
-    col.addAssign(uGlow.mul(band).mul(towardSun));
+    col.addAssign(uGlow.mul(band).mul(towardSun).mul(sunDim));
 
     // Clouds: soft cumulus on a high plane (perspective-projected, so they shrink towards the horizon),
     // thickness from fractal noise, shaded by how much cloud lies towards the sun, drifting slowly.
@@ -188,16 +207,19 @@ export function createSky(scene: THREE.Scene): Sky {
       const n2 = mx_fractal_noise_float(p.add(vec3(towards.x.mul(0.25), towards.y.mul(0.25), 0)), 2, 2, 0.5)
         .mul(0.5)
         .add(0.5);
-      const cover = smoothstep(0.44, 0.62, n);
+      const cover = smoothstep(float(0.44).sub(oc.mul(0.46)), float(0.62).sub(oc.mul(0.42)), n);
       const lit = saturate(float(0.62).sub(n2.sub(n).mul(3.2)));
       const edge = float(1).sub(cover);
       const cloudCol = mix(uCloudShade, uCloudLit, lit)
         .add(uGlow.mul(pow(saturate(sd), 2).mul(0.6).add(0.12)).mul(float(1).sub(saturate(h.mul(2)))))
         .add(uCloudLit.mul(pow(saturate(sd), 10).mul(edge.mul(0.8))));
-      const alpha = cover.mul(smoothstep(0.01, 0.16, h)).mul(0.94);
-      col.assign(mix(col, cloudCol, alpha));
+      // Storm cloud: desaturated grey and darker.
+      const stormGrey = vec3(dot(cloudCol, vec3(0.3, 0.55, 0.15)).mul(0.62));
+      const dark = mix(cloudCol, stormGrey, oc.mul(0.85));
+      const alpha = cover.mul(smoothstep(0.01, 0.16, h)).mul(float(0.94).add(oc.mul(0.06)));
+      col.assign(mix(col, dark, alpha));
       // The sun's glow bleeds through thin cloud.
-      col.addAssign(uSunColor.mul(sunGlow).mul(uSunVis).mul(alpha).mul(0.5));
+      col.addAssign(uSunColor.mul(sunGlow).mul(uSunVis).mul(alpha).mul(0.5).mul(sunDim));
     });
 
     return col;
@@ -244,6 +266,11 @@ export function createSky(scene: THREE.Scene): Sky {
     setShadows(enabled: boolean): void {
       shadowsWanted = enabled;
       key.castShadow = enabled && !underground;
+    },
+
+    setOvercast(amount: number): void {
+      overcast = amount;
+      if (!underground) applyKey();
     },
 
     setMagicLight(on: boolean): void {
@@ -306,7 +333,8 @@ export function createSky(scene: THREE.Scene): Sky {
       const s = computeSkyState(minutes);
 
       setColor(key.color, s.keyColor);
-      key.intensity = s.keyIntensity;
+      baseKeyIntensity = s.keyIntensity;
+      applyKey();
       lightDir.set(s.keyDir[0], s.keyDir[1], s.keyDir[2]).normalize();
       key.position.copy(lightDir).multiplyScalar(LIGHT_DISTANCE).add(key.target.position);
 
