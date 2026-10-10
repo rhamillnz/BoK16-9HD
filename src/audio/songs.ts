@@ -19,7 +19,7 @@
 export const SOUND_INDEX_BASE = 1000;
 
 export const SONG_MAIN_MENU = 16;
-/** Our title menu's song, chosen by ear (2026-10-11); the original's menu plays SONG_MAIN_MENU. */
+/** Our title menu's song: SARTH (file 22), chosen by ear (2026-10-11); the original's menu plays MAINMENU (16). */
 export const SONG_TITLE = 22;
 export const SONG_PUZZLE_CHEST = 4;
 export const SONG_BARD_FAILED = 9;
@@ -42,10 +42,12 @@ export const CUTSCENE_SONGS: readonly number[] = [
 ];
 
 /**
- * Exploring music: the long songs that no dialogue, cutscene, menu or bard result uses. They play one
- * after another, each once, so the music changes as you travel.
+ * Exploring music. FRP.SX names every song; the original's exploring themes are EXPABOV1 (file 2) and
+ * EXPABOV2 (file 62), "exploring above ground" (EXPUNDRG, file 5, is the underground one). They play
+ * one after another, each once. Other names: MDSERIUS (3, the serious mood cue), MAINMENU (16),
+ * COMBAT/COMBAT3M/COMBAT4/SLOBATLE (35, 31, 6, 7), town and place themes such as KRONDOR (14).
  */
-export const EXPLORE_SONGS: readonly number[] = [6, 17, 23, 27, 28, 34, 62, 63];
+export const EXPLORE_SONGS: readonly number[] = [2, 62];
 
 /** Song used for exploring a zone with no rotation (the first of EXPLORE_SONGS). */
 export const DEFAULT_ZONE_SONG = EXPLORE_SONGS[0]!;

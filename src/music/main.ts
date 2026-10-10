@@ -6,6 +6,7 @@
 import { ResourceArchive } from '../formats/archive';
 import { MAX_SONG_ID, MIN_SONG_ID, songUrl } from '../audio/music';
 import { createBrowserSfxPlayer } from '../audio/sfx';
+import { parseSx } from '../formats/sx';
 import { SOUND_INDEX_BASE } from '../audio/songs';
 import { songUses, type SongUse } from '../audio/musicUsage';
 
@@ -105,7 +106,7 @@ function useList(uses: SongUse[]): HTMLElement {
   return ul;
 }
 
-function trackRow(n: number, uses: SongUse[]): HTMLElement {
+function trackRow(n: number, uses: SongUse[], name: string | undefined): HTMLElement {
   const row = el('section', { className: 'track' });
   row.dataset.song = String(n);
   const length = el('small', {}, '…');
@@ -145,6 +146,7 @@ function trackRow(n: number, uses: SongUse[]): HTMLElement {
     'div',
     { className: 'id' },
     String(n),
+    el('small', { className: 'name', title: 'Name in the game data (FRP.SX)' }, name ?? '?'),
     el('small', {}, `sound ${soundIndex(n)}`),
     length,
     el('div', { className: 'btns' }, play, notesBtn, stop),
@@ -162,10 +164,7 @@ function trackRow(n: number, uses: SongUse[]): HTMLElement {
   };
   row.dataset.noted = box.value.trim() ? '1' : '';
   row.dataset.kinds = [...new Set(uses.map((u) => u.kind))].join(' ');
-  row.dataset.text = uses
-    .map((u) => `${u.where} ${u.detail ?? ''}`)
-    .join(' ')
-    .toLowerCase();
+  row.dataset.text = `${name ?? ''} ${uses.map((u) => `${u.where} ${u.detail ?? ''}`).join(' ')}`.toLowerCase();
 
   row.append(id, useList(uses), el('div', {}, box, mark));
   return row;
@@ -195,9 +194,15 @@ async function main(): Promise<void> {
   notes = await fetch('/api/music-notes')
     .then((r) => (r.ok ? (r.json() as Promise<Record<string, string>>) : {}))
     .catch(() => ({}));
-  const [rmf, data] = await Promise.all([fetchBytes('/bak/KRONDOR.RMF'), fetchBytes('/bak/KRONDOR.001')]);
+  const [rmf, data, sxBytes] = await Promise.all([
+    fetchBytes('/bak/KRONDOR.RMF'),
+    fetchBytes('/bak/KRONDOR.001'),
+    fetchBytes('/bak/FRP.SX'),
+  ]);
   const uses = songUses(new ResourceArchive(rmf, data));
-  for (let n = MIN_SONG_ID; n <= MAX_SONG_ID; n++) list.append(trackRow(n, uses.get(n) ?? []));
+  const names = parseSx(sxBytes).entries;
+  for (let n = MIN_SONG_ID; n <= MAX_SONG_ID; n++)
+    list.append(trackRow(n, uses.get(n) ?? [], names.get(soundIndex(n))?.name));
   status.textContent =
     '62 tracks. "Recording" plays the GOG music file; "Note version" plays the game\'s own notes for it on a simple synth. Notes save as you type.';
   applyFilter();
