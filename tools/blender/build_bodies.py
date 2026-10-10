@@ -283,7 +283,7 @@ def main():
         files += [os.path.join(outfits_root, "Modular Parts", e + ".gltf") for e in job.get("extras", [])]
         if job.get("base"):
             files.append(os.path.join(base_root, "Base Characters", "Godot - UE", job["base"] + ".gltf"))
-        files += [os.path.join(hair_dir, job[k] + ".gltf") for k in ("hair", "eyebrows") if job.get(k)]
+        files += [os.path.join(hair_dir, job[k] + ".gltf") for k in ("hair", "eyebrows", "beard") if job.get(k)]
         imported = []
         for path in files:
             imported += import_gltf(path)

@@ -427,6 +427,7 @@
 },
 "preview": "shots/npc-npc_dwarf.png",
 "hair": "Hair_SimpleParted",
-"eyebrows": "Eyebrows_Regular"
+"eyebrows": "Eyebrows_Regular",
+"beard": "Hair_Beard"
 }
 ]

@@ -29,6 +29,7 @@ import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { speakerPortraitLoader } from '../ui/speakerPortraits';
 import { clothingColors } from './npcLook';
+import { roadEdgePoints } from '../render/grassGround';
 import { NpcFigures } from '../render/npcFigures';
 import { loadChapterStart } from '../world/zone';
 import { warnIfOffMap } from './chapterStartCheck';
@@ -427,6 +428,7 @@ let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, c
 
 // Standing figures at NPC dialogue encounters, tinted from the actor's portrait.
 const npcPortrait = speakerPortraitLoader(archive);
+const npcRoadPoints = () => roadEdgePoints(zoneHost.current.data).map(([x, z]) => [x * 100, -z * 100] as const);
 const npcFigures = new NpcFigures(scene, (actor) => {
   const c = npcPortrait(actor);
   const ctx = c?.getContext('2d');
@@ -719,7 +721,7 @@ renderer.setAnimationLoop(() => {
       encounters.update(party.x, party.y);
       clock.state = encounters.runner.world;
     }
-    npcFigures.update(encounters.runner, zoneHost.getHeight, party.x, party.y);
+    npcFigures.update(encounters.runner, zoneHost.getHeight, npcRoadPoints, party.x, party.y);
   }
   tickPerf(camera, dt);
   sky.followShadow(camera.position.x, camera.position.y, camera.position.z);

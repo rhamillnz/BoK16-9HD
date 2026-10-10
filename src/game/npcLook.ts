@@ -104,7 +104,39 @@ export interface NpcPlacement {
   y: number;
 }
 
-/** The figure stands at the centre of the encounter's trigger rectangle. */
-export function npcPlacement(e: PlacedEncounter): NpcPlacement {
-  return { x: (e.minX + e.maxX) / 2, y: (e.minY + e.maxY) / 2 };
+/** Roads further than this (BaK units) from the trigger rectangle are ignored. */
+export const ROADSIDE_MAX_DISTANCE = 6000;
+
+/**
+ * Where the figure stands: on the road edge point nearest to the encounter's trigger rectangle (a
+ * point inside the rectangle wins; ties go to the one closest to its centre), so people are by the
+ * road. Falls back to the rectangle's centre when no road lies within `ROADSIDE_MAX_DISTANCE`.
+ * `roadPoints` are BaK (x, y) positions on road edges.
+ */
+export function npcPlacement(
+  e: PlacedEncounter,
+  roadPoints: readonly (readonly [number, number])[] = [],
+): NpcPlacement {
+  const cx = (e.minX + e.maxX) / 2;
+  const cy = (e.minY + e.maxY) / 2;
+  let best: readonly [number, number] | undefined;
+  let bestScore = Infinity;
+  for (const p of roadPoints) {
+    const dx = Math.max(e.minX - p[0], 0, p[0] - e.maxX);
+    const dy = Math.max(e.minY - p[1], 0, p[1] - e.maxY);
+    const outside = Math.hypot(dx, dy);
+    if (outside > ROADSIDE_MAX_DISTANCE) continue;
+    // Distance to the rectangle first; the centre distance (scaled down) only breaks ties.
+    const score = outside + Math.hypot(p[0] - cx, p[1] - cy) * 0.001;
+    if (score < bestScore) {
+      bestScore = score;
+      best = p;
+    }
+  }
+  if (!best) return { x: cx, y: cy };
+  // Outside the rectangle: stand on its nearest cell instead of out in the open.
+  return {
+    x: Math.min(Math.max(best[0], e.minX), e.maxX - 1),
+    y: Math.min(Math.max(best[1], e.minY), e.maxY - 1),
+  };
 }
