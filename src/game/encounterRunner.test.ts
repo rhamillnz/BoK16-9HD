@@ -655,6 +655,105 @@ describe('EncounterRunner', () => {
     });
   });
 
+  describe('npcEncounters edge cases', () => {
+    const keywords = Array.from({ length: 400 }, (_, i) => (i === 24 + 293 ? 'Squire Phillip' : ''));
+    /** A runner with one dialogue encounter per `tableIndex`, all in one tile, reading `snippets` from file 1. */
+    const runnerWith = (
+      snippets: SnipSpec[],
+      tableIndexes: number[] = [0],
+      defDial: number[] = [100],
+      names: string[] = keywords,
+    ) => {
+      const map = new EncounterMap(1);
+      map.addTile(0, 0, tileBytes(tableIndexes.map((tableIndex) => ({ ...dialogAt, tableIndex }))));
+      return new EncounterRunner({
+        map,
+        world: world(),
+        zone: 1,
+        tileIndex: () => 3,
+        store: store([1, snippets]),
+        defDial,
+        keywords: names,
+      });
+    };
+
+    it('returns the same list on every call, without walking the dialogues again', () => {
+      const r = runnerWith([{ key: 100, text: 'Hello', actor: 24 }]);
+      const first = r.npcEncounters();
+      expect(r.npcEncounters()).toBe(first);
+    });
+
+    it('skips a dialogue whose table index has no DEF_DIAL entry', () => {
+      const r = runnerWith([{ key: 100, text: 'Hello', actor: 24 }], [0, 5]);
+      expect(r.npcEncounters().map((n) => n.encounter.record.tableIndex)).toEqual([0]);
+    });
+
+    it('skips a dialogue whose key is missing from the store', () => {
+      const r = runnerWith([{ key: 100, text: 'Hello', actor: 24 }], [0], [999]);
+      expect(r.npcEncounters()).toEqual([]);
+    });
+
+    it('treats actor 6 (the last party member) as party and actor 7 as an NPC', () => {
+      const named = keywords.map((k, i) => (i === 7 + 293 ? 'Gerrit' : k));
+      expect(runnerWith([{ key: 100, text: 'Hi', actor: 6 }], [0], [100], named).npcEncounters()).toEqual([]);
+      const npcs = runnerWith([{ key: 100, text: 'Hi', actor: 7 }], [0], [100], named).npcEncounters();
+      expect(npcs.map((n) => [n.actor, n.name])).toEqual([[7, 'Gerrit']]);
+    });
+
+    it('skips an NPC whose name is not in the keyword file', () => {
+      expect(runnerWith([{ key: 100, text: 'Hi', actor: 7 }]).npcEncounters()).toEqual([]);
+    });
+
+    it('reads past narration and party lines to the first NPC speaker along an unconditional choice', () => {
+      const r = runnerWith([
+        { key: 100, actor: 3, text: 'Pug speaks', choices: [{ state: 0, target: 2 }] },
+        { actor: 24, text: 'Squire speaks' },
+      ]);
+      expect(r.npcEncounters().map((n) => [n.actor, n.name])).toEqual([[24, 'Squire Phillip']]);
+    });
+
+    it('does not look past a question the player must answer', () => {
+      const r = runnerWith([
+        {
+          key: 100,
+          actor: 3,
+          text: 'Pug asks',
+          style3: 2,
+          choices: [
+            { state: QUERY_YES, target: 2 },
+            { state: QUERY_NO, target: 3 },
+          ],
+        },
+        { actor: 24, text: 'Squire speaks' },
+        { actor: 24, text: 'Squire again' },
+      ]);
+      expect(r.npcEncounters()).toEqual([]);
+    });
+
+    it('passes over a speakerless snippet before the NPC', () => {
+      const r = runnerWith([
+        { key: 100, actor: 0xc8, text: 'Narration', choices: [{ state: 0, target: 2 }] },
+        { actor: 24, text: 'Squire speaks' },
+      ]);
+      expect(r.npcEncounters().map((n) => n.actor)).toEqual([24]);
+    });
+
+    it('lists several NPC dialogues in file order, each with its own encounter', () => {
+      const r = runnerWith(
+        [
+          { key: 100, actor: 24, text: 'First' },
+          { key: 101, actor: 3, text: 'Party only' },
+          { key: 102, actor: 24, text: 'Third' },
+        ],
+        [0, 1, 2],
+        [100, 101, 102],
+      );
+      const npcs = r.npcEncounters();
+      expect(npcs.map((n) => n.encounter.record.tableIndex)).toEqual([0, 2]);
+      expect(npcs.map((n) => n.encounter.record.index)).toEqual([0, 2]);
+    });
+  });
+
   it('flags block encounters as stopping the party', () => {
     const r = runnerFor([{ ...dialogAt, typeId: EncounterType.Block }]);
     const ev = r.update(...at(2, 2))[0]!;
