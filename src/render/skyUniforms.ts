@@ -11,6 +11,8 @@ export const skyLight = {
   /** Unit vector towards the sun (render space, y up). */
   sunDir: uniform(new THREE.Vector3(0.3, 0.8, 0.5).normalize()),
   sunColor: uniform(new THREE.Color(1, 0.95, 0.85)),
+  /** Warm glow along the horizon near a low sun (colour times strength; black by day and night). */
+  glow: uniform(new THREE.Color(0, 0, 0)),
   /** 0 at night, 1 in daylight. */
   sunVis: uniform(1),
 };
