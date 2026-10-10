@@ -533,6 +533,16 @@ export type EncounterEvent =
   | { type: 'zone'; encounter: PlacedEncounter; transition: ZoneTransition }
   | { type: 'other'; encounter: PlacedEncounter };
 
+/** Actors 1-6 are the party; anything above is a named NPC. */
+const NPC_ACTOR_MIN = 6;
+
+/** A dialogue encounter that has an NPC to stand at it. */
+export interface NpcEncounter {
+  encounter: PlacedEncounter;
+  actor: number;
+  name: string;
+}
+
 export interface EncounterRunnerOptions {
   map: EncounterMap;
   world: WorldState;
@@ -581,6 +591,47 @@ export class EncounterRunner {
     if (honourRepeatable && r.repeatable !== 0) return;
     if (r.chapterFlag !== 0) this.world = setFlag(this.world, uniqueEncounterFlag(this.o.zone, tile, r.index), true);
     if (honourRepeatable) this.recent.add(`${tile}:${r.index}`);
+  }
+
+  /**
+   * Dialogue encounters whose first speaker is an NPC (actor number above the six party members): the
+   * people who should be standing there. Worked out once by playing each dialogue on a scratch session
+   * (no sounds), so it does not change the world. Chapter filtering is the map's.
+   */
+  npcEncounters(): NpcEncounter[] {
+    if (!this.npcs) {
+      this.npcs = [];
+      for (const encounter of this.o.map.all()) {
+        if (encounter.record.typeId !== EncounterType.Dialog) continue;
+        const key = this.o.defDial[encounter.record.tableIndex];
+        const speaker = key === undefined ? undefined : this.firstNpcSpeaker(key);
+        if (speaker) this.npcs.push({ encounter, actor: speaker.actor, name: speaker.name });
+      }
+    }
+    return this.npcs;
+  }
+
+  private npcs: NpcEncounter[] | undefined;
+
+  private firstNpcSpeaker(key: number): Speaker | undefined {
+    const env = { ...this.o.env, playSound: () => {} };
+    const session = new DialogSession(this.o.store, this.world, this.o.keywords ?? [], env);
+    session.start(key);
+    // Skip narration and the odd party line; stop at the first choice, which only the player can make.
+    for (let i = 0; i < 12 && session.view; i++) {
+      const speaker = session.view.speaker;
+      if (speaker && speaker.actor > NPC_ACTOR_MIN) return speaker;
+      if (session.view.options.length > 0) return undefined;
+      session.advance();
+    }
+    return undefined;
+  }
+
+  /** Can this encounter still fire in the party's current world (flags allow it, not yet done this chapter)? */
+  isPending(e: PlacedEncounter): boolean {
+    const used = (x: PlacedEncounter) =>
+      getFlag(this.world, uniqueEncounterFlag(this.o.zone, this.o.tileIndex(x.tileX, x.tileY), x.record.index));
+    return isEncounterActive(e, this.world, used);
   }
 
   /** Check the party position; returns encounters that start now, in file order. */

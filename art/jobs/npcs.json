@@ -1,0 +1,432 @@
+[
+{
+"name": "npc_man",
+"out": "public/models/npc/npc_man.glb",
+"outfit": "Male_Peasant",
+"base": "Superhero_Male_FullBody",
+"stand": true,
+"height": 3.2,
+"width": 1.0,
+"action": "Idle_Loop",
+"frame": 0.0,
+"ratio": 0.2,
+"tex": 256,
+"tints": {
+"Body": {
+"color": [
+1,
+1,
+1
+]
+},
+"Arms": {
+"color": [
+1,
+1,
+1
+]
+},
+"Head_Hood": {
+"color": [
+1,
+1,
+1
+]
+},
+"Legs": {
+"color": [
+1,
+1,
+1
+]
+},
+"Feet": {
+"color": [
+0.16,
+0.1,
+0.06
+]
+},
+"Hair_": {
+"color": [
+0.32,
+0.2,
+0.1
+]
+},
+"Eyebrows": {
+"color": [
+0.2,
+0.13,
+0.08
+]
+}
+},
+"preview": "shots/npc-npc_man.png",
+"hair": "Hair_SimpleParted",
+"eyebrows": "Eyebrows_Regular"
+},
+{
+"name": "npc_woman",
+"out": "public/models/npc/npc_woman.glb",
+"outfit": "Female_Peasant",
+"base": "Superhero_Female_FullBody",
+"stand": true,
+"height": 3.2,
+"width": 1.0,
+"action": "Idle_Loop",
+"frame": 0.0,
+"ratio": 0.2,
+"tex": 256,
+"tints": {
+"Body": {
+"color": [
+1,
+1,
+1
+]
+},
+"Arms": {
+"color": [
+1,
+1,
+1
+]
+},
+"Head_Hood": {
+"color": [
+1,
+1,
+1
+]
+},
+"Legs": {
+"color": [
+1,
+1,
+1
+]
+},
+"Feet": {
+"color": [
+0.16,
+0.1,
+0.06
+]
+},
+"Hair_": {
+"color": [
+0.32,
+0.2,
+0.1
+]
+},
+"Eyebrows": {
+"color": [
+0.2,
+0.13,
+0.08
+]
+}
+},
+"preview": "shots/npc-npc_woman.png",
+"hair": "Hair_SimpleParted",
+"eyebrows": "Eyebrows_Regular"
+},
+{
+"name": "npc_guard",
+"out": "public/models/npc/npc_guard.glb",
+"outfit": "Male_Ranger",
+"base": "Superhero_Male_FullBody",
+"stand": true,
+"height": 3.2,
+"width": 1.0,
+"action": "Idle_Loop",
+"frame": 0.0,
+"ratio": 0.1,
+"tex": 256,
+"tints": {
+"Body": {
+"color": [
+1,
+1,
+1
+]
+},
+"Arms": {
+"color": [
+1,
+1,
+1
+]
+},
+"Head_Hood": {
+"color": [
+1,
+1,
+1
+]
+},
+"Legs": {
+"color": [
+1,
+1,
+1
+]
+},
+"Feet": {
+"color": [
+0.16,
+0.1,
+0.06
+]
+}
+},
+"preview": "shots/npc-npc_guard.png",
+"extras": [
+"Male_Ranger_Acc_Pauldron"
+]
+},
+{
+"name": "npc_noble",
+"out": "public/models/npc/npc_noble.glb",
+"outfit": "Male_Peasant",
+"base": "Superhero_Male_FullBody",
+"stand": true,
+"height": 3.3,
+"width": 1.0,
+"action": "Idle_Loop",
+"frame": 0.0,
+"ratio": 0.2,
+"tex": 256,
+"tints": {
+"Body": {
+"color": [
+1,
+1,
+1
+]
+},
+"Arms": {
+"color": [
+1,
+1,
+1
+]
+},
+"Head_Hood": {
+"color": [
+1,
+1,
+1
+]
+},
+"Legs": {
+"color": [
+1,
+1,
+1
+]
+},
+"Feet": {
+"color": [
+0.16,
+0.1,
+0.06
+]
+},
+"Hair_": {
+"color": [
+0.32,
+0.2,
+0.1
+]
+},
+"Eyebrows": {
+"color": [
+0.2,
+0.13,
+0.08
+]
+}
+},
+"preview": "shots/npc-npc_noble.png",
+"hair": "Hair_SimpleParted",
+"eyebrows": "Eyebrows_Regular"
+},
+{
+"name": "npc_monk",
+"out": "public/models/npc/npc_monk.glb",
+"outfit": "Male_Ranger",
+"base": "Superhero_Male_FullBody",
+"stand": true,
+"height": 3.2,
+"width": 1.0,
+"action": "Idle_Loop",
+"frame": 0.0,
+"ratio": 0.1,
+"tex": 256,
+"tints": {
+"Body": {
+"color": [
+1,
+1,
+1
+]
+},
+"Arms": {
+"color": [
+1,
+1,
+1
+]
+},
+"Head_Hood": {
+"color": [
+1,
+1,
+1
+]
+},
+"Legs": {
+"color": [
+1,
+1,
+1
+]
+},
+"Feet": {
+"color": [
+0.16,
+0.1,
+0.06
+]
+}
+},
+"preview": "shots/npc-npc_monk.png",
+"extras": [
+"Male_Ranger_Head_Hood"
+]
+},
+{
+"name": "npc_moredhel",
+"out": "public/models/npc/npc_moredhel.glb",
+"outfit": "Male_Ranger",
+"base": "Superhero_Male_FullBody",
+"stand": true,
+"height": 3.4,
+"width": 1.0,
+"action": "Idle_Loop",
+"frame": 0.0,
+"ratio": 0.1,
+"tex": 256,
+"tints": {
+"Body": {
+"color": [
+1,
+1,
+1
+]
+},
+"Arms": {
+"color": [
+1,
+1,
+1
+]
+},
+"Head_Hood": {
+"color": [
+1,
+1,
+1
+]
+},
+"Legs": {
+"color": [
+1,
+1,
+1
+]
+},
+"Feet": {
+"color": [
+0.16,
+0.1,
+0.06
+]
+}
+},
+"preview": "shots/npc-npc_moredhel.png",
+"extras": [
+"Male_Ranger_Head_Hood"
+]
+},
+{
+"name": "npc_dwarf",
+"out": "public/models/npc/npc_dwarf.glb",
+"outfit": "Male_Peasant",
+"base": "Superhero_Male_FullBody",
+"stand": true,
+"height": 2.4,
+"width": 1.25,
+"action": "Idle_Loop",
+"frame": 0.0,
+"ratio": 0.2,
+"tex": 256,
+"tints": {
+"Body": {
+"color": [
+1,
+1,
+1
+]
+},
+"Arms": {
+"color": [
+1,
+1,
+1
+]
+},
+"Head_Hood": {
+"color": [
+1,
+1,
+1
+]
+},
+"Legs": {
+"color": [
+1,
+1,
+1
+]
+},
+"Feet": {
+"color": [
+0.16,
+0.1,
+0.06
+]
+},
+"Hair_": {
+"color": [
+0.32,
+0.2,
+0.1
+]
+},
+"Eyebrows": {
+"color": [
+0.2,
+0.13,
+0.08
+]
+}
+},
+"preview": "shots/npc-npc_dwarf.png",
+"hair": "Hair_SimpleParted",
+"eyebrows": "Eyebrows_Regular"
+}
+]

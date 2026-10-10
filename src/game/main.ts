@@ -28,6 +28,8 @@ import { songForZone } from '../audio/songs';
 import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { speakerPortraitLoader } from '../ui/speakerPortraits';
+import { clothingColors } from './npcLook';
+import { NpcFigures } from '../render/npcFigures';
 import { loadChapterStart } from '../world/zone';
 import { warnIfOffMap } from './chapterStartCheck';
 import { TILE_SIZE } from '../formats/world';
@@ -423,6 +425,15 @@ async function travelTo(d: Destination): Promise<void> {
 
 let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, clock.state);
 
+// Standing figures at NPC dialogue encounters, tinted from the actor's portrait.
+const npcPortrait = speakerPortraitLoader(archive);
+const npcFigures = new NpcFigures(scene, (actor) => {
+  const c = npcPortrait(actor);
+  const ctx = c?.getContext('2d');
+  if (!c || !ctx) return undefined;
+  return clothingColors(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
+});
+
 // Save and load: F5 quick-save, F9 quick-load, F6 slot screen.
 await installSaveControls({
   capture: () => ({
@@ -708,6 +719,7 @@ renderer.setAnimationLoop(() => {
       encounters.update(party.x, party.y);
       clock.state = encounters.runner.world;
     }
+    npcFigures.update(encounters.runner, zoneHost.getHeight, party.x, party.y);
   }
   tickPerf(camera, dt);
   sky.followShadow(camera.position.x, camera.position.y, camera.position.z);

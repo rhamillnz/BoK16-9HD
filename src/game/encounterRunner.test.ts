@@ -25,6 +25,8 @@ import { getFlag, setFlag, TICKS_PER_HOUR, type WorldState } from './state';
 
 interface SnipSpec {
   key?: number;
+  /** Speaking actor; default 0xff (the first party member). */
+  actor?: number;
   text?: string;
   style3?: number;
   choices?: { state: number; min?: number; max?: number; target: number }[];
@@ -62,7 +64,7 @@ function buildDDX(specs: SnipSpec[]): Uint8Array {
     const actions = s.actions ?? [];
     const text = s.text ?? '';
     let p = offsets[i]!;
-    dv.setUint16(p + 1, 0xff, true);
+    dv.setUint16(p + 1, s.actor ?? 0xff, true);
     dv.setUint8(p + 4, s.style3 ?? 0);
     dv.setUint8(p + 5, choices.length);
     dv.setUint8(p + 6, actions.length);
@@ -608,6 +610,49 @@ describe('EncounterRunner', () => {
     expect(ok.update(...at(2, 2))).toHaveLength(1);
     const blocked = runnerFor([{ ...dialogAt, inhibit: 0x701 }], setFlag(world(), 0x701, true));
     expect(blocked.update(...at(2, 2))).toEqual([]);
+  });
+
+  describe('NPC presence', () => {
+    const keywords = Array.from({ length: 400 }, (_, i) => (i === 24 + 293 ? 'Squire Phillip' : ''));
+    const npcRunner = (actor: number, over: Partial<EncSpec> = {}) => {
+      const map = new EncounterMap(1);
+      map.addTile(0, 0, tileBytes([{ ...dialogAt, ...over }]));
+      const s = store([1, [{ key: 100, text: 'Hello', actor }]]);
+      return new EncounterRunner({
+        map,
+        world: world(),
+        zone: 1,
+        tileIndex: () => 3,
+        store: s,
+        defDial: [100],
+        keywords,
+      });
+    };
+
+    it('lists dialogue encounters whose first speaker is a named NPC', () => {
+      const npcs = npcRunner(24).npcEncounters();
+      expect(npcs.map((n) => [n.actor, n.name])).toEqual([[24, 'Squire Phillip']]);
+    });
+
+    it('ignores party speakers and non-dialogue encounters', () => {
+      expect(npcRunner(3).npcEncounters()).toEqual([]);
+      expect(npcRunner(24, { typeId: EncounterType.Combat }).npcEncounters()).toEqual([]);
+    });
+
+    it('is pending until the encounter has fired', () => {
+      const r = npcRunner(24, { chapterFlag: 1 });
+      const [npc] = r.npcEncounters();
+      expect(r.isPending(npc!.encounter)).toBe(true);
+      r.update(...at(2, 2));
+      expect(r.isPending(npc!.encounter)).toBe(false);
+    });
+
+    it('is not pending while an inhibit flag is set', () => {
+      const r = npcRunner(24, { inhibit: 0x701 });
+      const [npc] = r.npcEncounters();
+      r.setWorld(setFlag(world(), 0x701, true));
+      expect(r.isPending(npc!.encounter)).toBe(false);
+    });
   });
 
   it('flags block encounters as stopping the party', () => {
