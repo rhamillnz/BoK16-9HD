@@ -103,3 +103,9 @@
 - `art/reference/compare/inn.png` (GDS1B, c589d5df): x4plus keeps the wood-grain and the rough painted faces (anime_6B turns the barrel and the barkeep's face into smooth airbrushed shapes); x4plus is a little noisier in dark areas.
 - `art/reference/compare/temple.png` (GDS2D, e34fd734): nearly equal; anime_6B has crisper outlines on the curtains and brazier, x4plus keeps a touch more canvas grain in the wall. Either works.
 - My view overall: x4plus keeps the original paintings' texture better in 3 of 4 scenes; anime_6B is cleaner but more cartoonish. If wanted, rerun `tools/upscale/upscale.py ... --model tools/upscale/models/RealESRGAN_x4plus.pth` over the 101 scenes (~15 min).
+
+## Town pictures now x4plus (Reuben's choice)
+- Old anime_6B set kept in `art/reference/scenes-4x-anime/` (101 files); `art/reference/scenes-4x/` re-made with `RealESRGAN_x4plus.pth` (101 files, 1280x800). Both gitignored.
+- `tools/upscale/upscale.py`: new `SCENE_MODEL` (x4plus); with no `--model` it is used for `--scenes` or when the input folder is `.../derived/scenes`, sprites keep anime_6B. `scripts/export-town-scenes.ts` header shows the command.
+- In game (dev server on 5176): LaMut outdoor view (`?zone=1&x=660800&y=918000&h=192`, wait 6 s, hold ArrowUp ~6 s, Enter): `shots/local/16-lamut.png`; inn interior (clicked the LaMut inn hotspot, GDS1B): `shots/local/16-inn.png`. Both draw from the x4plus files, more painted grain than before, ~59 fps.
+- Testing note: wait for the HUD fps text before holding the key (otherwise the early keypresses are lost and the party never reaches the prompt); the inn hotspot is at canvas (818, 301) on a 1600x900 window.

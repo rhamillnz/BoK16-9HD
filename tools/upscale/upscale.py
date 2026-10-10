@@ -1,7 +1,7 @@
 """4x upscale RGBA sprites with Real-ESRGAN (via spandrel), preserving transparency.
 
 Usage:
-  tools/upscale/.venv/Scripts/python tools/upscale/upscale.py <in_dir> <out_dir> [--model path.pth] [--only 1,2,3]
+  tools/upscale/.venv/Scripts/python tools/upscale/upscale.py <in_dir> <out_dir> [--model path.pth] [--scenes] [--only 1,2,3]
 
 Colour goes through the network. Alpha (the original palette-index-0 cut-out) is
 upscaled with a smooth filter and re-thresholded so edges stay crisp. Transparent
@@ -17,6 +17,8 @@ from spandrel import ModelLoader
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_MODEL = os.path.join(HERE, "models", "RealESRGAN_x4plus_anime_6B.pth")
+# Town/shop/inn/temple pictures (art/derived/scenes): the general model keeps the paint texture better (chosen by Reuben).
+SCENE_MODEL = os.path.join(HERE, "models", "RealESRGAN_x4plus.pth")
 
 
 def bleed_colour(rgba: Image.Image, passes: int = 4) -> Image.Image:
@@ -58,11 +60,14 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("in_dir")
     p.add_argument("out_dir")
-    p.add_argument("--model", default=DEFAULT_MODEL)
+    p.add_argument("--model", default=None, help="default: anime_6B for sprites, x4plus for scenes")
+    p.add_argument("--scenes", action="store_true", help="town scene pictures: use the x4plus model")
     p.add_argument("--only", default=None, help="comma-separated file stems")
     args = p.parse_args()
 
     torch.set_grad_enabled(False)
+    if args.model is None:
+        args.model = SCENE_MODEL if args.scenes or os.path.normpath(args.in_dir).endswith(os.path.join("derived", "scenes")) else DEFAULT_MODEL
     model = ModelLoader().load_from_file(args.model).eval()
     os.makedirs(args.out_dir, exist_ok=True)
     names = sorted(f for f in os.listdir(args.in_dir) if f.lower().endswith(".png"))
