@@ -6,6 +6,8 @@ import {
   clamp,
   dot,
   float,
+  fog as fogNode,
+  rangeFogFactor,
   floor,
   fract,
   length,
@@ -120,6 +122,19 @@ export function createSky(scene: THREE.Scene): Sky {
   const uCloudLit = uniform(new THREE.Color(1, 1, 1));
   const uCloudShade = uniform(new THREE.Color(0.5, 0.55, 0.65));
   const uGlow = uniform(new THREE.Color(0, 0, 0));
+  // Fog follows the sky: the horizon colour plus the sunset glow towards the sun, per pixel by view azimuth.
+  const uFogColor = uniform(new THREE.Color());
+  const sunsetFog = fogNode(
+    Fn(() => {
+      const view = normalize(positionWorld.sub(cameraPosition));
+      const flat = normalize(vec2(view.x, view.z).add(vec2(0.0001, 0)));
+      const sunFlat = normalize(vec2(uSunDir.x, uSunDir.z).add(vec2(0.0001, 0)));
+      const towards = pow(saturate(dot(flat, sunFlat)), 3);
+      return uFogColor.mul(1).add(uGlow.mul(towards.mul(1.2).add(0.18)));
+    })(),
+    rangeFogFactor(FOG_NEAR, FOG_FAR),
+  );
+  scene.fogNode = sunsetFog;
 
   const skyColor = Fn(() => {
     const dir = normalize(positionWorld.sub(cameraPosition));
@@ -242,6 +257,7 @@ export function createSky(scene: THREE.Scene): Sky {
       if (enabled === underground) return;
       underground = enabled;
       dome.visible = !enabled;
+      scene.fogNode = enabled ? null : sunsetFog;
       torch.intensity = enabled ? MINE_LOOK.torchIntensity : 0;
       key.castShadow = shadowsWanted && !enabled;
       if (enabled) {
@@ -299,6 +315,7 @@ export function createSky(scene: THREE.Scene): Sky {
       hemi.intensity = s.hemiIntensity;
 
       setColor(fog.color, s.horizon);
+      setColor(uFogColor.value, s.horizon);
 
       setColor(uZenith.value, s.zenith);
       setColor(uHorizon.value, s.horizon);
