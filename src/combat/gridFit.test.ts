@@ -36,6 +36,17 @@ describe('fitCombatGrid', () => {
     expect(fit.anchor.y).toBeGreaterThan(party.y);
   });
 
+  it('treats cells inside a solid model as cliffs, since the height field leaves hills out', () => {
+    // A hill's collision outline covers the far rows; the ground under it reads as flat.
+    const far = gridPointToWorld(party, 0, 0, 9).y;
+    const blocked = (_x: number, y: number) => y > far;
+    expect(cliffCells(party, 0, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, flat).length).toBe(0);
+    expect(cliffCells(party, 0, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, flat, blocked).length).toBeGreaterThan(0);
+    const fit = fitCombatGrid(party, 0, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, flat, blocked);
+    expect(fit.disabled).toEqual([]);
+    expect(fit.anchor.y).toBeLessThan(party.y);
+  });
+
   it('disables only the cliff cells when no slide clears them', () => {
     // One spike under a single cell, wider than any slide can avoid.
     const spike = gridPointToWorld(party, 0, 3.5, 5.5);

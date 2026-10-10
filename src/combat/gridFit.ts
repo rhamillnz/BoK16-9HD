@@ -21,13 +21,17 @@ export interface FittedGrid {
   disabled: GridPos[];
 }
 
-/** The cells of a grid anchored at `anchor` that stand on a cliff. */
+/**
+ * The cells of a grid anchored at `anchor` that stand on a cliff, or inside something solid (`blocked`: hills
+ * and other models with a collision outline; the height field leaves hills out, so only this catches them).
+ */
 export function cliffCells(
   anchor: Point,
   heading: number,
   cols: number,
   rows: number,
   getHeight: (x: number, y: number) => number,
+  blocked?: (x: number, y: number) => boolean,
 ): GridPos[] {
   // A neighbour is one cell away in world axes; the grid is turned by whole quarter turns, so this matches.
   const step = COMBAT_CELL_SIZE;
@@ -35,6 +39,10 @@ export function cliffCells(
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       const c = gridPointToWorld(anchor, heading, x + 0.5, y + 0.5);
+      if (blocked?.(c.x, c.y)) {
+        out.push({ x, y });
+        continue;
+      }
       const h = getHeight(c.x, c.y);
       const steep = [
         [step, 0],
@@ -54,8 +62,9 @@ export function fitCombatGrid(
   cols: number,
   rows: number,
   getHeight: (x: number, y: number) => number,
+  blocked?: (x: number, y: number) => boolean,
 ): FittedGrid {
-  const here = cliffCells(party, heading, cols, rows, getHeight);
+  const here = cliffCells(party, heading, cols, rows, getHeight, blocked);
   if (here.length === 0) return { anchor: party, disabled: [] };
 
   const snapped = snapHeading(heading);
@@ -72,7 +81,7 @@ export function fitCombatGrid(
       const lx = side * COMBAT_CELL_SIZE;
       const ly = -back * COMBAT_CELL_SIZE;
       const anchor = { x: party.x + lx * cos - ly * sin, y: party.y + lx * sin + ly * cos };
-      const disabled = cliffCells(anchor, heading, cols, rows, getHeight);
+      const disabled = cliffCells(anchor, heading, cols, rows, getHeight, blocked);
       const distance = back + Math.abs(side);
       if (disabled.length < bestCost || (disabled.length === bestCost && distance < bestDistance)) {
         best = { anchor, disabled };

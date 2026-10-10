@@ -78,6 +78,7 @@ import { installBookPlayer } from './bookControls';
 import { installCutscenes } from './cutsceneControls';
 import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
+import { pointInPolygon } from '../world/collision';
 import { currentLight } from './spells';
 import { installMainMenu } from './mainMenuControls';
 import { DEFAULT_SETTINGS } from './mainMenu';
@@ -358,6 +359,7 @@ const combat = new CombatEncounters({
   camera,
   canvas: renderer.domElement,
   getHeight: zoneHost.getHeight,
+  blocked: (x, y) => zoneHost.current.scene.collision.some((p) => pointInPolygon(p, x, y)),
   support: await loadCombatSupport(archive, save.bytes),
   items: objectItems,
   spells: spellDefs,

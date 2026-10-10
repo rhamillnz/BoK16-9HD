@@ -24,6 +24,8 @@ export interface CombatEncounterDeps {
   camera: THREE.PerspectiveCamera;
   canvas: HTMLElement;
   getHeight: (x: number, y: number) => number;
+  /** True inside a hill or other solid model; combat cells there are disabled. */
+  blocked?: (x: number, y: number) => boolean;
   support: CombatSupport;
   items: readonly ItemDef[];
   /** SPELLS.DAT, so magic-users can cast. */
@@ -96,7 +98,7 @@ export class CombatEncounters {
       const enemies = enemiesOf(s, def);
       const pos = this.d.position();
       // Slide the grid off any rock face the party is facing; cells that stay on one are disabled.
-      const fit = fitCombatGrid(pos, pos.heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, this.d.getHeight);
+      const fit = fitCombatGrid(pos, pos.heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, this.d.getHeight, this.d.blocked);
       const fighters = buildFighters({
         disabled: fit.disabled,
         def,
