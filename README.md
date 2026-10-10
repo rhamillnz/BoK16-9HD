@@ -22,7 +22,7 @@ npm install
 npm run dev
 ```
 
-Then open the game at <http://localhost:5173/game.html>. (The asset viewer is at <http://localhost:5173/>.)
+Then open the game at <http://localhost:5173/game.html>. (The asset viewer is at <http://localhost:5173/>, and the music browser, with every track, where the original uses it and a notes box per track saved to `docs/music-notes.json`, is at <http://localhost:5173/music.html>.)
 
 ### Pointing the game at your BaK install
 

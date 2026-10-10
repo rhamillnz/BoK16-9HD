@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { resolveArtPath } from './src/assets/artServe';
 
@@ -20,7 +20,20 @@ function serveGameData(): Plugin {
           res.statusCode = 404;
           return res.end();
         }
-        res.setHeader('Content-Type', 'application/octet-stream');
+        // Audio elements need the size and byte ranges to show a length and to seek.
+        const size = statSync(file).size;
+        res.setHeader('Content-Type', /\.ogg$/i.test(file) ? 'audio/ogg' : 'application/octet-stream');
+        res.setHeader('Accept-Ranges', 'bytes');
+        const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+        if (range && (range[1] || range[2])) {
+          const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+          const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+          res.statusCode = 206;
+          res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+          res.setHeader('Content-Length', end - start + 1);
+          return createReadStream(file, { start, end }).pipe(res);
+        }
+        res.setHeader('Content-Length', size);
         createReadStream(file).pipe(res);
       });
     },
@@ -48,9 +61,38 @@ function serveArt(): Plugin {
   };
 }
 
+// The music browser (music.html) keeps the player's notes on each track in docs/music-notes.json.
+function musicNotes(): Plugin {
+  const file = path.resolve('docs/music-notes.json');
+  return {
+    name: 'music-notes',
+    configureServer(server) {
+      server.middlewares.use('/api/music-notes', (req, res) => {
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (c: Buffer) => (body += c.toString('utf8')));
+          req.on('end', () => {
+            try {
+              const notes = JSON.parse(body) as Record<string, string>;
+              writeFileSync(file, JSON.stringify(notes, null, 2) + '\n', 'utf8');
+              res.statusCode = 204;
+            } catch {
+              res.statusCode = 400;
+            }
+            res.end();
+          });
+          return;
+        }
+        res.setHeader('Content-Type', 'application/json');
+        res.end(existsSync(file) ? readFileSync(file, 'utf8') : '{}');
+      });
+    },
+  };
+}
+
 export default defineConfig({
   base: './', // relative asset URLs: the build works from any static host or sub-path
-  plugins: [serveGameData(), serveArt()],
+  plugins: [serveGameData(), serveArt(), musicNotes()],
   build: {
     target: 'es2022',
     rollupOptions: {

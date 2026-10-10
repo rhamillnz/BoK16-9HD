@@ -80,6 +80,11 @@ export class SfxPlayer {
     return this.file;
   }
 
+  /** Cut every effect that is playing. */
+  stopAll(): void {
+    while (this.playing.length) this.playing.shift()!.stop();
+  }
+
   async play(soundId: number): Promise<void> {
     if (this.muted) return;
     const sx = await this.preload();
