@@ -10,6 +10,7 @@ jobs.json entries:
    "extras": ["Male_Ranger_Head_Hood"],          # modular parts added to the outfit
    "base": "Superhero_Male_FullBody", "hair": "Hair_SimpleParted", "eyebrows": "Eyebrows_Regular",
    "action": "Death01", "length": 3.91,          # long axis of the lying figure in render units
+   # Standing figures (NPCs): "stand": true, "height": 2.2, "width": 1.0, "frame": 0.3 (fraction of the action, default last frame)
    "mirror": false, "yaw": 0.0, "ratio": 0.2, "tex": 256,
    "tints": {"Body": {"color": [0.3, 0.16, 0.42], "target": 1.0}},   # per-part recolour, see tint_object
    "preview": "shots/body-dbody2.png"}
@@ -114,6 +115,7 @@ def tint_object(obj, spec):
     for slot in obj.material_slots:
         mat = slot.material.copy()
         slot.material = mat
+        mat.name = "tint_" + spec.get("name", obj.name)
         bypass_vertex_colour(mat)
         bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
         tex = next((n for n in upstream(bsdf.inputs["Base Color"]) if n.type == "TEX_IMAGE"), None) if bsdf else None
@@ -160,15 +162,16 @@ def strip_covered_skin(obj, group_names):
     bm.free()
 
 
-def bake_pose(outfit_objs, action, scene):
+def bake_pose(outfit_objs, action, scene, frame=None):
     for arm in (o for o in outfit_objs if o.type == "ARMATURE"):
         arm.animation_data_create()
         arm.animation_data.action = action
         # Blender 4.4+ actions are slotted: bind the slot the glTF importer made for the library's armature.
         if hasattr(arm.animation_data, "action_slot") and action.slots:
             arm.animation_data.action_slot = action.slots[0]
-    end = int(action.frame_range[1])
-    scene.frame_set(end)
+    # Default: the action's last frame (the death pose); `frame` is a 0..1 fraction of the range (idle poses).
+    lo_f, hi_f = action.frame_range
+    scene.frame_set(int(hi_f if frame is None else lo_f + (hi_f - lo_f) * frame))
     bpy.context.view_layer.update()
     depsgraph = bpy.context.evaluated_depsgraph_get()
     baked = []
@@ -192,8 +195,8 @@ def finish(scene, objs, job):
     bpy.context.view_layer.update()
     lo, hi = bounds(objs)
     ext = hi - lo
-    # Lay the long axis along X (rotating about Z), mirrored if asked.
-    if ext.y > ext.x:
+    # Lay the long axis along X (rotating about Z), mirrored if asked. Standing figures keep their orientation.
+    if not job.get("stand") and ext.y > ext.x:
         rot = Matrix.Rotation(math.radians(90), 4, "Z")
         for o in objs:
             o.matrix_world = rot @ o.matrix_world
@@ -207,8 +210,14 @@ def finish(scene, objs, job):
             o.matrix_world = flip @ o.matrix_world
     bpy.context.view_layer.update()
     lo, hi = bounds(objs)
-    k = job["length"] / max(hi.x - lo.x, 1e-6)
-    fit = Matrix.Diagonal((k, k, k, 1.0)) @ Matrix.Translation(Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z)))
+    if job.get("stand"):
+        # Upright figure: fit the height (Z), optional extra sideways width, feet at z = 0, centred on X/Y.
+        k = job["height"] / max(hi.z - lo.z, 1e-6)
+        w = job.get("width", 1.0)
+        fit = Matrix.Diagonal((k * w, k * w, k, 1.0)) @ Matrix.Translation(Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z)))
+    else:
+        k = job["length"] / max(hi.x - lo.x, 1e-6)
+        fit = Matrix.Diagonal((k, k, k, 1.0)) @ Matrix.Translation(Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z)))
     for o in objs:
         o.matrix_world = fit @ o.matrix_world
     bpy.context.view_layer.update()
@@ -269,6 +278,7 @@ def main():
         scene = reset()
         anim_objs = import_gltf(ual)
         action = bpy.data.actions[job.get("action", "Death01")]
+        frame = job.get("frame")
         files = [os.path.join(outfits_root, "Outfits", job["outfit"] + ".gltf")]
         files += [os.path.join(outfits_root, "Modular Parts", e + ".gltf") for e in job.get("extras", [])]
         if job.get("base"):
@@ -277,13 +287,13 @@ def main():
         imported = []
         for path in files:
             imported += import_gltf(path)
-        baked = bake_pose(imported, action, scene)
+        baked = bake_pose(imported, action, scene, frame)
         for o in anim_objs + imported:
             bpy.data.objects.remove(o, do_unlink=True)
         for o in baked:
             for key, spec in job.get("tints", {}).items():
                 if key in o.name:
-                    tint_object(o, spec)
+                    tint_object(o, {**spec, "name": key.lower()})
         finish(scene, baked, job)
 
 

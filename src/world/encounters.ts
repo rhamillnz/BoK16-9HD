@@ -50,6 +50,11 @@ export class EncounterMap {
     this.byTile.set(this.key(tileX, tileY), placed);
   }
 
+  /** Every encounter of every loaded tile. */
+  all(): PlacedEncounter[] {
+    return [...this.byTile.values()].flat();
+  }
+
   tileEncounters(tileX: number, tileY: number): readonly PlacedEncounter[] {
     return this.byTile.get(this.key(tileX, tileY)) ?? [];
   }
