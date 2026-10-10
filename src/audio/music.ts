@@ -80,6 +80,8 @@ export class MusicPlayer {
   private readonly cache = new Map<number, Promise<unknown>>();
   private current: Voice | null = null;
   private requested: number | null = null;
+  /** The song to go back to when a song played once (a dialogue sting) ends. */
+  private returnTo: number | null = null;
   private vol: number;
   private muted = false;
   private gestureCleanup: (() => void) | null = null;
@@ -105,10 +107,14 @@ export class MusicPlayer {
     return this.muted;
   }
 
-  /** Start a song, crossfading from the current one. No-op if already playing it. */
-  async play(songId: number): Promise<void> {
+  /**
+   * Start a song, crossfading from the current one. No-op if already playing it. With `once` (a
+   * dialogue sting) it plays through a single time and then the song it replaced comes back.
+   */
+  async play(songId: number, once = false): Promise<void> {
     if (!isValidSongId(songId)) throw new RangeError(`Invalid song id ${songId}`);
     if (this.requested === songId) return;
+    const back = once ? (this.returnTo ?? this.current?.songId ?? null) : null;
     this.requested = songId;
 
     let buffer: unknown;
@@ -121,6 +127,7 @@ export class MusicPlayer {
     }
     // A newer play()/stop() call superseded this one while loading.
     if (this.requested !== songId) return;
+    this.returnTo = back;
 
     const now = this.ctx.currentTime;
     const gain = this.ctx.createGain();
@@ -130,9 +137,22 @@ export class MusicPlayer {
 
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
-    source.loop = true;
+    source.loop = !once;
     source.connect(gain);
     source.start(now);
+    if (once) {
+      // A crossfade to another song replaces this handler (fadeOut), so this runs only on a natural end.
+      source.onended = () => {
+        source.disconnect();
+        gain.disconnect();
+        if (this.current?.source !== source) return;
+        this.current = null;
+        this.requested = null;
+        const to = this.returnTo;
+        this.returnTo = null;
+        if (to !== null) void this.play(to);
+      };
+    }
 
     const old = this.current;
     this.current = { songId, source, gain };
@@ -142,6 +162,7 @@ export class MusicPlayer {
   /** Fade out and stop the current song. */
   stop(): void {
     this.requested = null;
+    this.returnTo = null;
     const old = this.current;
     this.current = null;
     if (old) this.fadeOut(old, this.ctx.currentTime);

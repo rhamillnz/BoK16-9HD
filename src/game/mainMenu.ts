@@ -17,7 +17,7 @@ export interface GameSettings {
 
 export const DEFAULT_SETTINGS: GameSettings = {
   quality: 'medium',
-  volume: 0.5,
+  volume: 0.3,
   muted: false,
   fov: 60,
   uiScale: 1,

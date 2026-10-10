@@ -119,6 +119,32 @@ describe('MusicPlayer', () => {
     expect(player.songId).toBe(5);
   });
 
+  it('plays a sting once, then brings back the song it replaced', async () => {
+    const { context, player } = setup();
+    await player.play(2);
+    await player.play(30, true);
+    const sting = context.sources[1]!;
+    expect(sting.loop).toBe(false);
+    expect(player.songId).toBe(30);
+    // A second sting during the first still returns to the zone song.
+    await player.play(31, true);
+    context.sources[2]!.onended!();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(player.songId).toBe(2);
+    expect(context.sources[3]!.loop).toBe(true);
+  });
+
+  it('a song started during a sting cancels the return', async () => {
+    const { context, player } = setup();
+    await player.play(2);
+    await player.play(30, true);
+    await player.play(7);
+    context.sources[1]!.onended!();
+    expect(player.songId).toBe(7);
+    expect(context.sources).toHaveLength(3);
+  });
+
   it('crossfades over two seconds and stops the old voice', async () => {
     const { context, player } = setup();
     await player.play(5);

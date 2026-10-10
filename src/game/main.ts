@@ -232,7 +232,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 const ambience = new WeatherAmbience(); // synthesised rain and wind, scaled by the weather; M mutes it with the music
-installSfx(); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
+installSfx({ onSong: (song) => void music.play(song, true).catch((err) => console.warn('Song unavailable:', err)) }); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
 installJournal({ hud: screens, zone: () => zoneHost.current.zone }); // J: dialogue lines seen
 
 let prevX = party.x;
