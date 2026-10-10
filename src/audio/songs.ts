@@ -23,8 +23,17 @@ export const SONG_BARD_POOR = 40;
 export const SONG_BARD_GOOD = 39;
 export const SONG_BARD_BEST = 7;
 
-/** Song used for exploring when a zone has no entry of its own (provisional). */
-export const DEFAULT_ZONE_SONG = 2;
+/**
+ * Songs the dialogues play as cues (PlaySound 1000 + N in DIAL_Z*.DDX; song 2 alone is used 44 times,
+ * e.g. after the first talk with Gorath). They play once over the music, so exploring must use another.
+ */
+export const DIALOGUE_SONGS: readonly number[] = [
+  1, 2, 3, 4, 6, 7, 11, 12, 13, 14, 17, 18, 19, 24, 25, 28, 29, 30, 32, 34, 36, 37, 38, 39, 41, 42, 43, 44, 46, 47, 48,
+  49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
+];
+
+/** Song used for exploring when a zone has no entry of its own (provisional): a long track no dialogue uses. */
+export const DEFAULT_ZONE_SONG = 22;
 
 /** Zone number -> song number. Provisional: BaKGL does not document this. */
 export const ZONE_SONGS: Readonly<Record<number, number>> = {};

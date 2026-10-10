@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { isValidSongId } from '../src/audio/music';
 import {
   DEFAULT_ZONE_SONG,
+  DIALOGUE_SONGS,
   SONG_BARD_BEST,
   SONG_MAIN_MENU,
   SONG_PUZZLE_CHEST,
@@ -33,6 +34,8 @@ describe('songs', () => {
 
   it('only uses playable song ids', () => {
     expect(isValidSongId(DEFAULT_ZONE_SONG)).toBe(true);
+    // A dialogue cue that is already the music would not be heard.
+    expect(DIALOGUE_SONGS).not.toContain(DEFAULT_ZONE_SONG);
     for (const id of Object.values(ZONE_SONGS)) expect(isValidSongId(id)).toBe(true);
     for (const id of [SONG_MAIN_MENU, SONG_PUZZLE_CHEST, 7, 8, 39, 40]) expect(isValidSongId(id)).toBe(true);
   });
