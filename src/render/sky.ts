@@ -10,7 +10,9 @@ import {
   fract,
   length,
   hash,
+  If,
   mix,
+  mx_fractal_noise_float,
   normalize,
   positionLocal,
   positionWorld,
@@ -18,7 +20,9 @@ import {
   saturate,
   smoothstep,
   step,
+  time,
   uniform,
+  vec2,
   vec3,
 } from 'three/tsl';
 import { computeSkyState, type Rgb, type Vec3 } from './skyMath';
@@ -112,6 +116,10 @@ export function createSky(scene: THREE.Scene): Sky {
   const uSunVis = uniform(1);
   const uMoonVis = uniform(0);
   const uStars = uniform(0);
+  // Clouds: lit and shaded colours, and the warm horizon glow near a low sun (colour times strength).
+  const uCloudLit = uniform(new THREE.Color(1, 1, 1));
+  const uCloudShade = uniform(new THREE.Color(0.5, 0.55, 0.65));
+  const uGlow = uniform(new THREE.Color(0, 0, 0));
 
   const skyColor = Fn(() => {
     const dir = normalize(positionWorld.sub(cameraPosition));
@@ -148,6 +156,34 @@ export function createSky(scene: THREE.Scene): Sky {
       .mul(dot2);
     const starMask = saturate(h.mul(3).add(0.2)).mul(uStars).mul(float(1).sub(moonDisc));
     col.addAssign(vec3(1).mul(star).mul(starMask));
+
+    // Sunset glow: a warm band along the horizon, strongest towards the sun.
+    const band = pow(float(1).sub(saturate(h.mul(2.2))), 3);
+    const towardSun = pow(saturate(sd), 3).mul(1.2).add(0.18);
+    col.addAssign(uGlow.mul(band).mul(towardSun));
+
+    // Clouds: soft cumulus on a high plane (perspective-projected, so they shrink towards the horizon),
+    // thickness from fractal noise, shaded by how much cloud lies towards the sun, drifting slowly.
+    If(h.greaterThan(0.01), () => {
+      const plane = dir.xz.div(h.add(0.2)).mul(0.8);
+      const drift = vec3(time.mul(0.006), time.mul(0.002), time.mul(0.004));
+      const p = vec3(plane.x, plane.y, 0).add(drift);
+      const n = mx_fractal_noise_float(p, 4, 2, 0.5).mul(0.5).add(0.5);
+      const towards = normalize(uSunDir.xz.add(vec2(0.001, 0)));
+      const n2 = mx_fractal_noise_float(p.add(vec3(towards.x.mul(0.25), towards.y.mul(0.25), 0)), 2, 2, 0.5)
+        .mul(0.5)
+        .add(0.5);
+      const cover = smoothstep(0.44, 0.62, n);
+      const lit = saturate(float(0.62).sub(n2.sub(n).mul(3.2)));
+      const edge = float(1).sub(cover);
+      const cloudCol = mix(uCloudShade, uCloudLit, lit)
+        .add(uGlow.mul(pow(saturate(sd), 2).mul(0.6).add(0.12)).mul(float(1).sub(saturate(h.mul(2)))))
+        .add(uCloudLit.mul(pow(saturate(sd), 10).mul(edge.mul(0.8))));
+      const alpha = cover.mul(smoothstep(0.01, 0.16, h)).mul(0.94);
+      col.assign(mix(col, cloudCol, alpha));
+      // The sun's glow bleeds through thin cloud.
+      col.addAssign(uSunColor.mul(sunGlow).mul(uSunVis).mul(alpha).mul(0.5));
+    });
 
     return col;
   });
@@ -277,6 +313,31 @@ export function createSky(scene: THREE.Scene): Sky {
       skyLight.sunColor.value.copy(uSunColor.value);
       skyLight.sunVis.value = s.sunVisibility;
       uStars.value = s.starAlpha;
+
+      // Cloud lighting: sunlit by day (warm at dusk through the sun colour), dim blue-grey at night.
+      const day = s.sunVisibility;
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+      const tone = (i: number) =>
+        lerp(s.horizon[i]! * 1.1 + 0.03, s.sunColor[i]!, 0.85 * day) + s.moonVisibility * 0.12 * (1 - day);
+      uCloudLit.value.setRGB(tone(0), tone(1), tone(2), THREE.SRGBColorSpace);
+      uCloudShade.value.setRGB(
+        s.horizon[0]! * 0.55 + s.zenith[0]! * 0.3,
+        s.horizon[1]! * 0.55 + s.zenith[1]! * 0.3,
+        s.horizon[2]! * 0.55 + s.zenith[2]! * 0.3,
+        THREE.SRGBColorSpace,
+      );
+      // Glow only while the sun is near the horizon (a little before sunrise to just after sunset times).
+      const sunY = s.sunDir[1];
+      const rise = Math.min(1, Math.max(0, (sunY + 0.22) / 0.24));
+      const fall = 1 - Math.min(1, Math.max(0, (sunY - 0.06) / 0.36));
+      const glow = rise * rise * (3 - 2 * rise) * (fall * fall * (3 - 2 * fall));
+      uGlow.value.setRGB(
+        lerp(s.sunColor[0]!, 1, 0.5) * glow,
+        lerp(s.sunColor[1]!, 0.42, 0.55) * glow,
+        lerp(s.sunColor[2]!, 0.16, 0.6) * glow,
+        THREE.SRGBColorSpace,
+      );
+      skyLight.glow.value.copy(uGlow.value);
 
       sunVis = s.sunVisibility;
       refreshOutdoorGlow();

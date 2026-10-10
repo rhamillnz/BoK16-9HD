@@ -8,6 +8,7 @@ import {
   mix,
   mx_noise_float,
   normalize,
+  saturate,
   positionWorld,
   pow,
   reflect,
@@ -71,7 +72,15 @@ export function createWaterMaterial(map: THREE.Texture): THREE.MeshStandardNodeM
     const r = reflect(view, n);
     const facing = max(dot(view.negate(), n), 0);
     const fresnel = float(0.02).add(float(0.98).mul(pow(float(1).sub(facing), 5)));
-    const skyColour = mix(skyLight.horizon, skyLight.zenith, smoothstep(0, 0.6, max(r.y, 0)));
+    const base = mix(skyLight.horizon, skyLight.zenith, smoothstep(0, 0.6, max(r.y, 0)));
+    // The sunset glow lies along the horizon, towards the sun.
+    const towardSun = pow(
+      saturate(dot(normalize(vec3(r.x, 0.0001, r.z)), normalize(vec3(skyLight.sunDir.x, 0.0001, skyLight.sunDir.z)))),
+      3,
+    );
+    const skyColour = base.add(
+      skyLight.glow.mul(towardSun.mul(1.2).add(0.18)).mul(float(1).sub(saturate(r.y.mul(2.2)))),
+    );
     const glint = pow(max(dot(r, skyLight.sunDir), 0), 220)
       .mul(skyLight.sunVis)
       .mul(6);
