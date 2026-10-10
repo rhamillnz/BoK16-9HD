@@ -96,8 +96,9 @@ export function createRoadMaterial(map: THREE.Texture, style: RoadStyle): THREE.
     return dry.mul(float(1).sub(weatherLight.wet.mul(float(0.28).add(rut.mul(0.2)))));
   })();
 
-  // Wet roads shine: roughness falls with the wetness (the sky reflection comes from the lights).
-  material.roughnessNode = mix(float(1), float(0.32), weatherLight.wet.mul(float(0.7).add(rut.mul(0.3))));
+  // Wet roads take a soft, damp sheen: water collects in the ruts, the dusty crown stays duller.
+  // (Any glossier and the overcast sun turns the whole track into shiny metal.)
+  material.roughnessNode = mix(float(1), float(0.55), weatherLight.wet.mul(float(0.35).add(rut.mul(0.65))));
 
   // Ruts sink in, the crown and the dust are lumpy: bump only, the strip itself stays flat.
   const lumps = mx_noise_float(p.mul(2.3))
