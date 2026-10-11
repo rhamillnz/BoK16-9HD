@@ -51,7 +51,7 @@ import { ZoneHost } from './zoneHost';
 import { CombatEncounters } from './combatEncounter';
 import { loadCombatSupport } from './combatController';
 import { EncounterType } from '../formats/encounters';
-import { partyFromSave } from './party';
+import { giveItem, partyFromSave } from './party';
 import { resolveDialogOutcome } from './dialogOutcome';
 import {
   entryPointForZone,
@@ -71,6 +71,7 @@ import { findShop, parseShopContainers } from '../formats/gdsContainers';
 import { ruleFor } from './dialogEffects';
 import { createNotice } from '../ui/notice';
 import { installCamp } from './campControls';
+import { installChestAmbushes } from './ambushes';
 import { installContainers } from './containerControls';
 import { installItemControls } from './itemControls';
 import { installTempleControls } from './templeControls';
@@ -593,7 +594,23 @@ installTempleControls({
 });
 
 // Chests and containers: E opens the one the party stands next to (locks, riddles, traps, take and put).
+// Remake-only fights at chests (ambushes.ts): the first chest near the start is watched by moredhel.
+const chestAmbush = installChestAmbushes({
+  menu: (text, choices) =>
+    new Promise((resolve) =>
+      screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1)),
+    ),
+  fight: (n) => combat.ambush(n),
+  give: (item, quantity) => {
+    const r = giveItem(partyState, item, quantity, ruleFor(objectItems, item));
+    if (r.lost) return false;
+    partyState = r.party;
+    screens.setParty(partyState);
+    return true;
+  },
+});
 const containerStore = await installContainers({
+  beforeOpen: chestAmbush,
   archive,
   items: objectItems,
   get chapter() {

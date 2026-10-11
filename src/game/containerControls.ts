@@ -57,6 +57,8 @@ export interface ContainerHost {
   roll?(): number;
   /** Name of a model in the current zone's table, for the screen title. */
   modelName?(model: number): string | undefined;
+  /** Runs when the party goes for a container, before its lock (a chest ambush); false sends them away. */
+  beforeOpen?(containerId: string): Promise<boolean>;
 }
 
 const nameOf = (host: ContainerHost, itemIndex: number): string => host.items[itemIndex]?.name ?? `item ${itemIndex}`;
@@ -168,6 +170,7 @@ export async function interact(host: ContainerHost): Promise<boolean> {
   const { x, y } = host.position();
   const found = nearestContainer(host.store.zone(host.zone()), x, y, host.chapter, host.getWorld());
   if (!found) return false;
+  if (host.beforeOpen && !(await host.beforeOpen(found.id))) return true;
   const opened = await getPast(host, found);
   if (!opened) return true;
 
@@ -250,6 +253,7 @@ export interface ContainerSetup {
   canInteract(): boolean;
   playDialog?(key: number): Promise<void>;
   modelName?(model: number): string | undefined;
+  beforeOpen?(containerId: string): Promise<boolean>;
 }
 
 /** E opens the container the party stands next to. The only wiring main.ts needs: one call with the setup. */

@@ -86,16 +86,57 @@ export class CombatEncounters {
 
   /** Start the fight for a combat encounter; resolves once it is on screen (or was skipped). */
   async start(e: PlacedEncounter): Promise<void> {
-    if (this.active) return;
-    const { support: s, items } = this.d;
-    const def = s.defs[e.record.tableIndex];
+    const def = this.d.support.defs[e.record.tableIndex];
     if (!def) {
       console.warn('combat: no combat table entry', e.record.tableIndex);
       return;
     }
+    await this.launch(def, false, (outcome, fighters, at, result) =>
+      this.finished(e, def, outcome, fighters, at, result),
+    );
+  }
+
+  /**
+   * A fight the remake adds (a chest ambush): the monsters of DEF_COMB entry `defIndex`, fresh, around the party.
+   * Resolves with the outcome once the result is applied: a win or a loss; on a loss the party, revived, steps back
+   * the way it came. Undefined when the fight could not start.
+   */
+  ambush(defIndex: number): Promise<CombatOutcome | undefined> {
+    const def = this.d.support.defs[defIndex];
+    if (!def || this.active) return Promise.resolve(undefined);
+    return new Promise((resolve) => {
+      void this.launch(def, true, (outcome, fighters, at, result) => {
+        let party = this.settle(outcome, fighters, result);
+        if (outcome !== 'won') {
+          if (outcome === 'dead') party = revive(party);
+          const back = ((this.d.position().heading + 128) & 255) * ((Math.PI * 2) / 256);
+          // Heading 0 is north (+y), counter-clockwise: a step of 1200 units back along the way the party came.
+          this.d.placeParty(at.x - Math.sin(back) * 1200, at.y + Math.cos(back) * 1200, this.d.position().heading);
+        }
+        this.d.setParty(party);
+        resolve(outcome);
+      }).then((started) => {
+        if (!started) resolve(undefined);
+      });
+    });
+  }
+
+  /** Build and start a fight; resolves true once it is on screen. `fresh` revives the save's monster records. */
+  private async launch(
+    def: NonNullable<CombatSupport['defs'][number]>,
+    fresh: boolean,
+    done: (
+      outcome: CombatOutcome,
+      fighters: readonly Fighter[],
+      at: { x: number; y: number },
+      result: CombatResult,
+    ) => void,
+  ): Promise<boolean> {
+    if (this.active) return false;
+    const { support: s, items } = this.d;
     this.starting = true;
     try {
-      const enemies = enemiesOf(s, def);
+      const enemies = enemiesOf(s, def).map((e) => (fresh ? { ...e, dead: false } : e));
       const pos = this.d.position();
       // Slide the grid off any rock face the party is facing; cells that stay on one are disabled.
       const fit = fitCombatGrid(pos, pos.heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, this.d.getHeight, this.d.blocked);
@@ -122,11 +163,21 @@ export class CombatEncounters {
           spriteFor: spriteLookup(s, sheets),
           palette: s.palette ?? new Uint8Array(1024).fill(255),
         },
-        (outcome, after, result) => this.finished(e, def, outcome, after, pos, result),
+        (outcome, after, result) => done(outcome, after, pos, result),
       );
+      return true;
     } finally {
       this.starting = false;
     }
+  }
+
+  /** Wounds, wear, practice and (after a win) rewards from a finished fight. */
+  private settle(outcome: CombatOutcome, fighters: readonly Fighter[], result: CombatResult): PartyState {
+    let party = applyBattleToParty(this.d.getParty(), fighters);
+    party = applyWear(party, result.history, this.d.items, rollFrom(Math.random));
+    party = applyCombatPractice(party, result.history);
+    if (outcome === 'won' && result.rewards) party = applyRewards(party, result.rewards);
+    return party;
   }
 
   private finished(
@@ -137,11 +188,8 @@ export class CombatEncounters {
     at: { x: number; y: number },
     result: CombatResult,
   ): void {
-    let party = applyBattleToParty(this.d.getParty(), fighters);
-    party = applyWear(party, result.history, this.d.items, rollFrom(Math.random));
-    party = applyCombatPractice(party, result.history);
+    let party = this.settle(outcome, fighters, result);
     if (outcome === 'won') {
-      if (result.rewards) party = applyRewards(party, result.rewards);
       this.d.markDone(e);
     } else {
       if (outcome === 'dead') party = revive(party);
