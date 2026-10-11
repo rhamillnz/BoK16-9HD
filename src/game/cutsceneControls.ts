@@ -1,6 +1,7 @@
 import { parseDDX, type DialogFile } from '../formats/ddx';
-import { hdUrl } from './cutsceneHd';
-import type { HdPicture } from './cutsceneHdRenderer';
+import { cutsceneFrameUrl, hdArtWanted, type HdPicture } from './cutsceneHd';
+import type { HdFrames } from './cutscene';
+import { getSettings } from './settingsStore';
 import type { HudScreens } from '../ui/hud';
 import '../ui/cutsceneScreen'; // registers the cutscene screen
 import type { CutsceneScreenView } from '../ui/cutsceneScreen';
@@ -108,6 +109,17 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
 
   const play = async (ads: string, ttm: string): Promise<void> => {
     if (active) return;
+    // Active from the start of loading: the world is not drawn under a cutscene, and drawing it for the first
+    // time while the pictures load would stall the page compiling its shaders.
+    active = true;
+    try {
+      await playLoaded(ads, ttm);
+    } finally {
+      active = false;
+    }
+  };
+
+  const playLoaded = async (ads: string, ttm: string): Promise<void> => {
     const store = await loadDialogs().catch(() => undefined);
     let view: CutsceneScreenView | undefined;
     let player: CutscenePlayer | undefined;
@@ -135,14 +147,13 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
       player = await loadCutscene(host.fetch, ads, ttm, {
         chapter: host.chapter(),
         host: hooks,
-        loadHd: loadHdPictures,
+        loadHd: hdArtWanted(getSettings().cutsceneArt) ? loadHdPictures : undefined,
       });
     } catch (err) {
       console.warn('Cutscene unavailable:', err);
       return;
     }
     const pl: CutscenePlayer = player;
-    active = true;
     await new Promise<void>((resolve) => {
       const canvas = document.createElement('canvas');
       canvas.width = SCENE_WIDTH;
@@ -180,7 +191,6 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
       host.hud.open('cutscene', view);
       raf = requestAnimationFrame(tick);
     });
-    active = false;
   };
 
   const playSteps = async (steps: readonly CutsceneStep[]): Promise<void> => {
@@ -232,20 +242,54 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
   return api;
 }
 
-/** The upscaled cutscene pictures that exist for these stems (served from /art/cutscenes-4x/ in dev). */
-async function loadHdPictures(stems: readonly string[]): Promise<ReadonlyMap<string, HdPicture>> {
-  const found = new Map<string, HdPicture>();
-  await Promise.all(
-    stems.map(async (stem) => {
+/** Frames fetched ahead of the one being shown, and the most decoded frames kept at once. */
+const HD_AHEAD = 8;
+const HD_KEEP = 24;
+
+/**
+ * The upscaled frames of one cutscene (served from /art/cutscene-frames-4x/ in dev), streamed: the first few are
+ * loaded before it starts, then the next ones as it plays; the oldest are let go so a long scene does not hold
+ * hundreds of large pictures. A frame not loaded in time (or not upscaled) shows the original.
+ */
+async function loadHdPictures(hashes: readonly string[]): Promise<HdFrames> {
+  const ready = new Map<string, HdPicture>();
+  const pending = new Map<string, Promise<void>>();
+  const missing = new Set<string>();
+  const fetchFrame = (hash: string): Promise<void> => {
+    if (ready.has(hash) || missing.has(hash)) return Promise.resolve();
+    let p = pending.get(hash);
+    if (!p) {
       const img = new Image();
-      img.src = hdUrl(stem);
-      try {
-        await img.decode();
-        found.set(stem, img);
-      } catch {
-        // not upscaled: the original picture is drawn instead
+      img.src = cutsceneFrameUrl(hash);
+      p = img
+        .decode()
+        .then(
+          () => {
+            ready.set(hash, img);
+            while (ready.size > HD_KEEP) ready.delete(ready.keys().next().value!);
+          },
+          () => void missing.add(hash),
+        )
+        .finally(() => pending.delete(hash));
+      pending.set(hash, p);
+    }
+    return p;
+  };
+  const ahead = (from: number) => hashes.slice(from, from + HD_AHEAD).map(fetchFrame);
+  await Promise.all(ahead(0));
+  return {
+    get: (hash) => {
+      const img = ready.get(hash);
+      if (img) {
+        // Most recently used last, so it is kept.
+        ready.delete(hash);
+        ready.set(hash, img);
       }
-    }),
-  );
-  return found;
+      return img;
+    },
+    reached: (hash) => {
+      const i = hashes.indexOf(hash);
+      if (i >= 0) void Promise.all(ahead(i + 1));
+    },
+  };
 }

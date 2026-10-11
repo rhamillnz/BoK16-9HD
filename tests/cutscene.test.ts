@@ -8,6 +8,7 @@ import {
   SECONDS_PER_TICK,
   chapterFinishCutscenes,
   chapterStartCutscenes,
+  cutsceneFrameHashes,
   cutsceneResourceNames,
 } from '../src/game/cutscene';
 import { SCENE_WIDTH } from '../src/game/townScene';
@@ -465,6 +466,29 @@ function play(ops: Op[], host: ConstructorParameters<typeof CutscenePlayer>[0]['
 }
 
 describe('CutscenePlayer', () => {
+  it('shows the upscaled version of a whole frame, found by the hash of the original frame', () => {
+    const ops: Op[] = [
+      [SPRITE, 0, 0, 0, 1],
+      [DELAY, 100],
+      [END_FRAME],
+      [SPRITE, 0, 0, 1, 1],
+      [END_FRAME],
+      [END_SCRIPT],
+      [END_FRAME],
+    ];
+    const frames = parseTtmFrames(ttmBytes([[SET_SCRIPT, 1], ...SETUP, ...ops]));
+    const hashes = cutsceneFrameHashes(ONE_SCRIPT, frames, read);
+    expect(hashes.length).toBeGreaterThanOrEqual(2);
+    const first = { width: 1280, height: 800 } as unknown as HTMLCanvasElement;
+    const player = new CutscenePlayer({ ads: ONE_SCRIPT, frames, read, hd: new Map([[hashes[0]!, first]]) });
+    player.start();
+    expect(player.hdImage).toBe(first);
+    player.update(100 * SECONDS_PER_TICK * 1000 + 1);
+    // The next frame has no upscaled version: the original is shown.
+    expect(player.hdImage).toBeUndefined();
+    expect(player.image).toBeDefined();
+  });
+
   it('shows the first frame at once and holds each frame for its delay', () => {
     const { player, done } = play([
       [SPRITE, 0, 0, 0, 1],

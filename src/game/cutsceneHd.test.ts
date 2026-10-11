@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TtmFrame } from '../formats/ttm';
-import { hdScreenName, hdSpriteName, hdUrl, hdUses } from './cutsceneHd';
+import { ALL_CUTSCENES, cutsceneFrameUrl, hdScreenName, hdSpriteName, hdUrl, hdUses } from './cutsceneHd';
 
 const frame = (ops: TtmFrame['ops']): TtmFrame => ({ ops }) as unknown as TtmFrame;
 
@@ -36,5 +36,15 @@ describe('hdUses', () => {
       { bmx: 'MAN.BMX', index: 3, pal: 'A.PAL' },
       { bmx: 'MAN.BMX', index: 3, pal: 'B.PAL' },
     ]);
+  });
+});
+
+describe('cutscene frame list', () => {
+  it('names every chapter scene once', () => {
+    const names = ALL_CUTSCENES.map((c) => c.ttm);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names).toContain('INTRO.TTM');
+    expect(names).toContain('C93.TTM');
+    expect(cutsceneFrameUrl('0123abcd')).toBe('/art/cutscene-frames-4x/0123abcd.png');
   });
 });

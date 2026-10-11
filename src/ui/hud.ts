@@ -289,7 +289,8 @@ export function mountHud(parent: HTMLElement, data: HudData): HudScreens {
   canvas.width = screens.width;
   canvas.height = screens.height;
   canvas.style.cssText =
-    'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:16/9;width:calc(min(100vw,177.78vh) * var(--ui-scale,1));pointer-events:none;image-rendering:pixelated';
+    // A smaller UI scale shrinks the HUD towards the bottom of the 16:9 frame, so the party bar stays at the bottom.
+    'position:absolute;left:50%;top:calc(50% + min(100vh,56.25vw) / 2);transform:translate(-50%,-100%);aspect-ratio:16/9;width:calc(min(100vw,177.78vh) * var(--ui-scale,1));pointer-events:none;image-rendering:pixelated';
   parent.appendChild(canvas);
   const ctx = canvas.getContext('2d')!;
 

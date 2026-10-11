@@ -13,6 +13,8 @@ export interface GameSettings {
   uiScale: number;
   /** Turn with the mouse in the party view (click the game to capture the pointer). */
   mouseLook: boolean;
+  /** Cutscenes and story books drawn from the upscaled art, or from the original pictures. */
+  cutsceneArt: 'hd' | 'original';
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -22,6 +24,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   fov: 60,
   uiScale: 1,
   mouseLook: false,
+  cutsceneArt: 'hd',
 };
 export const FOV_MIN = 50;
 export const FOV_MAX = 100;
@@ -55,6 +58,7 @@ export function parseSettings(json: string | null | undefined): GameSettings {
         ? clampUiScale(raw.uiScale)
         : DEFAULT_SETTINGS.uiScale,
     mouseLook: typeof raw.mouseLook === 'boolean' ? raw.mouseLook : DEFAULT_SETTINGS.mouseLook,
+    cutsceneArt: raw.cutsceneArt === 'original' ? 'original' : DEFAULT_SETTINGS.cutsceneArt,
   };
 }
 
@@ -68,12 +72,22 @@ export const stepVolume = (v: number, dir: 1 | -1): number => clampVolume(v + di
 
 /** Next field of view, wrapping from the widest back to the narrowest. */
 export const stepFov = (v: number): number => (v + FOV_STEP > FOV_MAX ? FOV_MIN : clampFov(v + FOV_STEP));
-/** Next UI scale, wrapping from full size back to the smallest. */
-export const stepUiScale = (v: number): number => (v + 0.1 > 1.05 ? UI_SCALE_MIN : clampUiScale(v + 0.1));
+/** Next UI scale: 10% smaller each time, wrapping from the smallest back to full size. */
+export const stepUiScale = (v: number): number => (v - 0.1 < UI_SCALE_MIN - 0.05 ? 1 : clampUiScale(v - 0.1));
 
 export type MainMenuId = 'resume' | 'save' | 'new' | 'continue' | 'load' | 'intro' | 'options';
 export type OptionsId =
-  'quality' | 'volDown' | 'volUp' | 'mute' | 'fov' | 'uiScale' | 'mouseLook' | 'controls' | 'keys' | 'back';
+  | 'quality'
+  | 'volDown'
+  | 'volUp'
+  | 'mute'
+  | 'fov'
+  | 'uiScale'
+  | 'mouseLook'
+  | 'cutsceneArt'
+  | 'controls'
+  | 'keys'
+  | 'back';
 
 export interface MainMenuState {
   /** The game is running (the menu was opened over it) so Resume makes sense. */
@@ -126,8 +140,13 @@ export function optionsModel(s: GameSettings): MenuModel {
       { id: 'volUp', label: 'Music volume up', detail: `${Math.round(s.volume * 100)}%`, enabled: s.volume < 1 },
       { id: 'mute', label: 'Music', detail: s.muted ? 'off' : 'on' },
       { id: 'fov', label: 'Field of view', detail: `${s.fov}°` },
-      { id: 'uiScale', label: 'UI scale', detail: `${Math.round(s.uiScale * 100)}%` },
-      { id: 'mouseLook', label: 'Mouse-look', detail: s.mouseLook ? 'on' : 'off' },
+      {
+        id: 'uiScale',
+        label: 'UI scale (smaller each press)',
+        detail: s.uiScale < 1 ? `${Math.round(s.uiScale * 100)}%` : '100% (full)',
+      },
+      { id: 'mouseLook', label: 'Mouse-look (click the game to look)', detail: s.mouseLook ? 'on' : 'off' },
+      { id: 'cutsceneArt', label: 'Cutscene art', detail: s.cutsceneArt === 'hd' ? 'HD' : 'original' },
       { id: 'controls', label: 'Rebind movement keys' },
       { id: 'keys', label: 'Key help' },
     ],

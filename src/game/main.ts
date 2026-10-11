@@ -105,8 +105,8 @@ const boot = installBootScreen(); // loading and error screens
 // The loading screen shows the upscaled town views (when this machine has them) with the title logo over them.
 const townViews: HTMLImageElement[] = [];
 void loadTownViews(townViews);
-let loadingLogo: CanvasImageSource | undefined;
-boot.slideshow(townViews, () => loadingLogo);
+const loading: { logo?: CanvasImageSource } = {};
+boot.slideshow(townViews, () => loading.logo);
 boot.loading('Starting graphics…');
 
 const { renderer, camera, backend } = await createStage(stageEl);
@@ -139,7 +139,7 @@ const chapterStart = {
 const startZone = num('zone', chapterStart.zone);
 // The title screen's art behind the loading bar while the world is built.
 const titleArt = loadTitleArt(archive);
-loadingLogo = titleArt.logo;
+loading.logo = titleArt.logo;
 try {
   const titleFont = parseFNT(archive.get('GAME.FNT'));
   boot.backdrop((ctx, width, height) => {

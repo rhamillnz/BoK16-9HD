@@ -1,6 +1,6 @@
 import { parseBMX, type IndexedImage } from '../formats/bmx';
-import { CutsceneHdRenderer, type HdPicture } from './cutsceneHdRenderer';
-import { hdScreenName, hdSpriteName, hdUses } from './cutsceneHd';
+import type { HdPicture } from './cutsceneHd';
+import { sceneHash } from './sceneHd';
 import { parsePalette, type Palette } from '../formats/palette';
 import { parseSCX } from '../formats/scx';
 import {
@@ -437,14 +437,23 @@ export interface CutsceneHost {
   dialog?(key: number, done: () => void): void;
 }
 
+/**
+ * Upscaled whole frames by the hash of the original frame. A plain Map will do; a streaming source also hears
+ * which frame was reached, so it can fetch the ones after it.
+ */
+export interface HdFrames {
+  get(hash: string): HdPicture | undefined;
+  reached?(hash: string): void;
+}
+
 export interface CutsceneOptions {
   ads: readonly AdsScene[];
   frames: readonly TtmFrame[];
   read: ReadResource;
   chapter?: number;
   host?: CutsceneHost;
-  /** Upscaled pictures by file stem (cutsceneHd.ts); with any, the player also draws `hdImage`. */
-  hd?: ReadonlyMap<string, HdPicture>;
+  /** Upscaled whole frames by the hash of the original frame (`cutsceneFrameHashes`); shown as `hdImage`. */
+  hd?: HdFrames;
 }
 
 type Wait = 'none' | 'click' | 'external' | 'fade' | 'delay';
@@ -453,7 +462,7 @@ type Wait = 'none' | 'click' | 'external' | 'fade' | 'delay';
 export class CutscenePlayer {
   /** The picture to show now (RGBA, 320x200), or undefined before the first frame. */
   image: Uint8ClampedArray<ArrayBuffer> | undefined;
-  /** The same picture at 4x from the upscaled art, when the cutscene has any (see cutsceneHd.ts). */
+  /** The same frame upscaled (cutsceneFrameUrl), when there is one; undefined shows `image`. */
   hdImage: HdPicture | undefined;
   fade: CutsceneFade = { color: [0, 0, 0], alpha: 0, region: FULL };
   text: string | undefined;
@@ -463,7 +472,7 @@ export class CutscenePlayer {
 
   private readonly runner: CutsceneRunner;
   private readonly renderer: CutsceneRenderer;
-  private readonly hdRenderer: CutsceneHdRenderer | undefined;
+  private readonly hd: HdFrames | undefined;
   private readonly host: CutsceneHost;
   private wait: Wait = 'none';
   private remaining = 0;
@@ -485,7 +494,7 @@ export class CutscenePlayer {
   constructor(opts: CutsceneOptions) {
     this.runner = new CutsceneRunner(opts.ads, opts.frames, opts.chapter ?? 1);
     this.renderer = new CutsceneRenderer(opts.read);
-    this.hdRenderer = opts.hd?.size ? new CutsceneHdRenderer(opts.read, opts.hd) : undefined;
+    this.hd = opts.hd;
     this.host = opts.host ?? {};
   }
 
@@ -568,11 +577,14 @@ export class CutscenePlayer {
     if (!this.frame) {
       const ops = this.runner.next();
       if (!ops) return this.finish();
+      const picture = this.renderer.draw(ops);
+      const hash = this.hd ? sceneHash(picture) : '';
+      this.hd?.reached?.(hash);
       this.frame = {
         ops,
         next: 0,
-        picture: this.renderer.draw(ops),
-        hdPicture: this.hdRenderer?.draw(ops),
+        picture,
+        hdPicture: this.hd?.get(hash),
         presented: false,
         scriptEnded: false,
       };
@@ -685,8 +697,8 @@ export async function loadCutscene(
   opts: {
     chapter?: number;
     host?: CutsceneHost;
-    /** Loads the upscaled pictures it can find for these file stems. */
-    loadHd?: (stems: readonly string[]) => Promise<ReadonlyMap<string, HdPicture>>;
+    /** Loads the upscaled frames it can find for these frame hashes. */
+    loadHd?: (hashes: readonly string[]) => Promise<HdFrames>;
   } = {},
 ): Promise<CutscenePlayer> {
   const scripts = await fetch([adsName, ttmName]);
@@ -694,16 +706,32 @@ export async function loadCutscene(
   const ttmBytes = scripts(ttmName);
   if (!adsBytes || !ttmBytes) throw new Error(`cutscene scripts not found: ${adsName} / ${ttmName}`);
   const frames = parseTtmFrames(ttmBytes);
-  const uses = hdUses(frames);
-  const stems = [
-    ...uses.screens.map((u) => hdScreenName(u.scx, u.pal)),
-    ...uses.sprites.map((u) => hdSpriteName(u.bmx, u.index, u.pal)),
-  ];
-  const [read, hd] = await Promise.all([
-    fetch(cutsceneResourceNames(frames)),
-    opts.loadHd?.(stems).catch(() => undefined),
-  ]);
-  return new CutscenePlayer({ ads: parseAds(adsBytes), frames, read, chapter: opts.chapter, host: opts.host, hd });
+  const ads = parseAds(adsBytes);
+  const read = await fetch(cutsceneResourceNames(frames));
+  const hd = opts.loadHd
+    ? await opts.loadHd(cutsceneFrameHashes(ads, frames, read, opts.chapter)).catch(() => undefined)
+    : undefined;
+  return new CutscenePlayer({ ads, frames, read, chapter: opts.chapter, host: opts.host, hd });
+}
+
+/**
+ * The hash (sceneHash) of every distinct frame a cutscene shows, in order: the frames depend only on the scripts
+ * and the chapter, so a dry run finds them all up front (for loading their upscaled versions).
+ */
+export function cutsceneFrameHashes(
+  ads: readonly AdsScene[],
+  frames: readonly TtmFrame[],
+  read: ReadResource,
+  chapter = 1,
+): string[] {
+  const runner = new CutsceneRunner(ads, frames, chapter);
+  const renderer = new CutsceneRenderer(read);
+  const out: string[] = [];
+  for (let ops = runner.next(), n = 0; ops && n < 5000; ops = runner.next(), n++) {
+    const h = sceneHash(renderer.draw(ops));
+    if (!out.includes(h)) out.push(h);
+  }
+  return out;
 }
 
 export type CutsceneStep = { kind: 'ttm'; ads: string; ttm: string } | { kind: 'book'; file: string };

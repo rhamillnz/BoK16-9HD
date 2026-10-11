@@ -1,15 +1,21 @@
 import type { TtmFrame } from '../formats/ttm';
 
 /**
- * HD (4x) replacements for cutscene and book pictures. Every picture a cutscene draws is an image of a BMX
- * file (a sprite) or an SCX screen, coloured by the palette active when it is drawn. Each (picture, palette)
- * pair is exported by `scripts/export-cutscene-art.ts` to art/derived/cutscenes/{screens,sprites}, upscaled by
- * tools/upscale into art/reference/cutscenes-4x/, and served from /art/cutscenes-4x/. A missing file means
- * the original picture is used, enlarged.
+ * HD (4x) replacements for cutscene and book pictures.
+ * - Cutscenes: whole frames, upscaled after the original renderer has composed them, so a moving piece (a
+ *   talking head) always matches the picture it sits on. `scripts/export-cutscene-frames.ts` writes each distinct
+ *   frame by its hash (sceneHash); tools/upscale puts them in art/reference/cutscene-frames-4x/, served from
+ *   /art/cutscene-frames-4x/.
+ * - Books: the drawn capitals and borders of BOOK.BMX, one picture per (image, palette), exported by
+ *   `scripts/export-cutscene-art.ts` and served from /art/cutscenes-4x/.
+ * A missing file means the original picture is used, enlarged.
  */
 
 /** Upscale factor of the HD pictures. */
 export const HD_SCALE = 4;
+
+/** An upscaled picture as the browser holds it (an image or a canvas). */
+export type HdPicture = CanvasImageSource & { width: number; height: number };
 
 const stem = (name: string) => name.replace(/\.[A-Z0-9]+$/i, '').toUpperCase();
 
@@ -20,6 +26,11 @@ export const hdSpriteName = (bmx: string, index: number, pal: string): string =>
 export const hdScreenName = (scx: string, pal: string): string => `${stem(scx)}-${stem(pal)}`;
 
 export const hdUrl = (stemName: string): string => `/art/cutscenes-4x/${stemName}.png`;
+
+/** The player wants the upscaled art (Options > Cutscene art; `?hdart=0` turns it off for a test). */
+export function hdArtWanted(setting: 'hd' | 'original'): boolean {
+  return setting === 'hd' && new URLSearchParams(globalThis.location?.search ?? '').get('hdart') !== '0';
+}
 
 export interface HdUse {
   sprites: { bmx: string; index: number; pal: string }[];
@@ -71,3 +82,18 @@ export function hdUses(frames: readonly TtmFrame[]): HdUse {
   }
   return { sprites: [...sprites.values()], screens: [...screens.values()] };
 }
+
+/** Every cutscene of the game with the chapter it plays in (for exporting its frames). */
+export const ALL_CUTSCENES: readonly { ads: string; ttm: string; chapter: number }[] = [
+  { ads: 'INTRO.ADS', ttm: 'INTRO.TTM', chapter: 1 },
+  ...Array.from({ length: 9 }, (_, i) => ({ ads: `CHAPTER${i + 1}.ADS`, ttm: `CHAPTER${i + 1}.TTM`, chapter: i + 1 })),
+  ...Array.from({ length: 9 }, (_, i) =>
+    [1, 2, 3].map((k) => ({ ads: `C${i + 1}${k}.ADS`, ttm: `C${i + 1}${k}.TTM`, chapter: i + 1 })),
+  ).flat(),
+];
+
+/**
+ * A whole cutscene frame upscaled (scripts/export-cutscene-frames.ts), by the hash of the original frame's pixels
+ * (sceneHash). Upscaling finished frames keeps moving pieces matched to the picture they are drawn on.
+ */
+export const cutsceneFrameUrl = (hash: string): string => `/art/cutscene-frames-4x/${hash}.png`;

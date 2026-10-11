@@ -158,6 +158,9 @@ export function installMainMenu(h: MainMenuHost): Promise<void> {
       case 'mouseLook':
         settings = { ...settings, mouseLook: !settings.mouseLook };
         break;
+      case 'cutsceneArt':
+        settings = { ...settings, cutsceneArt: settings.cutsceneArt === 'hd' ? 'original' : 'hd' };
+        break;
       case 'controls':
         showControlsMenu(panel, () => showOptions('controls'));
         return;

@@ -15,7 +15,15 @@ import {
 
 describe('settings', () => {
   it('round-trips and survives bad storage', () => {
-    const s = { quality: 'high' as const, volume: 0.3, muted: true, fov: 80, uiScale: 0.8, mouseLook: true };
+    const s = {
+      quality: 'high' as const,
+      volume: 0.3,
+      muted: true,
+      fov: 80,
+      uiScale: 0.8,
+      mouseLook: true,
+      cutsceneArt: 'original' as const,
+    };
     expect(parseSettings(serializeSettings(s))).toEqual(s);
     expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(parseSettings('{oops')).toEqual(DEFAULT_SETTINGS);
@@ -38,8 +46,9 @@ describe('view settings', () => {
   it('steps and wraps', () => {
     expect(stepFov(60)).toBe(65);
     expect(stepFov(100)).toBe(50);
-    expect(stepUiScale(0.9)).toBe(1);
-    expect(stepUiScale(1)).toBe(0.6);
+    expect(stepUiScale(1)).toBe(0.9);
+    expect(stepUiScale(0.7)).toBe(0.6);
+    expect(stepUiScale(0.6)).toBe(1);
   });
   it('shows them in the options rows', () => {
     const m = optionsModel({ ...DEFAULT_SETTINGS, fov: 75, uiScale: 0.8, mouseLook: true });
