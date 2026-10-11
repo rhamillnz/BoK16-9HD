@@ -19,6 +19,7 @@ import { createGrassGroundMaterial, createTerrainMaterial } from './terrainMater
 import { createWaterMaterial } from './waterMaterial';
 import { createHillMaterial } from './hillMaterial';
 import { hillTriangles, isHillModel } from './hillMesh';
+import { closeOpenSides } from './hillCliffs';
 import { detailHill, type DetailedHill } from './hillDetail';
 import { applyInstanceColors, isPlantModel, styleInstances } from './treeStyle';
 import { applyScatterRockMaterial } from './scatterRockMaterial';
@@ -45,7 +46,11 @@ export const WORLD_SCALE = 100;
 const hillDetailCache = new WeakMap<object, DetailedHill>();
 function detailedHill(item: object, loops: THREE.Vector3[][]): DetailedHill {
   let d = hillDetailCache.get(item);
-  if (!d) hillDetailCache.set(item, (d = detailHill(hillTriangles(loops))));
+  if (!d) {
+    // Close the original pieces' open sides with rock walls (hillCliffs.ts), down from the lowest point.
+    const ground = Math.min(...loops.flat().map((p) => p.y));
+    hillDetailCache.set(item, (d = closeOpenSides(detailHill(hillTriangles(loops)), ground)));
+  }
   return d;
 }
 /** BaK units covered by one repeat of a terrain texture. */
