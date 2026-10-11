@@ -265,7 +265,7 @@ export interface InvAction {
 }
 
 export const LOCKPICK_HELP =
-  "Lockpicks are not equipped: choose 'Use lockpick' at a locked chest or door; your best lockpicker uses one.";
+  "Picklocks are not equipped: at a locked chest or door choose 'Pick the lock', and your best lockpicker uses one.";
 export const KEY_HELP = 'Choose the key at a locked chest or door.';
 export const KEY_RING_HELP = 'Kept on the party key ring, shared by everyone and not handed over or equipped.';
 
