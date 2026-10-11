@@ -124,3 +124,20 @@ describe('analog input and mouse-look', () => {
     expect(p.heading).toBeCloseTo(4, 9);
   });
 });
+
+describe('sprint', () => {
+  it('moves ten times as far but still stops at a wall', () => {
+    const open = new PartyController(0, 0, 0);
+    open.sprint = 10;
+    open.update(0.1, { ...NO_INPUT, forward: true });
+    expect(open.y).toBeCloseTo(WALK_SPEED * 10 * 0.1);
+
+    // One frame at sprint would carry the party 4000 units, far past the 100-unit wall.
+    const p = new PartyController(0, 0, 0);
+    p.polygons = [wall];
+    p.sprint = 10;
+    p.update(1, { ...NO_INPUT, forward: true });
+    expect(p.y).toBeLessThan(wall.minY);
+    expect(p.y).toBeGreaterThan(wall.minY - PARTY_RADIUS * 2);
+  });
+});

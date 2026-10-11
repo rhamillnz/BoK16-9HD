@@ -73,6 +73,8 @@ export class PartyController {
   polygons: readonly CollisionPolygon[] = [];
   /** Walking speed multiplier (0.5 in mines). */
   speedScale = 1;
+  /** Testing aid: extra speed multiplier (the G key, `?speed=`); 1 is normal. */
+  sprint = 1;
 
   constructor(
     x = 0,
@@ -104,14 +106,14 @@ export class PartyController {
     const move = clampAxis(Number(input.forward) - Number(input.back) + (input.moveAxis ?? 0));
     this.heading = stepHeading(this.heading, turn, dt);
     if (move === 0) return;
-    const p = slideMove(
-      { x: this.x, y: this.y },
-      walkDelta(this.heading, move, input.run, dt * this.speedScale),
-      PARTY_RADIUS,
-      this.polygons,
-    );
-    this.x = p.x;
-    this.y = p.y;
+    const d = walkDelta(this.heading, move, input.run, dt * this.speedScale * this.sprint);
+    // Move in steps shorter than the party's radius, so a fast party cannot jump through a thin wall.
+    const steps = Math.max(1, Math.ceil(Math.hypot(d.x, d.y) / (PARTY_RADIUS * 0.8)));
+    for (let i = 0; i < steps; i++) {
+      const p = slideMove({ x: this.x, y: this.y }, { x: d.x / steps, y: d.y / steps }, PARTY_RADIUS, this.polygons);
+      this.x = p.x;
+      this.y = p.y;
+    }
   }
 
   /** Mouse-look: turn by `units` of heading (positive turns left). */

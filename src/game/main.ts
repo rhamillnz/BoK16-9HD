@@ -209,6 +209,14 @@ window.addEventListener('keydown', (e) => {
   partyKeys.clear();
 });
 
+// Testing aid: G toggles 10x walking speed (`?speed=N` starts with N).
+const SPRINT = 10;
+party.sprint = Math.max(1, num('speed', 1)) || 1;
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyG' || e.repeat || screens.blocking || combat.active) return;
+  party.sprint = party.sprint > 1 ? 1 : SPRINT;
+});
+
 // HUD screens: I inventory, C character sheet, Esc closes; movement is ignored while one is open.
 const screens = mountHud(document.body, {
   font: parseFNT(archive.get('GAME.FNT')),
@@ -850,7 +858,7 @@ renderer.setAnimationLoop(() => {
     fpsTime = 0;
   }
   const s = renderer.getDrawingBufferSize(new THREE.Vector2());
-  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : `on (${music.songId ?? '-'})`}  F: ${flyMode ? 'fly' : 'party'} cam  heading ${party.heading8}\n${zoneHost.current.info}\n${backend}  post ${post.quality} (P)  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position
+  hud.textContent = `${clock.label}  [ ] ±30 min  M: music ${music.isMuted ? 'off' : `on (${music.songId ?? '-'})`}  F: ${flyMode ? 'fly' : 'party'} cam  G: speed x${party.sprint}  heading ${party.heading8}\n${zoneHost.current.info}\n${backend}  post ${post.quality} (P)  ${s.x}×${s.y}  ${fps.toFixed(0)} fps\npos ${camera.position
     .toArray()
     .map((v) => v.toFixed(1))
     .join(', ')}`;

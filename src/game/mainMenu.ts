@@ -155,6 +155,7 @@ export const KEY_HELP: readonly (readonly [string, string])[] = [
   ['P', 'Cycle graphics quality'],
   ['[ and ]', 'Move the clock by 30 minutes (debug)'],
   ['F', 'Fly camera (debug)'],
+  ['G', '10x walking speed on/off (testing)'],
   ['Combat', 'D defend, W wait, S slash, F shoot, C cast, Q retreat, Enter end turn'],
 ];
 
