@@ -23,7 +23,16 @@ import { closeOpenSides } from './hillCliffs';
 import { detailHill, type DetailedHill } from './hillDetail';
 import { applyInstanceColors, isPlantModel, styleInstances } from './treeStyle';
 import { applyScatterRockMaterial } from './scatterRockMaterial';
-import { DEFAULT_SCATTER, SCATTER_MODELS, scatterOnTriangles } from './scatter';
+import {
+  DEFAULT_SCATTER,
+  SCATTER_CHUNK_CELL,
+  SCATTER_MODELS,
+  SCATTER_PINES,
+  SCATTER_ROCKS,
+  chunkPlacements,
+  scatterCullDistance,
+  scatterOnTriangles,
+} from './scatter';
 import { PATH_STYLE, ROAD_STYLE, createRoadMaterial } from './roadMaterial';
 import { buildCollisionPolygons, type CollisionPolygon } from '../world/collision';
 import type { ZoneData } from '../world/zone';
@@ -453,16 +462,6 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
     }
   }
 
-  // Rocks and bushes on the hills, from the models the zone's overrides loaded.
-  if (overrides && hillBatch.positions.length) {
-    const available = new Set(SCATTER_MODELS.filter((n) => overrides.models.has(n)));
-    for (const p of scatterOnTriangles(hillBatch.positions, available, { ...DEFAULT_SCATTER, seed: zone.zone })) {
-      let list = overridePlacements.get(p.name);
-      if (!list) overridePlacements.set(p.name, (list = []));
-      list.push(p.matrix);
-    }
-  }
-
   for (const [name, placements] of overridePlacements) {
     // Trees and other plants: per-instance size and tint (plus the zone's foliage colour), so forests are not clones.
     const styled = isPlantModel(name) ? styleInstances(zone.zone, placements) : undefined;
@@ -472,6 +471,30 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
     for (const mesh of meshes) {
       group.add(mesh);
       drawCalls++;
+    }
+  }
+
+  // Decor scattered over the hills (clumped plants, pines on flat tops, boulders, scree), from the models the zone's
+  // overrides loaded. Split into ground cells that are frustum- and distance-culled, so the zone can hold many.
+  if (overrides && hillBatch.positions.length) {
+    const available = new Set(SCATTER_MODELS.filter((n) => overrides.models.has(n)));
+    const placed = scatterOnTriangles(hillBatch.positions, available, { ...DEFAULT_SCATTER, seed: zone.zone });
+    for (const chunk of chunkPlacements(placed, SCATTER_CHUNK_CELL)) {
+      const name = chunk.name;
+      const styled = isPlantModel(name) ? styleInstances(zone.zone, chunk.matrices) : undefined;
+      const meshes = buildOverrideMeshes(name, overrides.models.get(name)!, styled?.matrices ?? chunk.matrices);
+      if (styled) applyInstanceColors(meshes, styled.colors);
+      applyScatterRockMaterial(name, meshes);
+      // Ground cover, shrubs and loose stones are too small to read as shadows; they only cost shadow-pass time.
+      const noShadow =
+        !(SCATTER_ROCKS as readonly string[]).includes(name) && !(SCATTER_PINES as readonly string[]).includes(name);
+      for (const mesh of meshes) {
+        if (noShadow) mesh.castShadow = false;
+        const bs = mesh.boundingSphere!;
+        mesh.userData.chunk = { x: bs.center.x, z: bs.center.z, r: bs.radius, far: scatterCullDistance(name) };
+        group.add(mesh);
+        drawCalls++;
+      }
     }
   }
 
