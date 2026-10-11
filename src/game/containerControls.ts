@@ -14,6 +14,7 @@ import {
   nearestContainer,
   openedFlagUpdate,
   putItem,
+  ruleFor,
   springTrap,
   takeAll,
   takeItem,
@@ -21,7 +22,8 @@ import {
   type ContainerSnapshot,
   type WorldContainer,
 } from './containers';
-import { KEY_RULE, attemptLock, classifyLock, describeLock, isKeyItem, ITEM_PICKLOCK, keyItemForLock } from './locks';
+import { KEY_RULE, attemptLock, ITEM_PICKLOCK } from './locks';
+import { lockMenu } from './lockMenu';
 import { removeItem, type PartyState } from './party';
 import type { ResourceArchive } from '../formats/archive';
 import { loadContainerData } from './containerData';
@@ -107,22 +109,20 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
     const rating = cur.lock!.rating;
     const best = bestLockpicker(party);
     const skill = best?.skill ?? 0;
-    const looks = [
-      'an easy lock for you',
-      'too complicated to pick',
-      'a lock that wants a special key',
-      'a lock that is broken beyond repair',
-    ][describeLock(skill, rating)];
-    const hasKey =
-      keyItemForLock(rating) !== undefined && party.partyKeys.items.some((i) => i.itemIndex === keyItemForLock(rating));
-    const tools = party.partyKeys.items.filter((i) => i.itemIndex === ITEM_PICKLOCK || isKeyItem(i.itemIndex));
-    const known = [...new Set(tools.map((i) => i.itemIndex))];
-    const text = `The chest is locked: a ${classifyLock(rating)} lock, ${looks}.${hasKey ? ' You have a key that may fit.' : ''}`;
-    const pick = await host.menu(text, [...known.map((i) => `Use ${nameOf(host, i)}`), 'Leave it']);
-    const tool = known[pick];
-    if (tool === undefined) return undefined;
+    const { text, choices } = lockMenu(party, rating, (i) => nameOf(host, i));
+    const pick = await host.menu(
+      text,
+      choices.map((c) => c.label),
+    );
+    const tool = choices[pick]?.tool;
+    if (tool === undefined || tool < 0) return undefined;
     const r = attemptLock(tool, skill, rating, roll);
-    if (r.consumed !== undefined) host.setParty(removeItem(host.getParty(), r.consumed, 1, KEY_RULE));
+    if (r.consumed !== undefined) {
+      // Keys and old-save picklocks sit on the key ring; picklocks otherwise are a stack in someone's pack.
+      const p = host.getParty();
+      const onRing = p.partyKeys.items.some((i) => i.itemIndex === r.consumed);
+      host.setParty(removeItem(p, r.consumed, 1, onRing ? KEY_RULE : ruleFor(host.items, r.consumed)));
+    }
     if (r.learned && best) host.setParty(practiceCharacter(host.getParty(), best.character.index, 'lockpick'));
     if (r.unlocked) {
       save({ ...cur, unlocked: true });

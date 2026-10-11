@@ -37,6 +37,7 @@ import { PATH_STYLE, ROAD_STYLE, createRoadMaterial } from './roadMaterial';
 import { buildCollisionPolygons, type CollisionPolygon } from '../world/collision';
 import type { ZoneData } from '../world/zone';
 import { buildOverrideMeshes, placementMatrix, type ZoneOverridePlan } from './overrideResolve';
+import { SOLID_PROPS, footprintPolygon } from '../world/propColliders';
 
 /**
  * Builds a three.js scene graph for an outdoor zone from the original data.
@@ -518,6 +519,27 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
   );
   const scales = table.models.map((m) => m?.scale ?? 1);
   const collision = buildCollisionPolygons(items, clips, {}, scales);
+  // HD props that stand up but have no outline in the original (dirt mounds, standing stones): block their footprint.
+  const box = new THREE.Box3();
+  const footprints = new Map<string, THREE.Box3>();
+  for (const item of items) {
+    const name = table.models[item.type]?.name.toLowerCase();
+    const model = name && SOLID_PROPS.test(name) ? overrides?.models.get(name) : undefined;
+    if (!name || !model || clips[item.type]?.elements.length) continue;
+    let local = footprints.get(name);
+    if (!local) footprints.set(name, (local = new THREE.Box3().setFromObject(model)));
+    if (local.isEmpty()) continue;
+    box.copy(local).applyMatrix4(placementMatrix(item));
+    // Render space (x east, z south) back to BaK units (x east, y north).
+    collision.push(
+      footprintPolygon(
+        box.min.x * WORLD_SCALE,
+        -box.max.z * WORLD_SCALE,
+        box.max.x * WORLD_SCALE,
+        -box.min.z * WORLD_SCALE,
+      ),
+    );
+  }
 
   return { group, collision, stats: { items: items.length, meshItems, sprites, overridden, triangles, drawCalls } };
 }

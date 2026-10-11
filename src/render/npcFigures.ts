@@ -5,6 +5,7 @@ import { npcPlacement, npcVariant, type ClothingColors, type NpcVariant } from '
 import type { EncounterRunner } from '../game/encounterRunner';
 import type { PlacedEncounter } from '../world/encounters';
 import { WORLD_SCALE } from './zoneScene';
+import { EYE_HEIGHT } from '../world/partyController';
 
 /**
  * Standing figures for the NPCs of dialogue encounters, so there is someone to look at when they talk.
@@ -16,6 +17,13 @@ import { WORLD_SCALE } from './zoneScene';
 
 /** Figures further away than this (BaK units) are hidden. */
 export const NPC_SHOW_DISTANCE = 22000;
+/** Height of the human figure models (npc_man, npc_guard...) in model units. */
+export const NPC_MODEL_HEIGHT = 3.2;
+/**
+ * Scale from model units to render units: a human's eyes (about 93% of their height) meet the party's eye
+ * height. The models were built about 2.5x too tall, which left the party looking at their knees.
+ */
+export const NPC_SCALE = EYE_HEIGHT / WORLD_SCALE / (0.93 * NPC_MODEL_HEIGHT);
 /** A figure whose encounter has fired stays while the party is this close (BaK units). */
 export const NPC_LINGER_DISTANCE = 4000;
 
@@ -149,6 +157,7 @@ export class NpcFigures {
       });
       const at = npcPlacement(npc.encounter, roadPoints);
       object.position.set(at.x / WORLD_SCALE, getHeight(at.x, at.y) / WORLD_SCALE, -at.y / WORLD_SCALE);
+      object.scale.setScalar(NPC_SCALE);
       object.visible = false;
       this.group.add(object);
       this.figures.push({ encounter: npc.encounter, x: at.x, y: at.y, object, lingering: false, gone: false });

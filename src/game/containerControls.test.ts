@@ -55,7 +55,7 @@ const def = (name: string, type: number): ItemDef =>
 const defs: ItemDef[] = [];
 defs[10] = def('Sword', ItemType.Sword);
 defs[61] = def('Peasant key', ItemType.Key);
-defs[ITEM_PICKLOCK] = def('Lockpick', ItemType.Key);
+defs[ITEM_PICKLOCK] = { ...def('Picklocks', 0), stackSize: 36, defaultStackSize: 4 } as ItemDef;
 const item = (itemIndex: number) => ({ itemIndex, conditionOrQuantity: 100, status: 0, modifiers: 0 });
 const chest = (over: Partial<WorldContainer> = {}): WorldContainer => ({
   id: '1:0',
@@ -191,7 +191,7 @@ describe('interact', () => {
     const r = rig(c, [0], { keys: [61] });
     await interact(r.host);
     expect(r.menus[0]).toContain('easy lock');
-    expect(r.menus[0]).toContain('key that may fit');
+    expect(r.menus[0]).toContain('Peasant key fits');
     expect(r.menus[1]).toContain('key turns');
     expect(r.shown.view?.title).toBe('Chest');
     expect(r.store.snapshot()['1:0']!.unlocked).toBe(true);
@@ -206,6 +206,34 @@ describe('interact', () => {
     expect(r.party().partyKeys.items).toHaveLength(0);
     expect(r.shown.view).toBeUndefined();
     expect(r.store.snapshot()).toEqual({});
+  });
+
+  it('uses picklocks carried in a pack and takes one off the stack when it snaps', async () => {
+    const c = chest({ lock: { flag: 0, rating: 60, fairyChestIndex: 0, trapDamage: 0 } });
+    const r = rig(c, [0, 1], { lockpick: 10, roll: [99, 0] });
+    r.host.setParty({
+      ...r.party(),
+      characters: [
+        {
+          ...r.party().characters[0]!,
+          inventory: { capacity: 6, items: [{ ...key(ITEM_PICKLOCK), conditionOrQuantity: 3 }] },
+        },
+      ],
+    });
+    await interact(r.host);
+    expect(r.menus[0]).toContain('too hard for Owyn');
+    expect(r.menus[1]).toContain('snaps');
+    expect(r.party().characters[0]!.inventory.items[0]!.conditionOrQuantity).toBe(2);
+  });
+
+  it('does not offer a key that does not fit', async () => {
+    const c = chest({ lock: { flag: 0, rating: 16, fairyChestIndex: 0, trapDamage: 0 } });
+    const r = rig(c, [0], { keys: [61] });
+    await interact(r.host);
+    expect(r.menus[0]).toContain('does not fit');
+    expect(r.menus[0]).toContain('no picklocks');
+    expect(r.menus).toHaveLength(1);
+    expect(r.party().partyKeys.items).toHaveLength(1);
   });
 
   it('a skilled pick opens the lock', async () => {
