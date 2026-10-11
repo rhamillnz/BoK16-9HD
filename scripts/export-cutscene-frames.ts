@@ -2,7 +2,8 @@
 // Upscaling finished frames keeps a moving piece (a talking head) matched to the picture it is drawn on; the
 // player looks each frame up by the same hash (src/game/cutsceneHd.ts, cutsceneFrameUrl).
 //   npx tsx scripts/export-cutscene-frames.ts
-//   tools/upscale/.venv/Scripts/python tools/upscale/upscale.py art/derived/cutscene-frames art/reference/cutscene-frames-4x --scenes
+//   tools/upscale/.venv/Scripts/python tools/upscale/smooth.py art/derived/cutscene-frames art/reference/cutscene-frames-4x
+// (smooth enlargement, chosen over Real-ESRGAN, which made the digitised actors look waxy)
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { ResourceArchive } from '../src/formats/archive';
 import { parseAds, parseTtmFrames } from '../src/formats/ttm';
