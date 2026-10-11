@@ -12,7 +12,7 @@ describe('songUses', () => {
   it('lists every track, with the fixed and remake uses even without data', () => {
     const uses = songUses({ entries: [], get: () => new Uint8Array() });
     expect([...uses.keys()]).toHaveLength(62);
-    expect(uses.get(SONG_MAIN_MENU)!.map((u) => u.kind)).toEqual(['fixed']);
+    expect(uses.get(SONG_MAIN_MENU)!.map((u) => u.kind)).toEqual(['fixed', 'remake']);
     expect(uses.get(SONG_TITLE)!.map((u) => u.where)).toEqual(['Remake: title menu']);
     for (const s of EXPLORE_SONGS) expect(uses.get(s)!.some((u) => u.where.includes('rotation'))).toBe(true);
   });

@@ -19,8 +19,8 @@
 export const SOUND_INDEX_BASE = 1000;
 
 export const SONG_MAIN_MENU = 16;
-/** Our title menu's song: SARTH (file 22), chosen by ear (2026-10-11); the original's menu plays MAINMENU (16). */
-export const SONG_TITLE = 22;
+/** The title menu's song: MAINMENU (file 16), as in the original. */
+export const SONG_TITLE = SONG_MAIN_MENU;
 export const SONG_PUZZLE_CHEST = 4;
 export const SONG_BARD_FAILED = 9;
 export const SONG_BARD_POOR = 41;
