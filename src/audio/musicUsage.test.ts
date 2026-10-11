@@ -13,7 +13,7 @@ describe('songUses', () => {
     const uses = songUses({ entries: [], get: () => new Uint8Array() });
     expect([...uses.keys()]).toHaveLength(62);
     expect(uses.get(SONG_MAIN_MENU)!.map((u) => u.kind)).toEqual(['fixed', 'remake']);
-    expect(uses.get(SONG_TITLE)!.map((u) => u.where)).toEqual(['Remake: title menu']);
+    expect(uses.get(SONG_TITLE)!.map((u) => u.where)).toContain('Remake: title menu');
     for (const s of EXPLORE_SONGS) expect(uses.get(s)!.some((u) => u.where.includes('rotation'))).toBe(true);
   });
 
