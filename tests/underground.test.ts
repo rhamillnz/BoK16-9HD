@@ -42,7 +42,9 @@ describe('underground zones', () => {
     sky.followShadow(5, 1, -7);
     expect(dome.visible).toBe(false);
     expect(key.intensity).toBe(0);
-    expect(key.castShadow).toBe(false);
+    expect(key.shadow.intensity).toBe(0); // shadows hidden without freeing the map (castShadow stays on)
+    expect(key.shadow.autoUpdate).toBe(false);
+    expect(key.castShadow).toBe(true);
     expect([fog.near, fog.far]).toEqual([MINE_LOOK.fogNear, MINE_LOOK.fogFar]);
     expect(torch.visible).toBe(true); // always registered: the light count never changes
     expect(torch.position.toArray()).toEqual([5, 1, -7]);
@@ -54,6 +56,8 @@ describe('underground zones', () => {
     expect([fog.near, fog.far]).toEqual([FOG_NEAR, FOG_FAR]);
     expect(key.intensity).toBeGreaterThan(2);
     expect(key.castShadow).toBe(true);
+    expect(key.shadow.intensity).toBe(1);
+    expect(key.shadow.autoUpdate).toBe(true);
   });
 
   it('widens the lantern while a light spell is active', () => {

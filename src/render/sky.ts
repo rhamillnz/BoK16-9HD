@@ -262,10 +262,19 @@ export function createSky(scene: THREE.Scene): Sky {
     torch.distance = MINE_LOOK.outdoorDistance;
   };
 
+  /**
+   * Shadows on or off without touching `castShadow`: three.js frees the shadow map when a light stops casting and
+   * then crashes on a null map ("reading 'depthTexture'") when it starts again. Off = no strength, map not redrawn.
+   */
+  const showShadows = (on: boolean) => {
+    key.shadow.intensity = on ? 1 : 0;
+    key.shadow.autoUpdate = on;
+  };
+
   return {
     setShadows(enabled: boolean): void {
       shadowsWanted = enabled;
-      key.castShadow = enabled && !underground;
+      showShadows(enabled && !underground);
     },
 
     setOvercast(amount: number): void {
@@ -286,7 +295,7 @@ export function createSky(scene: THREE.Scene): Sky {
       dome.visible = !enabled;
       scene.fogNode = enabled ? null : sunsetFog;
       torch.intensity = enabled ? MINE_LOOK.torchIntensity : 0;
-      key.castShadow = shadowsWanted && !enabled;
+      showShadows(shadowsWanted && !enabled);
       if (enabled) {
         applyUnderground();
       } else {
