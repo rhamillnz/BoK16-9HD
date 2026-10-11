@@ -22,6 +22,9 @@ const NEXT_KEYS = new Set([' ', 'Enter', 'ArrowRight', 'PageDown']);
 const INK = '#2b1a0c';
 const INK_ITALIC = '#6b3a1c';
 
+/** Upscaled book pictures stand in for the originals at the original's size (in its pixels); drawn smoothed. */
+export const HD_ORIGINAL_SIZE = new WeakMap<object, { width: number; height: number }>();
+
 /** Pure drawing of one spread: background, illustrations, text. `sizeOf` gives an image's pixel size. */
 export function drawBookSpread(
   ctx: CanvasRenderingContext2D,
@@ -57,6 +60,8 @@ export function drawBookSpread(
       ctx.save();
       ctx.translate(flipX ? x + w : x, flipY ? y + h : y);
       ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      ctx.imageSmoothingEnabled = HD_ORIGINAL_SIZE.has(img);
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, w, h);
       ctx.restore();
     }
@@ -102,7 +107,8 @@ export class BookScreen implements HudScreenHandler {
     if (!view) return false;
     this.spreads = layoutBook(view.book, this.host.font, (i) => {
       const img = view.images[i] as unknown as { width: number; height: number } | undefined;
-      return img ? { width: img.width, height: img.height } : undefined;
+      if (!img) return undefined;
+      return HD_ORIGINAL_SIZE.get(img) ?? { width: img.width, height: img.height };
     });
     if (this.spreads.length === 0) return false;
     this.view = view;
@@ -141,7 +147,8 @@ export class BookScreen implements HudScreenHandler {
   draw(ctx: CanvasRenderingContext2D): void {
     const v = this.view;
     if (!v) return;
-    const sizeOf = (img: CanvasImageSource) => img as unknown as { width: number; height: number };
+    const sizeOf = (img: CanvasImageSource) =>
+      HD_ORIGINAL_SIZE.get(img) ?? (img as unknown as { width: number; height: number });
     drawBookSpread(
       ctx,
       this.host.font,

@@ -1,4 +1,6 @@
 import { parseBMX, type IndexedImage } from '../formats/bmx';
+import { CutsceneHdRenderer, type HdPicture } from './cutsceneHdRenderer';
+import { hdScreenName, hdSpriteName, hdUses } from './cutsceneHd';
 import { parsePalette, type Palette } from '../formats/palette';
 import { parseSCX } from '../formats/scx';
 import {
@@ -441,6 +443,8 @@ export interface CutsceneOptions {
   read: ReadResource;
   chapter?: number;
   host?: CutsceneHost;
+  /** Upscaled pictures by file stem (cutsceneHd.ts); with any, the player also draws `hdImage`. */
+  hd?: ReadonlyMap<string, HdPicture>;
 }
 
 type Wait = 'none' | 'click' | 'external' | 'fade' | 'delay';
@@ -449,6 +453,8 @@ type Wait = 'none' | 'click' | 'external' | 'fade' | 'delay';
 export class CutscenePlayer {
   /** The picture to show now (RGBA, 320x200), or undefined before the first frame. */
   image: Uint8ClampedArray<ArrayBuffer> | undefined;
+  /** The same picture at 4x from the upscaled art, when the cutscene has any (see cutsceneHd.ts). */
+  hdImage: HdPicture | undefined;
   fade: CutsceneFade = { color: [0, 0, 0], alpha: 0, region: FULL };
   text: string | undefined;
   finished = false;
@@ -457,6 +463,7 @@ export class CutscenePlayer {
 
   private readonly runner: CutsceneRunner;
   private readonly renderer: CutsceneRenderer;
+  private readonly hdRenderer: CutsceneHdRenderer | undefined;
   private readonly host: CutsceneHost;
   private wait: Wait = 'none';
   private remaining = 0;
@@ -468,6 +475,7 @@ export class CutscenePlayer {
         ops: TtmFrameOp[];
         next: number;
         picture: Uint8ClampedArray<ArrayBuffer>;
+        hdPicture: HdPicture | undefined;
         presented: boolean;
         scriptEnded: boolean;
       }
@@ -477,6 +485,7 @@ export class CutscenePlayer {
   constructor(opts: CutsceneOptions) {
     this.runner = new CutsceneRunner(opts.ads, opts.frames, opts.chapter ?? 1);
     this.renderer = new CutsceneRenderer(opts.read);
+    this.hdRenderer = opts.hd?.size ? new CutsceneHdRenderer(opts.read, opts.hd) : undefined;
     this.host = opts.host ?? {};
   }
 
@@ -549,6 +558,7 @@ export class CutscenePlayer {
     const f = this.frame;
     if (!f || f.presented) return;
     this.image = f.picture;
+    this.hdImage = f.hdPicture;
     f.presented = true;
     this.dirty = true;
   }
@@ -558,7 +568,14 @@ export class CutscenePlayer {
     if (!this.frame) {
       const ops = this.runner.next();
       if (!ops) return this.finish();
-      this.frame = { ops, next: 0, picture: this.renderer.draw(ops), presented: false, scriptEnded: false };
+      this.frame = {
+        ops,
+        next: 0,
+        picture: this.renderer.draw(ops),
+        hdPicture: this.hdRenderer?.draw(ops),
+        presented: false,
+        scriptEnded: false,
+      };
       this.fade = { ...this.fade, alpha: 0 };
     }
     const f = this.frame;
@@ -665,15 +682,28 @@ export async function loadCutscene(
   fetch: FetchResources,
   adsName: string,
   ttmName: string,
-  opts: { chapter?: number; host?: CutsceneHost } = {},
+  opts: {
+    chapter?: number;
+    host?: CutsceneHost;
+    /** Loads the upscaled pictures it can find for these file stems. */
+    loadHd?: (stems: readonly string[]) => Promise<ReadonlyMap<string, HdPicture>>;
+  } = {},
 ): Promise<CutscenePlayer> {
   const scripts = await fetch([adsName, ttmName]);
   const adsBytes = scripts(adsName);
   const ttmBytes = scripts(ttmName);
   if (!adsBytes || !ttmBytes) throw new Error(`cutscene scripts not found: ${adsName} / ${ttmName}`);
   const frames = parseTtmFrames(ttmBytes);
-  const read = await fetch(cutsceneResourceNames(frames));
-  return new CutscenePlayer({ ads: parseAds(adsBytes), frames, read, ...opts });
+  const uses = hdUses(frames);
+  const stems = [
+    ...uses.screens.map((u) => hdScreenName(u.scx, u.pal)),
+    ...uses.sprites.map((u) => hdSpriteName(u.bmx, u.index, u.pal)),
+  ];
+  const [read, hd] = await Promise.all([
+    fetch(cutsceneResourceNames(frames)),
+    opts.loadHd?.(stems).catch(() => undefined),
+  ]);
+  return new CutscenePlayer({ ads: parseAds(adsBytes), frames, read, chapter: opts.chapter, host: opts.host, hd });
 }
 
 export type CutsceneStep = { kind: 'ttm'; ads: string; ttm: string } | { kind: 'book'; file: string };

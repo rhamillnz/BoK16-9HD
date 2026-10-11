@@ -1,4 +1,6 @@
 import { parseDDX, type DialogFile } from '../formats/ddx';
+import { hdUrl } from './cutsceneHd';
+import type { HdPicture } from './cutsceneHdRenderer';
 import type { HudScreens } from '../ui/hud';
 import '../ui/cutsceneScreen'; // registers the cutscene screen
 import type { CutsceneScreenView } from '../ui/cutsceneScreen';
@@ -129,7 +131,11 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
       dialog: host.dialog && ((key, done) => void host.dialog!(cutsceneDialogKey(key)).then(resume(done))),
     };
     try {
-      player = await loadCutscene(host.fetch, ads, ttm, { chapter: host.chapter(), host: hooks });
+      player = await loadCutscene(host.fetch, ads, ttm, {
+        chapter: host.chapter(),
+        host: hooks,
+        loadHd: loadHdPictures,
+      });
     } catch (err) {
       console.warn('Cutscene unavailable:', err);
       return;
@@ -159,6 +165,7 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
       view = {
         player: pl,
         picture: () => {
+          if (pl.hdImage) return pl.hdImage;
           if (!pl.image) return undefined;
           if (shown !== pl.image) {
             shown = pl.image;
@@ -222,4 +229,22 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
     if (ads && ttm) void play(ads, ttm);
   }
   return api;
+}
+
+/** The upscaled cutscene pictures that exist for these stems (served from /art/cutscenes-4x/ in dev). */
+async function loadHdPictures(stems: readonly string[]): Promise<ReadonlyMap<string, HdPicture>> {
+  const found = new Map<string, HdPicture>();
+  await Promise.all(
+    stems.map(async (stem) => {
+      const img = new Image();
+      img.src = hdUrl(stem);
+      try {
+        await img.decode();
+        found.set(stem, img);
+      } catch {
+        // not upscaled: the original picture is drawn instead
+      }
+    }),
+  );
+  return found;
 }

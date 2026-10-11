@@ -47,7 +47,9 @@ export function drawCutscene(
   const s = layout.scale;
   if (picture) {
     const smoothing = ctx.imageSmoothingEnabled;
-    ctx.imageSmoothingEnabled = false;
+    // The 320x200 original stays crisp; an HD (upscaled) picture is resampled smoothly to the screen size.
+    ctx.imageSmoothingEnabled = (picture as { width?: number }).width! > 320;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(picture, layout.x, layout.y, layout.width, layout.height);
     ctx.imageSmoothingEnabled = smoothing;
   }

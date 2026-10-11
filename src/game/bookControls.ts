@@ -1,4 +1,6 @@
 import { parseBMX, toRGBA } from '../formats/bmx';
+import { hdSpriteName, hdUrl } from './cutsceneHd';
+import { HD_ORIGINAL_SIZE } from '../ui/bookScreen';
 import { parseBook } from '../formats/book';
 import { parsePalette } from '../formats/palette';
 import { parseSCX } from '../formats/scx';
@@ -48,11 +50,26 @@ export function installBookPlayer(host: BookPlayerHost): { playBook(file: string
           /* plain paper instead */
         }
       }
-      const images: (HTMLCanvasElement | undefined)[] = [];
+      const images: (HTMLCanvasElement | HTMLImageElement | undefined)[] = [];
       const bmx = read('BOOK.BMX');
       if (bmx && palette) {
         try {
           for (const img of parseBMX(bmx)) images.push(toCanvas(img.width, img.height, toRGBA(img, palette)));
+          // Upscaled pictures (cutsceneHd.ts), where they exist, drawn at the original's size.
+          await Promise.all(
+            images.map(async (canvas, i) => {
+              if (!canvas) return;
+              const hd = new Image();
+              hd.src = hdUrl(hdSpriteName('BOOK.BMX', i, 'BOOK.PAL'));
+              try {
+                await hd.decode();
+              } catch {
+                return;
+              }
+              HD_ORIGINAL_SIZE.set(hd, { width: canvas.width, height: canvas.height });
+              images[i] = hd;
+            }),
+          );
         } catch {
           /* no pictures */
         }
