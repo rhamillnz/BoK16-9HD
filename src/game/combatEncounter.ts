@@ -26,6 +26,11 @@ export interface CombatEncounterDeps {
   getHeight: (x: number, y: number) => number;
   /** True inside a hill or other solid model; combat cells there are disabled. */
   blocked?: (x: number, y: number) => boolean;
+  /**
+   * Height of what is drawn there (the ground, or a hill model standing on it). The grid, the fighters and the
+   * camera stand on this, and the grid is placed where the camera can see it.
+   */
+  surface?: (x: number, y: number) => number;
   support: CombatSupport;
   items: readonly ItemDef[];
   /** SPELLS.DAT, so magic-users can cast. */
@@ -67,7 +72,7 @@ export class CombatEncounters {
       scene: d.scene,
       camera: d.camera,
       canvas: d.canvas,
-      getHeight: d.getHeight,
+      getHeight: d.surface ?? d.getHeight,
     });
   }
 
@@ -138,8 +143,12 @@ export class CombatEncounters {
     try {
       const enemies = enemiesOf(s, def).map((e) => (fresh ? { ...e, dead: false } : e));
       const pos = this.d.position();
-      // Slide the grid off any rock face the party is facing; cells that stay on one are disabled.
-      const fit = fitCombatGrid(pos, pos.heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, this.d.getHeight, this.d.blocked);
+      // Slide or turn the grid off any rock face or hill the party is facing, to where the camera can see it;
+      // cells that stay on one are disabled.
+      const fit = fitCombatGrid(pos, pos.heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, this.d.getHeight, {
+        blocked: this.d.blocked,
+        surface: this.d.surface,
+      });
       const fighters = buildFighters({
         disabled: fit.disabled,
         def,
@@ -159,7 +168,7 @@ export class CombatEncounters {
           fighters,
           party: fit.anchor,
           disabled: fit.disabled,
-          heading: pos.heading,
+          heading: fit.heading,
           spriteFor: spriteLookup(s, sheets),
           palette: s.palette ?? new Uint8Array(1024).fill(255),
         },

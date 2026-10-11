@@ -84,6 +84,8 @@ interface FighterNode {
   fighter: Fighter;
   /** One-instance billboard; the instance translation is its anchor, which the billboard shader turns around. */
   mesh: THREE.InstancedMesh;
+  /** The same figure drawn faintly through anything in front of it (a hill, a rock, a tree), tinted by side. */
+  ghost: THREE.InstancedMesh;
   textures: THREE.Texture[];
 }
 
@@ -157,8 +159,19 @@ export class CombatView {
     const h = (sprite?.height ?? MARKER_SIZE.height) / WORLD_SCALE;
     const mesh = createBillboards(map, [0, 0, 0, w, h], `fighter-${f.id}`);
     mesh.frustumCulled = false;
-    this.group.add(mesh);
-    this.nodes.set(f.id, { fighter: f, mesh, textures });
+    const ghost = createBillboards(map, [0, 0, 0, w, h], `fighter-${f.id}-ghost`);
+    ghost.frustumCulled = false;
+    const gm = ghost.material as THREE.MeshBasicNodeMaterial;
+    gm.depthTest = false;
+    gm.depthWrite = false;
+    gm.transparent = true;
+    gm.opacity = 0.45;
+    gm.alphaTest = 0.2;
+    gm.fog = false;
+    gm.color.set(f.side === 'party' ? '#9cc4ff' : '#ff9a90');
+    ghost.renderOrder = 5;
+    this.group.add(mesh, ghost);
+    this.nodes.set(f.id, { fighter: f, mesh, ghost, textures });
   }
 
   /** Ground-level render position of a grid cell's centre. */
@@ -174,10 +187,12 @@ export class CombatView {
       if (!node) continue;
       // The billboard shader recovers its anchor from the instance translation, so move the instance, not the mesh.
       const at = this.cellCentre(f.pos);
-      node.mesh.setMatrixAt(0, new THREE.Matrix4().makeTranslation(at.x, at.y, at.z));
-      node.mesh.instanceMatrix.needsUpdate = true;
-      // No corpse sprite yet: the fallen simply leave the field.
-      node.mesh.visible = !isDead(f);
+      for (const m of [node.mesh, node.ghost]) {
+        m.setMatrixAt(0, new THREE.Matrix4().makeTranslation(at.x, at.y, at.z));
+        m.instanceMatrix.needsUpdate = true;
+        // No corpse sprite yet: the fallen simply leave the field.
+        m.visible = !isDead(f);
+      }
     }
     const { cols, rows } = this.o;
     const over = isOver(state);
@@ -229,8 +244,10 @@ export class CombatView {
     this.geometry.dispose();
     this.material.dispose();
     for (const node of this.nodes.values()) {
-      node.mesh.geometry.dispose();
-      (node.mesh.material as THREE.Material).dispose();
+      for (const m of [node.mesh, node.ghost]) {
+        m.geometry.dispose();
+        (m.material as THREE.Material).dispose();
+      }
       for (const t of node.textures) t.dispose();
     }
     this.nodes.clear();

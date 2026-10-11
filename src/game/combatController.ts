@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { enemyTurn } from '../combat/ai';
 import {
+  advanceOn,
   attack,
   castableSpells,
   castSpell,
@@ -8,6 +9,7 @@ import {
   defend,
   fighterAt,
   flee,
+  gridFor,
   isOver,
   moveTo,
   rest,
@@ -25,10 +27,10 @@ import {
   type CombatDef,
   type PartyGridSlot,
 } from '../combat/combatData';
-import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS, type GridPos } from '../combat/grid';
+import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS, chebyshevDistance, planAttack, type GridPos } from '../combat/grid';
 import { parseMonsterNames, parseMonsterSprites, type MonsterSprites } from '../combat/monsters';
 import { battleRewards, type Rewards } from '../combat/rewards';
-import { rollFrom, type Roll } from '../combat/rules';
+import { isDead, rollFrom, type Roll } from '../combat/rules';
 import { combatSprite, spriteSheetName, type CombatSprite } from '../combat/sprites';
 import type { CombatOutcome } from '../combat/turns';
 import { parseBMX, type IndexedImage } from '../formats/bmx';
@@ -254,6 +256,7 @@ export class CombatController {
     const s = this.state;
     if (!s || !this.view || !this.panel) return;
     this.view.update(s, this.yourTurn() ? this.hover : undefined);
+    if (withLog) this.panel.setTargets(this.targetChoices());
     if (withLog)
       this.panel.render(s, {
         slash: this.slash,
@@ -271,6 +274,39 @@ export class CombatController {
       playBattleSounds(s.events, s.fighters);
       s.events = [];
     }
+  }
+
+  /** What the target buttons offer this turn, following the chosen mode (spell, shoot, slash or thrust). */
+  private targetChoices(): { label: string; act: () => void }[] {
+    const s = this.state;
+    if (!s || !this.yourTurn()) return [];
+    const me = currentFighter(s);
+    const spell = this.spellsNow()[this.casting];
+    if (spell) {
+      const wanted = spellKind(spell) === 'heal' ? 'party' : 'enemy';
+      return s.fighters
+        .filter((f) => !isDead(f) && f.side === wanted)
+        .map((f) => ({ label: `Cast ${spell.name} on ${f.name}`, act: () => this.click(f.pos, false) }));
+    }
+    const enemies = s.fighters.filter((f) => !isDead(f) && f.side === 'enemy');
+    if (this.shooting)
+      return shootTargets(s).map((f) => ({ label: `Shoot ${f.name}`, act: () => this.click(f.pos, false) }));
+    const grid = gridFor(s);
+    return enemies
+      .sort((a, b) => chebyshevDistance(me.pos, a.pos) - chebyshevDistance(me.pos, b.pos))
+      .map((f) => {
+        const reach = planAttack(grid, me.pos, f.pos, { slash: this.slash, maxSteps: me.speed });
+        if (reach)
+          return { label: `${this.slash ? 'Slash' : 'Attack'} ${f.name}`, act: () => this.click(f.pos, false) };
+        return {
+          label: `Advance on ${f.name}`,
+          act: () => {
+            const next = advanceOn(s, f.pos);
+            if (next) this.partyAction(() => next);
+            else this.panel?.note(`There is no way to reach ${f.name}.`);
+          },
+        };
+      });
   }
 
   private canShoot(): boolean {

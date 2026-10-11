@@ -13,6 +13,7 @@ import {
   directionBetween,
   planAttack,
   samePos,
+  selectAttackPosition,
   type CombatGrid,
   type Direction,
   type GridPos,
@@ -151,6 +152,24 @@ export function moveTo(s: BattleState, target: GridPos): BattleState | undefined
     k === s.turn.current ? { ...f, pos: target, facing: directionBetween(path[path.length - 2] ?? me.pos, target) } : f,
   );
   return endTurn(s, fighters, [{ type: 'move', id: me.id, from: me.pos, path }]);
+}
+
+/**
+ * Walk as far as this turn allows towards a place to strike the fighter at `target` from: the end of the path
+ * to it, or the furthest reachable cell along the way. Undefined when there is no way there.
+ */
+export function advanceOn(s: BattleState, target: GridPos): BattleState | undefined {
+  if (isOver(s)) return undefined;
+  const grid = gridFor(s);
+  const me = currentFighter(s);
+  const stand = selectAttackPosition(grid, me.pos, target);
+  if (!stand || samePos(stand, me.pos)) return undefined;
+  const path = calculatePath(grid, me.pos, stand);
+  for (let i = path.length - 1; i >= 0; i--) {
+    const c = path[i]!;
+    if (grid.cells[c.y * grid.cols + c.x]!.reachable) return moveTo(s, c);
+  }
+  return undefined;
 }
 
 export interface AttackOptions {

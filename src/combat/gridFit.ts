@@ -6,17 +6,19 @@
  */
 
 import { COMBAT_CELL_SIZE, snapHeading, type GridPos } from './grid';
-import { gridPointToWorld, type Point } from './layout';
+import { cameraPlan, gridPointToWorld, type Point } from './layout';
 
 /** A cell is a cliff when the ground beside it rises or falls by more than this over one cell (about 59 degrees). */
 export const CLIFF_STEP = 500;
 /** Furthest the grid may slide, in cells: sideways either way, and back towards the party. */
-const MAX_SIDEWAYS = 2;
-const MAX_BACK = 4;
+const MAX_SIDEWAYS = 3;
+const MAX_BACK = 6;
 
 export interface FittedGrid {
   /** Where the grid is anchored; the party's own position when no slide was needed. */
   anchor: Point;
+  /** Heading to lay the grid out along: the party's own, or a quarter turn of it when that fits better. */
+  heading: number;
   /** Cells left on cliffs after sliding. */
   disabled: GridPos[];
 }
@@ -56,39 +58,94 @@ export function cliffCells(
   return out;
 }
 
+/** Options for `fitCombatGrid` beyond the ground height. */
+export interface FitOptions {
+  /** Hills and other models with a collision outline. */
+  blocked?: (x: number, y: number) => boolean;
+  /**
+   * Height of what is drawn (ground or the hill on it). Cells where it stands well above the ground are inside a
+   * hill model; a camera whose view of the grid passes through it cannot see the fight.
+   */
+  surface?: (x: number, y: number) => number;
+}
+
+/** A cell whose drawn surface is this far above the ground is on (or in) a hill model. */
+export const RAISED = 150;
+/** Cost of turning the grid away from the way the party faces: a quarter turn, and right round. */
+const TURN_COST = [0, 6, 10, 6];
+/** Cost of a camera that cannot see the grid, against one disabled cell (10). */
+const BLIND_COST = 60;
+
+/**
+ * True when the combat camera (`cameraPlan`) sees the middle of the grid: the sight line stays above the drawn
+ * surface all the way.
+ */
+export function cameraSeesGrid(
+  anchor: Point,
+  heading: number,
+  cols: number,
+  rows: number,
+  getHeight: (x: number, y: number) => number,
+  surface: (x: number, y: number) => number,
+): boolean {
+  const plan = cameraPlan(anchor, heading, cols, rows);
+  const eyeH = getHeight(plan.eye.x, plan.eye.y) + plan.height;
+  const targetH = getHeight(plan.target.x, plan.target.y);
+  if (surface(plan.eye.x, plan.eye.y) > eyeH - 200) return false;
+  const steps = 16;
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const x = plan.eye.x + (plan.target.x - plan.eye.x) * t;
+    const y = plan.eye.y + (plan.target.y - plan.eye.y) * t;
+    if (surface(x, y) > eyeH + (targetH - eyeH) * t - 60) return false;
+  }
+  return true;
+}
+
+/**
+ * Where to lay the grid: the party's own spot and facing when that is clear, otherwise the best of the grid slid
+ * back (up to 6 cells) or sideways (up to 3) and turned to each side or right round. The cost counts disabled
+ * cells first, then a camera that cannot see the fight, then how far the grid moved and turned.
+ */
 export function fitCombatGrid(
   party: Point,
   heading: number,
   cols: number,
   rows: number,
   getHeight: (x: number, y: number) => number,
-  blocked?: (x: number, y: number) => boolean,
+  o: FitOptions | ((x: number, y: number) => boolean) = {},
 ): FittedGrid {
-  const here = cliffCells(party, heading, cols, rows, getHeight, blocked);
-  if (here.length === 0) return { anchor: party, disabled: [] };
-
-  const snapped = snapHeading(heading);
-  const turn = (snapped * 2 * Math.PI) / 256;
-  const cos = Math.cos(turn);
-  const sin = Math.sin(turn);
-  let best: FittedGrid = { anchor: party, disabled: here };
-  let bestCost = here.length;
-  let bestDistance = 0;
-  for (let back = 0; back <= MAX_BACK; back++) {
-    for (let side = -MAX_SIDEWAYS; side <= MAX_SIDEWAYS; side++) {
-      if (back === 0 && side === 0) continue;
-      // Grid-local (east, north) shift turned into world axes.
-      const lx = side * COMBAT_CELL_SIZE;
-      const ly = -back * COMBAT_CELL_SIZE;
-      const anchor = { x: party.x + lx * cos - ly * sin, y: party.y + lx * sin + ly * cos };
-      const disabled = cliffCells(anchor, heading, cols, rows, getHeight, blocked);
-      const distance = back + Math.abs(side);
-      if (disabled.length < bestCost || (disabled.length === bestCost && distance < bestDistance)) {
-        best = { anchor, disabled };
-        bestCost = disabled.length;
-        bestDistance = distance;
+  const { blocked, surface } = typeof o === 'function' ? { blocked: o, surface: undefined } : o;
+  const solid =
+    surface || blocked
+      ? (x: number, y: number) => !!blocked?.(x, y) || (!!surface && surface(x, y) - getHeight(x, y) > RAISED)
+      : undefined;
+  const base = snapHeading(heading);
+  let best: FittedGrid | undefined;
+  let bestCost = Infinity;
+  for (let turn = 0; turn < 4; turn++) {
+    const h = (base + turn * 64) % 256;
+    const a = (h * 2 * Math.PI) / 256;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    for (let back = 0; back <= MAX_BACK; back++) {
+      for (let side = -MAX_SIDEWAYS; side <= MAX_SIDEWAYS; side++) {
+        const moveCost = TURN_COST[turn]! + back + Math.abs(side);
+        if (moveCost >= bestCost) continue;
+        // Grid-local (east, north) shift turned into world axes.
+        const lx = side * COMBAT_CELL_SIZE;
+        const ly = -back * COMBAT_CELL_SIZE;
+        const anchor = { x: party.x + lx * cos - ly * sin, y: party.y + lx * sin + ly * cos };
+        const disabled = cliffCells(anchor, h, cols, rows, getHeight, solid);
+        let cost = disabled.length * 10 + moveCost;
+        if (cost >= bestCost) continue;
+        if (surface && !cameraSeesGrid(anchor, h, cols, rows, getHeight, surface)) cost += BLIND_COST;
+        if (cost < bestCost) {
+          best = { anchor, heading: h === base ? heading : h, disabled };
+          bestCost = cost;
+        }
       }
     }
   }
-  return best;
+  return best!;
 }

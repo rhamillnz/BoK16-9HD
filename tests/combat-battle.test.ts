@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { enemyTurn } from '../src/combat/ai';
 import {
+  advanceOn,
   attack,
   currentFighter,
   defend,
@@ -52,6 +53,14 @@ describe('battle flow', () => {
     expect(moved.fighters[0]!.pos).toEqual({ x: 3, y: 4 });
     expect(currentFighter(moved).id).toBe('x');
     expect(moved.events[0]).toMatchObject({ type: 'move', id: 'a' });
+  });
+
+  it('advances on a distant enemy as far as Speed allows, and not at all when already beside it', () => {
+    const s = startBattle([fighter('a', 'party', 3, 0, { speed: 3 }), fighter('x', 'enemy', 3, 10, { speed: 1 })]);
+    const moved = advanceOn(s, { x: 3, y: 10 })!;
+    expect(moved.fighters[0]!.pos).toEqual({ x: 3, y: 3 });
+    const close = startBattle([fighter('a', 'party', 3, 9), fighter('x', 'enemy', 3, 10, { speed: 1 })]);
+    expect(advanceOn(close, { x: 3, y: 10 })).toBeUndefined();
   });
 
   it('refuses moves beyond Speed, onto occupied or disabled cells', () => {

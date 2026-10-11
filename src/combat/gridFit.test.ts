@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS, COMBAT_CELL_SIZE } from './grid';
-import { cliffCells, fitCombatGrid } from './gridFit';
+import { cameraSeesGrid, cliffCells, fitCombatGrid } from './gridFit';
 import { gridPointToWorld } from './layout';
 
 const party = { x: 100000, y: 100000 };
@@ -12,7 +12,7 @@ const cliffNorthOf = (edge: number) => (_x: number, y: number) => (y > edge ? 20
 describe('fitCombatGrid', () => {
   it('leaves the grid alone on flat ground', () => {
     const fit = fitCombatGrid(party, 0, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, flat);
-    expect(fit).toEqual({ anchor: party, disabled: [] });
+    expect(fit).toEqual({ anchor: party, heading: 0, disabled: [] });
   });
 
   it('slides the grid back when the party faces a cliff, so every cell is on level ground', () => {
@@ -52,8 +52,26 @@ describe('fitCombatGrid', () => {
     const spike = gridPointToWorld(party, 0, 3.5, 5.5);
     const ground = (x: number, y: number) => (Math.abs(x - spike.x) < 100 && Math.abs(y - spike.y) < 100 ? 3000 : 0);
     const fit = fitCombatGrid(party, 0, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, ground);
-    // Sliding the grid moves the spike to another cell but never off it entirely, so the cell is dropped there.
-    expect(fit.disabled.length).toBeGreaterThanOrEqual(1);
+    // Sliding never moves the grid off the spike; turning it may. Either way only a cell or so is lost.
     expect(fit.disabled.length).toBeLessThanOrEqual(5);
+  });
+
+  it('turns the grid away from a hill that fills the way the party faces', () => {
+    // A hill model covers everything north of the party: no slide back clears the far rows, a turn does.
+    const surface = (_x: number, y: number) => (y > party.y + 1000 ? 2500 : 0);
+    const fit = fitCombatGrid(party, 0, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, flat, { surface });
+    expect(fit.disabled).toEqual([]);
+    expect(fit.heading).not.toBe(0);
+    expect(cameraSeesGrid(fit.anchor, fit.heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, flat, surface)).toBe(true);
+  });
+
+  it('keeps the camera out of a hill behind the party', () => {
+    // A ridge running east-west under the camera, between the party and the grid.
+    const ridge = (y: number) => y > party.y + 1300 && y < party.y + 1800;
+    const surface = (_x: number, y: number) => (ridge(y) ? 4000 : 0);
+    expect(cameraSeesGrid(party, 0, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, flat, surface)).toBe(false);
+    const fit = fitCombatGrid(party, 0, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, flat, { surface });
+    expect(fit.disabled).toEqual([]);
+    expect(cameraSeesGrid(fit.anchor, fit.heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS, flat, surface)).toBe(true);
   });
 });

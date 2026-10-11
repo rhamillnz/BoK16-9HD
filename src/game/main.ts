@@ -408,7 +408,11 @@ const combat = new CombatEncounters({
   camera,
   canvas: renderer.domElement,
   getHeight: zoneHost.getHeight,
-  blocked: (x, y) => zoneHost.current.scene.collision.some((p) => pointInPolygon(p, x, y)),
+  blocked: (x, y) =>
+    zoneHost.current.scene.collision.some(
+      (p) => x >= p.minX && x <= p.maxX && y >= p.minY && y <= p.maxY && pointInPolygon(p, x, y),
+    ),
+  surface: zoneHost.surfaceHeight,
   support: await loadCombatSupport(archive, save.bytes),
   items: objectItems,
   spells: spellDefs,

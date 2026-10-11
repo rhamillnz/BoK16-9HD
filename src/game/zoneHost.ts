@@ -9,6 +9,7 @@ import { WORLD_SCALE, buildZoneScene, collectTerrainTriangles, type ZoneScene } 
 import { buildHeightField, type HeightField } from '../world/heightField';
 import { isUndergroundZone } from '../world/underground';
 import { loadZone, type ZoneData } from '../world/zone';
+import { SurfaceIndex } from '../world/surfaceIndex';
 
 /** One loaded outdoor zone: its data, the scene group, the ground height lookup and its grass. */
 export interface LoadedZone {
@@ -68,6 +69,25 @@ export async function loadZoneScene(archive: ResourceArchive, zone: number, pare
   return { zone, data, scene, heightField, grass, info };
 }
 
+/** Every triangle of the zone's hill meshes, in world render units (for `SurfaceIndex`). */
+export function hillTriangles(group: THREE.Object3D): Float32Array {
+  const out: number[] = [];
+  const v = new THREE.Vector3();
+  group.updateMatrixWorld(true);
+  group.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || mesh.name !== 'hills') return;
+    const pos = mesh.geometry.getAttribute('position');
+    const index = mesh.geometry.getIndex();
+    const count = index ? index.count : pos.count;
+    for (let i = 0; i < count; i++) {
+      v.fromBufferAttribute(pos, index ? index.getX(i) : i).applyMatrix4(mesh.matrixWorld);
+      out.push(v.x, v.y, v.z);
+    }
+  });
+  return new Float32Array(out);
+}
+
 /** Free the GPU resources of a zone group that is no longer shown. */
 export function disposeGroup(group: THREE.Object3D): void {
   group.traverse((o) => {
@@ -100,6 +120,20 @@ export class ZoneHost {
 
   /** Ground height at a BaK position in the current zone. */
   getHeight = (x: number, y: number): number => this.current.heightField.getHeight(x, y);
+
+  private surface: { zone: LoadedZone; index: SurfaceIndex } | undefined;
+
+  /**
+   * Height of what is actually drawn at a BaK position: the ground, or the top of a hill model standing on it
+   * (the height field leaves hills out). The hill index is built on first use for each zone.
+   */
+  surfaceHeight = (x: number, y: number): number => {
+    const ground = this.getHeight(x, y);
+    if (this.surface?.zone !== this.current)
+      this.surface = { zone: this.current, index: new SurfaceIndex(hillTriangles(this.current.scene.group)) };
+    const hill = this.surface.index.heightAt(x / WORLD_SCALE, -y / WORLD_SCALE);
+    return hill === undefined ? ground : Math.max(ground, hill * WORLD_SCALE);
+  };
 
   /** Replace the current zone's scene (and its grass) with `zone` and return it. */
   async switchTo(zone: number): Promise<LoadedZone> {

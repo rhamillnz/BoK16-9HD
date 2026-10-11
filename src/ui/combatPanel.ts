@@ -57,6 +57,8 @@ export class CombatPanel {
   private readonly buttons = document.createElement('div');
   private readonly log = document.createElement('div');
   private readonly status = document.createElement('div');
+  private readonly targets = document.createElement('div');
+  private targetActions: (() => void)[] = [];
   private readonly slashButton: HTMLButtonElement;
   private readonly shootButton: HTMLButtonElement;
   private readonly castButton: HTMLButtonElement;
@@ -89,8 +91,10 @@ export class CombatPanel {
     this.castButton = button('Cast: off (C)', h.cycleCast);
     const hint = document.createElement('div');
     hint.style.cssText = 'font-size:12px;opacity:.7;margin-bottom:6px';
-    hint.textContent = 'Click a blue cell to move, a red one to attack. With a spell chosen, click its target.';
-    this.root.append(this.status, this.list, this.buttons, hint, this.log);
+    hint.textContent =
+      'Pick a target below (or press its number), or click a blue cell to move and a red one to attack.';
+    this.targets.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin:0 0 8px';
+    this.root.append(this.status, this.list, this.buttons, this.targets, hint, this.log);
     parent.append(this.root);
     this.onKey = (e) => {
       if (e.repeat) return;
@@ -102,6 +106,7 @@ export class CombatPanel {
       else if (k === 'KeyF') h.toggleShoot();
       else if (k === 'KeyC') h.cycleCast();
       else if (k === 'Enter' || k === 'Space') h.finish();
+      else if (/^(Digit|Numpad)[1-9]$/.test(k)) this.targetActions[Number(k.slice(-1)) - 1]?.();
       else return;
       e.preventDefault();
       e.stopPropagation();
@@ -142,6 +147,27 @@ export class CombatPanel {
     this.castButton.style.opacity = opts.canCast ? '1' : '0.4';
     this.shootButton.style.opacity = opts.canShoot ? '1' : '0.4';
     this.buttons.style.opacity = opts.yourTurn && !outcome ? '1' : '0.5';
+  }
+
+  /**
+   * One button per target the current fighter can act on ("Attack moredhel warrior", "Advance on ...", a spell's
+   * target), numbered for the keys 1 to 9. An empty list hides them (not your turn, or the fight is over).
+   */
+  setTargets(list: readonly { label: string; act: () => void }[]): void {
+    this.targetActions = list.slice(0, 9).map((t) => t.act);
+    this.targets.replaceChildren(
+      ...list.slice(0, 9).map((t, i) => {
+        const b = document.createElement('button');
+        b.textContent = `${i + 1}. ${t.label}`;
+        b.style.cssText =
+          'text-align:left;padding:5px 8px;background:#5a2418;color:#fff0e0;border:1px solid #b0503a;border-radius:4px;cursor:pointer;font:inherit';
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          t.act();
+        });
+        return b;
+      }),
+    );
   }
 
   /** A line that is not a battle event (a refused click, say). */
