@@ -98,7 +98,7 @@ export function mainMenuModel(s: MainMenuState, message?: string): MenuModel {
       { id: 'new', label: 'New game' },
       { id: 'continue', label: 'Continue', enabled: s.hasSave },
       { id: 'load', label: 'Load game', enabled: s.hasSave },
-      { id: 'intro', label: 'Replay introduction' },
+      { id: 'intro', label: 'Watch the introduction' },
       { id: 'options', label: 'Options' },
     ],
     buttons: [],

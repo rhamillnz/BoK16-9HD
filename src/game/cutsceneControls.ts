@@ -77,7 +77,8 @@ export interface Cutscenes {
   playChapterStart(chapter?: number): Promise<void>;
   playChapterFinish(chapter?: number): Promise<void>;
   /** The new-game opening (`introCutscenes`). Escape skips a scene; Escape twice within a second skips the rest. */
-  playIntro(): Promise<void>;
+  /** The opening: the title animation then the story (`storyOnly`: just chapter 1's card, book and first scene). */
+  playIntro(storyOnly?: boolean): Promise<void>;
   readonly active: boolean;
 }
 
@@ -191,7 +192,7 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
 
   // True for the whole intro, including the loading gaps between its scenes (Escape must not open the menu there).
   let inIntro = false;
-  const playIntro = async (): Promise<void> => {
+  const playIntro = async (storyOnly = false): Promise<void> => {
     let lastEscape = -Infinity;
     let skipAll = false;
     const onKey = (e: KeyboardEvent) => {
@@ -202,7 +203,7 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
     window.addEventListener('keydown', onKey, true);
     inIntro = true;
     try {
-      for (const step of introCutscenes()) {
+      for (const step of storyOnly ? chapterStartCutscenes(1) : introCutscenes()) {
         if (skipAll) break;
         await playSteps([step]);
       }

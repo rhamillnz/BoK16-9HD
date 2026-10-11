@@ -94,6 +94,7 @@ import { loadTitleArt } from './titleArt';
 import { ensureGameData } from '../ui/dataPicker';
 import { GameDataError, installBootScreen } from '../ui/bootScreen';
 import { drawTitleScreen, layoutTitle } from '../ui/titleScreen';
+import { loadTownViews } from '../ui/loadingArt';
 import { installInput } from './inputControls';
 import { loadZone } from '../world/zone';
 import type { JumpMapScreen } from '../ui/jumpMapScreen';
@@ -101,6 +102,11 @@ import type { JumpMapScreen } from '../ui/jumpMapScreen';
 const stageEl = document.getElementById('stage')!;
 const hud = document.getElementById('hud')!;
 const boot = installBootScreen(); // loading and error screens
+// The loading screen shows the upscaled town views (when this machine has them) with the title logo over them.
+const townViews: HTMLImageElement[] = [];
+void loadTownViews(townViews);
+let loadingLogo: CanvasImageSource | undefined;
+boot.slideshow(townViews, () => loadingLogo);
 boot.loading('Starting graphics…');
 
 const { renderer, camera, backend } = await createStage(stageEl);
@@ -133,6 +139,7 @@ const chapterStart = {
 const startZone = num('zone', chapterStart.zone);
 // The title screen's art behind the loading bar while the world is built.
 const titleArt = loadTitleArt(archive);
+loadingLogo = titleArt.logo;
 try {
   const titleFont = parseFNT(archive.get('GAME.FNT'));
   boot.backdrop((ctx, width, height) => {
@@ -144,6 +151,7 @@ try {
   console.warn('Loading screen art unavailable:', err);
 }
 boot.loading('Building the world…', 0.5);
+await boot.painted(); // building the zone holds the page up, so get the art on screen first
 const zoneHost = await ZoneHost.create(scene, archive, startZone);
 const [firstTileX, firstTileY] = zoneHost.current.data.tiles[0] ?? [0, 0];
 const entry =
@@ -489,6 +497,7 @@ async function travelTo(d: Destination): Promise<void> {
     const plan = planTransition(zoneHost.current.zone, d, { x: party.x, y: party.y, heading: party.heading });
     if (plan.reload) {
       boot.loading(`Loading zone ${plan.zone}…`);
+      await boot.painted(500);
       const next = await zoneHost.switchTo(plan.zone);
       party.polygons = next.scene.collision;
       next.grass.setQuality(post.quality);
@@ -789,7 +798,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // Main menu: shown at start and on Escape (new game, continue, load, options).
-installMainMenu({
+const menuShown = installMainMenu({
   screens,
   music,
   post,
@@ -798,13 +807,15 @@ installMainMenu({
   canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode && !cutscenes.active,
   titleSong: SONG_TITLE,
   startGameMusic: () => zoneMusic(zoneHost.current.zone),
-  playIntro: () => cutscenes.playIntro(),
+  playIntro: (storyOnly) => cutscenes.playIntro(storyOnly),
 });
 
 let last = performance.now();
 let frames = 0;
 let fpsTime = 0;
 let fps = 0;
+// Keep the loading art up until the title menu (or the introduction) is ready to take over the screen.
+await Promise.race([menuShown, new Promise((r) => setTimeout(r, 3000))]);
 boot.done();
 renderer.setAnimationLoop(() => {
   const now = performance.now();

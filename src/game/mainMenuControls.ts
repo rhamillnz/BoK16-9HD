@@ -30,19 +30,24 @@ export interface MainMenuHost {
   /** Song for the title menu; `startGameMusic` takes over when the menu first closes into the game. */
   titleSong?: number;
   startGameMusic?: () => void;
-  /** The opening animations and story (title, chapter 1 card, book, first scene); played by New game. */
-  playIntro?: () => Promise<void>;
+  /**
+   * The opening: the title animation, then the story (chapter 1's card, book and first scene). The whole of it plays
+   * on the very first launch and from the menu; New game plays just the story (`storyOnly`).
+   */
+  playIntro?: (storyOnly?: boolean) => Promise<void>;
 }
 
 const SKIP_KEY = 'bok.skipMenu';
-/** Value of SKIP_KEY after New game: skip the menu and play the introduction. */
-const INTRO = 'intro';
+/** Value of SKIP_KEY after New game: skip the menu and play the story opening. */
+const STORY = 'story';
+/** Set once the whole introduction has played by itself, on the first launch. */
+const INTRO_SEEN_KEY = 'bok.introSeen';
 
 /**
  * The main menu: shown when the game starts and on Escape when nothing else is open. New game, Continue
  * (the newest save), Load (the F6 slot screen) and Options (graphics, music, key help).
  */
-export function installMainMenu(h: MainMenuHost): void {
+export function installMainMenu(h: MainMenuHost): Promise<void> {
   const panel = h.screens.screenHandler<MenuPanelScreen>(MENU_SCREEN_ID);
   let settings = getSettings();
   let started = false;
@@ -89,7 +94,7 @@ export function installMainMenu(h: MainMenuHost): void {
         break;
       case 'new':
         try {
-          sessionStorage.setItem(SKIP_KEY, h.playIntro ? INTRO : '1');
+          sessionStorage.setItem(SKIP_KEY, h.playIntro ? STORY : '1');
         } catch {
           // the menu will simply show again after the reload
         }
@@ -187,27 +192,54 @@ export function installMainMenu(h: MainMenuHost): void {
   });
 
   let skip = false;
-  let intro = false;
+  let story = false;
   try {
     const value = sessionStorage.getItem(SKIP_KEY);
-    skip = value === '1' || value === INTRO;
-    intro = value === INTRO;
+    skip = value === '1' || value === STORY || value === 'intro';
+    story = value === STORY || value === 'intro';
     sessionStorage.removeItem(SKIP_KEY);
   } catch {
     // no session storage: always show the menu
   }
+  let firstLaunch = false;
+  try {
+    firstLaunch = !localStorage.getItem(INTRO_SEEN_KEY);
+  } catch {
+    // no storage: treat every launch as a return visit
+  }
   // Debug start options (README table) go straight to what they name.
   const params = new URLSearchParams(location.search);
-  if (['book', 'cutscene', 'chapter', 'zone'].some((k) => params.has(k))) skip = true;
-  if (skip) {
-    started = true;
-    if (intro && h.playIntro) {
-      h.music.stop();
-      void h.playIntro().then(() => h.startGameMusic?.());
-    }
-  } else {
+  if (['book', 'cutscene', 'chapter', 'zone'].some((k) => params.has(k))) {
+    skip = true;
+    story = false;
+    firstLaunch = false;
+  }
+  const titleMusic = () => {
     if (h.titleSong !== undefined)
       void h.music.play(h.titleSong).catch((err) => console.warn('Music unavailable:', err));
-    void open();
+  };
+  if (skip) {
+    started = true;
+    if (story && h.playIntro) {
+      h.music.stop();
+      void h.playIntro(true).then(() => h.startGameMusic?.());
+    }
+    return Promise.resolve();
   }
+  if (firstLaunch && h.playIntro) {
+    // The first time the game is started, the introduction plays by itself, then the title menu.
+    try {
+      localStorage.setItem(INTRO_SEEN_KEY, '1');
+    } catch {
+      // it will simply play again next time
+    }
+    h.music.stop();
+    void h.playIntro().then(() => {
+      titleMusic();
+      return open();
+    });
+    return Promise.resolve();
+  }
+  titleMusic();
+  return open();
 }

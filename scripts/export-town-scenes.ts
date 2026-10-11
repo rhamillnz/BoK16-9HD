@@ -1,6 +1,7 @@
 // Export every town/shop/inn/temple scene picture (GDS scenes, all chapters, deduplicated) as PNGs named by
 // content hash, ready for tools/upscale. Writes art/derived/scenes/<hash>.png; the upscaled results go to
-// art/reference/scenes-4x/<hash>.png (see src/game/sceneHd.ts).
+// art/reference/scenes-4x/<hash>.png (see src/game/sceneHd.ts). art/derived/scenes/index.json lists each picture's
+// scene (GDS name and first chapter); the town views (GDSnA) are listed in src/ui/loadingArt.ts for the loading screen.
 //   npx tsx scripts/export-town-scenes.ts
 //   tools/upscale/.venv/Scripts/python tools/upscale/upscale.py art/derived/scenes art/reference/scenes-4x   (x4plus is picked for this folder)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -25,6 +26,7 @@ const fetchResources = async (names: readonly string[]) => {
 };
 
 const seen = new Set<string>();
+const index: { hash: string; gds: string; chapter: number }[] = [];
 let scenes = 0;
 for (const e of archive.entries) {
   const m = /^GDS(\d+)([A-Z])\.DAT$/.exec(e.name);
@@ -36,10 +38,12 @@ for (const e of archive.entries) {
       const hash = sceneHash(image.rgba);
       if (seen.has(hash)) continue;
       seen.add(hash);
+      index.push({ hash, gds: e.name.replace(/\.DAT$/, ''), chapter });
       writeFileSync(path.join(out, `${hash}.png`), encodePNG(image.width, image.height, image.rgba));
     } catch (err) {
       console.warn(`${e.name} chapter ${chapter}: ${(err as Error).message}`);
     }
   }
 }
+writeFileSync(path.join(out, 'index.json'), JSON.stringify(index, null, 1));
 console.log(`${scenes} scenes, ${seen.size} distinct pictures -> ${out}`);
