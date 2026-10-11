@@ -13,6 +13,7 @@ jobs.json entries:
    # Standing figures (NPCs): "stand": true, "height": 2.2, "width": 1.0, "frame": 0.3 (fraction of the action, default last frame)
    "mirror": false, "yaw": 0.0, "ratio": 0.2, "tex": 256,
    "tints": {"Body": {"color": [0.3, 0.16, 0.42], "target": 1.0}},   # per-part recolour, see tint_object
+   "cover": ["lowerarm"],                         # more base-character skin to delete (bones the outfit covers)
    "preview": "shots/body-dbody2.png"}
 
 The outfit, base character, hair and the animation library share one 65-bone skeleton, so the action is
@@ -140,8 +141,10 @@ def tint_object(obj, spec):
 COVERED_BONES = ("pelvis", "spine", "clavicle", "upperarm", "thigh", "calf", "foot", "ball")
 
 
-def strip_covered_skin(obj, group_names):
-    """Delete the vertices of a baked base character whose strongest bone is covered by clothing."""
+def strip_covered_skin(obj, group_names, extra=()):
+    """Delete the vertices of a baked base character whose strongest bone is covered by clothing (`extra`: more
+    bone-name prefixes the job's outfit covers, e.g. "lowerarm" for long sleeves)."""
+    covered = COVERED_BONES + tuple(extra)
     import bmesh as bm_mod
     bm = bm_mod.new()
     bm.from_mesh(obj.data)
@@ -155,14 +158,14 @@ def strip_covered_skin(obj, group_names):
         if not weights:
             continue
         top = max(weights.items(), key=lambda kv: kv[1])[0]
-        if group_names[top].startswith(COVERED_BONES):
+        if group_names[top].startswith(covered):
             doomed.append(v)
     bm_mod.ops.delete(bm, geom=doomed, context="VERTS")
     bm.to_mesh(obj.data)
     bm.free()
 
 
-def bake_pose(outfit_objs, action, scene, frame=None):
+def bake_pose(outfit_objs, action, scene, frame=None, cover=()):
     for arm in (o for o in outfit_objs if o.type == "ARMATURE"):
         arm.animation_data_create()
         arm.animation_data.action = action
@@ -185,7 +188,7 @@ def bake_pose(outfit_objs, action, scene, frame=None):
         scene.collection.objects.link(new)
         new.matrix_world = ev.matrix_world.copy()
         if o.name.lower().startswith("superhero"):
-            strip_covered_skin(new, [g.name for g in o.vertex_groups])
+            strip_covered_skin(new, [g.name for g in o.vertex_groups], cover)
         baked.append(new)
     return baked
 
@@ -287,7 +290,7 @@ def main():
         imported = []
         for path in files:
             imported += import_gltf(path)
-        baked = bake_pose(imported, action, scene, frame)
+        baked = bake_pose(imported, action, scene, frame, job.get("cover", ()))
         for o in anim_objs + imported:
             bpy.data.objects.remove(o, do_unlink=True)
         for o in baked:

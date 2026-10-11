@@ -64,7 +64,10 @@
 },
 "preview": "shots/npc-npc_man.png",
 "hair": "Hair_SimpleParted",
-"eyebrows": "Eyebrows_Regular"
+"eyebrows": "Eyebrows_Regular",
+"cover": [
+"lowerarm"
+]
 },
 {
 "name": "npc_woman",
@@ -131,7 +134,10 @@
 },
 "preview": "shots/npc-npc_woman.png",
 "hair": "Hair_SimpleParted",
-"eyebrows": "Eyebrows_Regular"
+"eyebrows": "Eyebrows_Regular",
+"cover": [
+"lowerarm"
+]
 },
 {
 "name": "npc_guard",
@@ -185,6 +191,9 @@
 "preview": "shots/npc-npc_guard.png",
 "extras": [
 "Male_Ranger_Acc_Pauldron"
+],
+"cover": [
+"lowerarm"
 ]
 },
 {
@@ -252,7 +261,10 @@
 },
 "preview": "shots/npc-npc_noble.png",
 "hair": "Hair_SimpleParted",
-"eyebrows": "Eyebrows_Regular"
+"eyebrows": "Eyebrows_Regular",
+"cover": [
+"lowerarm"
+]
 },
 {
 "name": "npc_monk",
@@ -306,6 +318,9 @@
 "preview": "shots/npc-npc_monk.png",
 "extras": [
 "Male_Ranger_Head_Hood"
+],
+"cover": [
+"lowerarm"
 ]
 },
 {
@@ -360,6 +375,9 @@
 "preview": "shots/npc-npc_moredhel.png",
 "extras": [
 "Male_Ranger_Head_Hood"
+],
+"cover": [
+"lowerarm"
 ]
 },
 {
@@ -428,6 +446,9 @@
 "preview": "shots/npc-npc_dwarf.png",
 "hair": "Hair_SimpleParted",
 "eyebrows": "Eyebrows_Regular",
-"beard": "Hair_Beard"
+"beard": "Hair_Beard",
+"cover": [
+"lowerarm"
+]
 }
 ]
