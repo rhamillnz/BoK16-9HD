@@ -281,7 +281,13 @@ export function createBrowserMusicPlayer(options?: MusicOptions): MusicPlayer {
   return new MusicPlayer(
     {
       context: context as unknown as AudioContextLike,
+      // Prefer the GS render of a song (scripts/render-music.mjs, served by the dev server) over the GOG file.
       fetchBytes: async (url) => {
+        const gs = url.replace('/bak/music/', '/derived-music/gs/');
+        if (gs !== url) {
+          const res = await fetch(gs).catch(() => undefined);
+          if (res?.ok && !res.headers.get('content-type')?.includes('text/html')) return res.arrayBuffer();
+        }
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
         return res.arrayBuffer();

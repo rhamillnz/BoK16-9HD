@@ -48,6 +48,10 @@ export const CUTSCENE_SONGS: readonly number[] = [
  * COMBAT/COMBAT3M/COMBAT4/SLOBATLE (35, 31, 6, 7), town and place themes such as KRONDOR (14).
  */
 export const EXPLORE_SONGS: readonly number[] = [2, 62];
+/** Exploring underground (mines and caves): EXPUNDRG (5) and CAVERN (30). */
+export const UNDERGROUND_SONGS: readonly number[] = [5, 30];
+/** Fights: COMBAT (35), COMBAT3M (31) and COMBAT4 (6); one is picked at random per fight. */
+export const COMBAT_SONGS: readonly number[] = [35, 31, 6];
 
 /** Song used for exploring a zone with no rotation (the first of EXPLORE_SONGS). */
 export const DEFAULT_ZONE_SONG = EXPLORE_SONGS[0]!;

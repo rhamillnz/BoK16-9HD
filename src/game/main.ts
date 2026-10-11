@@ -24,7 +24,14 @@ import {
 } from './encounterDriver';
 import { mountHud } from '../ui/hud';
 import { createBrowserMusicPlayer } from '../audio/music';
-import { EXPLORE_SONGS, SONG_TITLE, ZONE_SONGS } from '../audio/songs';
+import {
+  COMBAT_SONGS,
+  EXPLORE_SONGS,
+  SONG_TITLE,
+  UNDERGROUND_SONGS,
+  ZONE_SONGS,
+  songFromSoundIndex,
+} from '../audio/songs';
 import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { speakerPortraitLoader } from '../ui/speakerPortraits';
@@ -232,10 +239,22 @@ const zoneMusic = (zone: number): void => {
   const started =
     own !== undefined
       ? music.play(own)
-      : music.playRotation(EXPLORE_SONGS, Math.floor(Math.random() * EXPLORE_SONGS.length));
+      : music.playRotation(
+          isUndergroundZone(zone) ? UNDERGROUND_SONGS : EXPLORE_SONGS,
+          Math.floor(Math.random() * EXPLORE_SONGS.length),
+        );
   void started.catch((err) => console.warn('Music unavailable:', err));
 };
 zoneMusic(start.zone);
+/** Whether the fight music is on; the frame loop switches it with `combat.active`. */
+let combatMusic = false;
+const updateCombatMusic = (active: boolean): void => {
+  if (active === combatMusic) return;
+  combatMusic = active;
+  if (!active) return zoneMusic(zoneHost.current.zone);
+  const song = COMBAT_SONGS[Math.floor(Math.random() * COMBAT_SONGS.length)]!;
+  void music.play(song).catch((err) => console.warn('Music unavailable:', err));
+};
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyM' && !e.repeat) {
     music.toggleMute();
@@ -348,6 +367,12 @@ const town = createTownHost({
     });
   },
   inn: (ref) => inns.enter(ref),
+  // Towns, temples, taverns and shops play the song their scene names (KRONDOR, TEMPLE, MDHAPPY, ...).
+  song: (index) => {
+    const song = songFromSoundIndex(index);
+    if (song !== null) void music.play(song).catch((err) => console.warn('Music unavailable:', err));
+  },
+  closed: () => zoneMusic(zoneHost.current.zone),
 });
 
 // Entering a town: the party stands at the entry's exit position outside the door, then the scene opens.
@@ -746,6 +771,7 @@ renderer.setAnimationLoop(() => {
       if (clock.walk(dt)) sky.update(clock.minutes);
     }
     combat.update(dt);
+    updateCombatMusic(combat.active);
     if (combat.active) combat.applyCamera();
     else party.applyToCamera(camera);
     screens.setPose({ x: party.x, y: party.y, heading: party.heading });

@@ -18,6 +18,10 @@ export interface TownHostOptions {
   inn?(ref: GdsRef): void;
   /** Open the shop of a scene (false when it has none). */
   shop?(ref: GdsRef): boolean;
+  /** A scene with its own song opened (its GDS song, a sound index 1000 + N; scenes with 0 keep the music). */
+  song?(soundIndex: number): void;
+  /** The town closed: the music goes back to exploring. */
+  closed?(): void;
 }
 
 /** Where the party stands outside a town encounter's door: the entry's exit cell in the encounter's tile. */
@@ -38,6 +42,7 @@ export function createTownHost(o: TownHostOptions) {
       return scene;
     },
     show: (scene) => {
+      if (scene.gds.song) o.song?.(scene.gds.song);
       const hotspots = activeHotspots(scene.gds, o.world(), o.chapter);
       o.hud.showTown({
         picture: hdPictures.get(scene) ?? sceneCanvas(scene.image),
@@ -47,7 +52,10 @@ export function createTownHost(o: TownHostOptions) {
         onLeave: () => controller.leave(),
       });
     },
-    hide: () => o.hud.hideTown(),
+    hide: () => {
+      o.hud.hideTown();
+      o.closed?.();
+    },
     playDialog: (key, done) => o.playDialog(key, done),
     inn: o.inn,
     activeHotspots: (scene) => activeHotspots(scene.gds, o.world(), o.chapter),
