@@ -6,7 +6,8 @@ export const SCATTER_ROCKS = ['scatter_rock1', 'scatter_rock2', 'scatter_rock3']
 /** Cheap flat ground cover, placed in dense clumps on gentle ground. */
 export const SCATTER_COVER = ['bush4', 'fern'] as const;
 /** Real shrubs (1000+ triangles each), clumped but sparser. */
-export const SCATTER_SHRUBS = ['bush1', 'bush2', 'bush3', 'bush5'] as const;
+/** bush3 (red berries) is left out: it reads too loud against the pale rock of the hills. */
+export const SCATTER_SHRUBS = ['bush1', 'bush2', 'bush5'] as const;
 export const SCATTER_BUSHES = [...SCATTER_COVER, ...SCATTER_SHRUBS] as const;
 /** Narrow conifers, scaled down and kept to big flat tops. */
 export const SCATTER_PINES = ['tree4a', 'tree6a'] as const;
@@ -120,7 +121,7 @@ export function chunkPlacements(placements: readonly ScatterPlacement[], cell: n
 }
 
 /** Ground cell size for chunking, and how far (render units) each kind of decor stays visible. */
-export const SCATTER_CHUNK_CELL = 360;
+export const SCATTER_CHUNK_CELL = 720;
 export function scatterCullDistance(name: string): number {
   if ((SCATTER_COVER as readonly string[]).includes(name)) return 230;
   if ((SCATTER_SCREE as readonly string[]).includes(name)) return 300;
@@ -198,8 +199,7 @@ export function scatterOnTriangles(
   const pick = (names: readonly string[]) => names.filter((n) => available.has(n));
   const rocks = pick(SCATTER_ROCKS);
   const cover = pick(SCATTER_COVER);
-  // Red berry bush (bush3) is loud: it appears at half the weight of the others.
-  const shrubs = pick(SCATTER_SHRUBS).flatMap((n) => (n === 'bush3' ? [n] : [n, n]));
+  const shrubs = pick(SCATTER_SHRUBS);
   const pines = pick(SCATTER_PINES);
   // Boulders dominate the scree (cheap), loose stones and rubble pile among them.
   const scree = [...rocks, ...rocks, ...rocks, ...pick(SCATTER_SCREE)];
