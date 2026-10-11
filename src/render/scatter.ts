@@ -40,6 +40,8 @@ export interface ScatterOptions {
   rockDensity: number;
   steep: number;
   steepRockBoost: number;
+  /** No boulders on faces steeper than this (1 - normal.y): sheer cliff walls; scree covers their foot. */
+  rockMaxSlope: number;
   /** Plants only where the face normal.y is at least this (ledges and tops) and no higher than `plantMaxAltitude`. */
   plantMinNormalY: number;
   plantMaxAltitude: number;
@@ -74,6 +76,7 @@ export const DEFAULT_SCATTER: Omit<ScatterOptions, 'seed'> = {
   rockDensity: 0.012,
   steep: 0.3,
   steepRockBoost: 5,
+  rockMaxSlope: 0.6,
   plantMinNormalY: 0.75,
   plantMaxAltitude: 40,
   pineMinNormalY: 0.93,
@@ -370,8 +373,8 @@ export function scatterOnTriangles(
       }
     }
 
-    // Boulders: sparse on the flat, crowding the steep slopes (they lean in and sink a little).
-    if (rocks.length) {
+    // Boulders: sparse on the flat, crowding the steep slopes (they lean in and sink a little), but not on sheer walls.
+    if (rocks.length && slope <= opts.rockMaxSlope) {
       const k = count(area * (slope > opts.steep ? opts.rockDensity * opts.steepRockBoost : opts.rockDensity));
       for (let i = 0; i < k; i++) {
         randomPoint();

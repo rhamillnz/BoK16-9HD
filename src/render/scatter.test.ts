@@ -201,3 +201,11 @@ describe('chunkPlacements', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 });
+
+describe('boulders on sheer walls', () => {
+  it('puts none on a vertical face above the scree band', () => {
+    // A tall wall whose foot is far below (the scree band ends 2 units above the foot).
+    const placed = scatterOnTriangles(wall(40, 30), all, { ...opts, screeDensity: 0, rockDensity: 0.5 });
+    expect(countBy(placed, isRock)).toBe(0);
+  });
+});

@@ -122,6 +122,9 @@ export function stripAcross(loop: readonly THREE.Vector3[]): number[] {
 }
 
 /** Accumulates non-indexed triangles for one material. */
+/** Side of the ground cells the hills are batched in (render units). */
+const HILL_CELL = 240;
+
 class Batch {
   positions: number[] = [];
   normals: number[] = [];
@@ -265,7 +268,15 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
   group.name = `zone${zone.zone}`;
 
   const colorBatch = new Batch();
-  const hillBatch = new Batch();
+  // Hills in ground cells, one mesh each, so the camera and the shadow map can skip the ones out of view (the whole
+  // set is over a million triangles once detailed).
+  const hillCells = new Map<string, Batch>();
+  const hillCellFor = (x: number, z: number): Batch => {
+    const key = `${Math.floor(x / HILL_CELL)},${Math.floor(z / HILL_CELL)}`;
+    let b = hillCells.get(key);
+    if (!b) hillCells.set(key, (b = new Batch()));
+    return b;
+  };
   const terrainBatches = new Map<number, Batch>();
   const slotBatches = new Map<number, Batch>();
   const batchFor = (m: FaceMaterial): Batch => {
@@ -349,6 +360,7 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
         ),
       );
       const detail = detailedHill(item, loops);
+      const hillBatch = hillCellFor(item.x / WORLD_SCALE, -item.y / WORLD_SCALE);
       for (const x of detail.positions) hillBatch.positions.push(x);
       for (const x of detail.normals) hillBatch.normals.push(x);
       for (const t of detail.source) {
@@ -421,7 +433,8 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
     new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, side: THREE.DoubleSide }),
     'flat',
   );
-  addMesh(hillBatch, createHillMaterial(), 'hills');
+  const hillMaterial = createHillMaterial();
+  for (const batch of hillCells.values()) addMesh(batch, hillMaterial, 'hills');
   for (const [strip, batch] of terrainBatches) {
     const src = zone.terrain[strip];
     if (!src) continue;
@@ -476,9 +489,10 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
 
   // Decor scattered over the hills (clumped plants, pines on flat tops, boulders, scree), from the models the zone's
   // overrides loaded. Split into ground cells that are frustum- and distance-culled, so the zone can hold many.
-  if (overrides && hillBatch.positions.length) {
+  const hillPositions = [...hillCells.values()].flatMap((b) => b.positions);
+  if (overrides && hillPositions.length) {
     const available = new Set(SCATTER_MODELS.filter((n) => overrides.models.has(n)));
-    const placed = scatterOnTriangles(hillBatch.positions, available, { ...DEFAULT_SCATTER, seed: zone.zone });
+    const placed = scatterOnTriangles(hillPositions, available, { ...DEFAULT_SCATTER, seed: zone.zone });
     for (const chunk of chunkPlacements(placed, SCATTER_CHUNK_CELL)) {
       const name = chunk.name;
       const styled = isPlantModel(name) ? styleInstances(zone.zone, chunk.matrices) : undefined;
