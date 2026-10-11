@@ -25,6 +25,8 @@ export interface HillDetailOptions {
   frequency: number;
   /** Height above the hill's lowest point (render units) over which displacement fades in. */
   baseFade: number;
+  /** Reshape the slopes into cliffs and terraces (see `cliffProfile`). */
+  cliffs: boolean;
 }
 
 export const DEFAULT_HILL_DETAIL: HillDetailOptions = {
@@ -36,7 +38,41 @@ export const DEFAULT_HILL_DETAIL: HillDetailOptions = {
   amplitudeRatio: 0.22,
   frequency: 0.05,
   baseFade: 3,
+  cliffs: true,
 };
+
+/** How a hill's slopes are reshaped: `bands` steps, each a steep riser over `riser` of its height, then a tread. */
+export interface CliffStyle {
+  bands: number;
+  /** Fraction of each band (by original height) the riser takes: smaller is steeper. */
+  riser: number;
+  /** How much of the original slope the tread keeps (0 flat, 1 unchanged). */
+  tread: number;
+}
+
+/**
+ * The style for a hill of height `height`, varied by `seed` (0..1, from the hill's position): big
+ * hills get one sheer wall with a gentler cap (a butte), smaller ones two or three terraces.
+ */
+export function cliffStyle(height: number, seed: number): CliffStyle {
+  if (height >= 15) return { bands: 1, riser: 0.5 + seed * 0.15, tread: 0.25 };
+  return { bands: seed < 0.5 ? 2 : 3, riser: 0.4 + seed * 0.15, tread: 0.2 };
+}
+
+/**
+ * Remap a height `h` (above the hill's foot, 0..height) so the slope rises in steep risers and
+ * gentle treads. Monotonic, and 0 and `height` map to themselves, so the foot stays on the ground
+ * and the summit keeps its height.
+ */
+export function cliffProfile(h: number, height: number, s: CliffStyle): number {
+  if (height <= 0 || h <= 0) return Math.max(h, 0);
+  if (h >= height) return h;
+  const band = height / s.bands;
+  const i = Math.min(s.bands - 1, Math.floor(h / band));
+  const u = (h - i * band) / band;
+  const steep = smoothstep(0, s.riser, u);
+  return i * band + band * ((1 - s.tread) * steep + s.tread * u);
+}
 
 export type Vec3 = [number, number, number];
 
@@ -145,6 +181,8 @@ export function detailHill(
   const size = Math.max(hi[0]! - lo[0]!, hi[1]! - lo[1]!, hi[2]! - lo[2]!);
   const amplitude = Math.min(o.maxAmplitude, (hi[1]! - minY) * o.amplitudeRatio);
   const target = Math.max(o.targetEdge, size * o.targetFraction);
+  const height = hi[1]! - minY;
+  const style = cliffStyle(height, valueNoise3(lo[0]! * 0.37, hi[1]! * 0.11, lo[2]! * 0.29));
   const minEdge = target / 2 ** o.maxLevel;
 
   // Points by key: the corners with non-zero barycentric weight, sorted by id. Weights are
@@ -197,6 +235,7 @@ export function detailHill(
     x += (nx / len) * d;
     y += (ny / len) * d;
     z += (nz / len) * d;
+    if (o.cliffs) y = minY + cliffProfile(y - minY, height, style);
 
     const index = pos.length / 3;
     flat.push(px, py, pz);
