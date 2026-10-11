@@ -82,6 +82,14 @@ export function installInput(h: InputHost): { read(): PartyInput; clear(): void 
     if (e.button === 0 && wantsMouse() && document.pointerLockElement !== h.canvas)
       void Promise.resolve(h.canvas.requestPointerLock()).catch(() => undefined);
   });
+  // While mouse-look is on but the mouse is not captured, say how to start it.
+  const hint = Object.assign(document.createElement('div'), { textContent: 'Mouse-look: click the game to look around' });
+  hint.style.cssText =
+    'position:fixed;left:50%;top:8px;transform:translateX(-50%);padding:4px 12px;background:rgba(20,16,10,.8);border:1px solid #c9a24a;border-radius:4px;color:#f3e6c4;font:13px system-ui,sans-serif;pointer-events:none;z-index:15;display:none';
+  document.body.append(hint);
+  setInterval(() => {
+    hint.style.display = wantsMouse() && document.pointerLockElement !== h.canvas ? 'block' : 'none';
+  }, 300);
   window.addEventListener('mousemove', (e) => {
     if (document.pointerLockElement !== h.canvas) return;
     if (wantsMouse()) h.party.turnBy(mouseToHeading(e.movementX));
