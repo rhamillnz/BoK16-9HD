@@ -1,6 +1,6 @@
 import type { ItemIconSet } from '../data/itemIcons';
 import type { Font } from '../formats/fnt';
-import type { GamSave } from '../formats/gam';
+import type { GamSave, InventoryItem } from '../formats/gam';
 import type { ItemDef } from '../formats/objinfo';
 import type { OverheadPolygon } from '../world/overheadMap';
 import type { ZoneMap } from '../formats/zoneMap';
@@ -60,6 +60,8 @@ export class HudScreens implements HudHost {
   /** Set by the game to enable using and equipping items in the inventory. */
   itemHandler: ItemHandler | undefined;
   map: { layout: MapLayout; zone: number } | undefined;
+  gold: number;
+  keyRing: readonly InventoryItem[];
   pose: PartyPose = { x: 0, y: 0, heading: 0 };
   private readonly compass: CompassLayout;
   private readonly handlers = new Map<string, HudScreenHandler>();
@@ -76,6 +78,8 @@ export class HudScreens implements HudHost {
   ) {
     this.compass = layoutCompass(width, height);
     this.party = partyCharacters(data.save);
+    this.gold = data.save.gold;
+    this.keyRing = data.save.partyKeys?.items ?? [];
     const members = buildPartyBar(data.save);
     this.partyBar = {
       members,
@@ -96,6 +100,10 @@ export class HudScreens implements HudHost {
     return this.data.speakerPortrait?.(actor);
   }
 
+  portrait(index: number): CanvasImageSource | undefined {
+    return this.data.portraits?.[index];
+  }
+
   get icons(): ItemIconSet | undefined {
     return this.data.icons;
   }
@@ -113,8 +121,12 @@ export class HudScreens implements HudHost {
   }
 
   /** The party changed (items, health, who is active): redraw the bar and rebuild screens on next open. */
-  setParty(party: Pick<GamSave, 'characters' | 'activeCharacters'>): void {
+  setParty(
+    party: Pick<GamSave, 'characters' | 'activeCharacters'> & Partial<Pick<GamSave, 'gold' | 'partyKeys'>>,
+  ): void {
     this.party = partyCharacters(party);
+    if (party.gold !== undefined) this.gold = party.gold;
+    if (party.partyKeys) this.keyRing = party.partyKeys.items;
     const members = buildPartyBar(party);
     const layout =
       members.length === this.partyBar.members.length
@@ -217,7 +229,7 @@ export class HudScreens implements HudHost {
 
   /** Returns true when the key was consumed (the caller should preventDefault). */
   keyDown(code: string, key: string): boolean {
-    if (!this.current?.modal) {
+    if (!this.current?.modal && !this.current?.ownsKeys?.includes(code)) {
       for (const [id, h] of this.handlers) {
         if (h.hotkey !== code || (this.base && !h.hotkeyInBase)) continue;
         if (this.screen === id) this.close();

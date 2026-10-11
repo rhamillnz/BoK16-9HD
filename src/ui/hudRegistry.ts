@@ -1,6 +1,6 @@
 import type { ItemIconSet } from '../data/itemIcons';
 import type { Font } from '../formats/fnt';
-import type { Character } from '../formats/gam';
+import type { Character, InventoryItem } from '../formats/gam';
 import type { ItemDef } from '../formats/objinfo';
 import type { SlotInfo } from '../game/saveGame';
 import type { ZoneMap } from '../formats/zoneMap';
@@ -19,6 +19,7 @@ export interface SaveHandler {
 
 /** What the inventory screen asks of the game when the player acts on an item. Returns a status line. */
 export interface ItemHandler {
+  /** `target` is the recipient's character index; `give` needs it (there is no default recipient). */
   act(action: 'use' | 'equip' | 'give' | 'repair', character: number, slot: number, target?: number): string;
 }
 
@@ -40,6 +41,11 @@ export interface HudHost {
   readonly saveHandler: SaveHandler | undefined;
   /** Set by the game to let the inventory use, equip, repair and hand over items. */
   readonly itemHandler: ItemHandler | undefined;
+  /** Party money in royals, and the shared key ring (keys and lockpicks); kept up to date by `setParty`. */
+  readonly gold: number;
+  readonly keyRing: readonly InventoryItem[];
+  /** HEADS.BMX portrait of a character (by character index), when loaded. */
+  portrait?(index: number): CanvasImageSource | undefined;
   /** Close the open screen (back to the base screen, if any). */
   close(): void;
   /** The picture changed: redraw on the next frame. */
@@ -60,6 +66,8 @@ export interface HudScreenHandler {
   base?: boolean;
   /** Receives right clicks; they are dropped otherwise. */
   rightClick?: boolean;
+  /** Key codes this screen uses itself while open, so they do not trigger other screens' hotkeys (e.g. Tab). */
+  ownsKeys?: readonly string[];
   /** Async work before opening (e.g. listing save slots). Runs before `open`. */
   prepare?(arg?: unknown): Promise<void>;
   /** Refuse to open (return false); called after any open modal screen was cancelled. */

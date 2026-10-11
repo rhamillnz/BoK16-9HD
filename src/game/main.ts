@@ -552,6 +552,10 @@ installItemControls({
   },
 });
 
+// ?screen=inventory (or sheet, map...) opens a HUD screen once the game is up; used by screenshot scripts.
+const openScreen = q.get('screen');
+if (openScreen) setTimeout(() => screens.open(openScreen), 4000);
+
 // Spells: V casts healing and light spells outside combat (combat casting lives in the fight panel, C).
 const cast = installCast({
   spells: spellDefs,
