@@ -18,16 +18,7 @@ import {
   type DialogResult,
   type DialogState,
 } from './dialogBox';
-import {
-  defaultLayoutOptions,
-  drawInventory,
-  initialInventoryState,
-  layoutInventory,
-  slotCountFor,
-  stepInventory,
-  type InventoryLayout,
-  type InventoryState,
-} from './inventory';
+import { InventoryView } from './inventoryView';
 import { drawMap } from './mapScreen';
 import { JumpMapScreen } from './jumpMapScreen';
 import {
@@ -64,61 +55,27 @@ export interface TownView {
   onLeave(): void;
 }
 
+/** Inventory (I): the list + details DOM overlay of `inventoryView.ts`; the canvas draws nothing for it. */
 class InventoryScreen implements HudScreenHandler {
   hotkey = 'KeyI';
-  rightClick = true;
-  private s: { layout: InventoryLayout; state: InventoryState; message: string } | undefined;
-  constructor(private readonly host: HudHost) {}
-  open(): void {
-    const h = this.host;
-    this.s = {
-      layout: layoutInventory(defaultLayoutOptions(h.party.length, slotCountFor(h.party), h.width, h.height)),
-      state: initialInventoryState(),
-      message: '',
-    };
+  /** Tab switches character here instead of opening the map. */
+  ownsKeys = ['Tab'];
+  private readonly view: InventoryView;
+  constructor(host: HudHost) {
+    this.view = new InventoryView(host);
   }
-  private act(action: 'use' | 'equip' | 'give' | 'repair'): void {
-    const s = this.s;
-    const h = this.host;
-    const c = h.party[s!.state.tab];
-    if (!s || !c || !h.itemHandler) return;
-    const target =
-      action === 'give' && h.party.length > 1 ? h.party[(s.state.tab + 1) % h.party.length]?.index : undefined;
-    s.message = h.itemHandler.act(action, c.index, s.state.selected, target);
-    h.invalidate();
+  open(): void {
+    this.view.open();
+  }
+  close(): void {
+    this.view.close();
   }
   event(ev: HudEvent): void {
-    const s = this.s;
-    if (!s) return;
-    if (ev.type === 'rightClick') {
-      s.state = stepInventory(s.layout, s.state, { type: 'click', x: ev.x, y: ev.y });
-      this.act('use');
-      return;
-    }
-    if (ev.type === 'key') {
-      const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
-      const action =
-        key === 'Enter' || key === 'u'
-          ? 'use'
-          : key === 'x'
-            ? 'equip'
-            : key === 't'
-              ? 'give'
-              : key === 'r'
-                ? 'repair'
-                : undefined;
-      if (action) {
-        this.act(action);
-        return;
-      }
-    }
-    s.state = stepInventory(s.layout, s.state, ev as Parameters<typeof stepInventory>[2]);
-    s.message = '';
+    this.view.event(ev);
   }
-  draw(ctx: CanvasRenderingContext2D): void {
-    const h = this.host;
-    if (this.s)
-      drawInventory(ctx, h.font, this.s.layout, this.s.state, h.party, h.items, undefined, h.icons, this.s.message);
+  draw(): void {
+    // The party changed (setParty marks the HUD dirty): keep the overlay in step.
+    this.view.refresh();
   }
 }
 

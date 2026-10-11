@@ -42,7 +42,7 @@ export function installItemControls(host: ItemControlsHost): void {
         case 'give':
           r =
             target === undefined
-              ? { party: p, message: 'Nobody to give it to.', ok: false }
+              ? { party: p, message: 'Choose who should receive it.', ok: false }
               : giveToCharacter(p, character, slot, target, host.items);
           break;
       }
