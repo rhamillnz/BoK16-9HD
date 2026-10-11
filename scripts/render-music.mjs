@@ -39,7 +39,19 @@ const ascii = (s) => [...s].map((c) => c.charCodeAt(0));
 /** One format-1 file: a tempo track, then the MTrk chunk of every voice's one-track file. */
 function mergeVoices(voices) {
   const micros = Math.round(60e6 / bpm);
-  const tempo = [0x00, 0xff, 0x51, 0x03, (micros >> 16) & 0xff, (micros >> 8) & 0xff, micros & 0xff, 0x00, 0xff, 0x2f, 0x00];
+  const tempo = [
+    0x00,
+    0xff,
+    0x51,
+    0x03,
+    (micros >> 16) & 0xff,
+    (micros >> 8) & 0xff,
+    micros & 0xff,
+    0x00,
+    0xff,
+    0x2f,
+    0x00,
+  ];
   const chunks = [[...ascii('MTrk'), ...u32(tempo.length), ...tempo]];
   for (const v of voices) chunks.push([...v.smf.subarray(14)]); // skip the 14-byte header: MTrk chunk follows
   return Uint8Array.from([...ascii('MThd'), ...u32(6), 0, 1, 0, chunks.length, 0, 32, ...chunks.flat()]);
@@ -57,7 +69,20 @@ for (const [id, entry] of sx.entries) {
   const wav = path.join(tmp, `${name}.wav`);
   writeFileSync(mid, mergeVoices(voices));
   execFileSync(fluidsynth, ['-ni', '-q', '-g', '0.6', '-r', '44100', '-F', wav, soundfont, mid], { stdio: 'ignore' });
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', wav, '-af', 'areverse,silenceremove=start_periods=1:start_threshold=-60dB,areverse', '-c:a', 'libvorbis', '-q:a', '5', path.join(out, `${name}.ogg`)]);
+  execFileSync('ffmpeg', [
+    '-v',
+    'error',
+    '-y',
+    '-i',
+    wav,
+    '-af',
+    'areverse,silenceremove=start_periods=1:start_threshold=-60dB,areverse',
+    '-c:a',
+    'libvorbis',
+    '-q:a',
+    '5',
+    path.join(out, `${name}.ogg`),
+  ]);
   done++;
   console.log(`${name} ${entry.name}`);
 }
