@@ -10,6 +10,7 @@ import type { MusicPlayer } from '../audio/music';
 import {
   chapterFinishCutscenes,
   chapterStartCutscenes,
+  introCutscenes,
   cutsceneDialogKey,
   loadCutscene,
   type CutsceneHost,
@@ -73,6 +74,8 @@ export interface Cutscenes {
   playSteps(steps: readonly CutsceneStep[]): Promise<void>;
   playChapterStart(chapter?: number): Promise<void>;
   playChapterFinish(chapter?: number): Promise<void>;
+  /** The new-game opening (`introCutscenes`). Escape skips a scene; Escape twice within a second skips the rest. */
+  playIntro(): Promise<void>;
   readonly active: boolean;
 }
 
@@ -179,13 +182,37 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
     }
   };
 
+  // True for the whole intro, including the loading gaps between its scenes (Escape must not open the menu there).
+  let inIntro = false;
+  const playIntro = async (): Promise<void> => {
+    let lastEscape = -Infinity;
+    let skipAll = false;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Escape' || e.repeat) return;
+      if (e.timeStamp - lastEscape < 1000) skipAll = true;
+      lastEscape = e.timeStamp;
+    };
+    window.addEventListener('keydown', onKey, true);
+    inIntro = true;
+    try {
+      for (const step of introCutscenes()) {
+        if (skipAll) break;
+        await playSteps([step]);
+      }
+    } finally {
+      inIntro = false;
+      window.removeEventListener('keydown', onKey, true);
+    }
+  };
+
   const api: Cutscenes = {
     play,
     playSteps,
     playChapterStart: (chapter = host.chapter()) => playSteps(chapterStartCutscenes(chapter)),
     playChapterFinish: (chapter = host.chapter()) => playSteps(chapterFinishCutscenes(chapter)),
+    playIntro,
     get active() {
-      return active;
+      return active || inIntro;
     },
   };
 

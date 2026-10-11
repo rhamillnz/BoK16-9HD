@@ -71,7 +71,7 @@ export const stepFov = (v: number): number => (v + FOV_STEP > FOV_MAX ? FOV_MIN 
 /** Next UI scale, wrapping from full size back to the smallest. */
 export const stepUiScale = (v: number): number => (v + 0.1 > 1.05 ? UI_SCALE_MIN : clampUiScale(v + 0.1));
 
-export type MainMenuId = 'resume' | 'new' | 'continue' | 'load' | 'options';
+export type MainMenuId = 'resume' | 'new' | 'continue' | 'load' | 'intro' | 'options';
 export type OptionsId =
   'quality' | 'volDown' | 'volUp' | 'mute' | 'fov' | 'uiScale' | 'mouseLook' | 'controls' | 'keys' | 'back';
 
@@ -91,6 +91,7 @@ export function mainMenuModel(s: MainMenuState, message?: string): MenuModel {
       { id: 'new', label: 'New game' },
       { id: 'continue', label: 'Continue', enabled: s.hasSave },
       { id: 'load', label: 'Load game', enabled: s.hasSave },
+      { id: 'intro', label: 'Replay introduction' },
       { id: 'options', label: 'Options' },
     ],
     buttons: [],

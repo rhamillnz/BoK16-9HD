@@ -687,6 +687,11 @@ export function chapterStartCutscenes(chapter: number): CutsceneStep[] {
   ];
 }
 
+/** The full opening of a new game: the title animation, then chapter 1's card, book and opening scene. */
+export function introCutscenes(): CutsceneStep[] {
+  return [{ kind: 'ttm', ads: 'INTRO.ADS', ttm: 'INTRO.TTM' }, ...chapterStartCutscenes(1)];
+}
+
 /** The book chapter and animation played when a chapter ends; chapter 10 has none. */
 export function chapterFinishCutscenes(chapter: number): CutsceneStep[] {
   if (chapter === 10) return [];

@@ -744,9 +744,10 @@ installMainMenu({
   post,
   applyGraphics,
   titleArt: loadTitleArt(archive),
-  canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode,
+  canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode && !cutscenes.active,
   titleSong: SONG_TITLE,
   startGameMusic: () => zoneMusic(zoneHost.current.zone),
+  playIntro: () => cutscenes.playIntro(),
 });
 
 let last = performance.now();
@@ -794,7 +795,9 @@ renderer.setAnimationLoop(() => {
   ambience.update(weather.amounts, isUndergroundZone(zoneHost.current.zone));
   tickPerf(camera, dt);
   sky.followShadow(camera.position.x, camera.position.y, camera.position.z);
-  post.render();
+  // Full-screen cutscenes and books cover the world: don't draw it underneath (it stalled the intro while the
+  // world's shaders compiled on its first frames).
+  if (!cutscenes.active) post.render();
 
   frames++;
   fpsTime += dt;

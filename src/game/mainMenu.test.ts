@@ -57,6 +57,7 @@ describe('menus', () => {
       ['new', true],
       ['continue', false],
       ['load', false],
+      ['intro', true],
       ['options', true],
     ]);
     expect(ids(true, true)[0]).toEqual(['resume', true]);
