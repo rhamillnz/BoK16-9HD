@@ -136,7 +136,11 @@ class SavesScreen implements HudScreenHandler {
     const slots = this.pending;
     this.s = {
       layout: layoutSaveScreen(slots.length, this.host.width, this.host.height),
-      state: initialSaveScreenState(mode),
+      // The player cannot write the autosave, so saving starts on the next slot.
+      state: {
+        ...initialSaveScreenState(mode),
+        ...(mode === 'save' && slots[0]?.slot === 'auto' ? { selected: 1 } : {}),
+      },
       slots,
     };
     return true;

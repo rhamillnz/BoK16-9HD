@@ -71,7 +71,7 @@ export const stepFov = (v: number): number => (v + FOV_STEP > FOV_MAX ? FOV_MIN 
 /** Next UI scale, wrapping from full size back to the smallest. */
 export const stepUiScale = (v: number): number => (v + 0.1 > 1.05 ? UI_SCALE_MIN : clampUiScale(v + 0.1));
 
-export type MainMenuId = 'resume' | 'new' | 'continue' | 'load' | 'intro' | 'options';
+export type MainMenuId = 'resume' | 'save' | 'new' | 'continue' | 'load' | 'intro' | 'options';
 export type OptionsId =
   'quality' | 'volDown' | 'volUp' | 'mute' | 'fov' | 'uiScale' | 'mouseLook' | 'controls' | 'keys' | 'back';
 
@@ -80,6 +80,8 @@ export interface MainMenuState {
   started: boolean;
   /** There is at least one save to continue from. */
   hasSave: boolean;
+  /** In-game time of the newest save, which Continue loads (e.g. "day 2 08:00"). */
+  newest?: string;
 }
 
 export function mainMenuModel(s: MainMenuState, message?: string): MenuModel {
@@ -87,7 +89,12 @@ export function mainMenuModel(s: MainMenuState, message?: string): MenuModel {
     title: 'Betrayal at Krondor',
     lines: [],
     rows: [
-      ...(s.started ? [{ id: 'resume', label: 'Resume' }] : []),
+      ...(s.started
+        ? [
+            { id: 'resume', label: 'Resume' },
+            { id: 'save', label: 'Save game' },
+          ]
+        : []),
       { id: 'new', label: 'New game' },
       { id: 'continue', label: 'Continue', enabled: s.hasSave },
       { id: 'load', label: 'Load game', enabled: s.hasSave },
@@ -95,8 +102,9 @@ export function mainMenuModel(s: MainMenuState, message?: string): MenuModel {
       { id: 'options', label: 'Options' },
     ],
     buttons: [],
-    message,
-    width: 22,
+    // Continue picks up the newest save (autosave, quick save or a slot); New game starts the story over.
+    message: message ?? (s.started ? undefined : s.newest ? `Continue: ${s.newest}` : 'No saved game yet'),
+    width: 24,
     compact: true,
     ...(s.started ? {} : { theme: 'parchment' as const }),
   };

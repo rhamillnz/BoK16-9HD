@@ -47,6 +47,7 @@ export function installMainMenu(h: MainMenuHost): void {
   let settings = getSettings();
   let started = false;
   let hasSave = false;
+  let newest: string | undefined;
 
   const persist = () => setSettings(settings);
   h.music.setVolume(settings.volume);
@@ -59,12 +60,19 @@ export function installMainMenu(h: MainMenuHost): void {
     if (!started && h.titleSong !== undefined) h.startGameMusic?.();
     started = true;
   };
+  const newestSave = async () => {
+    const slots = ((await h.screens.saveHandler?.list()) ?? []).filter((s) => s.summary);
+    slots.sort((a, b) => b.summary!.savedAt - a.summary!.savedAt);
+    return slots[0];
+  };
   const refreshSaves = async () => {
-    hasSave = ((await h.screens.saveHandler?.list()) ?? []).some((s) => s.summary);
+    const slot = await newestSave();
+    hasSave = !!slot;
+    newest = slot?.summary?.gameTime;
   };
 
   const showMain = (message?: string, focus?: string) =>
-    panel.show(mainMenuModel({ started, hasSave }, message), onMain, close, focus);
+    panel.show(mainMenuModel({ started, hasSave, newest }, message), onMain, close, focus);
   const showOptions = (focus?: string) => {
     settings = { ...settings, muted: h.music.isMuted, quality: h.post.quality };
     panel.show(optionsModel(settings), onOptions, () => showMain(undefined, 'options'), focus);
@@ -74,6 +82,10 @@ export function installMainMenu(h: MainMenuHost): void {
     switch (id as MainMenuId) {
       case 'resume':
         close();
+        break;
+      case 'save':
+        close();
+        void h.screens.openSaves('save');
         break;
       case 'new':
         try {
@@ -109,11 +121,9 @@ export function installMainMenu(h: MainMenuHost): void {
   };
 
   const continueGame = async () => {
-    const slots = ((await h.screens.saveHandler?.list()) ?? []).filter((s) => s.summary);
-    slots.sort((a, b) => b.summary!.savedAt - a.summary!.savedAt);
-    const newest = slots[0];
-    if (!newest) return showMain('No saved games');
-    const msg = await h.screens.saveHandler!.load(newest.slot).catch((e: Error) => `Failed: ${e.message}`);
+    const slot = await newestSave();
+    if (!slot) return showMain('No saved games');
+    const msg = await h.screens.saveHandler!.load(slot.slot).catch((e: Error) => `Failed: ${e.message}`);
     if (msg.startsWith('Failed')) showMain(msg);
     else close();
   };

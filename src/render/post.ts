@@ -36,7 +36,9 @@ export function createPost(
   const pipeline = new THREE.PostProcessing(renderer);
 
   const rebuild = (s: PostSettings) => {
-    const scenePass = pass(scene, camera);
+    // GTAO samples the depth texture, which WGSL cannot do when it is multisampled (the renderer's MSAA):
+    // with AO the scene pass renders single-sampled and FXAA does the smoothing.
+    const scenePass = pass(scene, camera, s.ao ? { samples: 0 } : undefined);
     let color: THREE.Node<'vec4'> = scenePass.getTextureNode();
 
     if (s.ao) {

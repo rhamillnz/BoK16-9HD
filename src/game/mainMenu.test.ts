@@ -60,7 +60,17 @@ describe('menus', () => {
       ['intro', true],
       ['options', true],
     ]);
-    expect(ids(true, true)[0]).toEqual(['resume', true]);
+    expect(ids(true, true).slice(0, 2)).toEqual([
+      ['resume', true],
+      ['save', true],
+    ]);
+  });
+  it('says what Continue will load', () => {
+    expect(mainMenuModel({ started: false, hasSave: true, newest: 'day 2 08:00' }).message).toBe(
+      'Continue: day 2 08:00',
+    );
+    expect(mainMenuModel({ started: false, hasSave: false }).message).toBe('No saved game yet');
+    expect(mainMenuModel({ started: true, hasSave: true, newest: 'x' }).message).toBeUndefined();
   });
   it('reflects settings in the options rows', () => {
     const m = optionsModel({ ...DEFAULT_SETTINGS, quality: 'low', volume: 1, muted: true });

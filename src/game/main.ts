@@ -93,6 +93,7 @@ import { DEFAULT_SETTINGS } from './mainMenu';
 import { loadTitleArt } from './titleArt';
 import { ensureGameData } from '../ui/dataPicker';
 import { GameDataError, installBootScreen } from '../ui/bootScreen';
+import { drawTitleScreen, layoutTitle } from '../ui/titleScreen';
 import { installInput } from './inputControls';
 import { loadZone } from '../world/zone';
 import type { JumpMapScreen } from '../ui/jumpMapScreen';
@@ -130,6 +131,18 @@ const chapterStart = {
   timeElapsed: loadChapterStart(archive, 1).timeElapsed,
 };
 const startZone = num('zone', chapterStart.zone);
+// The title screen's art behind the loading bar while the world is built.
+const titleArt = loadTitleArt(archive);
+try {
+  const titleFont = parseFNT(archive.get('GAME.FNT'));
+  boot.backdrop((ctx, width, height) => {
+    const layout = layoutTitle(width, height);
+    drawTitleScreen(ctx, titleFont, titleArt, layout, 10, width, height);
+    return layout.menuTop / height;
+  });
+} catch (err) {
+  console.warn('Loading screen art unavailable:', err);
+}
 boot.loading('Building the world…', 0.5);
 const zoneHost = await ZoneHost.create(scene, archive, startZone);
 const [firstTileX, firstTileY] = zoneHost.current.data.tiles[0] ?? [0, 0];
@@ -480,7 +493,9 @@ async function travelTo(d: Destination): Promise<void> {
     boot.done();
     travelling = false;
   }
+  if (d.zone !== undefined) autosave();
 }
+let autosave = (): void => {}; // set once the save controls are installed
 
 let encounters = await makeEncounters(start.zone, zoneHost.current.data.tiles, clock.state);
 
@@ -494,8 +509,9 @@ const npcFigures = new NpcFigures(scene, (actor) => {
   return clothingColors(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
 });
 
-// Save and load: F5 quick-save, F9 quick-load, F6 slot screen.
-await installSaveControls({
+// Save and load: F5 quick-save, F9 quick-load, F6 slot screen, and the autosave.
+let cutsceneActive = () => false; // the cutscene player is installed further down
+const saves = await installSaveControls({
   capture: () => ({
     savedAt: Date.now(),
     zone: zoneHost.current.zone,
@@ -514,11 +530,12 @@ await installSaveControls({
     sky.update(clock.minutes);
     await travelTo({ zone: d.zone, tileX: 0, tileY: 0, x: d.x, y: d.y, heading: d.heading });
   },
-  canQuickSave: () => !screens.blocking && !encounters.busy && !travelling,
+  canQuickSave: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !cutsceneActive(),
   setSaveHandler: (h) => {
     screens.saveHandler = h;
   },
 });
+autosave = () => void saves.autosave();
 
 // Camping: R rests with healing, rations and time passing.
 installCamp({
@@ -656,6 +673,7 @@ const cutscenes = installCutscenes({
   music,
   ...installBookPlayer({ fetch: (names) => prefetchResources(archive, names), hud: screens }),
 });
+cutsceneActive = () => cutscenes.active;
 
 // Chapter transitions: a dialogue or chapter-end hotspot ends the chapter (cutscenes, reset, start script, new start).
 const chapters = installChapters({
@@ -764,7 +782,7 @@ installMainMenu({
   music,
   post,
   applyGraphics,
-  titleArt: loadTitleArt(archive),
+  titleArt,
   canOpen: () => !encounters.busy && !travelling && !combat.active && !flyMode && !cutscenes.active,
   titleSong: SONG_TITLE,
   startGameMusic: () => zoneMusic(zoneHost.current.zone),

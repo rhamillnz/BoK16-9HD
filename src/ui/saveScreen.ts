@@ -76,6 +76,11 @@ function activate(
 ): { state: SaveScreenState; result: SaveScreenResult } {
   const info = slots[index];
   if (!info) return { state, result: { kind: 'none' } };
+  if (state.mode === 'save' && info.slot === 'auto')
+    return {
+      state: { ...state, selected: index, message: 'The game writes the autosave itself: pick another slot' },
+      result: { kind: 'none' },
+    };
   if (state.mode === 'save')
     return { state: { ...state, selected: index, message: '' }, result: { kind: 'save', slot: info.slot } };
   if (info.corrupt)
@@ -123,8 +128,9 @@ export function stepSaveScreen(
   return activate(state, slots, row.index);
 }
 
-/** "Quick save" or "Slot 3" for a slot name. */
+/** "Autosave", "Quick save" or "Slot 3" for a slot name. */
 export function slotLabel(slot: string): string {
+  if (slot === 'auto') return 'Autosave';
   const m = /^slot(\d+)$/.exec(slot);
   return m ? `Slot ${m[1]}` : 'Quick save (F5)';
 }

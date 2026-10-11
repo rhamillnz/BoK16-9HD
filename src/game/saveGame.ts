@@ -134,11 +134,13 @@ export function deserializeSave(text: string): SaveGameData {
 
 // ---- Storage ---------------------------------------------------------------
 
-/** Quick-save slot plus numbered slots shown on the save screen. */
+/** Autosave and quick-save slots plus numbered slots shown on the save screen. */
+export const AUTO_SLOT = 'auto';
 export const QUICK_SLOT = 'quick';
 export const NUMBERED_SLOTS = 8;
 export const slotName = (n: number): string => `slot${n}`;
 export const ALL_SLOTS: readonly string[] = [
+  AUTO_SLOT,
   QUICK_SLOT,
   ...Array.from({ length: NUMBERED_SLOTS }, (_, i) => slotName(i + 1)),
 ];
@@ -284,7 +286,7 @@ export class SaveGames {
     return this.store.remove(slot);
   }
 
-  /** The quick slot followed by the numbered ones, each with its summary. */
+  /** The autosave and quick slots followed by the numbered ones, each with its summary. */
   async list(): Promise<SlotInfo[]> {
     return Promise.all(
       ALL_SLOTS.map(async (slot): Promise<SlotInfo> => {

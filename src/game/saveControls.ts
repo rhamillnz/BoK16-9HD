@@ -1,5 +1,5 @@
 import type { SaveHandler } from '../ui/hud';
-import { QUICK_SLOT, SaveGames, createSaveStore, type SaveGameData } from './saveGame';
+import { AUTO_SLOT, QUICK_SLOT, SaveGames, createSaveStore, type SaveGameData } from './saveGame';
 import { slotLabel } from '../ui/saveScreen';
 import { captureSaveExtras, restoreSaveExtras } from './saveExtras';
 
@@ -22,8 +22,20 @@ function toast(text: string): void {
   setTimeout(() => el.remove(), 2000);
 }
 
-/** F5 quick-saves, F9 quick-loads, and the HUD's F6 slot screen is wired to the same store. */
-export async function installSaveControls(host: SaveControlsHost): Promise<SaveGames> {
+/** Real time between autosaves while the game is free to save. */
+export const AUTOSAVE_MS = 3 * 60_000;
+
+export interface SaveControls {
+  games: SaveGames;
+  /** Write the autosave now if the game is free to save (after travel, before the tab is hidden). */
+  autosave(): Promise<void>;
+}
+
+/**
+ * F5 quick-saves, F9 quick-loads, and the HUD's F6 slot screen is wired to the same store. The autosave slot is
+ * written every few minutes, on `autosave()` and when the tab is hidden, so Continue always has a recent game.
+ */
+export async function installSaveControls(host: SaveControlsHost): Promise<SaveControls> {
   const games = new SaveGames(await createSaveStore());
   const save = async (slot: string): Promise<string> => {
     await games.save(slot, { ...host.capture(), extras: captureSaveExtras() });
@@ -38,6 +50,19 @@ export async function installSaveControls(host: SaveControlsHost): Promise<SaveG
   };
   host.setSaveHandler({ list: () => games.list(), save, load });
 
+  let lastAuto = Date.now();
+  const autosave = async () => {
+    if (!host.canQuickSave()) return;
+    lastAuto = Date.now();
+    await save(AUTO_SLOT).catch((err: Error) => console.warn('Autosave failed:', err));
+  };
+  setInterval(() => {
+    if (Date.now() - lastAuto >= AUTOSAVE_MS) void autosave();
+  }, 10_000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') void autosave();
+  });
+
   window.addEventListener('keydown', (e) => {
     if (e.repeat || (e.code !== 'F5' && e.code !== 'F9')) return;
     e.preventDefault();
@@ -45,5 +70,5 @@ export async function installSaveControls(host: SaveControlsHost): Promise<SaveG
     const run = e.code === 'F5' ? save : load;
     run(QUICK_SLOT).then(toast, (err: Error) => toast(`Failed: ${err.message}`));
   });
-  return games;
+  return { games, autosave };
 }

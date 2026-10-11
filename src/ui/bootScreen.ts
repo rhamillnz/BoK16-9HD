@@ -93,10 +93,17 @@ export function backendNote(backend: 'WebGPU' | 'WebGL2'): string | undefined {
 export interface BootScreen {
   /** Show or update the loading overlay. `fraction` is 0..1 when known. */
   loading(label: string, fraction?: number): void;
-  /** Hide the loading overlay. */
+  /**
+   * Paint a picture behind the loading bar (the title screen once the game data is read). `paint` draws the
+   * whole canvas and returns where the label and bar go, as a 0..1 fraction of its height.
+   */
+  backdrop(paint: (ctx: CanvasRenderingContext2D, width: number, height: number) => number): void;
+  /** Hide the loading overlay. The first call ends startup: later errors show a notice, not the error page. */
   done(): void;
   /** Replace the page with a friendly error. */
   fail(err: unknown): void;
+  /** A problem after startup: logged, and shown as a notice the game carries on under. */
+  notice(err: unknown): void;
   /** Show the fallback note for a few seconds if the backend needs one. */
   backend(backend: 'WebGPU' | 'WebGL2'): void;
 }
@@ -116,12 +123,24 @@ export function installBootScreen(parent: HTMLElement = document.body): BootScre
   fill.style.cssText = 'height:100%;width:0;background:#c9a24a;transition:width 0.2s;';
   bar.append(fill);
   const box = document.createElement('div');
+  box.style.cssText = 'position:relative;';
   box.append(label, bar);
   overlay.append(box);
   parent.append(overlay);
   label.textContent = 'Loading…';
 
   let failed = false;
+  let started = false;
+  let art: HTMLCanvasElement | undefined;
+  let paintArt: ((ctx: CanvasRenderingContext2D, width: number, height: number) => number) | undefined;
+  const repaint = () => {
+    if (!art || !paintArt) return;
+    art.width = innerWidth;
+    art.height = innerHeight;
+    const at = paintArt(art.getContext('2d')!, art.width, art.height);
+    box.style.cssText = `position:absolute;left:0;right:0;top:${(at * 100).toFixed(1)}%;`;
+  };
+  addEventListener('resize', repaint);
   const screen: BootScreen = {
     loading(text, fraction) {
       if (failed) return;
@@ -130,8 +149,38 @@ export function installBootScreen(parent: HTMLElement = document.body): BootScre
       bar.style.display = fraction === undefined ? 'none' : 'block';
       if (fraction !== undefined) fill.style.width = `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%`;
     },
+    backdrop(paint) {
+      if (failed) return;
+      paintArt = paint;
+      if (!art) {
+        art = document.createElement('canvas');
+        art.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
+        overlay.prepend(art);
+        label.style.cssText = 'color:#3a2210;font-weight:600;text-shadow:0 1px 0 rgba(255,230,180,0.5);';
+        bar.style.background = 'rgba(40,24,10,0.35)';
+        bar.style.borderColor = '#6b4318';
+        fill.style.background = '#7a2a10';
+      }
+      repaint();
+    },
     done() {
+      started = true;
       if (!failed) overlay.style.display = 'none';
+    },
+    notice(err) {
+      console.error(err);
+      const text = err instanceof Error ? err.message : String(err);
+      const el = Object.assign(document.createElement('div'), {
+        className: 'error-notice',
+        textContent: `Something went wrong, but the game carries on: ${text.split('\n')[0]!.slice(0, 160)}`,
+      });
+      el.setAttribute('role', 'alert');
+      el.style.cssText =
+        'position:fixed;left:50%;top:3%;transform:translateX(-50%);max-width:70%;padding:8px 18px;background:rgba(40,12,8,0.92);' +
+        'border:1px solid #c9654a;border-radius:6px;color:#f3e6c4;font:14px system-ui,sans-serif;pointer-events:none;z-index:150;transition:opacity 0.6s;';
+      parent.append(el);
+      setTimeout(() => (el.style.opacity = '0'), 7000);
+      setTimeout(() => el.remove(), 8000);
     },
     fail(err) {
       if (failed) return;
@@ -168,8 +217,10 @@ export function installBootScreen(parent: HTMLElement = document.body): BootScre
     },
   };
 
-  // Anything that escapes startup (a top-level await in the module rejects) lands here.
-  window.addEventListener('unhandledrejection', (e) => screen.fail(e.reason));
-  window.addEventListener('error', (e) => screen.fail(e.error ?? e.message));
+  // Anything that escapes startup (a top-level await in the module rejects) lands here. Once the game is
+  // running, a stray error must not wipe it: it becomes a notice instead.
+  const caught = (err: unknown) => (started ? screen.notice(err) : screen.fail(err));
+  window.addEventListener('unhandledrejection', (e) => caught(e.reason));
+  window.addEventListener('error', (e) => caught(e.error ?? e.message));
   return screen;
 }

@@ -76,6 +76,18 @@ describe('save screen', () => {
     expect(describeSlot(slots[0]!)).toBe('Zone 2  day 5 12:30  Owyn, Pug  40 royals  [2026-01-02 03:04]');
     expect(describeSlot(slots[1]!)).toBe('(empty)');
     expect(describeSlot(slots[2]!)).toBe('(unreadable)');
+    expect(slotLabel('auto')).toBe('Autosave');
+  });
+  it('loads the autosave but does not let the player overwrite it', () => {
+    const withAuto: SlotInfo[] = [{ ...slots[0]!, slot: 'auto' }, ...slots];
+    const l = layoutSaveScreen(withAuto.length);
+    const save = stepSaveScreen(l, initialSaveScreenState('save'), withAuto, key('Enter'));
+    expect(save.result).toEqual({ kind: 'none' });
+    expect(save.state.message).toMatch(/autosave/);
+    expect(stepSaveScreen(l, initialSaveScreenState('load'), withAuto, key('Enter')).result).toEqual({
+      kind: 'load',
+      slot: 'auto',
+    });
   });
 });
 
