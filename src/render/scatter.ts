@@ -42,6 +42,8 @@ export interface ScatterOptions {
   steepRockBoost: number;
   /** No boulders on faces steeper than this (1 - normal.y): sheer cliff walls; scree covers their foot. */
   rockMaxSlope: number;
+  /** Share of boulders placed as big outcrops (2-3.6x), so tops and ledges read as rocky. */
+  outcropChance: number;
   /** Plants only where the face normal.y is at least this (ledges and tops) and no higher than `plantMaxAltitude`. */
   plantMinNormalY: number;
   plantMaxAltitude: number;
@@ -73,10 +75,11 @@ export const DEFAULT_SCATTER: Omit<ScatterOptions, 'seed'> = {
   clumpCell: 7,
   clumpRadius: 3.2,
   clumpFloor: 0.06,
-  rockDensity: 0.012,
+  rockDensity: 0.03,
   steep: 0.3,
   steepRockBoost: 5,
   rockMaxSlope: 0.6,
+  outcropChance: 0.12,
   plantMinNormalY: 0.75,
   plantMaxAltitude: 40,
   pineMinNormalY: 0.93,
@@ -90,7 +93,7 @@ export const DEFAULT_SCATTER: Omit<ScatterOptions, 'seed'> = {
   maxCover: 120000,
   maxShrubs: 24000,
   maxPines: 400,
-  maxRocks: 6000,
+  maxRocks: 14000,
   maxScree: 24000,
   maxInstances: 180000,
 };
@@ -379,7 +382,8 @@ export function scatterOnTriangles(
       for (let i = 0; i < k; i++) {
         randomPoint();
         q.setFromAxisAngle(up, rand() * Math.PI * 2);
-        const s = 0.8 + rand() * 1.2;
+        // Outcrops only on gentle ground: on a steep face a big boulder looks stuck to the wall.
+        const s = slope <= opts.steep && rand() < opts.outcropChance ? 2 + rand() * 1.6 : 0.8 + rand() * 1.2;
         const lean = new THREE.Quaternion().setFromUnitVectors(up, n.clone().lerp(up, 0.4).normalize());
         q.premultiply(lean);
         p.addScaledVector(n, -0.8 * s);

@@ -1,5 +1,6 @@
 import type { Group } from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { recolourRedLeaves } from '../render/foliageColour';
 
 /**
  * Asset override system: maps original model names (e.g. `inn`, `tree1`,
@@ -85,6 +86,7 @@ export type GlbLoadFn = (url: string) => Promise<Group>;
 
 const defaultLoad: GlbLoadFn = async (url) => {
   const gltf = await new GLTFLoader().loadAsync(url);
+  recolourRedLeaves(gltf.scene);
   return gltf.scene as unknown as Group;
 };
 

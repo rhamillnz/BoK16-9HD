@@ -21,7 +21,7 @@ import { createHillMaterial } from './hillMaterial';
 import { hillTriangles, isHillModel } from './hillMesh';
 import { closeOpenSides } from './hillCliffs';
 import { detailHill, type DetailedHill } from './hillDetail';
-import { applyInstanceColors, isPlantModel, styleInstances } from './treeStyle';
+import { HILL_FOLIAGE, applyInstanceColors, isPlantModel, styleInstances } from './treeStyle';
 import { applyScatterRockMaterial } from './scatterRockMaterial';
 import {
   DEFAULT_SCATTER,
@@ -495,7 +495,7 @@ export function buildZoneScene(zone: ZoneData, overrides?: ZoneOverridePlan): Zo
     const placed = scatterOnTriangles(hillPositions, available, { ...DEFAULT_SCATTER, seed: zone.zone });
     for (const chunk of chunkPlacements(placed, SCATTER_CHUNK_CELL)) {
       const name = chunk.name;
-      const styled = isPlantModel(name) ? styleInstances(zone.zone, chunk.matrices) : undefined;
+      const styled = isPlantModel(name) ? styleInstances(zone.zone, chunk.matrices, HILL_FOLIAGE) : undefined;
       const meshes = buildOverrideMeshes(name, overrides.models.get(name)!, styled?.matrices ?? chunk.matrices);
       if (styled) applyInstanceColors(meshes, styled.colors);
       applyScatterRockMaterial(name, meshes);

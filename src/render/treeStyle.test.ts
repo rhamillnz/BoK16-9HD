@@ -36,3 +36,17 @@ describe('styleInstances', () => {
     expect(mean(6)).toBeGreaterThan(mean(1) * 1.1);
   });
 });
+
+describe('styleInstances palette', () => {
+  it('gives each instance one of the palette colours', () => {
+    const placements = Array.from({ length: 200 }, (_, i) => at(i * 2.3, (i % 7) * 4.1));
+    const palette = [
+      [1, 0.5, 0.5],
+      [0.5, 1, 0.5],
+    ] as const;
+    const { colors } = styleInstances(1, placements, palette);
+    const reddish = colors.filter((c) => c.r > c.g).length;
+    expect(reddish).toBeGreaterThan(40);
+    expect(reddish).toBeLessThan(160);
+  });
+});

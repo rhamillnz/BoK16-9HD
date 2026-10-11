@@ -24,9 +24,9 @@ const LICHEN = vec3(0.3, 0.3, 0.2);
 const GRANITE = vec3(0.85, 0.95, 1.12);
 const SANDSTONE = vec3(1.6, 1.25, 0.75);
 const IRONSTONE = vec3(1.55, 0.85, 0.6);
-/** Hillside plants: purple-brown heather and orange bracken. */
-const HEATHER = vec3(0.13, 0.055, 0.1);
-const BRACKEN = vec3(0.25, 0.1, 0.025);
+/** Hillside plants: dark green scrub and olive moss. */
+const SCRUB = vec3(0.04, 0.075, 0.025);
+const MOSS = vec3(0.11, 0.115, 0.035);
 /** Region noise scale: a few hills share a rock type, the next group has another. */
 const REGION_SCALE = 0.014;
 /** Exponent applied to the palette colour (< 1 brightens dark colours most). */
@@ -35,7 +35,7 @@ export const HILL_GAMMA = 0.55;
 export const HILL_BOUNCE = 0.35;
 export const HILL_ROCK_ALTITUDE = [10, 28] as const;
 /** Height (render units) of the fine shader relief; the mesh carries the large shapes (hillDetail.ts). */
-export const HILL_BUMP = 0.28;
+export const HILL_BUMP = 0.4;
 
 /** Small-scale relief: lumps, gullies and rocky grain, in world space so it never swims. */
 const relief = Fn(() => {
@@ -47,7 +47,14 @@ const relief = Fn(() => {
     .sub(abs(mx_noise_float(vec3(p.x.mul(0.18), p.y.mul(0.5), p.z.mul(0.18)).add(5.5))))
     .pow(3)
     .mul(-0.5);
-  return lumps.add(grain).add(fine).add(gully).mul(HILL_BUMP);
+  // Bedding ledges: ridges along the strata that come and go, so walls read as layered rock rather than plaster.
+  const ledgeAmt = smoothstep(0.1, 0.6, mx_noise_float(p.mul(0.07).add(4.4)));
+  const ledges = float(1)
+    .sub(abs(mx_noise_float(vec3(p.x.mul(0.08), p.y.mul(0.75), p.z.mul(0.08)).add(21.3))))
+    .pow(4)
+    .mul(ledgeAmt)
+    .mul(0.6);
+  return lumps.add(grain).add(fine).add(gully).add(ledges).mul(HILL_BUMP);
 });
 
 /**
@@ -95,7 +102,7 @@ export function createHillMaterial(): THREE.MeshStandardNodeMaterial {
     );
     const stone = mix(ROCK_LOW, ROCK_HIGH, mx_noise_float(p.mul(0.4)).mul(0.5).add(0.5).mul(bands.mul(0.6).add(0.4)))
       .mul(strata.mul(0.5).add(0.7))
-      .mul(crack.mul(0.4).add(0.8))
+      .mul(crack.mul(0.55).add(0.7))
       .mul(rockTint);
     // Lichen and a little of the hill's own colour on the upward faces of the rock.
     const lichen = smoothstep(0.55, 0.8, mx_noise_float(positionWorld.mul(0.9).add(2.2)).mul(0.5).add(0.5)).mul(
@@ -106,20 +113,16 @@ export function createHillMaterial(): THREE.MeshStandardNodeMaterial {
       lit,
       normalWorld.y.max(0).mul(0.15),
     );
-    // Heather and bracken on moderate slopes, in patches whose mix also changes by region.
+    // Scrub and moss on moderate slopes, in patches whose mix also changes by region.
     const moderate = smoothstep(0.05, 0.2, slope).mul(float(1).sub(smoothstep(0.45, 0.65, slope)));
     const plants = smoothstep(
-      0.42,
-      0.68,
+      0.5,
+      0.74,
       mx_noise_float(p.mul(0.09).add(vec2(5.5, 9.1)))
         .mul(0.5)
         .add(0.5),
     ).mul(moderate);
-    const plantColour = mix(
-      HEATHER,
-      BRACKEN,
-      smoothstep(0.35, 0.65, region2.add(mx_noise_float(p.mul(0.03)).mul(0.25))),
-    );
+    const plantColour = mix(SCRUB, MOSS, smoothstep(0.35, 0.65, region2.add(mx_noise_float(p.mul(0.03)).mul(0.25))));
     const ground = mix(lit, plantColour.mul(float(0.85).add(patch.mul(0.3))), plants.mul(0.85));
     return mix(ground, rock, rockAmt.mul(float(1).sub(plants.mul(0.7))));
   })();
