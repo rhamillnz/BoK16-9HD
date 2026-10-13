@@ -58,3 +58,17 @@ Our code reports `exercised` in the result but does not apply skill practice yet
 Opening a shop hotspot (action 6) shows the stock and the active character's pack. Dialogue keys played (all in the shared dialogue file): `0x1b7757` buy offer (answers Accept `0x104`, Haggle `0x106`, or decline), `0x1b7756` sell offer, `0x1b7755` haggle won, `0x1b7754` haggle failed or item withdrawn, `0x1b7758` cannot afford, `0x1b7759` shop won't buy, `0x1b775c` too drunk for ale or brandy, `0x1b7748` no room, `0x1b774e` cannot sell the only weapon, `0x1b775f` cannot haggle over a scroll. The price shown in those dialogues is the item-value text variable (`@` code 18 in textVariables.ts), which `shopControls` fills in before each one. Sold items and the shop's statistics are saved with the game (`SaveGameData.shops`).
 
 Not done: repair shops (action 0x10 / 0xA), buying a chosen quantity, the Lua-scripted haggle texts BaKGL adds, and the stock-changing events of later chapters.
+
+## Barding and repairs (rules from BaKGL)
+
+- **Lute hotspot (action 9)** at inns: the active character with the best Barding plays. Against the inn's
+  `bardingSkill`: below 3/4 of it fails, below it is poor, below halfway to 100 is good, else best. The pay is the
+  inn's `bardingMaxReward` sovereigns plus 5% per chapter after the first, times 0, 1/4, 1/2 or 1. Everyone
+  practises Barding (twice for good or best). Once an inn has paid, its `bardingReward` is 0 and it answers with
+  dialogue 0x47; the grades answer with 0x49, 0x58, 0x59, 0x5a and play songs 9, 41, 40, 8. A failed performance
+  throws the party out of the scene. src/game/bard.ts.
+- **Repair hotspot (action 0x10)**, and shop dialogues that end in repairs (Repair2): `repairTypes` bit 0 swords,
+  bit 1 armour, bit 2 crossbows. Anything below 100% condition or broken can be mended. Price: crossbows 400 royals
+  (Bessy Mauler, item 32, 800), otherwise item value x `repairFactor` x (100 - condition) / 10000. Dialogues
+  0x1b7763 (offer; Yes is answer 0x104), 0x1b7764 (can't), 0x1b7765 (nothing to fix). The party needs more than the
+  price. src/game/repairShop.ts.

@@ -31,6 +31,7 @@ import {
   UNDERGROUND_SONGS,
   ZONE_SONGS,
   songFromSoundIndex,
+  SOUND_INDEX_BASE,
 } from '../audio/songs';
 import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
@@ -86,7 +87,7 @@ import { LAST_CHAPTER } from './chapters';
 import { installJournal } from './journalControls';
 import { installPerf } from '../render/perf';
 import { installBookPlayer } from './bookControls';
-import { installCutscenes } from './cutsceneControls';
+import { cutsceneMusic, installCutscenes } from './cutsceneControls';
 import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
 import { pointInPolygon } from '../world/collision';
@@ -358,6 +359,12 @@ const shops = createShops({
   getWorld: () => clock.state,
   zone: () => zoneHost.current.zone,
   playDialog: (key, done) => town.playDialog(key, done),
+  chapter: () => start.chapter,
+  playSong: (song) => {
+    const tune = cutsceneMusic(music);
+    tune.change(SOUND_INDEX_BASE + song - 1);
+    return () => tune.restore();
+  },
 });
 
 // Inns: the innkeeper's offer, then nights of rest (see docs/formats/inns.md).
@@ -747,6 +754,25 @@ const chapters = installChapters({
 const debugScene = /^(\d+)([A-Z])$/.exec(q.get('scene') ?? '');
 if (debugScene) void town.controller.enter({ number: Number(debugScene[1]), letter: debugScene[2]! });
 town.controller.handle(HotspotAction.ChapterEnd, ({ done }) => void chapters.begin().finally(done));
+// An inn's Lute hotspot: the best bard plays for the purse; a failed performance gets the party thrown out.
+town.controller.handle(HotspotAction.Lute, ({ scene, done }) => {
+  void shops
+    .bard(scene.ref)
+    .then((r) => {
+      done();
+      if (r === 'thrownOut') town.controller.leave();
+    })
+    .catch((err) => {
+      console.error('barding:', err);
+      done();
+    });
+});
+// Menders: a Repair hotspot, or a shop dialogue that ends in repairs (the controller turns that into Repair2).
+for (const action of [HotspotAction.Repair, HotspotAction.Repair2])
+  town.controller.handle(action, ({ scene, done }) => {
+    shops.repair(scene.ref);
+    done();
+  });
 // A town scene's plain container (Locklear's room, a well, a pile of leaves), after the hotspot's text.
 town.controller.handle(HotspotAction.Container, ({ scene, done }) => {
   void containers

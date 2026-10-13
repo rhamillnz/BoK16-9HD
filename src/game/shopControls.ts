@@ -7,7 +7,9 @@ import type { GdsRef } from '../formats/gds';
 import type { ItemDef } from '../formats/objinfo';
 import type { ShopHudScreen, ShopView } from '../ui/shopHudScreen';
 import type { ShopModel, ShopRow } from '../ui/shopScreen';
-import { activeCharacters, type PartyState } from './party';
+import { activeCharacters, updateCharacter, type PartyState } from './party';
+import { REPAIR_DIALOG, canShopRepair, needsRepair, repairCost, repaired } from './repairShop';
+import { BARD_SONG, performBard } from './bard';
 import {
   ItemFlag,
   UNPURCHASEABLE,
@@ -77,6 +79,10 @@ export interface ShopHost {
   /** Play the dialogue at `key` and call `done` when it ends. */
   playDialog(key: number, done: (end: ShopDialogEnd) => void): void;
   rng?: Rng;
+  /** Current chapter (barding pays more in later chapters). Default 1. */
+  chapter?(): number;
+  /** Play a song while a performance is answered, and bring back what was playing (the bard's tune). */
+  playSong?(song: number): () => void;
 }
 
 /** Saved shop state: what the shop stocks and its statistics, by scene name ("2B"). */
@@ -258,14 +264,118 @@ export function createShops(host: ShopHost) {
     return true;
   }
 
+  /** The mender of a scene: the shop screen lists each member's pack with repair prices; a click asks for a repair. */
+  function repair(ref: GdsRef): boolean {
+    const shop = book.get(sceneKey(ref));
+    if (!shop) return false;
+    const stats = shop.stats;
+    const screen = host.hud.screenHandler<ShopHudScreen>('shop');
+    const members = () => activeCharacters(host.getParty());
+    const HINT = 'Click an item to have it mended, Esc leaves';
+    const reopen = (message = HINT) => {
+      host.hud.open('shop');
+      screen.setMessage(message);
+    };
+
+    const model = (m: number): ShopModel => {
+      const party = host.getParty();
+      const pack: ShopRow[] = (members()[m]?.inventory.items ?? []).flatMap((item) => {
+        const d = defOf(item);
+        if (!d) return [];
+        const mendable = canShopRepair(d, stats) && needsRepair(item);
+        return [
+          {
+            label: nameOf(item, d),
+            price: mendable ? formatRoyals(repairCost(item, d, stats)) : '',
+            dim: !mendable,
+          },
+        ];
+      });
+      return {
+        title: 'Repairs',
+        purse: `Purse: ${formatRoyals(party.gold)}`,
+        members: members().map((x) => x.name),
+        stock: [],
+        pack,
+      };
+    };
+
+    const doRepair = async (slot: number, m: number): Promise<void> => {
+      const who = members()[m];
+      const item = who?.inventory.items[slot];
+      const d = item && defOf(item);
+      if (!who || !item || !d) return reopen();
+      const cost = repairCost(item, d, stats);
+      extras = { itemName: d.name, itemValue: cost, activeCharacter: who.index };
+      if (!canShopRepair(d, stats)) {
+        await play(REPAIR_DIALOG.cantRepair);
+        return reopen();
+      }
+      if (!needsRepair(item)) {
+        await play(REPAIR_DIALOG.notNeeded);
+        return reopen();
+      }
+      const end = await play(REPAIR_DIALOG.cost);
+      if (end.cancelled || end.choice !== ANSWER_ACCEPT) return reopen();
+      const party = host.getParty();
+      const still = party.characters.find((c) => c.index === who.index)?.inventory.items[slot];
+      if (still?.itemIndex !== item.itemIndex) return reopen(); // the pack changed during the dialogue
+      if (party.gold <= cost) {
+        await play(SHOP_DIALOG.cantAfford);
+        return reopen();
+      }
+      const next = updateCharacter({ ...party, gold: party.gold - cost }, who.index, (c) => ({
+        ...c,
+        inventory: { ...c.inventory, items: c.inventory.items.map((x, i) => (i === slot ? repaired(x) : x)) },
+      }));
+      host.setParty(next);
+      playSfx(Snd.buy);
+      reopen(`Repaired ${d.name} for ${formatRoyals(cost)}`);
+    };
+
+    screen.setView({
+      model,
+      act: (r, m) => {
+        if (r.kind === 'sell') void doRepair(r.pack, m);
+      },
+      closed: () => {
+        extras = {};
+      },
+    });
+    host.hud.open('shop', { fresh: true });
+    screen.setMessage(HINT);
+    return true;
+  }
+
   return {
     /** Open the shop of a scene; false when the save has no shop there. */
     enter,
+    /** Open the mender of a scene; false when the scene has no shop record. */
+    repair,
     /** Open the shop of a scene without waiting; false when the scene has none. */
     open(ref: GdsRef): boolean {
       if (!book.has(sceneKey(ref))) return false;
       void enter(ref);
       return true;
+    },
+    /**
+     * The inn's Lute hotspot: the best bard plays, the purse and practice are applied and the innkeeper answers.
+     * Resolves 'thrownOut' after a failed performance (the party has to leave), else 'played'; 'none' when the
+     * scene has no inn.
+     */
+    async bard(ref: GdsRef): Promise<'played' | 'thrownOut' | 'none'> {
+      const key = sceneKey(ref);
+      const shop = book.get(key);
+      if (!shop) return 'none';
+      const r = performBard(host.getParty(), shop.stats, host.chapter?.() ?? 1);
+      book.set(key, { ...shop, stats: r.stats });
+      host.setParty(r.party);
+      const stopSong = r.status ? host.playSong?.(BARD_SONG[r.status]) : undefined;
+      extras = { itemValue: r.reward, ...(r.bard ? { activeCharacter: r.bard.index } : {}) };
+      await new Promise<void>((done) => host.playDialog(r.dialog, () => done()));
+      extras = {};
+      stopSong?.();
+      return r.status === 'failed' ? 'thrownOut' : 'played';
     },
     /** Extra values for dialogue text (`@` price, item and character) while a shop talks. */
     textExtras: (): Partial<TextVariableContext> => extras,
