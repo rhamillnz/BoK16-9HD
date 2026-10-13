@@ -114,3 +114,14 @@ How `src/game/combatEncounter.ts` turns a combat encounter into a fight. Everyth
 The grid is placed with `gridCellToWorld` (see Grid above). `src/combat/layout.ts` adds the inverse (`worldToGridCell`, used to pick the cell under the mouse) and a camera plan: above and behind the near edge, looking at the grid's middle. These camera numbers are our own; the original's live in a file we have not read.
 
 Controls: click a blue cell to walk there, a red cell to attack (shift-click or the Slash toggle for a slash); D defend, W wait, Q retreat, S toggle slash, Enter to leave the result screen.
+
+### Before the fight (src/game/combatApproach.ts)
+
+From BaKGL's `combatEncounterHandler`. An ambush (DEF_COMB flag) is tried once for scouting: if the party's best
+Scouting is at least a 0-99 roll, everyone practises Scouting, the record's scout dialogue plays and there is no
+fight now. Otherwise, unless the combat is one of the story fights (combat indexes 151, 152, 235, 245, 291, 293,
+335, 337, 338, 375, 410, 429, 430), the party slips past when its worst Stealth plus 30% (at most 90, more under
+Dragon's Breath for an ambush) is at least a roll; everyone practises Stealth. Otherwise the entry dialogue plays
+with game state 0x7530 set to 0 (crept up on a scouted fight within 900 ticks of scouting: a roll at most the
+worst Stealth), 1 (spotted while creeping up) or 2 (not scouted), and the monster (the record's last combatant)
+as its text's monster name; then the fight starts. Chest ambushes skip all of this.

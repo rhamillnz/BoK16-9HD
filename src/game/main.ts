@@ -50,6 +50,7 @@ import { TILE_SIZE } from '../formats/world';
 import { loadZoneMap } from '../formats/zoneMap';
 import { ZoneHost } from './zoneHost';
 import { CombatEncounters } from './combatEncounter';
+import { scriptedState } from './dialogState';
 import { hideInstancesWhere } from '../render/hideInstances';
 import { loadCombatSupport } from './combatController';
 import { EncounterType } from '../formats/encounters';
@@ -429,6 +430,8 @@ const enterTown = async (e: PlacedEncounter, t: TownEntry) => {
 const spellDefs = archive.has('SPELLS.DAT') ? parseSpells(archive.get('SPELLS.DAT')) : [];
 
 // Combat encounters: a fight on the combat grid, then wounds applied and the encounter marked done (or a retreat).
+/** Text variables for a combat's scouting or entry dialogue (the monster's name). */
+let combatText: { monsterName?: string } = {};
 const combat = new CombatEncounters({
   scene,
   camera,
@@ -460,6 +463,21 @@ const combat = new CombatEncounters({
     encounters.runner.complete(e);
     clock.state = encounters.runner.world;
   },
+  now: () => clock.state.ticks,
+  playDialog: (key, text) =>
+    new Promise<void>((done) => {
+      scriptedState.context = text.context;
+      combatText = { monsterName: text.monster };
+      encounters.runner.setWorld(clock.state);
+      const session = encounters.runner.startDialog(key);
+      runDialogSession(session, showView, (cancelled) => {
+        encounters.runner.finish(session);
+        applyDialog(session, undefined, cancelled);
+        combatText = {};
+        scriptedState.context = 0;
+        done();
+      });
+    }),
 });
 
 const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [number, number])[], world: WorldState) => {
@@ -477,7 +495,7 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
         getParty: () => partyState,
         zone: zoneNumber,
         chapter: start.chapter,
-        extras: shops.textExtras,
+        extras: () => ({ ...shops.textExtras(), ...combatText }),
         castSpell: (n) => justCast(n, clock.state.ticks),
       }),
     }),
@@ -749,6 +767,10 @@ const chapters = installChapters({
     if (teleport !== undefined && teleports[teleport]) await travelTo(teleports[teleport]!);
   },
   onTransitioned: () => sky.update(clock.minutes),
+});
+// Shop dialogues offer repairs by the shop's repair types (game state 0x7542), as the original sets on entering.
+town.controller.onEnter((scene) => {
+  scriptedState.shopType = shops.stats(scene.ref)?.repairTypes ?? 0;
 });
 // Debug: ?scene=9A opens that town scene on load.
 const debugScene = /^(\d+)([A-Z])$/.exec(q.get('scene') ?? '');

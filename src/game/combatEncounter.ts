@@ -11,6 +11,7 @@ import type { SpellDef } from '../formats/spells';
 import type { ItemDef } from '../formats/objinfo';
 import type { PlacedEncounter } from '../world/encounters';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
+import { approachCombat } from './combatApproach';
 import {
   CombatController,
   enemiesOf,
@@ -49,6 +50,15 @@ export interface CombatEncounterDeps {
   setParty: (p: PartyState) => void;
   /** Record the encounter as done (its completion flag and "seen" state). */
   markDone: (e: PlacedEncounter) => void;
+  /** Game time in ticks (when an ambush was scouted). */
+  now?: () => number;
+  /** Uniform 0..99 for the scouting and stealth rolls. */
+  roll?: () => number;
+  /**
+   * Play a combat's scouting or entry dialogue with the approach context (0x7530) and the monster for its text;
+   * resolves when it ends. Without it the fight starts at once.
+   */
+  playDialog?: (key: number, text: { context: number; monster?: string }) => Promise<void>;
 }
 
 /** A party member who fell is back on their feet with 1 Health when the party is beaten and retreats. */
@@ -67,11 +77,14 @@ function revive(party: PartyState): PartyState {
 /**
  * Glue between the encounter system and a fight: builds the fighters for a combat encounter, runs it,
  * and applies the result (wounds, the encounter marked done on a win, the retreat move otherwise).
- * Entry and scout dialogues and the post-fight dialogue are not handled yet.
+ * Before the fight: scouting, slipping past and the entry dialogue (combatApproach.ts).
  */
 export class CombatEncounters {
   private readonly controller: CombatController;
   private starting = false;
+  /** Ambushes already tried for scouting (by encounter), and when each combat was scouted. */
+  private readonly scoutTried = new Set<string>();
+  private readonly scoutedAt = new Map<number, number>();
 
   constructor(private readonly d: CombatEncounterDeps) {
     this.controller = new CombatController({
@@ -82,9 +95,11 @@ export class CombatEncounters {
     });
   }
 
-  /** True from the moment a fight is requested until its result is applied. */
+  private approaching = false;
+
+  /** True from the moment a fight is requested until its result is applied (including its entry dialogue). */
   get active(): boolean {
-    return this.starting || this.controller.active;
+    return this.starting || this.approaching || this.controller.active;
   }
 
   update(dt: number): void {
@@ -95,12 +110,43 @@ export class CombatEncounters {
     this.controller.applyCamera();
   }
 
-  /** Start the fight for a combat encounter; resolves once it is on screen (or was skipped). */
+  /**
+   * The party walked into a combat encounter: an ambush may be scouted (its text, no fight yet) or the party may
+   * slip past (combatApproach.ts); otherwise the entry dialogue plays and the fight starts. Resolves once the fight
+   * is on screen (or did not happen).
+   */
   async start(e: PlacedEncounter): Promise<void> {
     const def = this.d.support.defs[e.record.tableIndex];
     if (!def) {
       console.warn('combat: no combat table entry', e.record.tableIndex);
       return;
+    }
+    if (this.active || this.approaching) return;
+    this.approaching = true;
+    try {
+      const key = `${e.tileX},${e.tileY}:${e.record.tableIndex}`;
+      const now = this.d.now?.() ?? 0;
+      const a = approachCombat({
+        party: this.d.getParty(),
+        def,
+        scoutTried: this.scoutTried.has(key),
+        scoutedAt: this.scoutedAt.get(def.combatIndex),
+        now,
+        roll: this.d.roll ?? (() => Math.floor(Math.random() * 100)),
+      });
+      if (def.ambush) this.scoutTried.add(key);
+      this.d.setParty(a.party);
+      if (a.kind === 'avoided') return;
+      const last = def.combatants[def.combatants.length - 1];
+      const monster = last ? this.d.support.monsterNames[last.monster] : undefined;
+      if (a.kind === 'scouted') {
+        this.scoutedAt.set(def.combatIndex, now);
+        await this.d.playDialog?.(a.dialog, { context: 0, monster });
+        return;
+      }
+      if (def.entryDialog !== 0) await this.d.playDialog?.(def.entryDialog, { context: a.context, monster });
+    } finally {
+      this.approaching = false;
     }
     await this.launch(def, false, (outcome, fighters, at, result) =>
       this.finished(e, def, outcome, fighters, at, result),

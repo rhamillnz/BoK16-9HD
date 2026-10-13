@@ -379,6 +379,10 @@ export function createShops(host: ShopHost) {
     },
     /** Extra values for dialogue text (`@` price, item and character) while a shop talks. */
     textExtras: (): Partial<TextVariableContext> => extras,
+    /** A scene's shop statistics, or undefined when it has no shop. */
+    stats(ref: GdsRef): ShopStats | undefined {
+      return book.get(sceneKey(ref))?.stats;
+    },
     /** A shop's (or inn's) stock and capacity, for the chapter-start rules; undefined when the scene has no shop. */
     stock(ref: GdsRef): { capacity: number; items: InventoryItem[] } | undefined {
       const shop = book.get(sceneKey(ref));
