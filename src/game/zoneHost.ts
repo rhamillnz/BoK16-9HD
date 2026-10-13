@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import type { ResourceArchive } from '../formats/archive';
 import { createGrass, type Grass } from '../render/grass';
-import { createGroundSampler, roadEdgePoints } from '../render/grassGround';
+import { createGroundSampler, groundIsGrassy, roadEdgePoints } from '../render/grassGround';
 import { buildOverrideMeshes } from '../render/overrideResolve';
 import { DEFAULT_ROAD_STONES, ROAD_STONE_CHUNK, ROAD_STONE_FAR, roadStonePlacements } from '../render/roadStones';
 import { prepareZoneOverrides, type ZoneOverridePlan } from '../render/zoneOverrides';
@@ -64,7 +64,11 @@ export async function loadZoneScene(archive: ResourceArchive, zone: number, pare
   const heightField = buildHeightField(collectTerrainTriangles(data));
   if (!isUndergroundZone(zone)) addRoadStones(scene, data, overrides, heightField);
   // No grass underground: an inert stand-in keeps the quality switch and disposal calls harmless.
-  const grass = isUndergroundZone(zone) ? noGrass() : createGrass(parent, createGroundSampler(data, heightField));
+  // No grass underground or on snow.
+  const grass =
+    isUndergroundZone(zone) || !groundIsGrassy(data)
+      ? noGrass()
+      : createGrass(parent, createGroundSampler(data, heightField));
   const info = `zone ${zone}: ${scene.stats.meshItems} meshes, ${scene.stats.sprites} sprites, ${Math.round(scene.stats.triangles / 1000)}k tris, ${scene.collision.length} colliders`;
   return { zone, data, scene, heightField, grass, info };
 }

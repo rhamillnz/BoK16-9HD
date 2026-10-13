@@ -66,6 +66,12 @@ function groundColor(zone: ZoneData): [number, number, number] {
   return n ? [sum[0]! / n / 255, sum[1]! / n / 255, sum[2]! / n / 255] : [0.3, 0.45, 0.2];
 }
 
+/** The zone's ground is green enough for grass (zone 6's is snow, blue-grey). */
+export function groundIsGrassy(zone: ZoneData): boolean {
+  const [r, g, b] = groundColor(zone);
+  return g > r && g > b;
+}
+
 /**
  * Ground sampler for `createGrass`: render-space (x, z) -> ground height, or null off Ground-terrain
  * areas (roads, paths, rivers, fields, anything built over it). Carries the ground palette colour.

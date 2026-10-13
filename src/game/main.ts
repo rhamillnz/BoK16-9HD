@@ -508,7 +508,9 @@ const combat = new CombatEncounters({
 });
 
 const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [number, number])[], world: WorldState) => {
-  const read = await prefetchResources(archive, encounterResourceNames(zoneNumber, tiles));
+  // Tiles without encounters have no T*.DAT at all: only ask for the ones the archive holds (no 404s).
+  const names = encounterResourceNames(zoneNumber, tiles).filter((n) => !/^T\d+\.DAT$/.test(n) || archive.has(n));
+  const read = await prefetchResources(archive, names);
   const table = read('TELEPORT.DAT');
   teleports = table ? parseTeleports(table) : [];
   return new EncounterDriver(
