@@ -1,7 +1,7 @@
 /**
- * Builds combat `Fighter`s from the party and from the save's enemy records.
- * Enemy weapons and armour live in the save's combat inventories, which are not parsed yet, so
- * monsters fight unarmed: damage is their Strength alone (**unverified** against the original).
+ * Builds combat `Fighter`s from the party and from the save's enemy records. Enemies fight with the sword or
+ * staff, armour and crossbow equipped in their combat inventories, as BaKGL's combatants do; a monster without an
+ * inventory record fights unarmed (damage is its Strength alone) and shoots a stand-in bolt.
  */
 
 import { effectiveSkill, type Character, type InventoryItem } from '../formats/gam';
@@ -147,9 +147,18 @@ export function enemyFighter(
   name: string,
   index: number,
   spellDefs: readonly SpellDef[] = [],
+  /** The monster's combat inventory, when the save has one. */
+  gear?: { items: readonly InventoryItem[]; defs: readonly ItemDef[] },
 ): Fighter {
   const v = (n: keyof EnemyRecord['skills']) => Math.max(0, e.skills[n].trueSkill + e.skills[n].modifier);
   const spells = monsterSpells(v('casting'), spellDefs);
+  const weapon = gear && equippedWeapon(gear.items, gear.defs);
+  const armor = gear && equippedArmor(gear.items, gear.defs);
+  const bow = gear
+    ? equippedCrossbow(gear.items, gear.defs)
+    : v('crossbow') >= MONSTER_SHOOTER_SKILL
+      ? MONSTER_BOLT
+      : undefined;
   return {
     id: `enemy${e.combatant}`,
     slot: e.slot,
@@ -167,8 +176,10 @@ export function enemyFighter(
     defense: v('defense'),
     melee: v('melee'),
     race: monsterRace(e.monster),
+    ...(weapon ? { weapon } : {}),
+    ...(armor ? { armor } : {}),
     ...(spells.length > 0 ? { spells } : {}),
-    ...(v('crossbow') >= MONSTER_SHOOTER_SKILL ? { ranged: { crossbow: v('crossbow'), weapon: MONSTER_BOLT } } : {}),
+    ...(bow ? { ranged: { crossbow: v('crossbow'), weapon: bow } } : {}),
   };
 }
 

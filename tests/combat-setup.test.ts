@@ -184,6 +184,24 @@ describe('buildFighters', () => {
     expect(f.filter((x) => x.side === 'enemy').map((x) => x.name)).toEqual(['Brigand', 'Brigand 2']);
   });
 
+  it('arms enemies with the gear equipped in their combat inventory', () => {
+    const equipped = (itemIndex: number) => ({ itemIndex, conditionOrQuantity: 70, status: 1 << 6, modifiers: 0 });
+    const f = buildFighters({
+      def: combatDef,
+      enemies: [enemy(30, 3, 2, 10), { ...enemy(31, 3, 5, 10), slot: 1 }],
+      party: [],
+      partyGrid: grid,
+      monsterNames: names,
+      items,
+      inventories: new Map([['1:0', [equipped(0), equipped(1), { ...equipped(2), status: 0 }]]]),
+    });
+    const [armed, bare] = f.filter((x) => x.side === 'enemy');
+    expect(armed!.weapon).toMatchObject({ strengthSwing: 10, condition: 70 });
+    expect(armed!.armor).toMatchObject({ rating: 20 });
+    expect(bare!.weapon).toBeUndefined();
+    expect(bare!.armor).toBeUndefined();
+  });
+
   it('makes stand-in enemies from the combat table when the save has none', () => {
     const f = buildFighters({ def: combatDef, enemies: [], party, partyGrid: grid, monsterNames: names, items });
     expect(f.filter((x) => x.side === 'enemy')).toHaveLength(2);

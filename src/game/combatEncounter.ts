@@ -221,6 +221,7 @@ export class CombatEncounters {
         monsterNames: s.monsterNames,
         items,
         spells: this.d.spells,
+        inventories: s.inventories,
       });
       const sheets = await loadSheets(
         s,

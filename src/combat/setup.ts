@@ -13,6 +13,8 @@ import { retreatSide, type CombatDef, type EnemyRecord, type PartyGridSlot, type
 import { TILE_SIZE } from '../formats/world';
 import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS } from './grid';
 import { enemyFighter, freeCell, partyFighter } from './roster';
+import type { ContainerItem } from '../formats/containers';
+import { toInventoryItem } from '../game/containers';
 import { isDead } from './rules';
 
 export interface SetupInput {
@@ -28,6 +30,8 @@ export interface SetupInput {
   spells?: readonly SpellDef[];
   /** Cells nobody may stand on (cliffs, see gridFit.ts); fighters are placed around them. */
   disabled?: readonly { x: number; y: number }[];
+  /** What each enemy carries, by `combat:slot` (the save's combat inventories); their equipped gear is used. */
+  inventories?: ReadonlyMap<string, readonly ContainerItem[]>;
 }
 
 const FALLBACK_SKILL = { max: 12, trueSkill: 12, modifier: 0 };
@@ -85,7 +89,9 @@ export function buildFighters(input: SetupInput): Fighter[] {
   for (const e of records) {
     const n = seen.get(e.monster) ?? 0;
     seen.set(e.monster, n + 1);
-    place(enemyFighter(e, input.monsterNames[e.monster] ?? `Monster ${e.monster}`, n, input.spells));
+    const carried = input.inventories?.get(`${input.def.combatIndex}:${e.slot}`);
+    const gear = carried && { items: carried.map(toInventoryItem), defs: input.items };
+    place(enemyFighter(e, input.monsterNames[e.monster] ?? `Monster ${e.monster}`, n, input.spells, gear));
   }
   return fighters;
 }
