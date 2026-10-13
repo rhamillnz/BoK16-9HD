@@ -94,8 +94,27 @@ export interface MainMenuState {
   started: boolean;
   /** There is at least one save to continue from. */
   hasSave: boolean;
-  /** In-game time of the newest save, which Continue loads (e.g. "day 2 08:00"). */
+  /** What Continue loads: the newest save, described by `describeSave` (e.g. "Day 2, 8:00 am (saved 3 min ago)"). */
   newest?: string;
+}
+
+/** "3 min ago", "2 hours ago", "yesterday", "5 days ago". */
+export function savedAgo(ms: number): string {
+  const min = Math.floor(Math.max(0, ms) / 60_000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} min ago`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+/** A save for the Continue line: its game time ("day 2 08:00" becomes "Day 2, 8:00 am") and how long ago it was made. */
+export function describeSave(s: { gameTime: string; savedAt: number }, now: number): string {
+  const m = /^day (\d+) (\d\d):(\d\d)$/.exec(s.gameTime);
+  const hour = m ? Number(m[2]) : 0;
+  const time = m ? `Day ${m[1]}, ${hour % 12 || 12}:${m[3]} ${hour < 12 ? 'am' : 'pm'}` : s.gameTime;
+  return `${time} (saved ${savedAgo(now - s.savedAt)})`;
 }
 
 export function mainMenuModel(s: MainMenuState, message?: string): MenuModel {

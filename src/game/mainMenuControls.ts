@@ -15,6 +15,7 @@ import {
   stepVolume,
   type MainMenuId,
   type OptionsId,
+  describeSave,
 } from './mainMenu';
 
 export interface MainMenuHost {
@@ -73,7 +74,7 @@ export function installMainMenu(h: MainMenuHost): Promise<void> {
   const refreshSaves = async () => {
     const slot = await newestSave();
     hasSave = !!slot;
-    newest = slot?.summary?.gameTime;
+    newest = slot?.summary && describeSave(slot.summary, Date.now());
   };
 
   const showMain = (message?: string, focus?: string) =>

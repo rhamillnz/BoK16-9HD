@@ -11,6 +11,8 @@ import {
   stepQuality,
   stepUiScale,
   stepVolume,
+  describeSave,
+  savedAgo,
 } from './mainMenu';
 
 describe('settings', () => {
@@ -80,6 +82,18 @@ describe('menus', () => {
     );
     expect(mainMenuModel({ started: false, hasSave: false }).message).toBe('No saved game yet');
     expect(mainMenuModel({ started: true, hasSave: true, newest: 'x' }).message).toBeUndefined();
+  });
+  it('describes a save by its game time and how long ago it was made', () => {
+    const now = 1_000_000_000;
+    expect(describeSave({ gameTime: 'day 2 08:00', savedAt: now - 3 * 60_000 }, now)).toBe(
+      'Day 2, 8:00 am (saved 3 min ago)',
+    );
+    expect(describeSave({ gameTime: 'day 5 12:30', savedAt: now }, now)).toBe('Day 5, 12:30 pm (saved just now)');
+    expect(describeSave({ gameTime: 'day 3 00:16', savedAt: now - 26 * 3_600_000 }, now)).toBe(
+      'Day 3, 12:16 am (saved yesterday)',
+    );
+    expect(savedAgo(3 * 3_600_000)).toBe('3 hours ago');
+    expect(savedAgo(4 * 86_400_000)).toBe('4 days ago');
   });
   it('reflects settings in the options rows', () => {
     const m = optionsModel({ ...DEFAULT_SETTINGS, quality: 'low', volume: 1, muted: true });
