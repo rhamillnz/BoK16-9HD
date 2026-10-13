@@ -49,6 +49,7 @@ import { TILE_SIZE } from '../formats/world';
 import { loadZoneMap } from '../formats/zoneMap';
 import { ZoneHost } from './zoneHost';
 import { CombatEncounters } from './combatEncounter';
+import { hideInstancesWhere } from '../render/hideInstances';
 import { loadCombatSupport } from './combatController';
 import { EncounterType } from '../formats/encounters';
 import { giveItem, partyFromSave } from './party';
@@ -429,6 +430,7 @@ const combat = new CombatEncounters({
       (p) => x >= p.minX && x <= p.maxX && y >= p.minY && y <= p.maxY && pointInPolygon(p, x, y),
     ),
   surface: zoneHost.surfaceHeight,
+  hideProps: (area) => hideInstancesWhere(zoneHost.current.scene.group, area),
   support: await loadCombatSupport(archive, save.bytes),
   items: objectItems,
   spells: spellDefs,

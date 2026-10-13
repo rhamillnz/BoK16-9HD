@@ -2,6 +2,7 @@ import type * as THREE from 'three/webgpu';
 import { applyCombatPractice, applyRewards, applyWear } from '../combat/rewards';
 import { rollFrom } from '../combat/rules';
 import { fitCombatGrid } from '../combat/gridFit';
+import { combatClearArea } from '../combat/layout';
 import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS } from '../combat/grid';
 import { buildFighters, applyBattleToParty, retreatDestination } from '../combat/setup';
 import type { Fighter } from '../combat/battle';
@@ -31,6 +32,11 @@ export interface CombatEncounterDeps {
    * camera stand on this, and the grid is placed where the camera can see it.
    */
   surface?: (x: number, y: number) => number;
+  /**
+   * Hide the world's trees, props and bodies standing in `area` (BaK units) while a fight is on, so none hides the
+   * grid; returns the function that shows them again.
+   */
+  hideProps?: (area: (x: number, y: number) => boolean) => () => void;
   support: CombatSupport;
   items: readonly ItemDef[];
   /** SPELLS.DAT, so magic-users can cast. */
@@ -140,6 +146,7 @@ export class CombatEncounters {
     if (this.active) return false;
     const { support: s, items } = this.d;
     this.starting = true;
+    let restore: (() => void) | undefined;
     try {
       const enemies = enemiesOf(s, def).map((e) => (fresh ? { ...e, dead: false } : e));
       const pos = this.d.position();
@@ -149,6 +156,8 @@ export class CombatEncounters {
         blocked: this.d.blocked,
         surface: this.d.surface,
       });
+      const show = this.d.hideProps?.(combatClearArea(fit.anchor, fit.heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS));
+      restore = show;
       const fighters = buildFighters({
         disabled: fit.disabled,
         def,
@@ -172,9 +181,16 @@ export class CombatEncounters {
           spriteFor: spriteLookup(s, sheets),
           palette: s.palette ?? new Uint8Array(1024).fill(255),
         },
-        (outcome, after, result) => done(outcome, after, pos, result),
+        (outcome, after, result) => {
+          show?.();
+          done(outcome, after, pos, result);
+        },
       );
+      restore = undefined;
       return true;
+    } catch (err) {
+      restore?.();
+      throw err;
     } finally {
       this.starting = false;
     }

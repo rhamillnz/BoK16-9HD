@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS, gridCellToWorld } from '../src/combat/grid';
-import { cameraPlan, gridPointToWorld, worldToGridCell, worldToGridPoint } from '../src/combat/layout';
+import { cameraPlan, combatClearArea, gridPointToWorld, worldToGridCell, worldToGridPoint } from '../src/combat/layout';
 
 const party = { x: 123456, y: 98765 };
 
@@ -51,5 +51,23 @@ describe('combat grid layout', () => {
     expect(plan.height).toBeGreaterThan(0);
     const turned = cameraPlan(party, 128, COMBAT_GRID_COLS, COMBAT_GRID_ROWS);
     expect(turned.target.y).toBeLessThan(turned.eye.y);
+  });
+
+  it('clears the grid and the ground back to the camera, not what lies beyond', () => {
+    for (const heading of [0, 64, 128, 192]) {
+      const clear = combatClearArea(party, heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS);
+      const at = (gx: number, gy: number) => {
+        const w = gridPointToWorld(party, heading, gx, gy);
+        return clear(w.x, w.y);
+      };
+      const eye = cameraPlan(party, heading, COMBAT_GRID_COLS, COMBAT_GRID_ROWS).eye;
+      expect(clear(eye.x, eye.y)).toBe(true);
+      expect(at(4, 6)).toBe(true);
+      expect(at(0, 0)).toBe(true);
+      expect(at(4, -3)).toBe(true);
+      expect(at(4, COMBAT_GRID_ROWS + 3)).toBe(false);
+      expect(at(-4, 6)).toBe(false);
+      expect(at(4, -COMBAT_GRID_ROWS)).toBe(false);
+    }
   });
 });

@@ -72,3 +72,19 @@ export function cameraPlan(party: Point, heading: number, cols: number, rows: nu
     target: gridPointToWorld(party, heading, cols / 2, rows * 0.4),
   };
 }
+
+/**
+ * The ground the fight needs clear: the grid with a cell's margin, and the strip behind its near edge back to the
+ * camera (`cameraPlan`), so nothing standing there hides a fighter. A test over BaK world positions.
+ */
+export function combatClearArea(
+  party: Point,
+  heading: number,
+  cols: number,
+  rows: number,
+): (x: number, y: number) => boolean {
+  return (x, y) => {
+    const g = worldToGridPoint(party, heading, { x, y });
+    return g.x >= -1 && g.x <= cols + 1 && g.y >= -rows * 0.45 && g.y <= rows + 0.5;
+  };
+}
