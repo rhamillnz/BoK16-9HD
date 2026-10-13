@@ -135,23 +135,37 @@ const LAYER_COUNT = 4;
 
 const PIXELS = SCENE_WIDTH * SCENE_HEIGHT;
 
-const newLayer = (): Uint8ClampedArray<ArrayBuffer> => {
-  const layer = new Uint8ClampedArray(PIXELS * 4);
-  for (let i = 3; i < layer.length; i += 4) layer[i] = 255;
-  return layer;
-};
+const newLayer = (): Uint8Array => new Uint8Array(PIXELS);
 
 interface SavedRegion {
   x: number;
   y: number;
   width: number;
   height: number;
-  rgba: Uint8ClampedArray;
+  indices: Uint8Array;
+}
+
+/** Palette indices to opaque RGBA (black without a palette). */
+function toRgba(indices: Uint8Array, pal: Palette | undefined): Uint8ClampedArray<ArrayBuffer> {
+  const out = new Uint8ClampedArray(indices.length * 4);
+  for (let i = 0; i < indices.length; i++) {
+    const c = indices[i]! * 4;
+    const o = i * 4;
+    if (pal) {
+      out[o] = pal[c]!;
+      out[o + 1] = pal[c + 1]!;
+      out[o + 2] = pal[c + 2]!;
+    }
+    out[o + 3] = 255;
+  }
+  return out;
 }
 
 /**
- * Draws TTM frame ops onto 320x200 RGBA layers. Image and palette slots, saved regions and the clip
- * region persist across frames, as in the original. Missing or undecodable resources are skipped.
+ * Draws TTM frame ops onto 320x200 layers of palette indices, as the original's 256-colour screen held them, and
+ * colours the shown frame with the palette active at its end, so a palette loaded after its screen (the credits)
+ * still colours it. Image and palette slots, saved regions and the clip region persist across frames, as in the
+ * original. Missing or undecodable resources are skipped.
  */
 export class CutsceneRenderer {
   private readonly layers = Array.from({ length: LAYER_COUNT }, newLayer);
@@ -162,6 +176,8 @@ export class CutsceneRenderer {
   private imageSlot = 0;
   private saveLayer = 0;
   private clip: { x0: number; y0: number; x1: number; y1: number } | undefined;
+  /** Palette indices of the frame `draw` last returned (for the palette fades). */
+  indices: Uint8Array = newLayer();
 
   constructor(private readonly read: ReadResource) {}
 
@@ -174,12 +190,12 @@ export class CutsceneRenderer {
   /** Run one frame's ops and return the picture to show (a copy). The screen is then reset to the background. */
   draw(ops: readonly TtmFrameOp[]): Uint8ClampedArray<ArrayBuffer> {
     for (const op of ops) this.run(op);
-    const shown = new Uint8ClampedArray(this.layers[LAYER_SCREEN]!);
+    this.indices = this.layers[LAYER_SCREEN]!.slice();
     this.layers[LAYER_SCREEN]!.set(this.layers[LAYER_BACKGROUND]!);
-    return shown;
+    return toRgba(this.indices, this.palettes.get(this.paletteSlot));
   }
 
-  private layer(n: number): Uint8ClampedArray {
+  private layer(n: number): Uint8Array {
     return this.layers[n] ?? this.layers[LAYER_SCREEN]!;
   }
 
@@ -213,16 +229,15 @@ export class CutsceneRenderer {
         break;
       }
       case 'loadScreen': {
-        const pal = this.palettes.get(this.paletteSlot);
         const bytes = this.read(op.name);
-        if (!pal || !bytes) break;
+        if (!bytes) break;
         try {
           const picture = parseSCX(bytes);
           const noClip = this.clip;
           this.clip = undefined;
           for (let y = 0; y < Math.min(SCENE_HEIGHT, picture.height); y++) {
             for (let x = 0; x < Math.min(SCENE_WIDTH, picture.width); x++)
-              this.put(screen, x, y, pal, picture.pixels[y * picture.width + x]!);
+              this.put(screen, x, y, picture.pixels[y * picture.width + x]!);
           }
           this.clip = noClip;
           this.layers[LAYER_BACKGROUND]!.set(screen);
@@ -256,29 +271,24 @@ export class CutsceneRenderer {
         this.saveLayer = op.layer;
         break;
       case 'saveRegion': {
-        const rgba = new Uint8ClampedArray(Math.max(0, op.width) * Math.max(0, op.height) * 4);
+        const indices = new Uint8Array(Math.max(0, op.width) * Math.max(0, op.height));
         for (let y = 0; y < op.height; y++) {
           for (let x = 0; x < op.width; x++) {
             const sx = op.x + x;
             const sy = op.y + y;
             if (sx < 0 || sy < 0 || sx >= SCENE_WIDTH || sy >= SCENE_HEIGHT) continue;
-            rgba.set(
-              screen.subarray((sy * SCENE_WIDTH + sx) * 4, (sy * SCENE_WIDTH + sx) * 4 + 4),
-              (y * op.width + x) * 4,
-            );
+            indices[y * op.width + x] = screen[sy * SCENE_WIDTH + sx]!;
           }
         }
-        this.saved.set(this.saveLayer, { x: op.x, y: op.y, width: op.width, height: op.height, rgba });
+        this.saved.set(this.saveLayer, { x: op.x, y: op.y, width: op.width, height: op.height, indices });
         break;
       }
       case 'drawSavedRegion': {
         const region = this.saved.get(op.layer);
         if (!region) break;
         for (let y = 0; y < region.height; y++) {
-          for (let x = 0; x < region.width; x++) {
-            const o = (y * region.width + x) * 4;
-            this.putRgba(screen, region.x + x, region.y + y, region.rgba[o]!, region.rgba[o + 1]!, region.rgba[o + 2]!);
-          }
+          for (let x = 0; x < region.width; x++)
+            this.put(screen, region.x + x, region.y + y, region.indices[y * region.width + x]!);
         }
         break;
       }
@@ -293,31 +303,15 @@ export class CutsceneRenderer {
     return !c || (x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1);
   }
 
-  private putRgba(layer: Uint8ClampedArray, x: number, y: number, r: number, g: number, b: number): void {
-    if (!this.inClip(x, y)) return;
-    const o = (y * SCENE_WIDTH + x) * 4;
-    layer[o] = r;
-    layer[o + 1] = g;
-    layer[o + 2] = b;
-    layer[o + 3] = 255;
+  private put(layer: Uint8Array, x: number, y: number, index: number): void {
+    if (this.inClip(x, y)) layer[y * SCENE_WIDTH + x] = index;
   }
 
-  private put(layer: Uint8ClampedArray, x: number, y: number, pal: Palette, index: number): void {
-    this.putRgba(layer, x, y, pal[index * 4]!, pal[index * 4 + 1]!, pal[index * 4 + 2]!);
-  }
-
-  private copyRect(
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    from: Uint8ClampedArray,
-    to: Uint8ClampedArray,
-  ): void {
+  private copyRect(x: number, y: number, width: number, height: number, from: Uint8Array, to: Uint8Array): void {
     for (let py = Math.max(0, y); py < Math.min(SCENE_HEIGHT, y + height); py++) {
       for (let px = Math.max(0, x); px < Math.min(SCENE_WIDTH, x + width); px++) {
-        const o = (py * SCENE_WIDTH + px) * 4;
-        to.set(from.subarray(o, o + 4), o);
+        const o = py * SCENE_WIDTH + px;
+        to[o] = from[o]!;
       }
     }
   }
@@ -328,8 +322,7 @@ export class CutsceneRenderer {
 
   private sprite(op: Extract<TtmFrameOp, { op: 'sprite' }>): void {
     const img = this.source(op.slot, op.index);
-    const pal = this.palettes.get(this.paletteSlot);
-    if (!img || !pal || img.width === 0 || img.height === 0) return;
+    if (!img || img.width === 0 || img.height === 0) return;
     const screen = this.layers[LAYER_SCREEN]!;
     let flipX = op.flipX;
     let flipY = op.flipY;
@@ -359,7 +352,7 @@ export class CutsceneRenderer {
       for (let dx = 0; dx < w; dx++) {
         const sx = scaled ? sample(dx, w - 1, img.width - 1, flipX) : flipX ? img.width - 1 - dx : dx;
         const index = img.pixels[sy * img.width + sx]!;
-        if (index !== 0) this.put(screen, op.x + dx, op.y + dy, pal, index);
+        if (index !== 0) this.put(screen, op.x + dx, op.y + dy, index);
       }
     }
   }
@@ -367,10 +360,9 @@ export class CutsceneRenderer {
   /** Rotated sprite: centred on (x, y), `width` x `height` on screen, angle in degrees. */
   private spriteRotated(op: Extract<TtmFrameOp, { op: 'spriteRotated' }>): void {
     const img = this.source(op.slot, op.index);
-    const pal = this.palettes.get(this.paletteSlot);
     const w = Math.abs(op.width);
     const h = Math.abs(op.height);
-    if (!img || !pal || w === 0 || h === 0) return;
+    if (!img || w === 0 || h === 0) return;
     const rad = (op.angle * Math.PI) / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
@@ -387,22 +379,21 @@ export class CutsceneRenderer {
         const v = (dy * cos - dx * sin) / h;
         if (u < 0 || u >= 1 || v < 0 || v >= 1) continue;
         const index = img.pixels[Math.floor(v * img.height) * img.width + Math.floor(u * img.width)]!;
-        if (index !== 0) this.put(screen, x, y, pal, index);
+        if (index !== 0) this.put(screen, x, y, index);
       }
     }
   }
 
   private rect(op: Extract<TtmFrameOp, { op: 'rect' }>): void {
-    const pal = this.palettes.get(this.paletteSlot);
-    if (!pal || op.width <= 0 || op.height <= 0) return;
+    if (op.width <= 0 || op.height <= 0) return;
     const screen = this.layers[LAYER_SCREEN]!;
     const right = op.x + op.width - 1;
     const bottom = op.y + op.height - 1;
     for (let y = op.y; y <= bottom; y++) {
       for (let x = op.x; x <= right; x++) {
         const edge = x === op.x || x === right || y === op.y || y === bottom;
-        if (edge) this.put(screen, x, y, pal, op.edge);
-        else if (op.filled) this.put(screen, x, y, pal, op.fill);
+        if (edge) this.put(screen, x, y, op.edge);
+        else if (op.filled) this.put(screen, x, y, op.fill);
       }
     }
   }
@@ -414,16 +405,39 @@ export class CutsceneRenderer {
 export const SECONDS_PER_TICK = 0.017;
 /** Fade durations by the fade op's duration index, in seconds. */
 export const FADE_SECONDS = [0, 0.1, 0.4, 0.8, 1.6, 3.2, 6.4] as const;
-/** Fades whose start colour is below this index cover the whole screen; others only the picture window. */
-const FIRST_PICTURE_COLOR = 16;
-const WINDOW = { x: 15, y: 11, width: 289, height: 101 };
-const FULL = { x: 0, y: 0, width: SCENE_WIDTH, height: SCENE_HEIGHT };
+const PALETTE_SIZE = 256;
 
-export interface CutsceneFade {
-  color: [number, number, number];
-  /** 0 = invisible, 1 = solid. */
-  alpha: number;
-  region: { x: number; y: number; width: number; height: number };
+/**
+ * The original fades palette entries, not the screen: a fade op moves entries `startColor` to
+ * `startColor + steps - 1` to (or from) the colour of entry `endColor`, so only the pixels drawn in those colours
+ * change. As before, a fade lasts until the frame's picture is shown (a script fades the old picture out, then
+ * draws the next one), except the last one of a script, which holds.
+ * `level` is 0 (the entry's own colour) to 1 (the fade colour); `color` holds each entry's fade colour as RGB.
+ */
+export interface PaletteFade {
+  level: Float32Array;
+  color: Uint8Array;
+}
+
+/**
+ * The fade drawn over a 320x200 picture with palette `indices`: each pixel takes its entry's fade colour with
+ * alpha = its level. Undefined when no shown pixel is faded.
+ */
+export function fadeOverlay(indices: Uint8Array, fade: PaletteFade): Uint8ClampedArray<ArrayBuffer> | undefined {
+  const out = new Uint8ClampedArray(indices.length * 4);
+  let any = false;
+  for (let i = 0; i < indices.length; i++) {
+    const e = indices[i]!;
+    const a = fade.level[e]!;
+    if (a <= 0) continue;
+    any = true;
+    const o = i * 4;
+    out[o] = fade.color[e * 3]!;
+    out[o + 1] = fade.color[e * 3 + 1]!;
+    out[o + 2] = fade.color[e * 3 + 2]!;
+    out[o + 3] = Math.round(a * 255);
+  }
+  return any ? out : undefined;
 }
 
 export interface CutsceneHost {
@@ -464,7 +478,9 @@ export class CutscenePlayer {
   image: Uint8ClampedArray<ArrayBuffer> | undefined;
   /** The same frame upscaled (cutsceneFrameUrl), when there is one; undefined shows `image`. */
   hdImage: HdPicture | undefined;
-  fade: CutsceneFade = { color: [0, 0, 0], alpha: 0, region: FULL };
+  /** Palette indices of `image`, which the fade applies to. */
+  indices: Uint8Array | undefined;
+  readonly fade: PaletteFade = { level: new Float32Array(PALETTE_SIZE), color: new Uint8Array(PALETTE_SIZE * 3) };
   text: string | undefined;
   finished = false;
   /** The picture, fade or text changed since it was last read (`take()` clears it). */
@@ -476,7 +492,8 @@ export class CutscenePlayer {
   private readonly host: CutsceneHost;
   private wait: Wait = 'none';
   private remaining = 0;
-  private fadeAnim: { from: number; to: number; duration: number; elapsed: number } | undefined;
+  private fadeAnim:
+    { first: number; end: number; from: number; to: number; duration: number; elapsed: number } | undefined;
   private delayMs = 0;
   private dialogType = 0;
   private frame:
@@ -484,6 +501,7 @@ export class CutscenePlayer {
         ops: TtmFrameOp[];
         next: number;
         picture: Uint8ClampedArray<ArrayBuffer>;
+        indices: Uint8Array;
         hdPicture: HdPicture | undefined;
         presented: boolean;
         scriptEnded: boolean;
@@ -527,7 +545,7 @@ export class CutscenePlayer {
       const a = this.fadeAnim;
       a.elapsed += dtMs / 1000;
       const t = a.duration > 0 ? Math.min(1, a.elapsed / a.duration) : 1;
-      this.fade = { ...this.fade, alpha: a.from + (a.to - a.from) * t };
+      this.fade.level.fill(a.from + (a.to - a.from) * t, a.first, a.end);
       this.dirty = true;
       if (t >= 1) {
         this.fadeAnim = undefined;
@@ -567,6 +585,7 @@ export class CutscenePlayer {
     const f = this.frame;
     if (!f || f.presented) return;
     this.image = f.picture;
+    this.indices = f.indices;
     this.hdImage = f.hdPicture;
     f.presented = true;
     this.dirty = true;
@@ -584,11 +603,12 @@ export class CutscenePlayer {
         ops,
         next: 0,
         picture,
+        indices: this.renderer.indices,
         hdPicture: this.hd?.get(hash),
         presented: false,
         scriptEnded: false,
       };
-      this.fade = { ...this.fade, alpha: 0 };
+      this.fade.level.fill(0);
     }
     const f = this.frame;
     while (f.next < f.ops.length) {
@@ -615,7 +635,7 @@ export class CutscenePlayer {
       }
     }
     this.present();
-    if (!f.scriptEnded) this.fade = { ...this.fade, alpha: 0 };
+    if (!f.scriptEnded) this.fade.level.fill(0);
     if (this.dialogType === 1 || this.dialogType === 4) this.setText(undefined);
     this.frame = undefined;
     this.wait = 'delay';
@@ -659,19 +679,21 @@ export class CutscenePlayer {
 
   private startFade(op: Extract<TtmFrameOp, { op: 'fadeIn' | 'fadeOut' }>): boolean {
     const fadeIn = op.op === 'fadeIn';
-    const region = op.startColor < FIRST_PICTURE_COLOR ? FULL : WINDOW;
+    const first = Math.max(0, Math.min(PALETTE_SIZE, op.startColor));
+    const end = Math.max(first, Math.min(PALETTE_SIZE, op.startColor + op.steps));
     const color = this.renderer.paletteColor(op.endColor);
+    for (let e = first; e < end; e++) this.fade.color.set(color, e * 3);
     if (fadeIn) this.present();
     const duration = FADE_SECONDS[op.duration] ?? 0;
     const from = fadeIn ? 1 : 0;
     const to = fadeIn ? 0 : 1;
     this.dirty = true;
     if (duration === 0) {
-      this.fade = { color, alpha: to, region };
+      this.fade.level.fill(to, first, end);
       return false;
     }
-    this.fade = { color, alpha: from, region };
-    this.fadeAnim = { from, to, duration, elapsed: 0 };
+    this.fade.level.fill(from, first, end);
+    this.fadeAnim = { first, end, from, to, duration, elapsed: 0 };
     this.wait = 'fade';
     return true;
   }

@@ -2,6 +2,8 @@
 no AI, so nothing is invented and nothing looks waxy.
 
   tools/upscale/.venv/Scripts/python tools/upscale/smooth.py art/derived/cutscene-frames art/reference/cutscene-frames-4x
+
+Frames already enlarged are skipped (frames are named by content hash, so a changed frame gets a new name).
 """
 import os
 import sys
@@ -16,7 +18,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     n = 0
     for name in sorted(os.listdir(src)):
-        if not name.endswith(".png"):
+        if not name.endswith(".png") or os.path.exists(os.path.join(out, name)):
             continue
         img = Image.open(os.path.join(src, name)).convert("RGB")
         big = img.resize((img.width * SCALE, img.height * SCALE), Image.LANCZOS)

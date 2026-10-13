@@ -10,6 +10,7 @@ import {
   chapterStartCutscenes,
   cutsceneFrameHashes,
   cutsceneResourceNames,
+  fadeOverlay,
 } from '../src/game/cutscene';
 import { SCENE_WIDTH } from '../src/game/townScene';
 
@@ -361,6 +362,22 @@ describe('CutsceneRenderer', () => {
     return { r, out: fs.map((f) => r.draw(f.ops)) };
   };
 
+  it('colours a frame with the palette set by its end, even one loaded after the drawing', () => {
+    const r = new CutsceneRenderer(read);
+    const [f] = frames(
+      [SET_SCRIPT, 1],
+      [SLOT_IMAGE, 1],
+      [LOAD_IMAGE, 'SPR.BMP'],
+      [SPRITE, 0, 0, 0, 1],
+      [SLOT_PALETTE, 0],
+      [LOAD_PALETTE, 'T.PAL'],
+      [END_FRAME],
+    );
+    const img = r.draw(f!.ops);
+    expect(px(img, 0, 0)).toEqual(RED);
+    expect([r.indices[0], r.indices[1]]).toEqual([1, 3]);
+  });
+
   it('draws sprites with palette colours and leaves index 0 transparent', () => {
     const img = render([SPRITE, 10, 20, 0, 1], [END_FRAME]).out[0]!;
     expect(px(img, 10, 20)).toEqual(RED);
@@ -556,20 +573,50 @@ describe('CutscenePlayer', () => {
     expect(sound).toHaveBeenCalledWith(7);
   });
 
-  it('fades in from the palette colour over the fade duration', () => {
-    const { player } = play([[SPRITE, 0, 0, 0, 1], [FADE_IN, 0, 1, 4, 3], [END_FRAME], [END_SCRIPT], [END_FRAME]]);
+  it('fades only the palette entries named, in from the fade colour over the fade duration', () => {
+    // The sprite's left pixel is entry 1 (red), its right pixel entry 3 (blue); only entry 1 fades.
+    const { player } = play([[SPRITE, 0, 0, 0, 1], [FADE_IN, 1, 1, 4, 3], [END_FRAME], [END_SCRIPT], [END_FRAME]]);
     expect(player.image).toBeDefined();
-    expect(player.fade).toMatchObject({ color: [255, 255, 0], alpha: 1 });
+    expect(player.fade.level[1]).toBe(1);
+    expect([...player.fade.color.subarray(3, 6)]).toEqual([255, 255, 0]);
+    expect(player.fade.level[3]).toBe(0);
     player.update((FADE_SECONDS[3]! * 1000) / 2);
-    expect(player.fade.alpha).toBeCloseTo(0.5, 5);
+    expect(player.fade.level[1]).toBeCloseTo(0.5, 5);
+    const overlay = fadeOverlay(player.indices!, player.fade)!;
+    expect(px(overlay, 0, 0)).toEqual([255, 255, 0, 128]);
+    expect(px(overlay, 1, 0)[3]).toBe(0);
     player.update(FADE_SECONDS[3]! * 1000);
-    expect(player.fade.alpha).toBe(0);
+    expect(player.fade.level[1]).toBe(0);
+    expect(fadeOverlay(player.indices!, player.fade)).toBeUndefined();
   });
 
-  it('fades out to solid, using only the picture window for colours from 16', () => {
-    const { player } = play([[FADE_OUT, 16, 1, 1, 0], [END_SCRIPT], [END_FRAME]]);
-    expect(player.fade.alpha).toBe(1);
-    expect(player.fade.region).toEqual({ x: 15, y: 11, width: 289, height: 101 });
+  it('fades the old picture out, then shows the frame drawn after the fade', () => {
+    const { player } = play([
+      [SPRITE, 0, 0, 0, 1],
+      [DELAY, 10],
+      [END_FRAME],
+      [FADE_OUT, 1, 2, 0, 3],
+      [SPRITE, 0, 0, 1, 1],
+      [DELAY, 10],
+      [END_FRAME],
+      [END_SCRIPT],
+      [END_FRAME],
+    ]);
+    const first = player.image;
+    player.update(10 * SECONDS_PER_TICK * 1000 + 1);
+    expect(player.image).toBe(first);
+    expect([player.fade.level[1], player.fade.level[2], player.fade.level[3]]).toEqual([0, 0, 0]);
+    player.update((FADE_SECONDS[3]! * 1000) / 2);
+    expect(player.fade.level[1]).toBeCloseTo(0.5, 5);
+    expect(player.fade.level[3]).toBe(0);
+    player.update(FADE_SECONDS[3]! * 1000);
+    expect(player.image).not.toBe(first);
+    expect(player.fade.level[1]).toBe(0);
+  });
+
+  it('holds the last fade of a script', () => {
+    const { player } = play([[FADE_OUT, 0, 256, 0, 0], [END_SCRIPT], [END_FRAME]]);
+    expect(player.fade.level[255]).toBe(1);
   });
 
   it('pauses on a hooked dialogue until it reports done', () => {

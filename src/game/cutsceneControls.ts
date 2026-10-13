@@ -15,6 +15,7 @@ import {
   chapterStartCutscenes,
   introCutscenes,
   cutsceneDialogKey,
+  fadeOverlay,
   loadCutscene,
   type CutsceneHost,
   type CutscenePlayer,
@@ -161,6 +162,9 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
       let last = performance.now();
       let raf = 0;
       let shown: Uint8ClampedArray | undefined;
+      const fadeCanvas = document.createElement('canvas');
+      fadeCanvas.width = SCENE_WIDTH;
+      fadeCanvas.height = SCENE_HEIGHT;
       const tick = (now: number) => {
         pl.update(Math.min(100, now - last));
         last = now;
@@ -186,6 +190,12 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
               .putImageData(new ImageData(pl.image as Uint8ClampedArray<ArrayBuffer>, SCENE_WIDTH, SCENE_HEIGHT), 0, 0);
           }
           return canvas;
+        },
+        fade: () => {
+          const rgba = pl.indices && fadeOverlay(pl.indices, pl.fade);
+          if (!rgba) return undefined;
+          fadeCanvas.getContext('2d')!.putImageData(new ImageData(rgba, SCENE_WIDTH, SCENE_HEIGHT), 0, 0);
+          return fadeCanvas;
         },
       };
       host.hud.open('cutscene', view);

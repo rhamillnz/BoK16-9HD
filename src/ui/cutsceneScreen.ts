@@ -32,13 +32,17 @@ export function drawText(
   }
 }
 
-/** Draw one player state: the picture scaled to fit, the fade over it, then any text. Pure drawing. */
+/**
+ * Draw one player state: the picture scaled to fit, the fade over it (a 320x200 picture of the faded pixels, see
+ * `fadeOverlay`, scaled the same way), then any text. Pure drawing.
+ */
 export function drawCutscene(
   ctx: CanvasRenderingContext2D,
   font: Font,
   layout: TownLayout,
   view: CutsceneDrawable,
   picture: CanvasImageSource | undefined,
+  fade: CanvasImageSource | undefined,
   canvasWidth: number,
   canvasHeight: number,
 ): void {
@@ -47,16 +51,13 @@ export function drawCutscene(
   const s = layout.scale;
   if (picture) {
     const smoothing = ctx.imageSmoothingEnabled;
-    // The 320x200 original stays crisp; an HD (upscaled) picture is resampled smoothly to the screen size.
-    ctx.imageSmoothingEnabled = (picture as { width?: number }).width! > 320;
+    // The 320x200 original stays crisp; an HD (upscaled) picture, and the fade over it, are resampled smoothly.
+    const hd = (picture as { width?: number }).width! > 320;
+    ctx.imageSmoothingEnabled = hd;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(picture, layout.x, layout.y, layout.width, layout.height);
+    if (fade) ctx.drawImage(fade, layout.x, layout.y, layout.width, layout.height);
     ctx.imageSmoothingEnabled = smoothing;
-  }
-  const f = view.fade;
-  if (f.alpha > 0) {
-    ctx.fillStyle = `rgba(${f.color[0]},${f.color[1]},${f.color[2]},${f.alpha})`;
-    ctx.fillRect(layout.x + f.region.x * s, layout.y + f.region.y * s, f.region.width * s, f.region.height * s);
   }
   if (view.text) {
     const box = CUTSCENE_TEXT_BOX;
@@ -80,13 +81,15 @@ export function drawCutscene(
 }
 
 /** The part of a player the screen draws. */
-export type CutsceneDrawable = Pick<CutscenePlayer, 'fade' | 'text'>;
+export type CutsceneDrawable = Pick<CutscenePlayer, 'text'>;
 
 /** What the game gives the cutscene screen when it opens it. */
 export interface CutsceneScreenView {
   player: CutscenePlayer;
   /** The picture changed: a canvas of the player's current image. */
   picture(): CanvasImageSource | undefined;
+  /** The palette fade over the picture (320x200), or undefined when nothing shown is faded. */
+  fade(): CanvasImageSource | undefined;
 }
 
 /** The cutscene player as a registered, modal HUD screen ('cutscene'). A click or Space/Enter continues, Escape skips. */
@@ -125,7 +128,9 @@ export class CutsceneScreen implements HudScreenHandler {
 
   draw(ctx: CanvasRenderingContext2D): void {
     const v = this.view;
-    if (v) drawCutscene(ctx, this.host.font, this.layout, v.player, v.picture(), this.host.width, this.host.height);
+    if (!v) return;
+    const { width, height, font } = this.host;
+    drawCutscene(ctx, font, this.layout, v.player, v.picture(), v.fade(), width, height);
   }
 }
 
