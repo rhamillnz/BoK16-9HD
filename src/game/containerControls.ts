@@ -1,4 +1,9 @@
-import { parseFixedObjects, parseSaveZoneContainers, type ContainerRecord } from '../formats/containers';
+import {
+  parseFixedObjects,
+  parseSaveGdsContainers,
+  parseSaveZoneContainers,
+  type ContainerRecord,
+} from '../formats/containers';
 import { practiceCharacter } from './practice';
 import type { ItemDef } from '../formats/objinfo';
 import type { HudScreens } from '../ui/hud';
@@ -18,6 +23,9 @@ import {
   springTrap,
   takeAll,
   takeItem,
+  TOWN_CONTAINERS,
+  townContainerId,
+  townContainersFromRecords,
   worldContainersFromRecords,
   type ContainerSnapshot,
   type WorldContainer,
@@ -171,8 +179,22 @@ export async function interact(host: ContainerHost): Promise<boolean> {
   const found = nearestContainer(host.store.zone(host.zone()), x, y, host.chapter, host.getWorld());
   if (!found) return false;
   if (host.beforeOpen && !(await host.beforeOpen(found.id))) return true;
+  await open(host, found);
+  return true;
+}
+
+/** A town scene's container hotspot: show the scene's container. Resolves false when the scene has none. */
+export async function openTownContainer(host: ContainerHost, gds: number, letter: string): Promise<boolean> {
+  const found = host.store.zone(TOWN_CONTAINERS).find((c) => c.id === townContainerId(gds, letter));
+  if (!found) return false;
+  await open(host, found);
+  return true;
+}
+
+/** Get past a container's lock and trap, then show its contents until closed. */
+async function open(host: ContainerHost, found: WorldContainer): Promise<void> {
   const opened = await getPast(host, found);
-  if (!opened) return true;
+  if (!opened) return;
 
   let cur = opened;
   let message = '';
@@ -217,7 +239,6 @@ export async function interact(host: ContainerHost): Promise<boolean> {
   host.setWorld(openedFlagUpdate(cur, host.getWorld()));
   await host.showContainer(view);
   if (cur.dialogKey !== undefined && host.playDialog) await host.playDialog(cur.dialogKey);
-  return true;
 }
 
 /** Build the container source: the save image's live blocks first, `OBJFIXED.DAT` for zones the save has none for. */
@@ -227,6 +248,7 @@ export function containerSource(
 ): (zone: number) => WorldContainer[] {
   let fixedRecords: ContainerRecord[] | undefined;
   return (zone) => {
+    if (zone === TOWN_CONTAINERS) return save ? townContainersFromRecords(parseSaveGdsContainers(save)) : [];
     const fromSave = save ? parseSaveZoneContainers(save, zone) : [];
     if (fromSave.length > 0) return worldContainersFromRecords(zone, fromSave);
     if (fixed && !fixedRecords) fixedRecords = parseFixedObjects(fixed);
@@ -256,8 +278,14 @@ export interface ContainerSetup {
   beforeOpen?(containerId: string): Promise<boolean>;
 }
 
-/** E opens the container the party stands next to. The only wiring main.ts needs: one call with the setup. */
-export async function installContainers(setup: ContainerSetup): Promise<ContainerStore> {
+export interface Containers {
+  store: ContainerStore;
+  /** Open the plain container of a town scene (its container hotspot); false when it has none. */
+  openTown(gds: number, letter: string): Promise<boolean>;
+}
+
+/** E opens the container the party stands next to; town scenes open theirs with `openTown`. */
+export async function installContainers(setup: ContainerSetup): Promise<Containers> {
   const data = await loadContainerData(setup.archive);
   const store = new ContainerStore(containerSource(setup.saveBytes, data.fixedObjects));
   registerSaveExtra('containers', {
@@ -317,5 +345,5 @@ export async function installContainers(setup: ContainerSetup): Promise<Containe
         busy = false;
       });
   });
-  return store;
+  return { store, openTown: (gds, letter) => openTownContainer(host, gds, letter) };
 }

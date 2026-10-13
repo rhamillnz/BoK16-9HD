@@ -35,7 +35,7 @@ Backlog 2:
 - [x] Overhead mine models (ZxxM.TBL) drawn on the Tab map in mines (PR #59)
 
 Backlog 3:
-- [~] 1 Town containers, chapter 7 flag and expiry steps: machinery and tests merged (`chapterRules.ts`), rule tables empty until the real values are verified (see docs/formats/chapters.md, Open values)
+- [x] 1 (Opus 2026-10-14: values from BaKGL, town container hotspots open, see docs/formats/chapters.md) Town containers, chapter 7 flag and expiry steps: machinery and tests merged (`chapterRules.ts`), rule tables empty until the real values are verified (see docs/formats/chapters.md, Open values)
 - [x] 2 Real-data checklist for Reuben's review of integration (docs/REAL_DATA_CHECKLIST.md)
 - [x] 3 Performance and E2E pass over everything merged (outdoor light spell no longer toggles light count at dawn/dusk, note synth capped at 256 notes, e2e covers light spell and book viewer)
 

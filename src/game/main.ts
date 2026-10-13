@@ -74,6 +74,8 @@ import { createNotice } from '../ui/notice';
 import { installCamp } from './campControls';
 import { installChestAmbushes } from './ambushes';
 import { installContainers } from './containerControls';
+import { townStashSource } from './containers';
+import { parseSaveZoneContainers } from '../formats/containers';
 import { installItemControls } from './itemControls';
 import { installTempleControls } from './templeControls';
 import { installCast, justCast } from './castControls';
@@ -653,7 +655,7 @@ const chestAmbush = installChestAmbushes({
     return true;
   },
 });
-const containerStore = await installContainers({
+const containers = await installContainers({
   beforeOpen: chestAmbush,
   archive,
   items: objectItems,
@@ -701,7 +703,8 @@ cutsceneActive = () => cutscenes.active;
 // Chapter transitions: a dialogue or chapter-end hotspot ends the chapter (cutscenes, reset, start script, new start).
 const chapters = installChapters({
   items: objectItems,
-  containers: containerStore,
+  containers: containers.store,
+  towns: townStashSource(containers.store, shops, (zone) => parseSaveZoneContainers(save.bytes, zone)),
   getParty: () => partyState,
   setParty: (p) => {
     partyState = p;
@@ -740,7 +743,17 @@ const chapters = installChapters({
   },
   onTransitioned: () => sky.update(clock.minutes),
 });
+// Debug: ?scene=9A opens that town scene on load.
+const debugScene = /^(\d+)([A-Z])$/.exec(q.get('scene') ?? '');
+if (debugScene) void town.controller.enter({ number: Number(debugScene[1]), letter: debugScene[2]! });
 town.controller.handle(HotspotAction.ChapterEnd, ({ done }) => void chapters.begin().finally(done));
+// A town scene's plain container (Locklear's room, a well, a pile of leaves), after the hotspot's text.
+town.controller.handle(HotspotAction.Container, ({ scene, done }) => {
+  void containers
+    .openTown(scene.ref.number, scene.ref.letter)
+    .catch((err) => console.error('town container:', err))
+    .finally(done);
+});
 if (debugChapter > 1) {
   await new Promise<void>(
     (placed) =>

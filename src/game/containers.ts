@@ -1,6 +1,8 @@
 import type { ContainerItem, ContainerLock, ContainerRecord } from '../formats/containers';
 import { isTrapped, isWordLock, presentInChapter } from '../formats/containers';
 import { ITEM_STATUS_BITS, type Character, type InventoryItem } from '../formats/gam';
+import type { GdsRef } from '../formats/gds';
+import type { TownStashSource } from './chapterRules';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import { applyDamage } from '../combat/rules';
 import { getFlag, setFlag, type WorldState } from './state';
@@ -80,6 +82,37 @@ export function worldContainersFromRecords(zone: number, records: readonly Conta
     }
     out.push(c);
   });
+  return out;
+}
+
+/** The store's pseudo zone for town containers (plain containers in GDS scenes: Locklear's room, a well). */
+export const TOWN_CONTAINERS = -1;
+
+/** Store id of the town container of a scene ("gds:2B"). */
+export const townContainerId = (gds: number, letter: string): string => `gds:${gds}${letter}`;
+
+/** Plain town containers (not shops, inns or temples), in the store's `TOWN_CONTAINERS` zone. */
+export function townContainersFromRecords(records: readonly ContainerRecord[]): WorldContainer[] {
+  const out: WorldContainer[] = [];
+  for (const r of records) {
+    if (r.location.kind !== 'gds' || r.capacity === 0 || r.shop) continue;
+    const c: WorldContainer = {
+      id: townContainerId(r.location.gds, r.location.letter),
+      zone: TOWN_CONTAINERS,
+      x: 0,
+      y: 0,
+      model: 0,
+      fromChapter: 1,
+      toChapter: 9,
+      capacity: r.capacity,
+      items: r.items.map((i) => ({ ...i })),
+      unlocked: false,
+      trapSpent: false,
+    };
+    if (r.lock) c.lock = { ...r.lock };
+    if (r.dialog && r.dialog.key !== 0) c.dialogKey = r.dialog.key;
+    out.push(c);
+  }
   return out;
 }
 
@@ -208,13 +241,6 @@ export function toInventoryItem(i: ContainerItem): InventoryItem {
     poisoned: bit(ITEM_STATUS_BITS.poisoned),
   };
 }
-
-const toContainerItem = (i: InventoryItem): ContainerItem => ({
-  itemIndex: i.itemIndex,
-  conditionOrQuantity: i.conditionOrQuantity,
-  status: i.status,
-  modifiers: i.modifiers,
-});
 
 /** Put one item with its exact condition into the first character with a free slot; undefined when everyone is full. */
 function placeExact(p: PartyState, item: InventoryItem, preferred?: number): PartyState | undefined {
@@ -363,3 +389,50 @@ export function springTrap(p: PartyState, damage: number): PartyState {
 }
 
 export { presentInChapter };
+
+/** An inventory item as a container stores it, its status byte rebuilt from the flag fields. */
+export function toContainerItem(i: InventoryItem): ContainerItem {
+  let status = i.status;
+  for (const [flag, on] of [
+    [ITEM_STATUS_BITS.activated, i.activated],
+    [ITEM_STATUS_BITS.used, i.used],
+    [ITEM_STATUS_BITS.broken, i.broken],
+    [ITEM_STATUS_BITS.repairable, i.repairable],
+    [ITEM_STATUS_BITS.equipped, i.equipped],
+    [ITEM_STATUS_BITS.poisoned, i.poisoned],
+  ] as const)
+    status = on ? status | (1 << flag) : status & ~(1 << flag);
+  return { itemIndex: i.itemIndex, conditionOrQuantity: i.conditionOrQuantity, status, modifiers: i.modifiers };
+}
+
+/**
+ * The town containers the chapter-start rules fill: a scene's plain container from `store`, otherwise its shop or
+ * inn stock from `shops`. The rules copy from world containers found by position in `records` (zone 0's reference
+ * containers, some of them shop stock the store leaves out).
+ */
+export function townStashSource(
+  store: ContainerStore,
+  shops: {
+    stock(ref: GdsRef): { capacity: number; items: InventoryItem[] } | undefined;
+    setStock(ref: GdsRef, items: readonly InventoryItem[]): void;
+  },
+  records: (zone: number) => readonly ContainerRecord[],
+): TownStashSource {
+  const plain = (ref: GdsRef) =>
+    store.zone(TOWN_CONTAINERS).find((c) => c.id === townContainerId(ref.number, ref.letter));
+  return {
+    get: (ref) => {
+      const c = plain(ref);
+      return c ? { capacity: c.capacity, items: c.items.map(toInventoryItem) } : shops.stock(ref);
+    },
+    set: (ref, stash) => {
+      const c = plain(ref);
+      if (c) store.replace({ ...c, items: stash.items.slice(0, c.capacity).map(toContainerItem) });
+      else shops.setStock(ref, stash.items);
+    },
+    world: (at) =>
+      records(at.zone)
+        .find((r) => r.location.kind === 'world' && r.location.x === at.x && r.location.y === at.y)
+        ?.items.map(toInventoryItem),
+  };
+}

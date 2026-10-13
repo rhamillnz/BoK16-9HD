@@ -213,7 +213,7 @@ export function installMainMenu(h: MainMenuHost): Promise<void> {
   }
   // Debug start options (README table) go straight to what they name.
   const params = new URLSearchParams(location.search);
-  if (['book', 'cutscene', 'chapter', 'zone'].some((k) => params.has(k))) {
+  if (['book', 'cutscene', 'chapter', 'zone', 'scene'].some((k) => params.has(k))) {
     skip = true;
     story = false;
     firstLaunch = false;

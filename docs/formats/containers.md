@@ -64,3 +64,11 @@ E opens the container nearest the party within 1200 units (a bit under one map c
 - Skill improvement from picking locks (backlog item 8) and the per-lock "seen" flags.
 - The `TRAPS.DAT` puzzle.
 - Chests of chapters other than the one the save starts in come from `OBJFIXED.DAT` only when the save has no block for the zone.
+
+## Town containers
+
+The save's 98 town (GDS scene) records at 0x443c9 use the same record layout with a `gds` header. Most are shops,
+inns and temples (shop flag). Twelve are plain containers, opened by a scene's container hotspot (action 8) after
+its text: 1A, 2B (Locklear's room), 2E, 3A, 4A, 8A, 9A (a well), 10C, 11A, 12A, 40I, 40K. The remake keeps them in
+the container store under the pseudo zone `TOWN_CONTAINERS` with ids like `gds:2B`, so they save and restore with
+the world containers.

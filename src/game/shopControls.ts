@@ -269,6 +269,16 @@ export function createShops(host: ShopHost) {
     },
     /** Extra values for dialogue text (`@` price, item and character) while a shop talks. */
     textExtras: (): Partial<TextVariableContext> => extras,
+    /** A shop's (or inn's) stock and capacity, for the chapter-start rules; undefined when the scene has no shop. */
+    stock(ref: GdsRef): { capacity: number; items: InventoryItem[] } | undefined {
+      const shop = book.get(sceneKey(ref));
+      return shop && { capacity: shop.capacity, items: shop.items.map((i) => ({ ...i })) };
+    },
+    /** Replace a shop's stock (cut to its capacity). */
+    setStock(ref: GdsRef, items: readonly InventoryItem[]): void {
+      const shop = book.get(sceneKey(ref));
+      if (shop) book.set(sceneKey(ref), { ...shop, items: items.slice(0, shop.capacity).map((i) => ({ ...i })) });
+    },
     snapshot(): ShopSave {
       return Object.fromEntries([...book].map(([k, s]) => [k, { items: s.items, stats: s.stats }]));
     },

@@ -1,98 +1,107 @@
 import type { InventoryItem } from '../formats/gam';
 import type { GdsRef } from '../formats/gds';
-import { updateCharacter, type PartyState } from './party';
-import { TIMES, elapseExpiringEvents, setFlag, type WorldState } from './state';
+import type { PartyState } from './party';
+import { elapseExpiringEvents, setFlag, type WorldState } from './state';
 
 /**
- * Data-driven chapter-start rules that are not yet filled in: town containers that take a
- * character's pack (chapter 2 Locklear's room, chapter 6 Lurough inns), event flags set when a
- * chapter starts (chapter 7's 0x1ab1) and the half-hour expiry steps run at a chapter start. The
- * machinery is here and tested; the tables are empty because the real values are not verified.
- * See docs/formats/chapters.md, "Open values".
+ * Chapter-start rules beyond the purse and the chapter 4 and 5 kit swaps (chapterHandover.ts): town containers
+ * filled when a chapter starts, event flags set or cleared, and the expiry of timed events. The values are the
+ * ones BaKGL's chapter transition uses (a format reference; see docs/formats/chapters.md).
  */
 
-/** The stored part of a town container (see `ShopContainer` in formats/gdsContainers.ts). */
+/** A town container's contents (a plain container such as Locklear's room, or a shop or inn's stock). */
 export interface TownStash {
   capacity: number;
   items: InventoryItem[];
 }
 
-/** The part of the town containers a rule needs. */
+/** Town containers and the world containers the rules copy from. */
 export interface TownStashSource {
   get(ref: GdsRef): TownStash | undefined;
   set(ref: GdsRef, stash: TownStash): void;
+  /** A world container's items by zone and position (zone 0 holds reference containers that only the rules read). */
+  world(at: { zone: number; x: number; y: number }): InventoryItem[] | undefined;
 }
 
-export interface TownStashRule {
-  /** Chapter being entered. */
-  chapter: number;
-  /** Save character slot. */
-  who: number;
-  town: GdsRef;
-  /** `store`: the pack goes into the container and the pack is emptied. `fetch`: the container's items become the pack and it is emptied. */
-  mode: 'store' | 'fetch';
-}
+export type TownStashRule =
+  | {
+      chapter: number;
+      /** The container is emptied, then takes a copy of the character's pack (the character keeps it). */
+      mode: 'copyPack';
+      /** Save character slot. */
+      who: number;
+      town: GdsRef;
+    }
+  | {
+      chapter: number;
+      /** The container is emptied, then takes a copy of a world container's items. */
+      mode: 'fill';
+      town: GdsRef;
+      from: { zone: number; x: number; y: number };
+    };
 
-/** Open values: nothing is listed until the real containers are verified. */
-export const TOWN_STASH_RULES: readonly TownStashRule[] = [];
-/** Open values: event pointers to set when a chapter starts, by chapter (chapter 7 has 0x1ab1 to place). */
-export const CHAPTER_START_FLAGS: Readonly<Record<number, readonly number[]>> = {};
-/** Open values: number of half-hour expiry steps run when a chapter starts, by chapter (default 0). */
-export const CHAPTER_EXPIRY_STEPS: Readonly<Record<number, number>> = {};
+/**
+ * Chapter 2: Locklear stays in Krondor, and his room (scene 2B) holds what he carried. Chapter 6: the two Lurough
+ * inns (60C, 64C) stock what the Lurough quest needs, from zone 0's reference containers.
+ */
+export const TOWN_STASH_RULES: readonly TownStashRule[] = [
+  { chapter: 2, mode: 'copyPack', who: 0, town: { number: 2, letter: 'B' } },
+  { chapter: 6, mode: 'fill', town: { number: 60, letter: 'C' }, from: { zone: 0, x: 20, y: 1 } },
+  { chapter: 6, mode: 'fill', town: { number: 64, letter: 'C' }, from: { zone: 0, x: 30, y: 1 } },
+];
+
+/** Event pointers set (true) or cleared (false) when a chapter starts, by chapter. */
+export const CHAPTER_START_FLAGS: Readonly<Record<number, readonly { ptr: number; value: boolean }[]>> = {
+  3: [{ ptr: 0x1fbc, value: false }],
+  7: [{ ptr: 0x1ab1, value: true }],
+};
+
+/** Every chapter start lets timed events run down: this many steps of `EXPIRY_STEP_TICKS`. */
+export const CHAPTER_EXPIRY_STEPS = 80;
+export const EXPIRY_STEP_TICKS = 0x7530;
 
 export interface ChapterRules {
   stashes?: readonly TownStashRule[];
-  flags?: Readonly<Record<number, readonly number[]>>;
-  expirySteps?: Readonly<Record<number, number>>;
+  flags?: Readonly<Record<number, readonly { ptr: number; value: boolean }[]>>;
+  expirySteps?: number;
 }
 
-/** Move packs into or out of town containers as the rules for `chapter` say. Rules whose container or character is missing are skipped. */
+const copy = (items: readonly InventoryItem[], capacity: number) => items.slice(0, capacity).map((i) => ({ ...i }));
+
+/** Fill town containers as the rules for `chapter` say. Rules whose container, character or source is missing are skipped. */
 export function applyTownStashes(
   party: PartyState,
   chapter: number,
   source: TownStashSource | undefined,
   rules: readonly TownStashRule[] = TOWN_STASH_RULES,
-): PartyState {
-  if (!source) return party;
-  let next = party;
+): void {
+  if (!source) return;
   for (const r of rules) {
     if (r.chapter !== chapter) continue;
-    const c = next.characters.find((x) => x.index === r.who);
     const stash = source.get(r.town);
-    if (!c || !stash) continue;
-    if (r.mode === 'store') {
-      source.set(r.town, {
-        capacity: stash.capacity,
-        items: c.inventory.items.slice(0, stash.capacity).map((i) => ({ ...i })),
-      });
-      next = updateCharacter(next, r.who, (x) => ({ ...x, inventory: { ...x.inventory, items: [] } }));
-    } else {
-      const items = stash.items.slice(0, c.inventory.capacity).map((i) => ({ ...i }));
-      source.set(r.town, { capacity: stash.capacity, items: [] });
-      next = updateCharacter(next, r.who, (x) => ({ ...x, inventory: { ...x.inventory, items } }));
-    }
+    if (!stash) continue;
+    const items =
+      r.mode === 'copyPack' ? party.characters.find((x) => x.index === r.who)?.inventory.items : source.world(r.from);
+    if (!items) continue;
+    source.set(r.town, { capacity: stash.capacity, items: copy(items, stash.capacity) });
   }
-  return next;
 }
 
-/** Set the event flags a chapter starts with. */
+/** Set and clear the event flags a chapter starts with. */
 export function applyChapterFlags(
   world: WorldState,
   chapter: number,
-  table: Readonly<Record<number, readonly number[]>> = CHAPTER_START_FLAGS,
+  table: ChapterRules['flags'] = CHAPTER_START_FLAGS,
 ): WorldState {
   let w = world;
-  for (const ptr of table[chapter] ?? []) w = setFlag(w, ptr, true);
+  for (const f of table?.[chapter] ?? []) w = setFlag(w, f.ptr, f.value);
   return w;
 }
 
-/**
- * Let `steps` half hours of expiring events elapse without moving the clock, so timed events (and the
- * flags they set or reset) that would have finished fire at once.
- */
-export function runExpirySteps(world: WorldState, steps: number): WorldState {
+/** Let `steps` steps of `stepTicks` of timed events run down without moving the clock; finished ones fire. */
+export function runExpirySteps(world: WorldState, steps: number, stepTicks = EXPIRY_STEP_TICKS): WorldState {
   let w = world;
-  for (let n = 0; n < steps; n++) w = elapseExpiringEvents(w, TIMES.halfHour).state;
+  for (let n = 0; n < steps && w.expiringEvents.length > 0; n++) w = elapseExpiringEvents(w, stepTicks).state;
   return w;
 }
 
@@ -103,8 +112,8 @@ export function applyChapterRules(i: {
   towns?: TownStashSource;
   rules?: ChapterRules;
 }): { world: WorldState; party: PartyState } {
-  const party = applyTownStashes(i.party, i.chapter, i.towns, i.rules?.stashes);
+  applyTownStashes(i.party, i.chapter, i.towns, i.rules?.stashes);
   let world = applyChapterFlags(i.world, i.chapter, i.rules?.flags);
-  world = runExpirySteps(world, (i.rules?.expirySteps ?? CHAPTER_EXPIRY_STEPS)[i.chapter] ?? 0);
-  return { world, party };
+  world = runExpirySteps(world, i.rules?.expirySteps ?? CHAPTER_EXPIRY_STEPS);
+  return { world, party: i.party };
 }

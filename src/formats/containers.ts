@@ -167,6 +167,22 @@ export function readContainer(r: Reader, kind: HeaderKind): ContainerRecord {
   return rec;
 }
 
+/** The town (GDS scene) containers of a save image: 98 records at 0x443c9 (shops, inns and plain ones). */
+export const GDS_CONTAINERS_OFFSET = 0x443c9;
+export const GDS_CONTAINERS_COUNT = 98;
+
+/** Every town container record in a save image; what was readable when the image ends early. */
+export function parseSaveGdsContainers(save: Uint8Array): ContainerRecord[] {
+  const r = new Reader(save, GDS_CONTAINERS_OFFSET);
+  const out: ContainerRecord[] = [];
+  try {
+    for (let i = 0; i < GDS_CONTAINERS_COUNT; i++) out.push(readContainer(r, 'gds'));
+  } catch (err) {
+    if (!(err instanceof RangeError)) throw err;
+  }
+  return out;
+}
+
 /**
  * `OBJFIXED.DAT`: two skipped bytes, then for each zone in order a u16 count followed by that many
  * world containers. Returns every container with the zone from its own header.

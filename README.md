@@ -96,6 +96,7 @@ Add these to the game address, for example `http://localhost:5173/game.html?zone
 | `cutscene=ADS,TTM` | Play a cutscene on load, e.g. `cutscene=CHAPTER1.ADS,CHAPTER1.TTM` |
 | `fov=N` | Camera field of view in degrees for this session. Overrides the Options setting |
 | `chapter=N` | Start in chapter N (2 to 9): runs the chapter reset and start script without cutscenes |
+| `scene=9A` | Open a town scene on load (GDS number and letter), e.g. `scene=2B` for Locklear's room |
 
 ## Loading and errors
 
