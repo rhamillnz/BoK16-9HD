@@ -41,7 +41,7 @@ Open `game.html?chapter=2`, then 3 to 9 in turn (or end a chapter in play).
 - **Correct:** each chapter starts at the right place and time, with its map caption (dialogue key `0x126 + n - 1`), all characters at full health with no conditions, encounters firing again. Finishing a chapter plays the old chapter's book and animation, then the new intro (`CHAPTERn`, `Cn1.BOK`, `Cn1`).
 - Hand-over: **chapter 2 on** the purse should carry per chapter; **chapter 4** Owyn's and Gorath's inventories move into zone 12 chests, each given six torches; **chapter 5** Locklear gets the reference container contents with a sword, armour and crossbow equipped.
 - Most likely wrong: the money slot `0x12f7 + ((chapter - 1) << 2) + 0x64`, the chest positions in chapter 4, which characters the chapter 5 swap applies to.
-- **Known gaps, expect these to look wrong:** town stashes (Locklear's room in chapter 2, the Lurough inns in chapter 6), the chapter 7 flag `0x1ab1`, and the 80 half-hour expiry steps are not implemented because the rule tables in `src/game/chapterRules.ts` are empty (chapters.md, Open values). They need BaKGL values.
+- **Chapter-start rules** (src/game/chapterRules.ts, values from BaKGL, 2026-10-14): Locklear's room 2B takes a copy of his pack in chapter 2, the Lurough inns 60C and 64C are restocked in chapter 6, 0x1fbc is cleared in chapter 3, 0x1ab1 is set in chapter 7, and timed events run down at every chapter start. Check: in chapter 2, Locklear's room (`?scene=2B` after `?chapter=2`) holds his kit.
 
 ## 5. Towns, dialogue, temples
 
@@ -85,7 +85,7 @@ Trigger an encounter. Try D, W, S, F (shoot), C (cast, then click a target), Q (
 
 Press **E** beside a chest or container; try locked ones, word-lock riddle chests, traps; save and reload.
 - **Correct:** contents come from OBJFIXED.DAT and tile objects, take and put work, locks use the picked/open/broke sounds, riddles accept the right word, and opened state survives a save (`containers` extra).
-- Most likely wrong: lock rating and pick maths, trap damage, riddle word source, container record offsets. Town containers are the same open item as step 4.
+- Most likely wrong: lock rating and pick maths, trap damage, riddle word source, container record offsets. Town containers (wells, hiding places, Locklear's room) open from their scene hotspot; try `?scene=9A` (the fountain).
 
 ## 12. Sound effects and music
 
