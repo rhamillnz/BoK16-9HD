@@ -795,9 +795,6 @@ const chapters = installChapters({
 town.controller.onEnter((scene) => {
   scriptedState.shopType = shops.stats(scene.ref)?.repairTypes ?? 0;
 });
-// Debug: ?scene=9A opens that town scene on load.
-const debugScene = /^(\d+)([A-Z])$/.exec(q.get('scene') ?? '');
-if (debugScene) void town.controller.enter({ number: Number(debugScene[1]), letter: debugScene[2]! });
 town.controller.handle(HotspotAction.ChapterEnd, ({ done }) => void chapters.begin().finally(done));
 // An inn's Lute hotspot: the best bard plays for the purse; a failed performance gets the party thrown out.
 town.controller.handle(HotspotAction.Lute, ({ scene, done }) => {
@@ -833,6 +830,9 @@ if (debugChapter > 1) {
         .then((ok) => ok || placed()),
   );
 }
+// Debug: ?scene=9A opens that town scene on load.
+const debugScene = /^(\d+)([A-Z])$/.exec(q.get('scene') ?? '');
+if (debugScene) void town.controller.enter({ number: Number(debugScene[1]), letter: debugScene[2]! });
 
 // Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
 // drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
