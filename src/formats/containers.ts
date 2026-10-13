@@ -167,6 +167,25 @@ export function readContainer(r: Reader, kind: HeaderKind): ContainerRecord {
   return rec;
 }
 
+/** What the monsters of each combat carry: 1734 records at 0x46053, keyed by combat and slot in its enemy list. */
+export const COMBAT_INVENTORIES_OFFSET = 0x46053;
+export const COMBAT_INVENTORIES_COUNT = 1734;
+
+/** The combat inventories of a save image, by `combat:slot`; what was readable when the image ends early. */
+export function parseCombatInventories(save: Uint8Array): Map<string, ContainerItem[]> {
+  const r = new Reader(save, COMBAT_INVENTORIES_OFFSET);
+  const out = new Map<string, ContainerItem[]>();
+  try {
+    for (let i = 0; i < COMBAT_INVENTORIES_COUNT; i++) {
+      const c = readContainer(r, 'combat');
+      if (c.location.kind === 'combat') out.set(`${c.location.combat}:${c.location.combatant}`, c.items);
+    }
+  } catch (err) {
+    if (!(err instanceof RangeError)) throw err;
+  }
+  return out;
+}
+
 /** The town (GDS scene) containers of a save image: 98 records at 0x443c9 (shops, inns and plain ones). */
 export const GDS_CONTAINERS_OFFSET = 0x443c9;
 export const GDS_CONTAINERS_COUNT = 98;

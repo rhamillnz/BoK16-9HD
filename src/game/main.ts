@@ -464,6 +464,7 @@ const combat = new CombatEncounters({
     clock.state = encounters.runner.world;
   },
   now: () => clock.state.ticks,
+  searchBodies: (items) => containers.searchBodies(items),
   playDialog: (key, text) =>
     new Promise<void>((done) => {
       scriptedState.context = text.context;

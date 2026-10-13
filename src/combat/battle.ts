@@ -52,6 +52,8 @@ export interface Fighter extends MeleeStats {
   ranged?: RangedStats;
   /** Spells a magic-user knows (combat ones are castable here); absent for everyone else. */
   spells?: SpellDef[];
+  /** An enemy's position in its combat's enemy list (its combat inventory). */
+  slot?: number;
 }
 
 export type BattleEvent =

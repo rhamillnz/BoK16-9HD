@@ -85,6 +85,9 @@ export function worldContainersFromRecords(zone: number, records: readonly Conta
   return out;
 }
 
+/** Pseudo zone of the one-off container a won fight leaves (the bodies); never in the store. */
+export const LOOT_CONTAINER = -2;
+
 /** The store's pseudo zone for town containers (plain containers in GDS scenes: Locklear's room, a well). */
 export const TOWN_CONTAINERS = -1;
 

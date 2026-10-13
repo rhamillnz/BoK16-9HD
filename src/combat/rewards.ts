@@ -1,7 +1,7 @@
 /**
  * What a fight leaves behind: skill practice, loot and wear on the party's gear, all worked out from
  * the battle's event history. Practice and wear follow BaKGL (docs/formats/combat-audit.md); the
- * loot and the ranged and casting experience are our own stand-ins (**unverified**).
+ * the ranged and casting experience are our own stand-ins (**unverified**).
  */
 
 import { practiceSkill } from '../game/practice';
@@ -66,8 +66,7 @@ export interface Rewards {
  * Rewards for a won fight. Melee, Strength and Defense practice is not here: BaKGL grants it
  * attack by attack, win or lose (see `applyCombatPractice`) and has no experience for kills or for
  * hits taken. What is left are our own stand-ins (**unverified**): 2 Crossbow experience per shot
- * landed and 2 Casting experience per cast, and a purse of up to a quarter of each slain enemy's
- * maximum Health in royals.
+ * landed and 2 Casting experience per cast. Loot comes from the slain enemies' combat inventories.
  */
 export function battleRewards(fighters: readonly Fighter[], history: readonly BattleEvent[], roll: Roll): Rewards {
   const tally = tallyBattle(history);
@@ -88,10 +87,9 @@ export function battleRewards(fighters: readonly Fighter[], history: readonly Ba
         .join(', ')} experience.`,
     );
   }
-  let royals = 0;
-  for (const f of fighters) if (f.side === 'enemy' && f.health <= 0) royals += roll(0, Math.trunc(f.maxHealth / 4));
-  if (royals > 0) lines.push(`The party finds ${royals} royals.`);
-  return { experience, royals, lines };
+  // Loot is what the slain carried (their combat inventories), searched after the fight; no money appears here.
+  void roll;
+  return { experience, royals: 0, lines };
 }
 
 const indexOf = (f: string) => Number(f.replace('party', ''));

@@ -38,6 +38,7 @@ function standIn(def: CombatDef, i: number): EnemyRecord {
   const skill = (v: number) => ({ max: v, trueSkill: v, modifier: 0 });
   return {
     combatant: -(i + 1),
+    slot: i,
     monster: c.monster,
     gridX: 1 + ((i * 2) % (COMBAT_GRID_COLS - 2)),
     gridY: COMBAT_GRID_ROWS - 3 - (i % 2),

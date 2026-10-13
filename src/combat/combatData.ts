@@ -94,6 +94,8 @@ const NO_COMBATANT = 0xffff;
 export interface EnemyRecord {
   /** Index into the save's combatant tables. */
   combatant: number;
+  /** Position in the combat's enemy list (what its combat inventory is keyed by). */
+  slot: number;
   monster: number;
   gridX: number;
   gridY: number;
@@ -128,7 +130,16 @@ export function readCombatEnemies(save: Uint8Array, combatIndex: number): EnemyR
       const modifier = (st.u8() << 24) >> 24;
       skills[name] = { max, trueSkill, modifier };
     }
-    enemies.push({ combatant: c, monster, gridX, gridY, dead: (state & STATE_DEAD) !== 0, retreatFactor, skills });
+    enemies.push({
+      combatant: c,
+      slot: i,
+      monster,
+      gridX,
+      gridY,
+      dead: (state & STATE_DEAD) !== 0,
+      retreatFactor,
+      skills,
+    });
   }
   return enemies;
 }

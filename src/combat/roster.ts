@@ -152,6 +152,7 @@ export function enemyFighter(
   const spells = monsterSpells(v('casting'), spellDefs);
   return {
     id: `enemy${e.combatant}`,
+    slot: e.slot,
     side: 'enemy',
     name: `${name}${index > 0 ? ` ${index + 1}` : ''}`,
     monster: e.monster,

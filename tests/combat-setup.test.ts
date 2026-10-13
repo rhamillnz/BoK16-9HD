@@ -101,6 +101,7 @@ const combatDef: CombatDef = {
 };
 const enemy = (combatant: number, monster: number, gridX: number, gridY: number, dead = false): EnemyRecord => ({
   combatant,
+  slot: 0,
   monster,
   gridX,
   gridY,

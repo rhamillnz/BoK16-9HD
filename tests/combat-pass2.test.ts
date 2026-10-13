@@ -133,12 +133,12 @@ describe('rewards', () => {
     expect(tallyBattle(s.history).get('enemy1')).toMatchObject({ hitsTaken: 1 });
   });
 
-  it('awards crossbow experience per shot landed and a purse for the kill', () => {
+  it('awards crossbow experience per shot landed; money comes only from searching the slain', () => {
     const s = won();
     const r = battleRewards(s.fighters, s.history, high);
     expect(r.experience.get('party0')).toEqual({ crossbow: 2 });
-    expect(r.royals).toBe(5);
-    expect(r.lines.join(' ')).toContain('5 royals');
+    expect(r.royals).toBe(0);
+    expect(r.lines.join(' ')).not.toContain('royals');
   });
 
   it('adds experience and royals to the party', () => {

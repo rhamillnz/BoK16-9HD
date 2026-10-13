@@ -35,6 +35,7 @@ import { combatSprite, spriteSheetName, type CombatSprite } from '../combat/spri
 import type { CombatOutcome } from '../combat/turns';
 import { parseBMX, type IndexedImage } from '../formats/bmx';
 import type { ResourceArchive } from '../formats/archive';
+import { parseCombatInventories, type ContainerItem } from '../formats/containers';
 import { parsePalette, type Palette } from '../formats/palette';
 import { parseTBL, type ModelTable } from '../formats/tbl';
 import { playBattleSounds } from '../audio/combatSfx';
@@ -56,6 +57,8 @@ export interface CombatSupport {
   palette?: Palette;
   save: Uint8Array;
   archive: ResourceArchive;
+  /** What each combat's monsters carry, by `combat:slot` (the save's combat inventories). */
+  inventories: Map<string, ContainerItem[]>;
 }
 
 const SUPPORT_FILES = ['DEF_COMB.DAT', 'P1.DAT', 'MNAMES.DAT', 'BNAMES.DAT', 'COMBAT.TBL', 'Z01.PAL'];
@@ -81,6 +84,7 @@ export async function loadCombatSupport(archive: ResourceArchive, save: Uint8Arr
     palette: parse('Z01.PAL', parsePalette, undefined),
     save,
     archive,
+    inventories: parseCombatInventories(save),
   };
 }
 

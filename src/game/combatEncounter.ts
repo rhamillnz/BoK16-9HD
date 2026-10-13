@@ -10,6 +10,8 @@ import type { CombatOutcome } from '../combat/turns';
 import type { SpellDef } from '../formats/spells';
 import type { ItemDef } from '../formats/objinfo';
 import type { PlacedEncounter } from '../world/encounters';
+import type { ContainerItem } from '../formats/containers';
+import { lootOf } from '../combat/loot';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
 import { approachCombat } from './combatApproach';
 import {
@@ -59,6 +61,8 @@ export interface CombatEncounterDeps {
    * resolves when it ends. Without it the fight starts at once.
    */
   playDialog?: (key: number, text: { context: number; monster?: string }) => Promise<void>;
+  /** After a win: let the party search what the slain carried. */
+  searchBodies?: (items: readonly ContainerItem[]) => Promise<void>;
 }
 
 /** A party member who fell is back on their feet with 1 Health when the party is beaten and retreats. */
@@ -164,12 +168,16 @@ export class CombatEncounters {
     return new Promise((resolve) => {
       void this.launch(def, true, (outcome, fighters, at, result) => {
         let party = this.settle(outcome, fighters, result);
-        if (outcome !== 'won') {
-          if (outcome === 'dead') party = revive(party);
-          const back = ((this.d.position().heading + 128) & 255) * ((Math.PI * 2) / 256);
-          // Heading 0 is north (+y), counter-clockwise: a step of 1200 units back along the way the party came.
-          this.d.placeParty(at.x - Math.sin(back) * 1200, at.y + Math.cos(back) * 1200, this.d.position().heading);
+        if (outcome === 'won') {
+          this.d.setParty(party);
+          const loot = lootOf(this.d.support.inventories, def.combatIndex, fighters);
+          void (this.d.searchBodies?.(loot) ?? Promise.resolve()).then(() => resolve(outcome));
+          return;
         }
+        if (outcome === 'dead') party = revive(party);
+        const back = ((this.d.position().heading + 128) & 255) * ((Math.PI * 2) / 256);
+        // Heading 0 is north (+y), counter-clockwise: a step of 1200 units back along the way the party came.
+        this.d.placeParty(at.x - Math.sin(back) * 1200, at.y + Math.cos(back) * 1200, this.d.position().heading);
         this.d.setParty(party);
         resolve(outcome);
       }).then((started) => {
@@ -262,6 +270,9 @@ export class CombatEncounters {
     let party = this.settle(outcome, fighters, result);
     if (outcome === 'won') {
       this.d.markDone(e);
+      this.d.setParty(party);
+      void this.d.searchBodies?.(lootOf(this.d.support.inventories, def.combatIndex, fighters));
+      return;
     } else {
       if (outcome === 'dead') party = revive(party);
       const centre = { x: (e.minX + e.maxX) / 2, y: (e.minY + e.maxY) / 2 };

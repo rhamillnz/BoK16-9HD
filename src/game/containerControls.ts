@@ -2,6 +2,7 @@ import {
   parseFixedObjects,
   parseSaveGdsContainers,
   parseSaveZoneContainers,
+  type ContainerItem,
   type ContainerRecord,
 } from '../formats/containers';
 import { practiceCharacter } from './practice';
@@ -23,6 +24,7 @@ import {
   springTrap,
   takeAll,
   takeItem,
+  LOOT_CONTAINER,
   TOWN_CONTAINERS,
   townContainerId,
   townContainersFromRecords,
@@ -191,15 +193,37 @@ export async function openTownContainer(host: ContainerHost, gds: number, letter
   return true;
 }
 
+/**
+ * After a won fight: search the bodies. `items` is what the slain carried; whatever the party leaves is lost with
+ * them. Resolves when the screen is closed.
+ */
+export async function searchBodies(host: ContainerHost, items: readonly ContainerItem[]): Promise<void> {
+  if (items.length === 0) return;
+  const bodies: WorldContainer = {
+    id: 'bodies',
+    zone: LOOT_CONTAINER,
+    x: 0,
+    y: 0,
+    model: 0,
+    fromChapter: 1,
+    toChapter: 9,
+    capacity: items.length,
+    items: items.map((i) => ({ ...i })),
+    unlocked: true,
+    trapSpent: true,
+  };
+  await open(host, bodies, 'Bodies');
+}
+
 /** Get past a container's lock and trap, then show its contents until closed. */
-async function open(host: ContainerHost, found: WorldContainer): Promise<void> {
+async function open(host: ContainerHost, found: WorldContainer, title?: string): Promise<void> {
   const opened = await getPast(host, found);
   if (!opened) return;
 
   let cur = opened;
   let message = '';
   const view: ContainerView = {
-    title: containerTitle(cur, host.modelName?.(cur.model)),
+    title: title ?? containerTitle(cur, host.modelName?.(cur.model)),
     capacity: () => cur.capacity,
     items: () => cur.items,
     message: () => message,
@@ -249,6 +273,7 @@ export function containerSource(
   let fixedRecords: ContainerRecord[] | undefined;
   return (zone) => {
     if (zone === TOWN_CONTAINERS) return save ? townContainersFromRecords(parseSaveGdsContainers(save)) : [];
+    if (zone < 0) return [];
     const fromSave = save ? parseSaveZoneContainers(save, zone) : [];
     if (fromSave.length > 0) return worldContainersFromRecords(zone, fromSave);
     if (fixed && !fixedRecords) fixedRecords = parseFixedObjects(fixed);
@@ -282,6 +307,8 @@ export interface Containers {
   store: ContainerStore;
   /** Open the plain container of a town scene (its container hotspot); false when it has none. */
   openTown(gds: number, letter: string): Promise<boolean>;
+  /** After a won fight: what the slain carried, to take what the party wants. */
+  searchBodies(items: readonly ContainerItem[]): Promise<void>;
 }
 
 /** E opens the container the party stands next to; town scenes open theirs with `openTown`. */
@@ -345,5 +372,9 @@ export async function installContainers(setup: ContainerSetup): Promise<Containe
         busy = false;
       });
   });
-  return { store, openTown: (gds, letter) => openTownContainer(host, gds, letter) };
+  return {
+    store,
+    openTown: (gds, letter) => openTownContainer(host, gds, letter),
+    searchBodies: (items) => searchBodies(host, items),
+  };
 }
