@@ -63,7 +63,16 @@ import {
   type Destination,
   type ZoneTransition,
 } from './transitions';
-import { QUERY_YES, runDialogSession, type DialogSession, type ShowDialog } from './encounterRunner';
+import {
+  QUERY_YES,
+  applySetFlag,
+  runDialogSession,
+  type DialogSession,
+  type DialogStore,
+  type ShowDialog,
+} from './encounterRunner';
+import { ActionType } from '../formats/ddx';
+import { AFTER_NAGO_KEY, NAGO_COMBAT, postCombatFlags } from './postCombat';
 import { HotspotAction, gdsLetter, type TownEntry } from '../formats/gds';
 import { createTownHost, townExit } from './townHost';
 import type { PlacedEncounter } from '../world/encounters';
@@ -430,6 +439,13 @@ const enterTown = async (e: PlacedEncounter, t: TownEntry) => {
 const spellDefs = archive.has('SPELLS.DAT') ? parseSpells(archive.get('SPELLS.DAT')) : [];
 
 // Combat encounters: a fight on the combat grid, then wounds applied and the encounter marked done (or a retreat).
+/** The dialogue files, read once when first needed (chapter scripts, flag-only snippets). */
+let dialogStore: Promise<DialogStore> | undefined;
+const loadStore = (): Promise<DialogStore> =>
+  (dialogStore ??= prefetchResources(
+    archive,
+    Array.from({ length: 32 }, (_, n) => dialogFileName(n)),
+  ).then(loadDialogStore));
 /** Text variables for a combat's scouting or entry dialogue (the monster's name). */
 let combatText: { monsterName?: string } = {};
 const combat = new CombatEncounters({
@@ -465,6 +481,16 @@ const combat = new CombatEncounters({
   },
   now: () => clock.state.ticks,
   searchBodies: (items) => containers.searchBodies(items),
+  afterWin: (combatIndex) => {
+    clock.state = postCombatFlags(clock.state, combatIndex);
+    if (combatIndex === NAGO_COMBAT)
+      void loadStore().then((store) => {
+        for (const a of store.byKey(AFTER_NAGO_KEY)?.snippet.actions ?? [])
+          if (a.type === ActionType.SetFlag) clock.state = applySetFlag(clock.state, a);
+        encounters.runner.setWorld(clock.state);
+      });
+    encounters.runner.setWorld(clock.state);
+  },
   playDialog: (key, text) =>
     new Promise<void>((done) => {
       scriptedState.context = text.context;
@@ -746,13 +772,7 @@ const chapters = installChapters({
     await cutscenes.playChapterStart(to);
   },
   loadStart: (n) => loadChapterStart(archive, n),
-  loadStore: async () =>
-    loadDialogStore(
-      await prefetchResources(
-        archive,
-        Array.from({ length: 32 }, (_, n) => dialogFileName(n)),
-      ),
-    ),
+  loadStore,
   showText: (key) =>
     new Promise<void>((done) => {
       const session = encounters.runner.startDialog(key);

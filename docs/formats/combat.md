@@ -125,3 +125,10 @@ Dragon's Breath for an ambush) is at least a roll; everyone practises Stealth. O
 with game state 0x7530 set to 0 (crept up on a scouted fight within 900 ticks of scouting: a roll at most the
 worst Stealth), 1 (spotted while creeping up) or 2 (not scouted), and the monster (the record's last combatant)
 as its text's monster name; then the fight starts. Chest ambushes skip all of this.
+
+### After the fight (src/game/postCombat.ts)
+
+From BaKGL's `SetPostCombatCombatSpecificFlags`. Winning combats 235, 245, 291, 293, 335, 337, 338, 375, 410,
+429 or 430 does not mark the encounter done (they come back). After combat 74 (Nago) the flag actions of dialogue
+snippet 0x1cfdf1 run. The Eortis rusalki fights (131-135) set 0xdb1c once flags 0x14e7-0x14eb are all set, and
+combats 610, 613, 615, 618, 619 and 621 set 0x1d17 once 0x16c6, 0x16c9, 0x16cb, 0x16ce, 0x16cf and 0x16d1 are.

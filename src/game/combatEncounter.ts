@@ -14,6 +14,7 @@ import type { ContainerItem } from '../formats/containers';
 import { lootOf } from '../combat/loot';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
 import { approachCombat } from './combatApproach';
+import { NEVER_ENDING_COMBATS } from './postCombat';
 import {
   CombatController,
   enemiesOf,
@@ -61,6 +62,8 @@ export interface CombatEncounterDeps {
    * resolves when it ends. Without it the fight starts at once.
    */
   playDialog?: (key: number, text: { context: number; monster?: string }) => Promise<void>;
+  /** After a win (and the encounter marked done): flags particular fights set (postCombat.ts). */
+  afterWin?: (combatIndex: number) => void;
   /** After a win: let the party search what the slain carried. */
   searchBodies?: (items: readonly ContainerItem[]) => Promise<void>;
 }
@@ -270,7 +273,9 @@ export class CombatEncounters {
   ): void {
     let party = this.settle(outcome, fighters, result);
     if (outcome === 'won') {
-      this.d.markDone(e);
+      // A few story fights never stay won (BaKGL reactivates them).
+      if (!NEVER_ENDING_COMBATS.has(def.combatIndex)) this.d.markDone(e);
+      this.d.afterWin?.(def.combatIndex);
       this.d.setParty(party);
       void this.d.searchBodies?.(lootOf(this.d.support.inventories, def.combatIndex, fighters));
       return;
