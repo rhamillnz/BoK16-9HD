@@ -52,3 +52,14 @@ Per frame, in op order: `delay` sets the hold time; `sound` plays at once; `dial
 ## 6. In the game
 
 `installCutscenes` (src/game/cutsceneControls.ts) returns `{ play(ads, ttm), playSteps, playChapterStart, playChapterFinish }`. A cutscene opens the modal HUD screen `cutscene` scaled to fit the HUD: click or Space/Enter continues past text, Escape skips. `?cutscene=CHAPTER1.ADS,CHAPTER1.TTM` plays one at start for checking against real data. Sound effects (index below 255) play through the sound-effect bus; music changes (1000 + song) play on the game's music player and the earlier song returns when the cutscene ends. Books are in `books.md`. Not implemented: full-dialogue hook wiring, palette fades of the whole 256-colour table (fades are an RGBA cover).
+
+## Intro credits (CRED.DAT)
+
+INTRO.TTM loads CREDITS.SCX, which already shows the first credits page printed on the parchment, then runs
+dialogue ops with key 0 and types 1 to 20: the credits pages. CRED.DAT holds the text: a u16 word count, a u16
+we do not use, the words, then zero-terminated strings. Each word is an offset into the strings (0 is the empty
+string at their start); a 0 word ends a line. Lines are a heading with its first name, a further name, a closing
+sentence, or a gap. The first 8 lines are the printed page. The text on CREDITS.SCX is palette entries 0 and 122
+in the box (38, 66)-(280, 164). The remake clears that box, lays the remaining lines out over the pages itself
+(src/game/creditPages.ts, 19 pages) and shows each for 4 seconds; the original's page breaks and timing are not
+known.

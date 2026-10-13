@@ -1,6 +1,7 @@
 import { parseBMX, type IndexedImage } from '../formats/bmx';
 import type { HdPicture } from './cutsceneHd';
 import { sceneHash } from './sceneHd';
+import { CREDIT_PAGE_SECONDS, type CreditRow } from './creditPages';
 import { parsePalette, type Palette } from '../formats/palette';
 import { parseSCX } from '../formats/scx';
 import {
@@ -145,6 +146,29 @@ interface SavedRegion {
   indices: Uint8Array;
 }
 
+/** The intro's credits screen, which shows the first page of credits printed on it. */
+const CREDITS_SCREEN = 'CREDITS.SCX';
+/** The printed text on it: its colours (black and a dark brown) and the box they lie in, in scene pixels. */
+const CREDITS_INK = new Set([0, 122]);
+const CREDITS_TEXT = { x0: 38, y0: 66, x1: 280, y1: 164 } as const;
+
+/** Paint over the printed credits with the parchment above or below each inked pixel. */
+function eraseInk(layer: Uint8Array): void {
+  const { x0, y0, x1, y1 } = CREDITS_TEXT;
+  const inked = (x: number, y: number) => CREDITS_INK.has(layer[y * SCENE_WIDTH + x]!);
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      if (!inked(x, y)) continue;
+      for (let d = 1; d < 16; d++) {
+        const from = [y - d, y + d].find((sy) => sy >= y0 && sy < y1 && !inked(x, sy));
+        if (from === undefined) continue;
+        layer[y * SCENE_WIDTH + x] = layer[from * SCENE_WIDTH + x]!;
+        break;
+      }
+    }
+  }
+}
+
 /** Palette indices to opaque RGBA (black without a palette). */
 function toRgba(indices: Uint8Array, pal: Palette | undefined): Uint8ClampedArray<ArrayBuffer> {
   const out = new Uint8ClampedArray(indices.length * 4);
@@ -178,6 +202,12 @@ export class CutsceneRenderer {
   private clip: { x0: number; y0: number; x1: number; y1: number } | undefined;
   /** Palette indices of the frame `draw` last returned (for the palette fades). */
   indices: Uint8Array = newLayer();
+  private screenName = '';
+
+  /** The credits screen is up, cleared for a credits page to be printed on it. */
+  get creditsBlank(): boolean {
+    return this.screenName === `${CREDITS_SCREEN}:blank`;
+  }
 
   constructor(private readonly read: ReadResource) {}
 
@@ -231,6 +261,7 @@ export class CutsceneRenderer {
       case 'loadScreen': {
         const bytes = this.read(op.name);
         if (!bytes) break;
+        this.screenName = op.name.toUpperCase();
         try {
           const picture = parseSCX(bytes);
           const noClip = this.clip;
@@ -292,6 +323,13 @@ export class CutsceneRenderer {
         }
         break;
       }
+      case 'dialog':
+        // A credits page after the printed one: clear the parchment for the player to print it on.
+        if (op.key === 0 && op.type >= 1 && op.type < 0xff && this.screenName === CREDITS_SCREEN) {
+          this.screenName = `${CREDITS_SCREEN}:blank`;
+          for (const layer of [screen, this.layers[LAYER_BACKGROUND]!]) eraseInk(layer);
+        }
+        break;
       default:
         break; // timing, dialogue, sound and fade ops belong to the player
     }
@@ -449,6 +487,8 @@ export interface CutsceneHost {
   book?(key: number, done: () => void): void;
   /** A full dialogue (type 5) is wanted; call `done` when it ends. */
   dialog?(key: number, done: () => void): void;
+  /** The lines of an intro credits page (a dialogue op with key 0 and the page, 1 and up), or undefined. */
+  creditPage?(page: number): readonly CreditRow[] | undefined;
 }
 
 /**
@@ -482,6 +522,8 @@ export class CutscenePlayer {
   indices: Uint8Array | undefined;
   readonly fade: PaletteFade = { level: new Float32Array(PALETTE_SIZE), color: new Uint8Array(PALETTE_SIZE * 3) };
   text: string | undefined;
+  /** The credits page printed over the picture, if any. */
+  creditRows: readonly CreditRow[] | undefined;
   finished = false;
   /** The picture, fade or text changed since it was last read (`take()` clears it). */
   dirty = true;
@@ -495,6 +537,8 @@ export class CutscenePlayer {
   private fadeAnim:
     { first: number; end: number; from: number; to: number; duration: number; elapsed: number } | undefined;
   private delayMs = 0;
+  /** The delay running is a credits page's, which a click ends. */
+  private creditWait = false;
   private dialogType = 0;
   private frame:
     | {
@@ -555,15 +599,17 @@ export class CutscenePlayer {
     } else if (this.wait === 'delay') {
       this.remaining -= dtMs;
       if (this.remaining <= 0) {
+        this.creditWait = false;
         this.wait = 'none';
         this.advance();
       }
     }
   }
 
-  /** The player clicked or pressed a key: continue past a text pause. Ignored while a delay or fade runs. */
+  /** The player clicked or pressed a key: continue past a text pause or a credits page. Ignored while a delay or fade runs. */
   click(): void {
-    if (this.wait !== 'click') return;
+    if (this.wait !== 'click' && !(this.wait === 'delay' && this.creditWait)) return;
+    this.creditWait = false;
     this.wait = 'none';
     this.advance();
   }
@@ -651,6 +697,16 @@ export class CutscenePlayer {
 
   /** Returns true when the player must wait (for a click or an external screen). */
   private showDialog(key: number | undefined, type: number): boolean {
+    if (key === 0 && type >= 1 && type < 0xff && this.renderer.creditsBlank && this.host.creditPage) {
+      this.creditRows = this.host.creditPage(type);
+      this.dirty = true;
+      if (!this.creditRows) return false;
+      this.present(); // the cleared parchment the page is printed on
+      this.wait = 'delay';
+      this.remaining = CREDIT_PAGE_SECONDS * 1000;
+      this.creditWait = true;
+      return true;
+    }
     this.dialogType = type;
     if (type === 2 || type === 5) {
       const hook = type === 2 ? this.host.book : this.host.dialog;

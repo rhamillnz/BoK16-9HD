@@ -1,5 +1,6 @@
 import { glyphFor, type Font } from '../formats/fnt';
 import type { CutscenePlayer } from '../game/cutscene';
+import { CREDITS_AREA, type CreditRow } from '../game/creditPages';
 import { wrapText } from './dialogBox';
 import { registerHudScreen, type HudEvent, type HudHost, type HudScreenHandler } from './hudRegistry';
 import { layoutTownScreen, type TownLayout } from './townScreen';
@@ -59,6 +60,7 @@ export function drawCutscene(
     if (fade) ctx.drawImage(fade, layout.x, layout.y, layout.width, layout.height);
     ctx.imageSmoothingEnabled = smoothing;
   }
+  if (view.creditRows) drawCredits(ctx, font, layout, view.creditRows);
   if (view.text) {
     const box = CUTSCENE_TEXT_BOX;
     const x = layout.x + box.x * s;
@@ -81,7 +83,44 @@ export function drawCutscene(
 }
 
 /** The part of a player the screen draws. */
-export type CutsceneDrawable = Pick<CutscenePlayer, 'text'>;
+export type CutsceneDrawable = Pick<CutscenePlayer, 'text' | 'creditRows'>;
+
+/** Ink of the printed credits page. */
+const CREDITS_INK = '#1c1206';
+
+function textWidth(font: Font, text: string): number {
+  let w = 0;
+  for (let i = 0; i < text.length; i++) w += glyphFor(font, text.charCodeAt(i)).width;
+  return w;
+}
+
+/** A credits page in the printed page's style: headings left, names right after a dotted leader, sentences centred. */
+export function drawCredits(
+  ctx: CanvasRenderingContext2D,
+  font: Font,
+  layout: TownLayout,
+  rows: readonly CreditRow[],
+): void {
+  const s = layout.scale;
+  const at = (x: number, y: number, text: string) =>
+    drawText(ctx, font, text, layout.x + x * s, layout.y + y * s, s, CREDITS_INK);
+  const dot = textWidth(font, '.');
+  for (const r of rows) {
+    if (r.centre) {
+      at((CREDITS_AREA.left + CREDITS_AREA.right - textWidth(font, r.centre)) / 2, r.y, r.centre);
+      continue;
+    }
+    const nameX = r.right ? CREDITS_AREA.right - textWidth(font, r.right) : CREDITS_AREA.right;
+    if (r.left) {
+      at(CREDITS_AREA.left, r.y, r.left);
+      // Dots from just after the heading to just before the name.
+      const from = CREDITS_AREA.left + textWidth(font, r.left) + 2;
+      const n = Math.max(0, Math.floor((nameX - 2 - from) / dot));
+      if (r.right && n > 0) at(nameX - 2 - n * dot, r.y, '.'.repeat(n));
+    }
+    if (r.right) at(nameX, r.y, r.right);
+  }
+}
 
 /** What the game gives the cutscene screen when it opens it. */
 export interface CutsceneScreenView {

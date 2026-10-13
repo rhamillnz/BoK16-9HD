@@ -1,6 +1,8 @@
 import { parseDDX, type DialogFile } from '../formats/ddx';
 import { cutsceneFrameUrl, hdArtWanted, type HdPicture } from './cutsceneHd';
 import type { HdFrames } from './cutscene';
+import { creditPages, type CreditRow } from './creditPages';
+import { parseCredits } from '../formats/credits';
 import { getSettings } from './settingsStore';
 import type { HudScreens } from '../ui/hud';
 import '../ui/cutsceneScreen'; // registers the cutscene screen
@@ -108,6 +110,20 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
     return dialogs;
   };
 
+  let credits: Promise<CreditRow[][]> | undefined;
+  /** The intro's credits pages after the printed one, read once from CRED.DAT (none when it is missing). */
+  const loadCredits = (): Promise<CreditRow[][]> => {
+    credits ??= host.fetch(['CRED.DAT']).then((read) => {
+      const bytes = read('CRED.DAT');
+      try {
+        return bytes ? creditPages(parseCredits(bytes)) : [];
+      } catch {
+        return [];
+      }
+    });
+    return credits;
+  };
+
   const play = async (ads: string, ttm: string): Promise<void> => {
     if (active) return;
     // Active from the start of loading: the world is not drawn under a cutscene, and drawing it for the first
@@ -122,6 +138,7 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
 
   const playLoaded = async (ads: string, ttm: string): Promise<void> => {
     const store = await loadDialogs().catch(() => undefined);
+    const pages = await loadCredits().catch(() => []);
     let view: CutsceneScreenView | undefined;
     let player: CutscenePlayer | undefined;
     /** A book or dialogue took the screen: put the cutscene back when it ends. */
@@ -143,6 +160,7 @@ export function installCutscenes(host: CutsceneControlsHost): Cutscenes {
         }),
       book: host.playBook && ((key, done) => void host.playBook!(bookFile(key)).then(resume(done))),
       dialog: host.dialog && ((key, done) => void host.dialog!(cutsceneDialogKey(key)).then(resume(done))),
+      creditPage: (n) => pages[n - 1],
     };
     try {
       player = await loadCutscene(host.fetch, ads, ttm, {

@@ -13,6 +13,7 @@ import {
   fadeOverlay,
 } from '../src/game/cutscene';
 import { SCENE_WIDTH } from '../src/game/townScene';
+import { CREDIT_PAGE_SECONDS } from '../src/game/creditPages';
 
 // The screen decoder needs LZW data; a flat-colour stand-in keeps these tests free of game data.
 vi.mock('../src/formats/scx', () => ({
@@ -617,6 +618,47 @@ describe('CutscenePlayer', () => {
   it('holds the last fade of a script', () => {
     const { player } = play([[FADE_OUT, 0, 256, 0, 0], [END_SCRIPT], [END_FRAME]]);
     expect(player.fade.level[255]).toBe(1);
+  });
+
+  it('prints the intro credits pages on the cleared credits screen, each for a while or until a click', () => {
+    const creditPage = vi.fn((n: number) => (n <= 2 ? [{ y: 71, right: `page ${n}` }] : undefined));
+    const player = new CutscenePlayer({
+      ads: ONE_SCRIPT,
+      frames: parseTtmFrames(
+        ttmBytes([
+          [SET_SCRIPT, 1],
+          ...SETUP,
+          [LOAD_SCREEN, 'CREDITS.SCR'],
+          [SHOW_DIALOG, 0, 0],
+          [DELAY, 10],
+          [END_FRAME],
+          [SHOW_DIALOG, 0, 1],
+          [END_FRAME],
+          [SHOW_DIALOG, 0, 2],
+          [END_FRAME],
+          [SHOW_DIALOG, 0, 3],
+          [END_FRAME],
+          [END_SCRIPT],
+          [END_FRAME],
+        ]),
+      ),
+      read: (n) => (n === 'CREDITS.SCX' ? new Uint8Array(1) : read(n)),
+      host: { creditPage },
+    });
+    player.start();
+    expect(player.creditRows).toBeUndefined(); // page 0 is printed on the screen itself
+    player.update(10 * SECONDS_PER_TICK * 1000 + 1);
+    expect(player.creditRows?.[0]?.right).toBe('page 1');
+    player.update(CREDIT_PAGE_SECONDS * 1000 - 100);
+    expect(player.creditRows?.[0]?.right).toBe('page 1');
+    player.click();
+    player.update(10 * SECONDS_PER_TICK * 1000 + 1); // the frame's own delay
+    expect(player.creditRows?.[0]?.right).toBe('page 2');
+    player.update(CREDIT_PAGE_SECONDS * 1000 + 1);
+    player.update(10 * SECONDS_PER_TICK * 1000 + 1);
+    expect(creditPage).toHaveBeenCalledWith(3);
+    for (let i = 0; i < 5; i++) player.update(1000);
+    expect(player.finished).toBe(true);
   });
 
   it('pauses on a hooked dialogue until it reports done', () => {
