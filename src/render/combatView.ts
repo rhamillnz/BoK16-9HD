@@ -6,6 +6,7 @@ import type { GridPos } from '../combat/grid';
 import { cameraPlan, gridPointToWorld, worldToGridCell, type Point } from '../combat/layout';
 import type { CombatSprite } from '../combat/sprites';
 import { createBillboards } from './zoneScene';
+import { FighterActor, loadPartyModel, partyModelName } from './fighterModels';
 
 const WORLD_SCALE = 100;
 /** Lift of the grid overlay above the ground, in BaK units. */
@@ -34,6 +35,8 @@ export interface CombatViewOptions {
   /** Original sprite and its palette for a monster index, when one could be loaded. */
   spriteFor: (monster: number) => CombatSprite | undefined;
   palette: Uint8Array;
+  /** Use the party's animated 3D models when they load (default true; tests and tools turn it off). */
+  models?: boolean;
 }
 
 const toRender = (x: number, h: number, y: number): THREE.Vector3 =>
@@ -87,6 +90,8 @@ interface FighterNode {
   /** The same figure drawn faintly through anything in front of it (a hill, a rock, a tree), tinted by side. */
   ghost: THREE.InstancedMesh;
   textures: THREE.Texture[];
+  /** The animated 3D model, once loaded; the billboard stands in until then. */
+  actor?: FighterActor;
 }
 
 /**
@@ -102,6 +107,9 @@ export class CombatView {
   private readonly geometry: THREE.BufferGeometry;
   private readonly material: THREE.MeshBasicNodeMaterial;
   private readonly plan;
+  /** Battle events already turned into animation. */
+  private readonly seen = new WeakSet<object>();
+  private disposed = false;
 
   constructor(
     private readonly o: CombatViewOptions,
@@ -171,7 +179,97 @@ export class CombatView {
     gm.color.set(f.side === 'party' ? '#9cc4ff' : '#ff9a90');
     ghost.renderOrder = 5;
     this.group.add(mesh, ghost);
-    this.nodes.set(f.id, { fighter: f, mesh, ghost, textures });
+    const node: FighterNode = { fighter: f, mesh, ghost, textures };
+    this.nodes.set(f.id, node);
+    const model = f.side === 'party' && this.o.models !== false ? partyModelName(f.name) : undefined;
+    if (model)
+      void loadPartyModel(model).then((gltf) => {
+        if (!gltf || this.disposed || this.nodes.get(f.id) !== node) return;
+        // Combat draws everyone at the original sprites' scale: stand as tall as this character's combat sprite.
+        const actor = new FighterActor(gltf, (sprite?.height ?? MARKER_SIZE.height) / WORLD_SCALE);
+        actor.place(this.cellCentre(node.fighter.pos));
+        node.actor = actor;
+        mesh.visible = ghost.visible = false;
+        this.faceFoes(node);
+        if (isDead(node.fighter)) actor.die();
+        this.group.add(actor.object);
+      });
+  }
+
+  /** Turn a model towards the nearest standing enemy. */
+  private faceFoes(node: FighterNode): void {
+    const actor = node.actor;
+    if (!actor?.idle) return;
+    let best: THREE.Vector3 | undefined;
+    let bestD = Infinity;
+    for (const other of this.nodes.values()) {
+      const f = other.fighter;
+      if (f.side === node.fighter.side || isDead(f)) continue;
+      const p = this.cellCentre(f.pos);
+      const d = p.distanceToSquared(actor.object.position);
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    if (best) actor.face(best);
+  }
+
+  /** Turn the last action's events into animation: walks, swings, casts, flinches and falls. */
+  private animate(state: BattleState): void {
+    const actorOf = (id: string) => this.nodes.get(id)?.actor;
+    const at = (id: string) => {
+      const f = state.fighters.find((x) => x.id === id);
+      return f && this.cellCentre(f.pos);
+    };
+    const struck = (id: string, killed: boolean, delay: number) => {
+      const a = actorOf(id);
+      if (!a) return;
+      if (killed) a.die(delay);
+      else a.act('hit', delay);
+    };
+    for (const e of state.events) {
+      if (this.seen.has(e)) continue;
+      this.seen.add(e);
+      switch (e.type) {
+        case 'move': {
+          const a = actorOf(e.id);
+          if (a) a.walk(e.path.filter((p) => p.x !== e.from.x || p.y !== e.from.y).map((p) => this.cellCentre(p)));
+          break;
+        }
+        case 'attack':
+        case 'shoot': {
+          const a = actorOf(e.attacker);
+          const target = at(e.target);
+          if (a && target) a.face(target);
+          a?.act(e.type === 'shoot' ? 'shoot' : 'attack', a.walking ? 0.4 : 0);
+          if (e.hit) struck(e.target, e.killed, 0.45);
+          else actorOf(e.target)?.act('block', 0.25);
+          break;
+        }
+        case 'cast': {
+          const a = actorOf(e.caster);
+          const target = at(e.target);
+          if (a && target && e.target !== e.caster) a.face(target);
+          a?.act('cast');
+          const hostile =
+            state.fighters.find((x) => x.id === e.caster)?.side !== state.fighters.find((x) => x.id === e.target)?.side;
+          if (hostile && (e.amount > 0 || e.killed)) struck(e.target, e.killed, 0.6);
+          for (const o of e.also ?? []) if (o.amount > 0 || o.killed) struck(o.target, o.killed, 0.7);
+          break;
+        }
+        case 'defend':
+          actorOf(e.id)?.act('block');
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  /** Per frame: advance the models' animation and walking. */
+  tick(dt: number): void {
+    for (const node of this.nodes.values()) node.actor?.tick(dt);
   }
 
   /** Ground-level render position of a grid cell's centre. */
@@ -182,11 +280,22 @@ export class CombatView {
 
   /** Redraw from the battle state: fighter positions and the colour of every cell. */
   update(state: BattleState, hover?: GridPos): void {
+    this.animate(state);
     for (const f of state.fighters) {
       // Fighters a spell brought in mid-fight get their sprite on first sight.
       if (!this.nodes.has(f.id)) this.addFighter(f);
       const node = this.nodes.get(f.id);
       if (!node) continue;
+      node.fighter = f;
+      if (node.actor) {
+        // Models stay where their walk takes them; anything else that moved them (a spell) places them.
+        if (!node.actor.walking && node.actor.object.position.distanceTo(this.cellCentre(f.pos)) > 0.05)
+          node.actor.place(this.cellCentre(f.pos));
+        // The fallen stay on the field, lying where they fell.
+        if (isDead(f)) node.actor.die();
+        else this.faceFoes(node);
+        continue;
+      }
       // The billboard shader recovers its anchor from the instance translation, so move the instance, not the mesh.
       const at = this.cellCentre(f.pos);
       for (const m of [node.mesh, node.ghost]) {
@@ -242,6 +351,8 @@ export class CombatView {
   }
 
   dispose(): void {
+    this.disposed = true;
+    for (const node of this.nodes.values()) node.actor?.dispose();
     this.group.removeFromParent();
     this.geometry.dispose();
     this.material.dispose();

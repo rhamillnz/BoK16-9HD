@@ -334,4 +334,5 @@ def main():
         finish(scene, baked, job)
 
 
-main()
+if __name__ == "__main__":
+    main()

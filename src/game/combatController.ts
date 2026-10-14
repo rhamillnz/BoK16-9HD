@@ -228,8 +228,9 @@ export class CombatController {
     this.delay = ENEMY_DELAY;
   }
 
-  /** Per frame: play the enemies' turns. */
+  /** Per frame: animate the fighters and play the enemies' turns. */
   update(dt: number): void {
+    this.view?.tick(dt);
     const s = this.state;
     if (!s || isOver(s) || currentFighter(s).side === 'party') return;
     this.delay -= dt;
