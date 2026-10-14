@@ -54,7 +54,7 @@ export function createPost(
     if (s.bloom) out = out.add(bloom(color, s.bloomStrength, s.bloomRadius, s.bloomThreshold));
 
     if (s.grade) {
-      const gradeFn = Fn(([c]: [any]) => {
+      const gradeFn = Fn(([c]: [THREE.Node<'vec4'>]) => {
         let rgb = c.rgb;
         const luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
         rgb = mix(vec3(luma), rgb, grade.saturation);
