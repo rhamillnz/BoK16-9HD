@@ -1,6 +1,6 @@
 import { SKILL_NAMES, type Character } from '../formats/gam';
 import { SpellCalc, type SpellDef } from '../formats/spells';
-import { applyDamage } from '../combat/rules';
+import { applyDamage, RANGED_RANGE } from '../combat/rules';
 import { learnSpell, updateCharacter, type PartyState } from './party';
 import { TICKS_PER_MINUTE } from './state';
 
@@ -19,6 +19,10 @@ export const STATIC_SPELLS: readonly number[] = [0, 2, 26, 35, 34, 8];
 export const HOLD_SPELLS: readonly number[] = [3, 13];
 /** Hocho's Haven (shields from damage) and Skin of the Dragon (invisible armour). */
 export const WARD_SPELLS: readonly number[] = [6, 23];
+/** Winds of Eortis: "Pushes target away from caster". Invitation: "Pulls target forward". */
+export const WINDS_OF_EORTIS = 27;
+export const INVITATION = 30;
+
 /** Strength Drain: "Drains strength from victim and gives to caster". */
 export const DRAIN_SPELLS: readonly number[] = [42];
 
@@ -50,6 +54,10 @@ export type SpellKind =
   | 'ward'
   /** Hurts a chosen enemy and gives the caster the Health it took (combat only). */
   | 'drain'
+  /** Shoves a chosen enemy straight away from the caster (combat only). */
+  | 'push'
+  /** Draws a chosen enemy straight towards the caster (combat only). */
+  | 'pull'
   /** Lights the way for a while (world only). */
   | 'light'
   /** Another timed world spell (disguise, reading moredhel, sensing traps). */
@@ -63,6 +71,8 @@ export function spellKind(s: SpellDef): SpellKind {
   if (HOLD_SPELLS.includes(s.index)) return 'hold';
   if (WARD_SPELLS.includes(s.index)) return 'ward';
   if (DRAIN_SPELLS.includes(s.index)) return 'drain';
+  if (s.index === WINDS_OF_EORTIS) return 'push';
+  if (s.index === INVITATION) return 'pull';
   if (s.combat && s.damage > 0 && (s.targeting === 0 || s.targeting === 1 || s.targeting === 4)) return 'damage';
   // Dannon's Delusions (not a combat spell, damage 1) makes an illusionary fighter, it does not heal.
   if (s.combat && s.damage !== 0 && (s.targeting === 2 || s.targeting === 3)) return 'heal';
@@ -98,6 +108,9 @@ export function spellAmount(s: SpellDef, power: number): number {
   if (HOLD_SPELLS.includes(s.index)) return Math.max(1, Math.ceil((power * Math.max(1, s.duration)) / 4));
   if (WARD_SPELLS.includes(s.index)) return power * 2;
   if (DRAIN_SPELLS.includes(s.index)) return power;
+  // Cells moved (ours, **unverified**): a push goes a third of the power, at least one; a pull all the way in.
+  if (s.index === WINDS_OF_EORTIS) return Math.max(1, Math.ceil(power / 3));
+  if (s.index === INVITATION) return RANGED_RANGE;
   const special = SPECIAL_DAMAGE[s.index];
   if (special !== undefined) return special;
   const d = Math.abs(s.damage);

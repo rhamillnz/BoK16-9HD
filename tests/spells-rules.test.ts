@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { castableSpells, castSpell, rest, startBattle, type Fighter } from '../src/combat/battle';
+import { castableSpells, castSpell, describeEvent, rest, startBattle, type Fighter } from '../src/combat/battle';
 import { Direction } from '../src/combat/grid';
 import { battleRewards } from '../src/combat/rewards';
 import { RaceKind } from '../src/combat/rules';
@@ -237,6 +237,25 @@ describe('casting in combat', () => {
     expect(drained.fighters[1]!.health).toBe(17);
     // Paid 3 from Health, then got 3 back.
     expect(drained.fighters[0]!.health).toBe(10);
+  });
+  it('Winds of Eortis throws the enemy back and Invitation draws it in', () => {
+    const WINDS = spell({ index: 27, name: 'Winds', damage: 0, minCost: 6, maxCost: 6 });
+    const INVITE = spell({ index: 30, name: 'Invitation', damage: 0, minCost: 2, maxCost: 2 });
+    const fight = (d: SpellDef, enemyY: number) =>
+      startBattle([
+        fighter('a', 'party', 3, 1, { spells: [d], speed: 9, stamina: 20 }),
+        fighter('x', 'enemy', 3, enemyY, { speed: 1 }),
+        fighter('y', 'enemy', 3, 9, { speed: 1 }),
+      ]);
+    const pushed = castSpell(fight(WINDS, 5), 27, { x: 3, y: 5 })!;
+    expect(pushed.fighters[1]!.pos).toEqual({ x: 3, y: 7 });
+    expect(pushed.events[0]).toMatchObject({ kind: 'push', amount: 2 });
+    // Another fighter in the way stops the push.
+    const blocked = castSpell(fight(WINDS, 8), 27, { x: 3, y: 8 })!;
+    expect(blocked.fighters[1]!.pos).toEqual({ x: 3, y: 8 });
+    expect(describeEvent(blocked, blocked.events[0]!)).toContain('cannot move');
+    const pulled = castSpell(fight(INVITE, 6), 30, { x: 3, y: 6 })!;
+    expect(pulled.fighters[1]!.pos).toEqual({ x: 3, y: 2 });
   });
   it('Wrath of Killian strikes for the middle of its 10-20', () => {
     expect(spellAmount(spell({ index: 19, calc: 4, damage: 1 }), 20)).toBe(15);

@@ -85,7 +85,7 @@ export type BattleEvent =
       target: string;
       spell: string;
       power: number;
-      kind: 'damage' | 'heal' | 'hold' | 'ward' | 'drain';
+      kind: 'damage' | 'heal' | 'hold' | 'ward' | 'drain' | 'push' | 'pull';
       amount: number;
       killed: boolean;
       /** Other enemies an area spell struck, with the damage each took. */
@@ -271,9 +271,33 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
 }
 
 /** Spell kinds castable in a fight. */
-const COMBAT_KINDS: readonly string[] = ['damage', 'heal', 'hold', 'ward', 'drain'];
+const COMBAT_KINDS: readonly string[] = ['damage', 'heal', 'hold', 'ward', 'drain', 'push', 'pull'];
 /** Kinds aimed at an enemy (the rest at an ally or the caster). */
-export const HOSTILE_KINDS: readonly string[] = ['damage', 'hold', 'drain'];
+export const HOSTILE_KINDS: readonly string[] = ['damage', 'hold', 'drain', 'push', 'pull'];
+
+/**
+ * Slide `subject` up to `steps` cells in a straight line away from the caster (push) or towards it (pull),
+ * stopping at the grid edge, a blocked cell, or (pulling) next to the caster. Returns the cells moved through.
+ */
+function slide(s: BattleState, caster: Fighter, subject: Fighter, steps: number, away: boolean): GridPos[] {
+  const sign = (n: number) => (n > 0 ? 1 : n < 0 ? -1 : 0);
+  const k = away ? 1 : -1;
+  const dx = sign(subject.pos.x - caster.pos.x) * k;
+  const dy = sign(subject.pos.y - caster.pos.y) * k;
+  const grid = gridFor(s);
+  const path: GridPos[] = [];
+  let at = subject.pos;
+  for (let i = 0; i < steps; i++) {
+    if (!away && chebyshevDistance(at, caster.pos) <= 1) break;
+    const next = { x: at.x + dx, y: at.y + dy };
+    if (next.x < 0 || next.y < 0 || next.x >= grid.cols || next.y >= grid.rows) break;
+    const cell = grid.cells[next.y * grid.cols + next.x]!;
+    if (cell.disabled || s.fighters.some((f) => !isDead(f) && samePos(f.pos, next))) break;
+    path.push(next);
+    at = next;
+  }
+  return path;
+}
 
 /** The other living enemies of the caster an area spell strikes besides `subject` (see SPELL_SPLASH). */
 function splashVictims(fighters: readonly Fighter[], caster: Fighter, subject: Fighter, spell: number): Fighter[] {
@@ -324,7 +348,7 @@ export function castSpell(
   const me = currentFighter(s);
   const def = castableSpells(s).find((d) => d.index === spellIndex);
   if (!def) return undefined;
-  const kind = spellKind(def) as 'damage' | 'heal' | 'hold' | 'ward' | 'drain';
+  const kind = spellKind(def) as 'damage' | 'heal' | 'hold' | 'ward' | 'drain' | 'push' | 'pull';
   const hostile = HOSTILE_KINDS.includes(kind);
   const victimIndex = s.fighters.findIndex((f) => !isDead(f) && samePos(f.pos, target));
   const victim = s.fighters[victimIndex];
@@ -342,6 +366,7 @@ export function castSpell(
   caster.stamina = paid.stamina;
   caster.health = Math.max(1, paid.health);
   let also: { target: string; amount: number; killed: boolean }[] | undefined;
+  let moved = 0;
   if (kind === 'damage') {
     Object.assign(subject, applyDamage(subject, warded(subject, amount)));
     const splash = splashVictims(fighters, caster, subject, def.index);
@@ -354,6 +379,10 @@ export function castSpell(
     const before = subject.health;
     Object.assign(subject, applyDamage(subject, warded(subject, amount)));
     caster.health = Math.min(caster.maxHealth, caster.health + Math.max(0, before - subject.health));
+  } else if (kind === 'push' || kind === 'pull') {
+    const path = slide(s, caster, subject, amount, kind === 'push');
+    if (path.length > 0) subject.pos = path[path.length - 1]!;
+    moved = path.length;
   } else if (kind === 'hold') subject.held = Math.max(subject.held ?? 0, amount);
   else if (kind === 'ward') subject.ward = Math.max(subject.ward ?? 0, amount);
   else subject.health = Math.min(subject.maxHealth, subject.health + amount);
@@ -366,7 +395,7 @@ export function castSpell(
       spell: def.name,
       power,
       kind,
-      amount,
+      amount: kind === 'push' || kind === 'pull' ? moved : amount,
       killed,
       ...(also && { also }),
     },
@@ -421,6 +450,11 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
           return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is held for ${e.amount} ${e.amount === 1 ? 'turn' : 'turns'}.`;
         case 'ward':
           return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is shielded (${e.amount}).`;
+        case 'push':
+        case 'pull':
+          return e.amount === 0
+            ? `${name(e.caster)} casts ${e.spell}, but ${name(e.target)} cannot move.`
+            : `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is ${e.kind === 'push' ? 'thrown back' : 'drawn in'} ${e.amount} ${e.amount === 1 ? 'cell' : 'cells'}.`;
         case 'drain':
           return `${name(e.caster)} casts ${e.spell}, draining ${name(e.target)} of ${e.amount}${e.killed ? ' and felling them' : ''}.`;
         default: {
