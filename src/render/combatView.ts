@@ -183,6 +183,8 @@ export class CombatView {
   /** Redraw from the battle state: fighter positions and the colour of every cell. */
   update(state: BattleState, hover?: GridPos): void {
     for (const f of state.fighters) {
+      // Fighters a spell brought in mid-fight get their sprite on first sight.
+      if (!this.nodes.has(f.id)) this.addFighter(f);
       const node = this.nodes.get(f.id);
       if (!node) continue;
       // The billboard shader recovers its anchor from the instance translation, so move the instance, not the mesh.

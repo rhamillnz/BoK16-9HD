@@ -28,6 +28,8 @@ export interface TurnCombatant {
   defending: boolean;
   /** Remaining health; only used for poison. */
   health: number;
+  /** Brought in by a spell: does not keep its side in the fight on its own. */
+  summoned?: boolean;
 }
 
 export function newCombatant(id: string, side: Side, speed: number, health = 1): TurnCombatant {
@@ -89,7 +91,8 @@ export type CombatOutcome = 'won' | 'dead' | 'fled';
 
 /** Combat is over when one side has no living members. Fleeing is handled by `retreat`. */
 export function checkCombatFinished(combatants: readonly TurnCombatant[]): CombatOutcome | undefined {
-  const standing = (side: Side) => combatants.some((c) => c.side === side && !c.dead && !c.fled && !c.exorcised);
+  const standing = (side: Side) =>
+    combatants.some((c) => c.side === side && !c.dead && !c.fled && !c.exorcised && !c.summoned);
   if (!standing('party')) return 'dead';
   if (!standing('enemy')) return 'won';
   return undefined;

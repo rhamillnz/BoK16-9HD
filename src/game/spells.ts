@@ -45,6 +45,16 @@ export const SPELL_SPLASH: Record<number, 'all' | 'nearest2' | 'adjacent'> = {
  */
 const SPECIAL_DAMAGE: Record<number, number> = { 19: 15, 20: 15 };
 
+/**
+ * Summoning spells (SPELLDOC): River Song "Summons Rusalki" (monster 56), Dannon's Delusions "Creates illusionary
+ * character" (a double of the caster that cannot really hurt anyone). The summoned fight for the party until the
+ * fight ends; their strength is ours (**unverified**).
+ */
+export const SUMMONS: Record<number, { monster?: number; name?: string; illusion?: boolean }> = {
+  16: { monster: 56, name: 'Rusalka' },
+  1: { illusion: true },
+};
+
 /** Thoughts Like Clouds: "Confuses enemy spellcasters". Mirror Wall: "Reflects projectile spells". */
 export const THOUGHTS_LIKE_CLOUDS = 31;
 export const MIRROR_WALL = 14;
@@ -84,6 +94,8 @@ export type SpellKind =
   | 'banish'
   /** Turns hostile spells aimed at a chosen ally back on their caster (combat only). */
   | 'mirror'
+  /** Brings a new fighter onto the party's side next to a chosen ally (combat only). */
+  | 'summon'
   /** Lights the way for a while (world only). */
   | 'light'
   /** Another timed world spell (disguise, reading moredhel, sensing traps). */
@@ -105,6 +117,7 @@ export function spellKind(s: SpellDef): SpellKind {
   if (s.index === THOUGHTS_LIKE_CLOUDS) return 'silence';
   if (BANISHES[s.index]) return 'banish';
   if (s.index === MIRROR_WALL) return 'mirror';
+  if (SUMMONS[s.index]) return 'summon';
   const harms = s.damage > 0 || SPECIAL_DAMAGE[s.index] !== undefined;
   if (s.combat && harms && (s.targeting === 0 || s.targeting === 1 || s.targeting === 4)) return 'damage';
   // Dannon's Delusions (not a combat spell, damage 1) makes an illusionary fighter, it does not heal.

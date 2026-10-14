@@ -77,7 +77,7 @@ export function battleRewards(fighters: readonly Fighter[], history: readonly Ba
   const experience = new Map<string, Partial<Record<SkillName, number>>>();
   const lines: string[] = [];
   for (const f of fighters) {
-    if (f.side !== 'party') continue;
+    if (f.side !== 'party' || f.summoned) continue;
     const t = tally.get(f.id);
     if (!t) continue;
     const xp: Partial<Record<SkillName, number>> = {};

@@ -103,7 +103,7 @@ export function buildFighters(input: SetupInput): Fighter[] {
 export function applyBattleToParty(party: PartyState, fighters: readonly Fighter[]): PartyState {
   let next = party;
   for (const f of fighters) {
-    if (f.side !== 'party') continue;
+    if (f.side !== 'party' || f.summoned) continue;
     const index = Number(f.id.replace('party', ''));
     next = updateCharacter(next, index, (c) => ({
       ...c,

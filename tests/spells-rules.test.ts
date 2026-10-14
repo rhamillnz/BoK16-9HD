@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { castableSpells, castSpell, describeEvent, rest, startBattle, type Fighter } from '../src/combat/battle';
+import { applyBattleToParty } from '../src/combat/setup';
+import { checkCombatFinished } from '../src/combat/turns';
 import { Direction } from '../src/combat/grid';
 import { battleRewards } from '../src/combat/rewards';
 import { RaceKind } from '../src/combat/rules';
@@ -334,6 +336,47 @@ describe('casting in combat', () => {
     expect(missed.fighters[1]!.health).toBe(20);
     expect(describeEvent(missed, missed.events[0]!)).toContain('no metal');
   });
+  it('River Song brings a rusalka to fight beside the party, who does not keep the fight going alone', () => {
+    const SONG = spell({ index: 16, name: 'River Song', targeting: 6, damage: 0, minCost: 1, maxCost: 1 });
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [SONG], speed: 9, stamina: 20 }),
+      fighter('x', 'enemy', 3, 5, { speed: 1 }),
+    ]);
+    const sung = castSpell(s, 16, { x: 3, y: 1 })!;
+    expect(sung.fighters).toHaveLength(3);
+    expect(sung.fighters[2]).toMatchObject({
+      side: 'party',
+      monster: 56,
+      name: 'Rusalka',
+      summoned: true,
+      pos: { x: 3, y: 0 },
+    });
+    expect(sung.turn.combatants).toHaveLength(3);
+    expect(describeEvent(sung, sung.events[0]!)).toContain('Rusalka joins the fight');
+    expect(checkCombatFinished(sung.turn.combatants.map((c, i) => (i === 0 ? { ...c, dead: true } : c)))).toBe('dead');
+    const party = applyBattleToParty(
+      { gold: 0, characters: [], activeCharacters: [], partyKeys: { capacity: 1, items: [] } },
+      sung.fighters,
+    );
+    expect(party.characters).toEqual([]);
+  });
+  it("Dannon's Delusions makes a harmless double of the caster", () => {
+    const DANNON = spell({
+      index: 1,
+      name: 'Delusions',
+      combat: false,
+      targeting: 3,
+      damage: 1,
+      minCost: 5,
+      maxCost: 5,
+    });
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [DANNON], speed: 9, stamina: 20 }),
+      fighter('x', 'enemy', 3, 5, { speed: 1 }),
+    ]);
+    const twin = castSpell(s, 1, { x: 3, y: 1 })!;
+    expect(twin.fighters[2]).toMatchObject({ name: "a's double", health: 10, strength: 1, summoned: true });
+  });
   it('Wrath of Killian strikes for the middle of its 10-20', () => {
     expect(spellAmount(spell({ index: 19, calc: 4, damage: 1 }), 20)).toBe(15);
     expect(spellKind(spell({ index: 3, targeting: 1, calc: 3, damage: 20 }))).toBe('hold');
@@ -365,9 +408,9 @@ describe('timed spells', () => {
     expect(staticSpellActive(active, 5, 0)).toBe(false);
     expect(spellActive(active, 2, 10)).toBe(true);
   });
-  it("are classified apart; Dannon's Delusions is not a heal", () => {
+  it("are classified apart; Dannon's Delusions summons, it does not heal", () => {
     expect(spellKind(spell({ index: 34, combat: false, targeting: 3, damage: 0 }))).toBe('timed');
-    expect(spellKind(spell({ index: 1, combat: false, targeting: 3, damage: 1 }))).toBe('unsupported');
+    expect(spellKind(spell({ index: 1, combat: false, targeting: 3, damage: 1 }))).toBe('summon');
   });
   it('come back from a save, dropping anything malformed', async () => {
     const { parseTimedSpells } = await import('../src/game/castControls');

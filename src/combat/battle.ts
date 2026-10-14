@@ -5,7 +5,7 @@
  */
 
 import type { SpellDef } from '../formats/spells';
-import { BANISHES, carriesFor, maxPower, SKYFIRE, SPELL_SPLASH, spellAmount, spellKind } from '../game/spells';
+import { BANISHES, carriesFor, maxPower, SKYFIRE, SPELL_SPLASH, spellAmount, spellKind, SUMMONS } from '../game/spells';
 import {
   buildGrid,
   chebyshevDistance,
@@ -66,6 +66,70 @@ export interface Fighter extends MeleeStats {
   banished?: boolean;
   /** Item indices a party member carries (spells that need an item check these). */
   items?: number[];
+  /** Brought into the fight by a spell (River Song, Dannon's Delusions); not a party member. */
+  summoned?: boolean;
+}
+
+/** A free cell next to `p`: on the grid, not blocked terrain, no living fighter on it. */
+function freeCellNear(s: BattleState, p: GridPos): GridPos | undefined {
+  const grid = gridFor(s);
+  for (const [dx, dy] of [
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [1, -1],
+    [-1, -1],
+    [1, 1],
+    [-1, 1],
+  ] as const) {
+    const c = { x: p.x + dx, y: p.y + dy };
+    if (c.x < 0 || c.y < 0 || c.x >= grid.cols || c.y >= grid.rows) continue;
+    if (grid.cells[c.y * grid.cols + c.x]!.disabled) continue;
+    if (s.fighters.some((f) => !isDead(f) && samePos(f.pos, c))) continue;
+    return c;
+  }
+  return undefined;
+}
+
+/** The fighter a summoning spell brings in at `pos` (stats ours, **unverified**). */
+function summonedFighter(s: BattleState, caster: Fighter, spell: number, power: number, pos: GridPos): Fighter {
+  const kind = SUMMONS[spell]!;
+  const base = {
+    id: `summon${s.fighters.length}`,
+    side: caster.side,
+    pos,
+    facing: caster.facing,
+    race: caster.race,
+    summoned: true,
+  };
+  if (kind.illusion)
+    return {
+      ...base,
+      name: `${caster.name}'s double`,
+      monster: caster.monster,
+      health: power * 2,
+      maxHealth: power * 2,
+      stamina: 0,
+      maxStamina: 0,
+      speed: caster.speed,
+      strength: 1,
+      defense: caster.defense,
+      melee: caster.melee,
+    };
+  return {
+    ...base,
+    name: kind.name ?? 'Summoned',
+    monster: kind.monster ?? caster.monster,
+    health: 40,
+    maxHealth: 40,
+    stamina: 20,
+    maxStamina: 20,
+    speed: 6,
+    strength: 20,
+    defense: 30,
+    melee: 70,
+  };
 }
 
 /** Damage after the victim's ward soaks up what it can; lowers the ward. */
@@ -100,6 +164,8 @@ export type BattleEvent =
       also?: { target: string; amount: number; killed: boolean }[];
       /** A Mirror Wall on the intended target turned the spell back: `target` is the caster. */
       reflected?: string;
+      /** Id of the fighter a summoning spell brought in. */
+      summoned?: string;
     }
   | { type: 'defend'; id: string }
   | { type: 'rest'; id: string }
@@ -291,7 +357,7 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
 /** Spell kinds castable in a fight. */
 /** What a combat spell does (see spellKind). */
 export type CastKind =
-  'damage' | 'heal' | 'hold' | 'ward' | 'drain' | 'push' | 'pull' | 'silence' | 'banish' | 'mirror';
+  'damage' | 'heal' | 'hold' | 'ward' | 'drain' | 'push' | 'pull' | 'silence' | 'banish' | 'mirror' | 'summon';
 const COMBAT_KINDS: readonly string[] = [
   'damage',
   'heal',
@@ -303,6 +369,7 @@ const COMBAT_KINDS: readonly string[] = [
   'silence',
   'banish',
   'mirror',
+  'summon',
 ];
 /** Kinds aimed at an enemy (the rest at an ally or the caster). */
 export const HOSTILE_KINDS: readonly string[] = ['damage', 'hold', 'drain', 'push', 'pull', 'silence', 'banish'];
@@ -402,6 +469,8 @@ export function castSpell(
   caster.health = Math.max(1, paid.health);
   let also: { target: string; amount: number; killed: boolean }[] | undefined;
   let moved = 0;
+  let turn = s.turn;
+  let summoned: string | undefined;
   let effect = amount;
   if (kind === 'damage') {
     // Skyfire only strikes a fighter carrying metal (a weapon or armour).
@@ -423,7 +492,23 @@ export function castSpell(
     moved = path.length;
   } else if (kind === 'silence') subject.silenced = Math.max(subject.silenced ?? 0, amount);
   else if (kind === 'mirror') subject.mirror = true;
-  else if (kind === 'banish') {
+  else if (kind === 'summon') {
+    // The newcomer stands next to the chosen ally and acts from the next round.
+    const at = freeCellNear(s, subject.pos);
+    effect = at ? 1 : 0;
+    if (at) {
+      const f = summonedFighter(s, caster, def.index, power, at);
+      fighters.push(f);
+      turn = {
+        ...s.turn,
+        combatants: [
+          ...s.turn.combatants,
+          { ...newCombatant(f.id, f.side, f.speed, f.health), turnPending: false, summoned: true },
+        ],
+      };
+      summoned = f.id;
+    }
+  } else if (kind === 'banish') {
     const rule = BANISHES[def.index]!;
     effect = rule.monsters.includes(subject.monster) ? 1 : 0;
     if (effect) {
@@ -434,20 +519,31 @@ export function castSpell(
   else if (kind === 'ward') subject.ward = Math.max(subject.ward ?? 0, amount);
   else subject.health = Math.min(subject.maxHealth, subject.health + amount);
   const killed = (kind === 'damage' || kind === 'drain' || (kind === 'banish' && !subject.banished)) && isDead(subject);
-  return endTurn(s, fighters, [
-    {
-      type: 'cast',
-      caster: me.id,
-      target: subject.id,
-      spell: def.name,
-      power,
-      kind,
-      amount: kind === 'push' || kind === 'pull' ? moved : kind === 'damage' || kind === 'banish' ? effect : amount,
-      killed,
-      ...(also && { also }),
-      ...(reflected && { reflected }),
-    },
-  ]);
+  return endTurn(
+    s,
+    fighters,
+    [
+      {
+        type: 'cast',
+        caster: me.id,
+        target: subject.id,
+        spell: def.name,
+        power,
+        kind,
+        amount:
+          kind === 'push' || kind === 'pull'
+            ? moved
+            : kind === 'damage' || kind === 'banish' || kind === 'summon'
+              ? effect
+              : amount,
+        killed,
+        ...(also && { also }),
+        ...(reflected && { reflected }),
+        ...(summoned && { summoned }),
+      },
+    ],
+    turn,
+  );
 }
 
 /** Defending ends the turn; attackers add 20 to their hit roll against the defender until the next round. */
@@ -499,6 +595,10 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
       switch (e.kind) {
         case 'silence':
           return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} cannot cast for ${e.amount} ${e.amount === 1 ? 'turn' : 'turns'}.`;
+        case 'summon':
+          return e.summoned
+            ? `${name(e.caster)} casts ${e.spell}; ${name(e.summoned)} joins the fight.`
+            : `${name(e.caster)} casts ${e.spell}, but there is no room beside ${name(e.target)}.`;
         case 'mirror':
           return `${name(e.caster)} casts ${e.spell}; a Mirror Wall shields ${name(e.target)} from spells.`;
         case 'banish':
