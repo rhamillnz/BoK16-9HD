@@ -1,5 +1,6 @@
 import type { SpellDef } from '../formats/spells';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
+import { registerSaveExtra } from './saveExtras';
 import { formatTime } from './state';
 import {
   canCast,
@@ -112,9 +113,25 @@ export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<st
   return message;
 }
 
+/** The timed spells of a save's `timedSpells` section; anything malformed is dropped. */
+export function parseTimedSpells(data: unknown): ActiveLight[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((d: unknown) => {
+    const l = d as Partial<ActiveLight> | null;
+    return l && Number.isInteger(l.spell) && Number.isFinite(l.endTicks)
+      ? [{ spell: l.spell!, endTicks: l.endTicks! }]
+      : [];
+  });
+}
+
 /** V casts a spell. The only wiring main.ts needs: one call with the host. `lights` holds every timed spell in force. */
 export function installCast(host: CastHost): { lights: readonly ActiveLight[] } {
   const lights: ActiveLight[] = [];
+  // Timed spells in force travel with the save; an older save (or a new game) starts with none.
+  registerSaveExtra('timedSpells', {
+    capture: () => lights.map((l) => ({ ...l })),
+    restore: (data) => lights.splice(0, lights.length, ...parseTimedSpells(data)),
+  });
   let busy = false;
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyV' || e.repeat || busy || !host.canCast()) return;

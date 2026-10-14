@@ -244,6 +244,13 @@ describe('timed spells', () => {
     expect(spellKind(spell({ index: 34, combat: false, targeting: 3, damage: 0 }))).toBe('timed');
     expect(spellKind(spell({ index: 1, combat: false, targeting: 3, damage: 1 }))).toBe('unsupported');
   });
+  it('come back from a save, dropping anything malformed', async () => {
+    const { parseTimedSpells } = await import('../src/game/castControls');
+    expect(parseTimedSpells([{ spell: 34, endTicks: 900 }, { spell: 'x' }, null])).toEqual([
+      { spell: 34, endTicks: 900 },
+    ]);
+    expect(parseTimedSpells(undefined)).toEqual([]);
+  });
   it('only lights count as light', () => {
     expect(currentLight([{ spell: 35, endTicks: 100 }], 0)).toBeUndefined();
   });

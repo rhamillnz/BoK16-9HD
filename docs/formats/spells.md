@@ -32,7 +32,7 @@ BaKGL does not implement combat spell effects, and SPELLDOC text is not needed t
 * `ward`: Hocho's Haven ("Shields target from damage") and Skin of the Dragon ("Invisible armor"): the ally gets `2 x power` shield points that soak up melee, crossbow and spell damage first. Both formulas are ours (**unverified**).
 * Wrath of Killian (calculation type 4, damage 1 in the table) strikes for 15, the middle of SPELLDOC's "Damage: 10-20".
 * `timed`: Union, And the Light Shall Lie and Scent of Sarig, cast outside combat; they answer dialogue `castSpell` tests while in force. Scent of Sarig has no further effect, since trapped chests always warn in the remake (a deliberate kindness).
-* Timed spells are not saved yet: they end when the page is reloaded.
+* Timed spells in force are kept in the save's `timedSpells` extras section (spell and end time), not in the original's active-spell bits.
 * everything else is listed as unsupported and not offered.
 
 The cost (power) comes off Stamina then Health, never below 1 Health; the caster picks a power between `minCost` and `maxCost` (the world cast menu offers low, middle and high; combat uses as much as affordable). Combat casting needs a target within 8 cells; casters earn 2 `casting` experience per cast. Enemies cast too (see below). Books already read are remembered per session only.
