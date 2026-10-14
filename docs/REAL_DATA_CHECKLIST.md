@@ -70,9 +70,10 @@ In the inventory: use food, a potion, a scroll, a book, a repair kit; equip and 
 
 ## 9. Spells (player)
 
-Press **V** in the world; cast a healing or light spell. Inventory: read a scroll.
+Press **V** in the world; cast a healing, light or other timed spell (Union, And the Light Shall Lie, Scent of Sarig). Inventory: read a scroll.
 - **Correct:** only spells your character knows are offered, cost comes off Stamina then Health, a heal restores the shown amount, light spells (0 Dragon's Breath, 2 Candle Glow, 26 Stardusk) brighten the scene and fade, outdoors at night as well as in mines. Casters gain 2 casting experience per cast.
-- Most likely wrong: the **spell kind inference** (`spellKind` in src/game/spells.ts; the damage/heal split from targeting and the damage sign is our stand-in), the cost formula per `calc`, light duration of one hour per power, and which spells should appear at all (some are filtered as unsupported).
+- Most likely wrong: the **spell kind inference** (`spellKind` in src/game/spells.ts; checked against SPELLDOC.DAT's descriptions, but the hold and ward formulas are ours), the cost formula per `calc`, durations (SPELLS.DAT minutes, times power for lights), and which spells should appear at all (some are filtered as unsupported).
+- Timed spells: a dialogue that asks about And the Light Shall Lie (DIAL_Z31) or Scent of Sarig should take its other branch while the spell is in force; Dragon's Breath should make ambushes easier to slip past.
 
 ## 10. Combat (including enemy spells)
 
