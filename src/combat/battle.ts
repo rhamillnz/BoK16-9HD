@@ -54,6 +54,17 @@ export interface Fighter extends MeleeStats {
   spells?: SpellDef[];
   /** An enemy's position in its combat's enemy list (its combat inventory). */
   slot?: number;
+  /** Turns this fighter still loses to a hold spell (blinded, held). */
+  held?: number;
+  /** Shield points from a ward spell, used up by damage before Health and Stamina. */
+  ward?: number;
+}
+
+/** Damage after the victim's ward soaks up what it can; lowers the ward. */
+function warded(victim: Fighter, damage: number): number {
+  const soak = Math.min(victim.ward ?? 0, damage);
+  if (soak > 0) victim.ward = victim.ward! - soak;
+  return damage - soak;
 }
 
 export type BattleEvent =
@@ -74,12 +85,13 @@ export type BattleEvent =
       target: string;
       spell: string;
       power: number;
-      kind: 'damage' | 'heal';
+      kind: 'damage' | 'heal' | 'hold' | 'ward';
       amount: number;
       killed: boolean;
     }
   | { type: 'defend'; id: string }
   | { type: 'rest'; id: string }
+  | { type: 'held'; id: string }
   | { type: 'flee'; success: boolean }
   | { type: 'round'; round: number }
   | { type: 'end'; outcome: CombatOutcome };
@@ -133,11 +145,21 @@ function sync(s: BattleState, fighters: Fighter[], turn: TurnState, events: Batt
 function endTurn(s: BattleState, fighters: Fighter[], events: BattleEvent[], turn: TurnState = s.turn): BattleState {
   const synced = sync(s, fighters, turn, events);
   const before = synced.turn.round;
-  const next = finishTurn(synced.turn);
+  let next = finishTurn(synced.turn);
   const out = [...events];
+  if (next.round !== before && !next.outcome) out.push({ type: 'round', round: next.round });
+  // A held fighter loses its turn; each lost turn wears the hold down by one.
+  let list = synced.fighters;
+  while (!next.outcome && (list[next.current]!.held ?? 0) > 0) {
+    const i = next.current;
+    list = list.map((f, k) => (k === i ? { ...f, held: f.held! - 1 } : f));
+    out.push({ type: 'held', id: list[i]!.id });
+    const round = next.round;
+    next = finishTurn(next);
+    if (next.round !== round && !next.outcome) out.push({ type: 'round', round: next.round });
+  }
   if (next.outcome) out.push({ type: 'end', outcome: next.outcome });
-  else if (next.round !== before) out.push({ type: 'round', round: next.round });
-  return sync(s, synced.fighters, next, out);
+  return sync(s, list, next, out);
 }
 
 /** Walk to a reachable cell (within Speed steps). The move uses the turn. */
@@ -211,7 +233,7 @@ export function attack(s: BattleState, target: GridPos, roll: Roll, opts: Attack
   const hit = rollToHit(attacker, victim, kind, roll);
   let damage = 0;
   if (hit) {
-    damage = reduceDamage(meleeDamage(attacker, kind, victim), victim, roll);
+    damage = warded(victim, reduceDamage(meleeDamage(attacker, kind, victim), victim, roll));
     Object.assign(victim, applyDamage(victim, damage));
   }
   const killed = isDead(victim);
@@ -240,12 +262,17 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
   const hit = rollToHitRanged(me.ranged!, victim, distance, roll);
   let damage = 0;
   if (hit) {
-    damage = reduceDamage(rangedDamage(me.ranged!), victim, roll);
+    damage = warded(victim, reduceDamage(rangedDamage(me.ranged!), victim, roll));
     Object.assign(victim, applyDamage(victim, damage));
   }
   const killed = isDead(victim);
   return endTurn(s, fighters, [{ type: 'shoot', attacker: me.id, target: victim.id, hit, damage, killed, distance }]);
 }
+
+/** Spell kinds castable in a fight. */
+const COMBAT_KINDS: readonly string[] = ['damage', 'heal', 'hold', 'ward'];
+/** Kinds aimed at an enemy (the rest at an ally or the caster). */
+export const HOSTILE_KINDS: readonly string[] = ['damage', 'hold'];
 
 /** Combat spells the current fighter could cast right now (it knows them and can pay the minimum). */
 export function castableSpells(s: BattleState, index = s.turn.current): SpellDef[] {
@@ -253,7 +280,7 @@ export function castableSpells(s: BattleState, index = s.turn.current): SpellDef
   if (isDead(me)) return [];
   return (me.spells ?? []).filter((d) => {
     const kind = spellKind(d);
-    return (kind === 'damage' || kind === 'heal') && me.health + me.stamina >= d.minCost;
+    return COMBAT_KINDS.includes(kind) && me.health + me.stamina >= d.minCost;
   });
 }
 
@@ -283,11 +310,12 @@ export function castSpell(
   const me = currentFighter(s);
   const def = castableSpells(s).find((d) => d.index === spellIndex);
   if (!def) return undefined;
-  const kind = spellKind(def) as 'damage' | 'heal';
+  const kind = spellKind(def) as 'damage' | 'heal' | 'hold' | 'ward';
+  const hostile = HOSTILE_KINDS.includes(kind);
   const victimIndex = s.fighters.findIndex((f) => !isDead(f) && samePos(f.pos, target));
   const victim = s.fighters[victimIndex];
   if (!victim || chebyshevDistance(me.pos, victim.pos) > RANGED_RANGE) return undefined;
-  if ((kind === 'damage') !== (victim.side !== me.side)) return undefined;
+  if (hostile !== (victim.side !== me.side)) return undefined;
 
   const power = Math.min(castPower(me, def), maxSpend);
   if (power < def.minCost) return undefined;
@@ -299,7 +327,9 @@ export function castSpell(
   const paid = applyDamage(caster, power);
   caster.stamina = paid.stamina;
   caster.health = Math.max(1, paid.health);
-  if (kind === 'damage') Object.assign(subject, applyDamage(subject, amount));
+  if (kind === 'damage') Object.assign(subject, applyDamage(subject, warded(subject, amount)));
+  else if (kind === 'hold') subject.held = Math.max(subject.held ?? 0, amount);
+  else if (kind === 'ward') subject.ward = Math.max(subject.ward ?? 0, amount);
   else subject.health = Math.min(subject.maxHealth, subject.health + amount);
   const killed = kind === 'damage' && isDead(subject);
   return endTurn(s, fighters, [
@@ -348,13 +378,22 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
       if (!e.hit) return `${name(e.attacker)} fires at ${name(e.target)} and misses.`;
       return `${name(e.attacker)} shoots ${name(e.target)} for ${e.damage}${e.killed ? ' and fells them' : ''}.`;
     case 'cast':
-      return e.kind === 'heal'
-        ? `${name(e.caster)} casts ${e.spell}; ${name(e.target)} regains ${e.amount}.`
-        : `${name(e.caster)} casts ${e.spell} on ${name(e.target)} for ${e.amount}${e.killed ? ' and fells them' : ''}.`;
+      switch (e.kind) {
+        case 'heal':
+          return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} regains ${e.amount}.`;
+        case 'hold':
+          return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is held for ${e.amount} ${e.amount === 1 ? 'turn' : 'turns'}.`;
+        case 'ward':
+          return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is shielded (${e.amount}).`;
+        default:
+          return `${name(e.caster)} casts ${e.spell} on ${name(e.target)} for ${e.amount}${e.killed ? ' and fells them' : ''}.`;
+      }
     case 'defend':
       return `${name(e.id)} defends.`;
     case 'rest':
       return `${name(e.id)} waits.`;
+    case 'held':
+      return `${name(e.id)} cannot act.`;
     case 'flee':
       return e.success ? 'The party retreats.' : 'The party cannot retreat.';
     case 'round':

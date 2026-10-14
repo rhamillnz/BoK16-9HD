@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { castableSpells, castSpell, startBattle, type Fighter } from '../src/combat/battle';
+import { castableSpells, castSpell, rest, startBattle, type Fighter } from '../src/combat/battle';
 import { Direction } from '../src/combat/grid';
 import { battleRewards } from '../src/combat/rewards';
 import { RaceKind } from '../src/combat/rules';
@@ -172,6 +172,46 @@ describe('casting in combat', () => {
     expect(castSpell(s, 11, { x: 3, y: 5 })).toBeUndefined();
     expect(castSpell(s, 7, { x: 4, y: 1 })).toBeUndefined();
     expect(castSpell(s, 99, { x: 3, y: 5 })).toBeUndefined();
+  });
+  it("a hold spell takes the enemy's next turns", () => {
+    const GRIEF = spell({
+      index: 13,
+      name: 'Grief',
+      calc: SpellCalc.CostTimesDuration,
+      damage: 0,
+      duration: 2,
+      minCost: 4,
+      maxCost: 4,
+    });
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [GRIEF], speed: 9 }),
+      fighter('x', 'enemy', 3, 5, { speed: 1 }),
+    ]);
+    const held = castSpell(s, 13, { x: 3, y: 5 })!;
+    expect(held.events[0]).toMatchObject({ type: 'cast', kind: 'hold', amount: 2 });
+    // The enemy's turn was skipped: it is the caster's turn again, with one held turn left.
+    expect(held.events.some((e) => e.type === 'held')).toBe(true);
+    expect(held.turn.current).toBe(0);
+    expect(held.fighters[1]!.held).toBe(1);
+    const again = rest(held)!;
+    expect(again.fighters[1]!.held).toBe(0);
+    expect(again.turn.current).toBe(0);
+    expect(rest(again)!.turn.current).toBe(1);
+  });
+  it('a ward soaks up damage before Health', () => {
+    const HAVEN = spell({ index: 6, name: 'Haven', targeting: 3, damage: 0, minCost: 7, maxCost: 7 });
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [HAVEN, FIRE], speed: 9 }),
+      fighter('b', 'party', 4, 1),
+      fighter('x', 'enemy', 3, 5, { speed: 1 }),
+    ]);
+    const shielded = castSpell(s, 6, { x: 4, y: 1 })!;
+    expect(shielded.fighters[1]!.ward).toBe(14);
+    expect(castSpell(s, 6, { x: 3, y: 5 })).toBeUndefined();
+  });
+  it('Wrath of Killian strikes for the middle of its 10-20', () => {
+    expect(spellAmount(spell({ index: 19, calc: 4, damage: 1 }), 20)).toBe(15);
+    expect(spellKind(spell({ index: 3, targeting: 1, calc: 3, damage: 20 }))).toBe('hold');
   });
   it('a cast gives casting experience', () => {
     const s = startBattle([

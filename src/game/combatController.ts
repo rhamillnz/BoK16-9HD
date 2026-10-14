@@ -10,6 +10,7 @@ import {
   fighterAt,
   flee,
   gridFor,
+  HOSTILE_KINDS,
   isOver,
   moveTo,
   rest,
@@ -287,7 +288,7 @@ export class CombatController {
     const me = currentFighter(s);
     const spell = this.spellsNow()[this.casting];
     if (spell) {
-      const wanted = spellKind(spell) === 'heal' ? 'party' : 'enemy';
+      const wanted = HOSTILE_KINDS.includes(spellKind(spell)) ? 'enemy' : 'party';
       return s.fighters
         .filter((f) => !isDead(f) && f.side === wanted)
         .map((f) => ({ label: `Cast ${spell.name} on ${f.name}`, act: () => this.click(f.pos, false) }));
@@ -365,7 +366,7 @@ export class CombatController {
         this.partyAction(() => next);
       } else
         this.panel?.note(
-          `${spell.name} needs ${spellKind(spell) === 'heal' ? 'a living ally' : 'an enemy'} within range.`,
+          `${spell.name} needs ${HOSTILE_KINDS.includes(spellKind(spell)) ? 'an enemy' : 'a living ally'} within range.`,
         );
     } else if (target && target.side === 'enemy' && this.shooting) {
       const next = shoot(s, cell, this.roll);

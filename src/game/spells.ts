@@ -15,6 +15,13 @@ import { TICKS_PER_MINUTE } from './state';
  * Candle Glow, Stardusk, And the Light Shall Lie, Union, Scent of Sarig. Dialogue `castSpell` choices test a slot.
  */
 export const STATIC_SPELLS: readonly number[] = [0, 2, 26, 35, 34, 8];
+/** Despair Thy Eyes (blinds) and Grief of 1000 Nights (holds): SPELLDOC effects, not damage. */
+export const HOLD_SPELLS: readonly number[] = [3, 13];
+/** Hocho's Haven (shields from damage) and Skin of the Dragon (invisible armour). */
+export const WARD_SPELLS: readonly number[] = [6, 23];
+/** SPELLDOC damage of the special-calculation spells, as a fixed middle: Wrath of Killian "10-20". */
+const SPECIAL_DAMAGE: Record<number, number> = { 19: 15 };
+
 /** The timed spells that light the way (Dragon's Breath also hides the party in fog). */
 export const LIGHT_SPELLS: readonly number[] = [0, 2, 26];
 
@@ -23,6 +30,10 @@ export type SpellKind =
   | 'damage'
   /** Restores Health to a chosen ally. */
   | 'heal'
+  /** Takes a chosen enemy's next turns (blinded or held; combat only). */
+  | 'hold'
+  /** Puts a shield of points on a chosen ally that soaks up damage (combat only). */
+  | 'ward'
   /** Lights the way for a while (world only). */
   | 'light'
   /** Another timed world spell (disguise, reading moredhel, sensing traps). */
@@ -33,6 +44,8 @@ export type SpellKind =
 export function spellKind(s: SpellDef): SpellKind {
   if (LIGHT_SPELLS.includes(s.index)) return 'light';
   if (STATIC_SPELLS.includes(s.index)) return 'timed';
+  if (HOLD_SPELLS.includes(s.index)) return 'hold';
+  if (WARD_SPELLS.includes(s.index)) return 'ward';
   if (s.combat && s.damage > 0 && (s.targeting === 0 || s.targeting === 1 || s.targeting === 4)) return 'damage';
   // Dannon's Delusions (not a combat spell, damage 1) makes an illusionary fighter, it does not heal.
   if (s.combat && s.damage !== 0 && (s.targeting === 2 || s.targeting === 3)) return 'heal';
@@ -60,8 +73,15 @@ export function maxPower(c: Character, s: SpellDef): number {
   return Math.max(s.minCost, Math.min(s.maxCost, castingPool(c) - 1));
 }
 
-/** Amount of damage or healing at `power`. */
+/**
+ * Amount of damage or healing at `power`; for a hold the target's turns lost, for a ward its shield points
+ * (our stand-ins, **unverified**: a quarter of power x duration turns, at least one; two points per power).
+ */
 export function spellAmount(s: SpellDef, power: number): number {
+  if (HOLD_SPELLS.includes(s.index)) return Math.max(1, Math.ceil((power * Math.max(1, s.duration)) / 4));
+  if (WARD_SPELLS.includes(s.index)) return power * 2;
+  const special = SPECIAL_DAMAGE[s.index];
+  if (special !== undefined) return special;
   const d = Math.abs(s.damage);
   switch (s.calc) {
     case SpellCalc.CostTimesDamage:

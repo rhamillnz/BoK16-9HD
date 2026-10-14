@@ -28,6 +28,9 @@ BaKGL does not implement combat spell effects, and SPELLDOC text is not needed t
 * `damage`: combat spell, `damage > 0`, targeting 0, 1 or 4. Amount is `damage` (or `power x damage` for calc 2 and 3). Ignores armour.
 * `heal`: combat flag set, `damage != 0`, targeting 2 or 3 (Gift of Sung; Dannon's Delusions makes an illusionary fighter instead and is unsupported). Restores `|damage|` (scaled the same way) Health to an ally, capped at maximum Health.
 * `light`: spells 0, 2 and 26, cast outside combat. Dragon's Breath's fog also makes the party harder for ambushes to notice (combatApproach.ts).
+* `hold`: Despair Thy Eyes (SPELLDOC "Blinds target for short time") and Grief of 1000 Nights ("Opponent held"): the enemy loses its next `ceil(power x duration / 4)` turns (at least one); each lost turn shows as "cannot act". Despair Thy Eyes used to be read as a 20-per-point damage spell.
+* `ward`: Hocho's Haven ("Shields target from damage") and Skin of the Dragon ("Invisible armor"): the ally gets `2 x power` shield points that soak up melee, crossbow and spell damage first. Both formulas are ours (**unverified**).
+* Wrath of Killian (calculation type 4, damage 1 in the table) strikes for 15, the middle of SPELLDOC's "Damage: 10-20".
 * `timed`: Union, And the Light Shall Lie and Scent of Sarig, cast outside combat; they answer dialogue `castSpell` tests while in force. Scent of Sarig has no further effect, since trapped chests always warn in the remake (a deliberate kindness).
 * Timed spells are not saved yet: they end when the page is reloaded.
 * everything else is listed as unsupported and not offered.
