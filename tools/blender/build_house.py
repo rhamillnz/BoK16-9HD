@@ -85,10 +85,11 @@ class Kit:
             self.cache[name] = meshes
         return self.cache[name]
 
-    def place(self, name, x, y, z, rot_deg=0.0, local_dx=0.0):
-        """Place a piece at (x, y, z) rotated about Z; `local_dx` shifts it along its own X axis."""
+    def place(self, name, x, y, z, rot_deg=0.0, local_dx=0.0, sx=1.0, sz=1.0):
+        """Place a piece at (x, y, z) rotated about Z; `local_dx` shifts it along its own X axis,
+        `sx`/`sz` stretch it along its own X (wall length) and Z."""
         rot = Euler((0, 0, math.radians(rot_deg))).to_matrix().to_4x4()
-        mat = Matrix.Translation((x, y, z)) @ rot @ Matrix.Translation((local_dx, 0, 0))
+        mat = Matrix.Translation((x, y, z)) @ rot @ Matrix.Translation((local_dx * sx, 0, 0)) @ Matrix.Diagonal((sx, 1.0, sz, 1.0))
         for src in self._load(name):
             o = src.copy()
             self.scene.collection.objects.link(o)
@@ -103,12 +104,41 @@ def wall_name(family, kind, windows="wide"):
     return {"plain": "Wall_Plaster_Straight", "window": f"Wall_Plaster_Window_{w}_Round", "door": "Wall_Plaster_Door_Round", "grid": "Wall_Plaster_WoodGrid"}[kind]
 
 
+def wall_layout(count, has_door, upper, tower):
+    """Pieces along one wall as (kind, centre offset in modules, stretch), symmetric about the middle.
+
+    Windows sit every other module counting in from each corner. A door on an even-length wall is
+    centred, with the modules either side stretched to fill; a 2-module tower wall gets a single
+    centred opening twice as wide (a big double door, or a wide belfry window)."""
+    if tower and count == 2:
+        kind = "door" if has_door else ("window" if upper else "plain")
+        return [(kind, 0.0, 2.0)]
+    if not has_door or count % 2 == 1:
+        out = []
+        for i in range(count):
+            kind = "window" if min(i, count - 1 - i) % 2 == 1 else "plain"
+            if has_door and i == count // 2:
+                kind = "door"
+            out.append((kind, i - (count - 1) / 2, 1.0))
+        return out
+    side = (count - 1) / 2
+    n = max(1, round(side))
+    k = side / n
+    out = [("door", 0.0, 1.0)]
+    for j in range(n):
+        kind = "window" if j == n - 1 and n > 1 else "plain"
+        off = 0.5 + k * (j + 0.5)
+        out += [(kind, -off, k), (kind, off, k)]
+    return out
+
+
 def build_part(kit, part, ox=0.0, oy=0.0, primary=True):
     """Build one block centred at (ox, oy) in metres. Ridge runs along Y.
 
     part keys: modules [length, width], floors, ground/upper, woodgrid, chimney,
     kind "hall" (gabled roof) or "tower" (2x2 modules, pointed tower roof; "cross": true puts an iron cross on top),
-    windows "wide" | "thin", woodgrid_ground (timber framing on the ground floor too),
+    windows "wide" | "thin", shutters (open shutters beside each window), woodgrid_ground (lattice
+    panels on the ground floor too), tile (roof tile width in metres, default 0.28),
     skip: wall sides to omit where another block abuts ("-x", "+x", "-y", "+y"),
     door: put the entrance on this block (default: primary block only), on face `door_side` (default "-x").
     """
@@ -133,26 +163,23 @@ def build_part(kit, part, ox=0.0, oy=0.0, primary=True):
         for name, axis, fixed, count, rot in sides:
             if name in skip:
                 continue
-            for i in range(count):
-                along = -count * MODULE / 2 + MODULE / 2 + i * MODULE
-                mid = i == count // 2
-                if f == 0 and name == door_side and mid and door:
-                    kind = "door"
-                elif i % 2 == 1:
-                    kind = "window"
-                elif (f > 0 or part.get("woodgrid_ground")) and part.get("woodgrid") and family == "Plaster":
+            has_door = f == 0 and name == door_side and door
+            for kind, off, stretch in wall_layout(count, has_door, f > 0, tower):
+                along = off * MODULE
+                if kind == "plain" and (f > 0 or part.get("woodgrid_ground")) and part.get("woodgrid") and family == "Plaster":
                     kind = "grid"
-                else:
-                    kind = "plain"
                 x, y = (fixed, along) if axis == "x" else (along, fixed)
                 x, y = x + ox, y + oy
                 windows = part.get("windows", "wide")
-                kit.place(wall_name(family, kind, windows), x, y, z, rot)
+                kit.place(wall_name(family, kind, windows), x, y, z, rot, sx=stretch)
                 if kind == "door":
                     # Door leaves are hinged at their left edge (x = 0..1.12): centre it in the opening.
-                    kit.place("Door_4_Round", x, y, z, rot, local_dx=-0.5)
+                    kit.place("Door_4_Round", x, y, z, rot, local_dx=-0.5, sx=stretch)
                 elif kind == "window":
-                    kit.place("Window_Thin_Round1" if windows == "thin" else "Window_Wide_Round1", x, y, z, rot)
+                    w = "Thin" if windows == "thin" else "Wide"
+                    kit.place(f"Window_{w}_Round1", x, y, z, rot, sx=stretch)
+                    if part.get("shutters") and not tower:
+                        kit.place(f"WindowShutters_{w}_Round_Open", x, y, z, rot, sx=stretch)
         # Wooden floor on every storey so windows and doorways don't show a hollow shell.
         for gx in range(width):
             for gy in range(length):
@@ -165,24 +192,37 @@ def build_part(kit, part, ox=0.0, oy=0.0, primary=True):
     for gx in range(width):
         for gy in range(length):
             kit.place("Floor_WoodDark", ox - hx + MODULE / 2 + gx * MODULE, oy - hy + MODULE / 2 + gy * MODULE, top - 0.02)
+    tiles = pd.tiles_material(kit, part.get("tile", 0.28))
+    trim = pd.swatch_material(kit, "plank_dark")
     if tower:
-        first = len(kit.parts)
-        kit.place("Roof_Tower_RoundTiles", ox, oy, top)
+        apex = top + hx * 2.2
+        pd.tile_pyramid(kit, (ox, oy), hx + 0.15, top + 0.1, apex, tiles)
         if part.get("cross"):
-            peak = max((o.matrix_world @ Vector(c)).z for o in kit.parts[first:] for c in o.bound_box)
             first = len(kit.parts)
             build_cross(kit)
             for o in kit.parts[first:]:
-                o.matrix_world = Matrix.Translation((ox, oy, peak - 0.3)) @ o.matrix_world
+                o.matrix_world = Matrix.Translation((ox, oy, apex - 0.15)) @ o.matrix_world
         return
-    kit.place(f"Roof_RoundTiles_{width * 2}x{length * 2}", ox, oy, top)
+    # Tiled roof laid over the kit's gable ends: same pitch as the gable, eaves overhanging the walls.
     gable = f"Roof_Front_Brick{width * 2}"
+    cs = [o.matrix_world @ Vector(c) for o in kit._load(gable) for c in o.bound_box]
+    gx = max(abs(c.x) for c in cs)
+    gz = max(c.z for c in cs)
+    half_w = gx + 0.45
+
+    def z_at(d):
+        """Roof surface height at distance d from the ridge."""
+        return top + gz * (1 - d / gx) + 0.1
+
+    pd.tile_roof(kit, (ox, oy), half_w, length * MODULE, z_at(half_w), z_at(0), tiles, trim)
     if "-y" not in skip:
         kit.place(gable, ox, oy - hy, top, 0.0)
     if "+y" not in skip:
         kit.place(gable, ox, oy + hy, top, 180.0)
     if part.get("chimney"):
-        kit.place("Prop_Chimney", ox + hx * 0.45, oy + hy * 0.5, top)
+        # Tall enough to stand a metre clear of the roof where it comes through.
+        cx = hx * 0.35
+        kit.place("Prop_Chimney", ox + cx, oy + hy * 0.45, top, sz=max(1.0, (z_at(cx) + 1.1 - top) / 3.18))
 
 
 def build(kit, job):
@@ -294,11 +334,17 @@ def add_extra(kit, ex, k):
     first = len(kit.parts)
     if "piece" in ex:
         mat = Matrix.Diagonal((ex.get("scale", 1.0),) * 3 + (1.0,))
+        made = []
         for src in kit._load(ex["piece"]):
             o = src.copy()
             kit.scene.collection.objects.link(o)
             o.matrix_world = mat @ src.matrix_world
-            kit.parts.append(o)
+            made.append(o)
+        # Kit pieces are not all authored with their base at z = 0: stand them on the ground.
+        lift = -min((o.matrix_world @ Vector(c)).z for o in made for c in o.bound_box)
+        for o in made:
+            o.matrix_world = Matrix.Translation((0, 0, lift)) @ o.matrix_world
+        kit.parts += made
     else:
         EXTRA_BUILDERS[ex["type"]](kit)
     at = ex["at"]

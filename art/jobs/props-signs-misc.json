@@ -1,5 +1,4 @@
 [
   {"name": "marker", "out": "public/models/props/marker.glb", "type": "marker", "box": [-1.55, -0.8, -0.4, 1.55, 0.8, 1.6], "preview": "shots/prop-marker.png"},
-  {"name": "slab", "out": "public/models/props/slab.glb", "type": "marker", "box": [-1.55, -1.0, -0.7, 1.55, 1.0, 3.5], "preview": "shots/prop-slab.png"},
-  {"name": "catapult", "out": "public/models/props/catapult.glb", "type": "catapult", "box": [-6.56, -5.52, 0, 6.56, 5.52, 8.16], "preview": "shots/prop-catapult.png"}
+  {"name": "slab", "out": "public/models/props/slab.glb", "type": "marker", "box": [-1.55, -1.0, -0.7, 1.55, 1.0, 3.5], "preview": "shots/prop-slab.png"}
 ]

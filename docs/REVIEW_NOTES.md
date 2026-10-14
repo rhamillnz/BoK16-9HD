@@ -168,3 +168,9 @@
 - `build_bodies.py`: `sink` lowers corpses into the grass; dbody2 drops forearm skin under its sleeves and is less decimated.
 - `build_house.py`: `fit: keep`, `woodgrid_ground`, `windows: thin`, tower `cross`, and `extras` (kit pieces, forge, inn sign) placed after fitting; extra kit dirs on the command line. House is now a one-storey cottage, inn bigger and half-timbered with a sign, blacksmith has a forge yard, church has a bell tower and spire, temple is all stone. Catapult at 80%.
 - Checked in game (zones 3-11) and in a three.js portal with an in-game-size person. Open question to Reuben: small props are 2-3x a person's size at the original scale.
+
+## Prop review round 3 (Opus, 2026-10-14)
+
+- Reuben asked for human-sized props to suit a person (in-game person is ~1.3 render units): graves, tomb, signs, waystones, bodies (1.35 long), scarecrow, trap, tent, chests, stump, dirt pile, rope post, well, campfire shrunk via the job boxes; fence and corn only lowered (they tile in rows/fields).
+- `build_house.py`: roofs are now `props_detail.tile_roof`/`tile_pyramid` (kit tile texture + normal map, ~0.28 m tiles; the kit roof meshes had very large modelled tiles), pitched to the kit gable pieces; chimneys stretched to clear the roof by ~1 m; `wall_layout()` keeps walls symmetric, centres doors on even walls (neighbours stretched), and gives 2-module tower walls one centred double-width door/window; `shutters` option; `extras` kit pieces stand on the ground (the inn banner was half buried). House and inn lose the lattice panels.
+- New builders in `props_detail.py`: `catapult` (torsion mangonel, half the old size), `siegeshed` (Roman musculus with thatch and wattle, replaces `engine`), `temple` (Greek peristyle temple with terracotta roof and altar, replaces the kit temple job).

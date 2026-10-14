@@ -1,4 +1,4 @@
-"""Extra prop builders (crystal, corn, engine), registered into build_props.BUILDERS.
+"""Extra prop builders (crystal, corn), registered into build_props.BUILDERS.
 
 Imported by build_props.py; kept in its own file so the main builder stays readable.
 """
@@ -55,22 +55,6 @@ def build_corn(kit, job, flat_material):
 
 
 
-def build_engine(kit, job, flat_material):
-    wood = flat_material("beam", (0.3, 0.17, 0.08))
-    hide = flat_material("hide", (0.62, 0.38, 0.28), 1.0)
-    grey = flat_material("hide_grey", (0.5, 0.5, 0.5), 1.0)
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            kit.primitive("box", (sx * 1.3, sy * 1.3, 2.3), (0.3, 0.3, 4.6), wood)
-    kit.primitive("box", (0, 0, 4.7), (3.4, 3.4, 0.25), wood)
-    kit.primitive("box", (0, 0, 5.7), (3.0, 3.0, 0.2), wood)
-    for sx in (-1, 1):
-        kit.primitive("box", (sx * 1.3, 0, 5.2), (0.2, 0.2, 1.0), wood)
-    # Hanging hides around the lower frame.
-    for i in range(12):
-        a = i / 12 * math.tau
-        c = hide if i % 3 else grey
-        kit.primitive("box", (math.cos(a) * 1.7, math.sin(a) * 1.7, 2.6 - (i % 3) * 0.3), (0.9, 0.05, 2.2 - (i % 3) * 0.5), c, rot_deg=(0, 0, math.degrees(a) + 90))
 
 
 
@@ -78,5 +62,4 @@ def build_engine(kit, job, flat_material):
 BUILDERS = {
     "crystal": build_crystal,
     "corn": build_corn,
-    "engine": build_engine,
 }

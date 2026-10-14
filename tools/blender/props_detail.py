@@ -62,6 +62,8 @@ SWATCHES = {
     "stone": ("T_RockTrim_BaseColor.png", (0.34, 0.45), (0.0, 1.0), (1.0, 1.0, 1.0)),
     "stone_dark": ("T_RockTrim_BaseColor.png", (0.34, 0.45), (0.0, 1.0), (0.62, 0.64, 0.66)),
     "stone_blue": ("T_RockTrim_BaseColor.png", (0.34, 0.45), (0.0, 1.0), (0.62, 0.68, 0.86)),
+    "marble": ("T_RockTrim_BaseColor.png", (0.34, 0.45), (0.0, 1.0), (1.45, 1.42, 1.36)),
+    "ashlar": ("T_RockTrim_BaseColor.png", (0.0, 0.28), (0.0, 1.0), (1.05, 1.02, 0.98)),
     "bricks": ("T_RedBrick_BaseColor.png", (0.0, 1.0), (0.0, 1.0), (0.85, 0.8, 0.78)),
     "plank": ("T_WoodTrim_BaseColor.png", (0.0, 0.3), (0.0, 1.0), (1.0, 1.0, 1.0)),
     "plank_dark": ("T_WoodTrim_BaseColor.png", (0.32, 0.6), (0.0, 1.0), (1.0, 1.0, 1.0)),
@@ -545,6 +547,30 @@ def build_signboard(kit, job, flat_material):
         part(kit, "pyramid", (0, -0.62, H - 0.18), (0.3, 0.3, 0.14), iron)
 
 
+def fluted_shaft(kit, centre, z0, z1, radius, material, flutes=20, rings=8):
+    """Column shaft with `flutes` grooves (alternating inner/outer vertices), slightly narrower at the top."""
+    bm = bmesh.new()
+    loops = []
+    for r in range(rings + 1):
+        t = r / rings
+        z = z0 + (z1 - z0) * t
+        rad = radius * (1 - 0.1 * t) * (1 + 0.04 * math.sin(math.pi * t))
+        ring = []
+        for k in range(flutes * 2):
+            a = k / (flutes * 2) * math.tau
+            rr = rad * (0.93 if k % 2 else 1.0)
+            ring.append(bm.verts.new((centre[0] + rr * math.cos(a), centre[1] + rr * math.sin(a), z)))
+        loops.append(ring)
+    for r in range(rings):
+        a_, b_ = loops[r], loops[r + 1]
+        n = len(a_)
+        for k in range(n):
+            bm.faces.new((a_[k], a_[(k + 1) % n], b_[(k + 1) % n], b_[k]))
+    o = _link(kit, "shaft", bm, material, Matrix.Identity(4))
+    project_uvs(o, 1.0)
+    return o
+
+
 def build_column(kit, job, flat_material):
     """Fluted column: stepped base, torus mouldings, entasis, capital, a few chips and moss."""
     key = job.get("stone", "stone_blue")
@@ -555,28 +581,8 @@ def build_column(kit, job, flat_material):
     part(kit, "box", (0, 0, 0.35), (1.6, 1.6, 0.2), stone, bevel=0.04)
     part(kit, "cylinder", (0, 0, 0.55), (1.4, 1.4, 0.2), stone, segments=24)
     part(kit, "cylinder", (0, 0, 0.7), (1.22, 1.22, 0.12), stone, segments=24)
-    # Shaft: 20 flutes as alternating inner/outer vertices, gently narrower at the top.
-    bm = bmesh.new()
-    flutes, rings = 20, 8
-    z0, z1 = 0.76, H - 0.95
-    loops = []
-    for r in range(rings + 1):
-        t = r / rings
-        z = z0 + (z1 - z0) * t
-        rad = 0.55 * (1 - 0.1 * t) * (1 + 0.04 * math.sin(math.pi * t))
-        ring = []
-        for k in range(flutes * 2):
-            a = k / (flutes * 2) * math.tau
-            rr = rad * (0.93 if k % 2 else 1.0)
-            ring.append(bm.verts.new((rr * math.cos(a), rr * math.sin(a), z)))
-        loops.append(ring)
-    for r in range(rings):
-        a_, b_ = loops[r], loops[r + 1]
-        n = len(a_)
-        for k in range(n):
-            bm.faces.new((a_[k], a_[(k + 1) % n], b_[(k + 1) % n], b_[k]))
-    o = _link(kit, "shaft", bm, stone, Matrix.Identity(4))
-    project_uvs(o, 1.0)
+    z1 = H - 0.95
+    fluted_shaft(kit, (0, 0), 0.76, z1, 0.55, stone)
     part(kit, "cylinder", (0, 0, z1 + 0.06), (1.12, 1.12, 0.12), stone, segments=24)
     part(kit, "cylinder", (0, 0, z1 + 0.32), (1.4, 1.4, 0.4), stone, segments=24, taper=1.25)
     part(kit, "box", (0, 0, H - 0.22), (1.8, 1.8, 0.44), dark, bevel=0.04)
@@ -798,6 +804,341 @@ def build_beetle(kit, job, flat_material):
     part(kit, "sphere", (-1.55, 0.35, 0.0), (0.9, 0.6, 0.05), goo, segments=10, smooth=True)
 
 
+def tiles_material(kit, tile=0.35):
+    """Round clay tiles (kit texture, base colour + normal map). `tile` is one tile's width in render units;
+    the texture holds 6 tiles across and 4 rows down. The image keeps its kit name so roof tints find it."""
+    key = f"tiles{tile}"
+    if key in _MATS:
+        return _MATS[key]
+    m = bpy.data.materials.new("MI_RoundTiles_fine")
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    base = nt.nodes.new("ShaderNodeTexImage")
+    base.image = bpy.data.images.load(_find(kit, "T_RoundTiles_BaseColor.png"), check_existing=True)
+    nrm = nt.nodes.new("ShaderNodeTexImage")
+    nrm.image = bpy.data.images.load(_find(kit, "T_RoundTiles_Normal.png"), check_existing=True)
+    nrm.image.colorspace_settings.name = "Non-Color"
+    nmap = nt.nodes.new("ShaderNodeNormalMap")
+    nt.links.new(base.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(nrm.outputs["Color"], nmap.inputs["Color"])
+    nt.links.new(nmap.outputs["Normal"], bsdf.inputs["Normal"])
+    bsdf.inputs["Roughness"].default_value = 0.8
+    m["tile"] = tile
+    _MATS[key] = m
+    return m
+
+
+def _uv_quad(bm, verts, uvs, uvl):
+    f = bm.faces.new(verts)
+    for lp, uv in zip(f.loops, uvs):
+        lp[uvl].uv = uv
+    return f
+
+
+def tile_roof(kit, centre, half_w, length, z_eave, z_ridge, tiles, trim, thickness=0.14, end_overhang=0.35):
+    """Gabled roof with its ridge along Y: two textured slopes from the eaves (x = +-half_w, z_eave) to the
+    ridge (x = 0, z_ridge), wooden edges, and a half-round ridge cap. Tile size comes from the material."""
+    t = tiles["tile"]
+    su, sv = 1 / (6 * t), 1 / (4 * t * 1.15)
+    cx, cy = centre
+    y0, y1 = cy - length / 2 - end_overhang, cy + length / 2 + end_overhang
+    slope = math.hypot(half_w, z_ridge - z_eave)
+    for side in (-1, 1):
+        bm = bmesh.new()
+        uvl = bm.loops.layers.uv.new("UVMap")
+        ex, rx = cx + side * half_w, cx
+        top = [bm.verts.new(c) for c in ((ex, y0, z_eave), (ex, y1, z_eave), (rx, y1, z_ridge), (rx, y0, z_ridge))]
+        # Upper face: u along the ridge, v up the slope.
+        uvs = [(y0 * su, 0), (y1 * su, 0), (y1 * su, slope * sv), (y0 * su, slope * sv)]
+        _uv_quad(bm, top if side > 0 else top[::-1], uvs if side > 0 else uvs[::-1], uvl)
+        _link(kit, "roof", bm, tiles, Matrix.Identity(4))
+        # Underside and edges in timber.
+        bm = bmesh.new()
+        dz = thickness
+        lo = [bm.verts.new((x, y, z - dz)) for x, y, z in ((ex, y0, z_eave), (ex, y1, z_eave), (rx, y1, z_ridge), (rx, y0, z_ridge))]
+        hi = [bm.verts.new((x, y, z)) for x, y, z in ((ex, y0, z_eave), (ex, y1, z_eave), (rx, y1, z_ridge), (rx, y0, z_ridge))]
+        for q in ((lo[3], lo[2], lo[1], lo[0]), (lo[0], lo[1], hi[1], hi[0]), (lo[1], lo[2], hi[2], hi[1]), (lo[3], lo[0], hi[0], hi[3])):
+            bm.faces.new(q)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        e = _link(kit, "eaves", bm, trim, Matrix.Identity(4))
+        project_uvs(e, 1.0)
+    cap = part(kit, "cylinder", (cx, cy, z_ridge + 0.02), (0.26, 0.26, y1 - y0), tiles, segments=8, rot_deg=(90, 0, 0))
+    project_uvs(cap, 1.0)
+
+
+def tile_pyramid(kit, centre, half, z_base, z_apex, tiles, overhang=0.35):
+    """Four-sided pointed roof for a tower, tiled like `tile_roof`."""
+    t = tiles["tile"]
+    su, sv = 1 / (6 * t), 1 / (4 * t * 1.15)
+    cx, cy = centre
+    h = half + overhang
+    zb = z_base - overhang * (z_apex - z_base) / half
+    slope = math.hypot(h, z_apex - zb)
+    corners = [(cx - h, cy - h), (cx + h, cy - h), (cx + h, cy + h), (cx - h, cy + h)]
+    for k in range(4):
+        bm = bmesh.new()
+        uvl = bm.loops.layers.uv.new("UVMap")
+        a, b = corners[k], corners[(k + 1) % 4]
+        vs = [bm.verts.new((a[0], a[1], zb)), bm.verts.new((b[0], b[1], zb)), bm.verts.new((cx, cy, z_apex))]
+        f = bm.faces.new(vs)
+        for lp, uv in zip(f.loops, ((0, 0), (2 * h * su, 0), (h * su, slope * sv))):
+            lp[uvl].uv = uv
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        _link(kit, "spire", bm, tiles, Matrix.Identity(4))
+
+
+def thatch_image(size=256, seed=51, base=(0.62, 0.5, 0.26)):
+    """Straw thatch: dense vertical strands in light and dark straw, in courses."""
+    rnd = np.random.default_rng(seed)
+    px = np.ones((size, size, 4), dtype=np.float32)
+    strands = rnd.uniform(-0.18, 0.18, size)
+    col = np.repeat(strands[None, :], size, axis=0)
+    yy = np.arange(size)[:, None] % (size // 4)
+    shade = 0.75 + 0.25 * (yy / (size // 4))
+    for c in range(3):
+        px[..., c] = np.clip(base[c] * (1 + col) * shade + rnd.uniform(-0.03, 0.03, (size, size)), 0, 1)
+    return px
+
+
+def wicker_image(size=256, base=(0.5, 0.36, 0.2)):
+    """Woven wattle: horizontal withies weaving in front of and behind upright stakes."""
+    yy, xx = np.mgrid[0:size, 0:size]
+    rows = size // 12
+    row = yy // rows
+    stake = (xx // (size // 8))
+    over = ((row + stake) % 2 == 0)
+    band = np.sin((yy % rows) / rows * math.pi)
+    lum = np.where(over, 0.8 + 0.35 * band, 0.62 + 0.25 * band)
+    lum[(xx % (size // 8)) < 3] *= 0.5
+    px = np.ones((size, size, 4), dtype=np.float32)
+    for c in range(3):
+        px[..., c] = np.clip(base[c] * lum, 0, 1)
+    return px
+
+
+def image_material(key, maker, roughness=0.95):
+    if key not in _MATS:
+        _MATS[key] = tex_material(key, _image(key, maker()), roughness)
+    return _MATS[key]
+
+
+def wheel(kit, centre, radius, width, wood, iron, spokes=6, axis_rot=(90, 0, 0)):
+    """Spoked cart wheel: rim, hub and spokes, lying in the XZ plane (axle along Y) unless rotated."""
+    cx, cy, cz = centre
+    rim = []
+    n = 16
+    for k in range(n):
+        a = k / n * math.tau
+        b = (k + 1) / n * math.tau
+        p = Vector((math.cos(a) * radius, 0, math.sin(a) * radius))
+        q = Vector((math.cos(b) * radius, 0, math.sin(b) * radius))
+        mid = (p + q) / 2
+        rim.append(part(kit, "box", (cx + mid.x, cy, cz + mid.z), ((q - p).length * 1.05, width, radius * 0.16), iron if k % 2 else wood,
+                        rot_deg=(0, -math.degrees((a + b) / 2) + 90, 0)))
+    for k in range(spokes):
+        a = k / spokes * 180
+        part(kit, "box", (cx, cy, cz), (radius * 1.9, width * 0.5, 0.06 * radius / 0.5), wood, rot_deg=(0, a, 0))
+    part(kit, "cylinder", (cx, cy, cz), (radius * 0.4, radius * 0.4, width * 1.6), iron, segments=10, rot_deg=(90, 0, 0))
+
+
+def build_catapult(kit, job, flat_material):
+    """Torsion catapult (mangonel): planked frame on four spoked wheels, uprights with a padded stop beam,
+    a twisted rope skein, the throwing arm with its sling cup, and a winch at the back."""
+    wood = swatch_material(kit, "plank", 0.85)
+    dark = swatch_material(kit, "plank_dark", 0.85)
+    iron = flat_material("iron", (0.08, 0.08, 0.09), 0.45)
+    rope = noise_material("rope", (0.55, 0.45, 0.28), 0.06, 21)
+    leather = noise_material("leather", (0.3, 0.17, 0.09), 0.06, 7)
+    L, W = 5.2, 2.2
+    # Frame: two side rails, cross beams, iron straps.
+    for sy in (-1, 1):
+        part(kit, "box", (0, sy * W / 2, 0.75), (L, 0.32, 0.36), wood, bevel=0.02, uv=0.8)
+        for x in (-1.9, 0.0, 1.9):
+            part(kit, "box", (x, sy * W / 2, 0.75), (0.08, 0.36, 0.4), iron)
+    for x in (-2.3, -0.9, 0.9, 2.3):
+        part(kit, "box", (x, 0, 0.75), (0.3, W, 0.3), dark, bevel=0.02, uv=0.8)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            wheel(kit, (sx * 1.7, sy * (W / 2 + 0.3), 0.62), 0.62, 0.16, dark, iron)
+        part(kit, "cylinder", (sx * 1.7, 0, 0.62), (0.12, 0.12, W + 0.9), iron, segments=8, rot_deg=(90, 0, 0))
+    # Uprights with braces, and the padded stop beam the arm hits.
+    for sy in (-1, 1):
+        part(kit, "box", (0.7, sy * 0.85, 1.9), (0.3, 0.3, 2.3), wood, bevel=0.02, uv=0.8)
+        part(kit, "box", (1.3, sy * 0.85, 1.45), (0.18, 0.2, 1.6), dark, rot_deg=(0, -32, 0))
+        part(kit, "box", (0.1, sy * 0.85, 1.45), (0.18, 0.2, 1.6), dark, rot_deg=(0, 32, 0))
+    part(kit, "box", (0.7, 0, 3.0), (0.34, 2.0, 0.34), wood, bevel=0.02)
+    part(kit, "cylinder", (0.52, 0, 3.0), (0.3, 0.3, 1.2), leather, segments=10, rot_deg=(90, 0, 0), smooth=True)
+    # Torsion skein: a thick twisted rope bundle across the frame at the arm's foot.
+    part(kit, "cylinder", (-1.3, 0, 0.95), (0.55, 0.55, W - 0.2), rope, segments=12, rot_deg=(90, 0, 0), smooth=True)
+    for sy in (-1, 1):
+        part(kit, "cylinder", (-1.3, sy * (W / 2 + 0.05), 0.95), (0.7, 0.7, 0.14), iron, segments=12, rot_deg=(90, 0, 0))
+        part(kit, "box", (-1.3, sy * (W / 2 + 0.13), 0.95), (0.9, 0.06, 0.12), iron)
+    # Throwing arm: from the skein up to the stop beam, with a sling cup.
+    arm = Vector((0.55, 0, 2.95)) - Vector((-1.3, 0, 0.95))
+    mid = Vector((-1.3, 0, 0.95)) + arm * 0.55
+    o = part(kit, "box", mid, (0.24, 0.24, arm.length * 1.12), wood, bevel=0.02, uv=0.8)
+    rot = arm.to_track_quat("Z", "Y").to_euler()
+    o.matrix_world = Matrix.Translation(mid) @ rot.to_matrix().to_4x4() @ Matrix.Diagonal((0.24, 0.24, arm.length * 1.12, 1.0))
+    tip = Vector((-1.3, 0, 0.95)) + arm * 1.1
+    part(kit, "sphere", (tip.x - 0.05, 0, tip.z + 0.05), (0.62, 0.62, 0.36), leather, segments=12, smooth=True)
+    part(kit, "sphere", (tip.x - 0.05, 0, tip.z + 0.2), (0.38, 0.38, 0.32), swatch_material(kit, "stone"), segments=10, smooth=True)
+    # Winch at the back with a crank and the pull-down rope.
+    for sy in (-1, 1):
+        part(kit, "box", (-2.3, sy * 0.75, 1.15), (0.2, 0.2, 0.8), dark)
+    part(kit, "cylinder", (-2.3, 0, 1.45), (0.34, 0.34, 1.5), wood, segments=10, rot_deg=(90, 0, 0))
+    curve_tube(kit, [(-2.3, 0, 1.6), (-1.6, 0, 1.75), (-0.5, 0, 2.15)], 0.04, rope, "pull")
+    for sy in (-1, 1):
+        part(kit, "box", (-2.3, sy * 0.95, 1.6), (0.06, 0.06, 0.5), iron)
+    # A few stone shot by the wheel.
+    for k, (x, y) in enumerate(((2.5, -1.6), (2.8, -1.25), (2.65, -1.95))):
+        part(kit, "sphere", (x, y, 0.2), (0.4, 0.4, 0.38), swatch_material(kit, "stone"), segments=10, smooth=True)
+
+
+def build_siegeshed(kit, job, flat_material):
+    """Roman siege shed (musculus): a wheeled timber platform with woven wattle walls and a steep thatched
+    roof, open at the front where a ram hangs on ropes."""
+    wood = swatch_material(kit, "plank", 0.85)
+    dark = swatch_material(kit, "plank_dark", 0.85)
+    iron = flat_material("iron", (0.08, 0.08, 0.09), 0.45)
+    thatch = image_material("thatch", thatch_image)
+    wattle = image_material("wattle", wicker_image)
+    hide = noise_material("hide", (0.42, 0.28, 0.18), 0.08, 29)
+    rope = noise_material("rope", (0.55, 0.45, 0.28), 0.06, 21)
+    L, W, H = 5.6, 3.8, 2.6
+    z0 = 0.75
+    # Platform on six solid-ish wheels.
+    part(kit, "box", (0, 0, z0), (L, W, 0.24), dark, bevel=0.02, uv=0.8)
+    for sy in (-1, 1):
+        part(kit, "box", (0, sy * W / 2, z0 - 0.1), (L + 0.2, 0.25, 0.3), wood, uv=0.8)
+        for x in (-1.9, 0.0, 1.9):
+            wheel(kit, (x, sy * (W / 2 + 0.28), 0.6), 0.6, 0.2, dark, iron, spokes=4)
+    # Corner and mid posts.
+    for x in (-L / 2 + 0.15, 0, L / 2 - 0.15):
+        for sy in (-1, 1):
+            part(kit, "box", (x, sy * (W / 2 - 0.12), z0 + H / 2), (0.22, 0.22, H), wood, uv=0.8)
+    # Woven side walls and a back wall; leather hides against fire on the lower half.
+    for sy in (-1, 1):
+        part(kit, "box", (0, sy * (W / 2 - 0.12), z0 + H / 2), (L - 0.3, 0.1, H - 0.1), wattle, uv=0.55)
+        for k in range(4):
+            part(kit, "box", (-2.0 + k * 1.33, sy * (W / 2 - 0.02), z0 + 0.65), (1.1, 0.04, 1.0), hide, rot_deg=(0, (k % 2) * 3 - 1.5, 0))
+    part(kit, "box", (-L / 2 + 0.12, 0, z0 + H / 2), (0.1, W - 0.3, H - 0.1), wattle, rot_deg=(0, 0, 90), uv=0.55)
+    # Steep thatched roof with a ridge pole; gable ends in wattle.
+    zt = z0 + H
+    ridge = zt + 1.9
+    for side in (-1, 1):
+        bm = bmesh.new()
+        uvl = bm.loops.layers.uv.new("UVMap")
+        e = W / 2 + 0.45
+        vs = [bm.verts.new(c) for c in ((-L / 2 - 0.4, side * e, zt - 0.35), (L / 2 + 0.4, side * e, zt - 0.35), (L / 2 + 0.4, 0, ridge), (-L / 2 - 0.4, 0, ridge))]
+        f = bm.faces.new(vs if side < 0 else vs[::-1])
+        sl = math.hypot(e, ridge - zt + 0.35)
+        uvs = [(0, 0), (L * 0.45, 0), (L * 0.45, sl * 0.45), (0, sl * 0.45)]
+        for lp, uv in zip(f.loops, uvs if side < 0 else uvs[::-1]):
+            lp[uvl].uv = uv
+        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.25)
+        _link(kit, "thatch", bm, thatch, Matrix.Identity(4))
+    part(kit, "cylinder", (0, 0, ridge + 0.05), (0.3, 0.3, L + 0.9), thatch, segments=8, rot_deg=(0, 90, 0))
+    for x in (-L / 2 + 0.15, L / 2 - 0.15):
+        bm = bmesh.new()
+        uvl = bm.loops.layers.uv.new("UVMap")
+        vs = [bm.verts.new((x, -W / 2 + 0.1, zt)), bm.verts.new((x, W / 2 - 0.1, zt)), bm.verts.new((x, 0, ridge - 0.1))]
+        f = bm.faces.new(vs)
+        for lp, uv in zip(f.loops, ((0, 0), (W * 0.55, 0), (W * 0.27, 1.9 * 0.55))):
+            lp[uvl].uv = uv
+        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.08)
+        _link(kit, "gable", bm, wattle if x < 0 else dark, Matrix.Identity(4))
+    # The ram: an iron-headed log slung from the roof beams on ropes, poking out of the open front.
+    part(kit, "cylinder", (0.6, 0, z0 + 1.15), (0.36, 0.36, L + 0.6), dark, segments=10, rot_deg=(0, 90, 0), uv=0.8)
+    part(kit, "cylinder", (L / 2 + 0.55, 0, z0 + 1.15), (0.5, 0.5, 0.5), iron, segments=10, rot_deg=(0, 90, 0), taper=0.7)
+    for x in (-1.2, 1.4):
+        curve_tube(kit, [(x, -0.15, zt + 0.6), (x, 0, z0 + 1.3)], 0.035, rope, "sling")
+        curve_tube(kit, [(x, 0.15, zt + 0.6), (x, 0, z0 + 1.3)], 0.035, rope, "sling")
+    part(kit, "box", (0, 0, zt + 0.6), (L, 0.18, 0.18), wood)
+
+
+def build_temple(kit, job, flat_material):
+    """Classical temple to a goddess: stepped marble podium, a ring of fluted columns, a stone cella with
+    bronze doors, entablature, pediments front and back, a terracotta tiled roof and an altar before the steps.
+    Built in render units with its long axis along Y and the front at -Y."""
+    marble = swatch_material(kit, "marble", 0.6)
+    ashlar = swatch_material(kit, "ashlar", 0.85)
+    shade = swatch_material(kit, "stone", 0.8)
+    bronze = flat_material("bronze", (0.45, 0.3, 0.12), 0.35)
+    bronze.node_tree.nodes["Principled BSDF"].inputs["Metallic"].default_value = 0.8
+    fire = flat_material("altar_fire", (1.0, 0.45, 0.12), 0.5, glow=2.5)
+    tiles = tiles_material(kit, job.get("tile", 0.3))
+    W, L = 12.6, 20.4
+    # Podium: three steps all round.
+    for k in range(3):
+        part(kit, "box", (0, 0, 0.2 + k * 0.4 - 0.2), (W + 1.2 - k * 0.6, L + 1.6 - k * 0.6 + (0.8 if k == 0 else 0), 0.4), marble, bevel=0.03, uv=0.5)
+    zb = 1.2
+    # Peristyle: 6 columns across, 10 along.
+    nx, ny = 6, 10
+    colH = 5.8
+    xs = [(-W / 2 + 0.8) + i * (W - 1.6) / (nx - 1) for i in range(nx)]
+    ys = [(-L / 2 + 0.8) + j * (L - 1.6) / (ny - 1) for j in range(ny)]
+    spots = [(x, ys[0]) for x in xs] + [(x, ys[-1]) for x in xs] + [(xs[0], y) for y in ys[1:-1]] + [(xs[-1], y) for y in ys[1:-1]]
+    for x, y in spots:
+        part(kit, "box", (x, y, zb + 0.08), (1.05, 1.05, 0.16), marble)
+        part(kit, "cylinder", (x, y, zb + 0.24), (0.98, 0.98, 0.16), marble, segments=16)
+        fluted_shaft(kit, (x, y), zb + 0.3, zb + colH - 0.45, 0.42, marble, flutes=16, rings=4)
+        part(kit, "cylinder", (x, y, zb + colH - 0.3), (0.9, 0.9, 0.3), marble, segments=16, taper=1.3)
+        part(kit, "box", (x, y, zb + colH - 0.08), (1.1, 1.1, 0.16), marble)
+    # Cella: ashlar walls with a tall doorway and bronze doors, set back behind the front columns.
+    cw, cl, ch = W - 4.4, L - 5.6, colH
+    cy = 0.9
+    for sx in (-1, 1):
+        part(kit, "box", (sx * cw / 2, cy, zb + ch / 2), (0.5, cl, ch), ashlar, uv=0.6)
+    part(kit, "box", (0, cy + cl / 2, zb + ch / 2), (cw, 0.5, ch), ashlar, uv=0.6)
+    door_w, door_h = 2.2, 3.8
+    for sx in (-1, 1):
+        part(kit, "box", (sx * (door_w / 2 + (cw / 2 - door_w / 2) / 2), cy - cl / 2, zb + ch / 2), (cw / 2 - door_w / 2, 0.5, ch), ashlar, uv=0.6)
+    part(kit, "box", (0, cy - cl / 2, zb + door_h + (ch - door_h) / 2), (door_w, 0.5, ch - door_h), ashlar, uv=0.6)
+    part(kit, "box", (0, cy - cl / 2 - 0.3, zb + door_h + 0.15), (door_w + 0.6, 0.2, 0.3), marble)
+    for sx in (-1, 1):
+        part(kit, "box", (sx * door_w / 4, cy - cl / 2 + 0.05, zb + door_h / 2), (door_w / 2 - 0.04, 0.12, door_h), bronze)
+        for k in range(3):
+            part(kit, "box", (sx * door_w / 4, cy - cl / 2 - 0.02, zb + 0.6 + k * 1.3), (door_w / 2 - 0.3, 0.04, 0.9), bronze)
+    # Entablature: architrave, frieze, cornice.
+    ze = zb + colH
+    part(kit, "box", (0, 0, ze + 0.3), (W - 0.4, L - 0.4, 0.6), marble, uv=0.5)
+    part(kit, "box", (0, 0, ze + 0.85), (W - 0.4, L - 0.4, 0.5), shade, uv=0.5)
+    part(kit, "box", (0, 0, ze + 1.2), (W + 0.1, L + 0.1, 0.2), marble, uv=0.5)
+    # Triglyph-like blocks on the frieze.
+    for x in [(-W / 2 + 0.6) + i * (W - 1.2) / 10 for i in range(11)]:
+        for sy in (-1, 1):
+            part(kit, "box", (x, sy * (L / 2 - 0.18), ze + 0.85), (0.3, 0.06, 0.45), marble)
+    # Pediments and roof (ridge along Y).
+    zr = ze + 1.3
+    ridge = zr + 2.4
+    for sy in (-1, 1):
+        bm = bmesh.new()
+        vs = [bm.verts.new((-W / 2 + 0.05, sy * (L / 2 - 0.1), zr)), bm.verts.new((W / 2 - 0.05, sy * (L / 2 - 0.1), zr)), bm.verts.new((0, sy * (L / 2 - 0.1), ridge - 0.05))]
+        bm.faces.new(vs)
+        bmesh.ops.solidify(bm, geom=bm.faces[:], thickness=0.4)
+        o = _link(kit, "pediment", bm, marble, Matrix.Identity(4))
+        project_uvs(o, 0.5)
+        # A raking cornice along the pediment's top edges and a round shield in the tympanum.
+        for side in (-1, 1):
+            a = Vector((side * (W / 2 + 0.1), sy * (L / 2 + 0.05), zr))
+            b = Vector((0, sy * (L / 2 + 0.05), ridge + 0.05))
+            mid, d = (a + b) / 2, b - a
+            c = part(kit, "box", mid, (d.length + 0.3, 0.3, 0.2), marble)
+            c.matrix_world = Matrix.Translation(mid) @ Matrix.Rotation(math.atan2(-d.z, d.x), 4, "Y") @ Matrix.Diagonal((d.length + 0.3, 0.3, 0.2, 1.0))
+        part(kit, "cylinder", (0, sy * (L / 2 + 0.1), zr + 0.95), (1.2, 1.2, 0.12), bronze, segments=20, rot_deg=(90, 0, 0))
+    tile_roof(kit, (0, 0), W / 2 + 0.4, L - 0.2, zr - 0.25, ridge + 0.12, tiles, shade, end_overhang=0.25)
+    # Acroteria: small palmette blocks at the apex and the corners.
+    for sy in (-1, 1):
+        part(kit, "cylinder", (0, sy * (L / 2), ridge + 0.45), (0.5, 0.2, 0.6), marble, segments=8, taper=0.3)
+        for sx in (-1, 1):
+            part(kit, "box", (sx * (W / 2), sy * (L / 2), zr + 0.25), (0.4, 0.4, 0.5), marble)
+    # Altar in front of the steps, with an offering fire.
+    part(kit, "box", (0, -L / 2 - 2.6, 0.5), (1.8, 1.1, 1.0), marble, bevel=0.04)
+    part(kit, "box", (0, -L / 2 - 2.6, 1.05), (2.0, 1.3, 0.12), marble)
+    part(kit, "sphere", (0, -L / 2 - 2.6, 1.15), (0.9, 0.6, 0.35), fire, segments=10, smooth=True)
+
+
 def _fresh(fn):
     """Each job starts from factory settings, so drop images and materials cached by an earlier job."""
     def run(kit, job, flat_material):
@@ -819,4 +1160,7 @@ BUILDERS = {k: _fresh(f) for k, f in {
     "scarecrow": build_scarecrow,
     "boxtrap": build_boxtrap,
     "beetle": build_beetle,
+    "catapult": build_catapult,
+    "siegeshed": build_siegeshed,
+    "temple": build_temple,
 }.items()}

@@ -10,11 +10,12 @@ jobs.json entries:
 
 Types: fence (row of wooden panels along X), crate (kit crate), well (brick ring, posts, tiled roof),
 rocks (cluster of nature-kit rocks), slab (one tall rock), firepit (stone ring, ashes, logs),
-marker (low rock), catapult (siege engine from beams, wheels and a crate),
+marker (low rock),
 chest (Fantasy Props Chest_Wood), tent (cloth A-frame);
-crystal, corn, engine (see props_last.py);
+crystal, corn (see props_last.py);
 textured second-pass types (see props_detail.py): gravestone ("variant" 0-4), tomb, waymark ("variant" 0-2),
-signboard ("boards", "lantern", "ink"), column, stump, molehill, ropepost, scarecrow, boxtrap, beetle.
+signboard ("boards", "lantern", "ink"), column, stump, molehill, ropepost, scarecrow, boxtrap, beetle,
+catapult, siegeshed, temple.
 
 Each type is built at a natural size, then scaled per axis to `box` and placed so the box minimum
 is at (xmin, ymin, zmin). With "fit": "height" the model is scaled uniformly to the box height instead
@@ -227,38 +228,14 @@ def build_marker(kit, job):
     kit.place("Rock_Medium_2", (0.9, 0.3, 0), (0, 0, 120), (0.5, 0.5, 0.5))
 
 
-def build_catapult(kit, job):
-    wood = flat_material("timber", (0.27, 0.16, 0.08))
-    dark = flat_material("timber_dark", (0.16, 0.09, 0.05))
-    rope = flat_material("rope", (0.4, 0.33, 0.2), 1.0)
-    # Chassis: two long rails and cross beams on four wheels; the arm pivots on two A-frame uprights.
-    for sy in (-1, 1):
-        kit.primitive("box", (0, sy * 1.6, 0.9), (8.0, 0.4, 0.5), wood)
-        for sx in (-1, 1):
-            kit.primitive("cylinder", (sx * 2.8, sy * 2.2, 0.8), (1.6, 1.6, 0.35), dark, rot_deg=(90, 0, 0), segments=14)
-            kit.primitive("box", (sx * 2.8, sy * 1.85, 0.8), (0.2, 0.2, 0.2), dark)
-    for sx in (-3.4, 0.0, 3.4):
-        kit.primitive("box", (sx, 0, 0.9), (0.4, 3.6, 0.4), wood)
-    for sy in (-1, 1):
-        for lean in (-1, 1):
-            kit.primitive("box", (lean * 0.55, sy * 1.35, 2.3), (0.3, 0.3, 3.0), wood, rot_deg=(0, lean * -12, 0))
-    kit.primitive("cylinder", (0, 0, 3.6), (0.4, 0.4, 3.4), dark, rot_deg=(90, 0, 0), segments=8)
-    # Throwing arm, cocked back, with a bucket and a crate as the counterweight.
-    kit.primitive("box", (1.5, 0, 4.3), (8.0, 0.4, 0.4), wood, rot_deg=(0, -24, 0))
-    kit.primitive("box", (5.3, 0, 6.0), (1.6, 1.6, 0.25), dark)
-    for sy in (-1, 1):
-        kit.primitive("box", (5.3, sy * 0.8, 6.3), (1.6, 0.15, 0.6), dark)
-    kit.primitive("box", (5.9, 0, 6.3), (0.15, 1.6, 0.6), dark)
-    kit.place("Prop_Crate", (-2.4, 0, 2.2), (0, 0, 0), (2.0, 2.0, 2.0))
-    kit.primitive("cylinder", (-1.6, 0, 3.0), (0.1, 0.1, 1.6), rope, rot_deg=(0, -24, 0), segments=6)
 
 
-# Extra types live in props_last.py (crystal, corn, carcass, engine, beetle) and props_detail.py (textured second pass).
+# Extra types live in props_last.py (crystal, corn) and props_detail.py (textured second pass).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import props_detail  # noqa: E402
 import props_last  # noqa: E402
 
-BUILDERS = {"marker": build_marker, "catapult": build_catapult, "chest": build_chest, "tent": build_tent, "fence": build_fence, "crate": build_crate,
+BUILDERS = {"marker": build_marker, "chest": build_chest, "tent": build_tent, "fence": build_fence, "crate": build_crate,
             "well": build_well, "rocks": build_rocks, "slab": build_slab, "firepit": build_firepit}
 
 

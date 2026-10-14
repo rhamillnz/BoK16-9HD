@@ -1,4 +1,4 @@
 [
-  {"name": "chest", "out": "public/models/props/chest.glb", "type": "chest", "box": [-1.25, -0.95, -0.05, 1.25, 0.95, 1.22], "preview": "shots/prop-chest.png"},
-  {"name": "tent", "out": "public/models/props/tent.glb", "type": "tent", "box": [-3.6, -2.2, 0, 3.6, 2.2, 3.16], "preview": "shots/prop-tent.png"}
+  {"name": "chest", "out": "public/models/props/chest.glb", "type": "chest", "box": [-0.615, -0.467, -0.025, 0.615, 0.467, 0.6], "preview": "shots/prop-chest.png"},
+  {"name": "tent", "out": "public/models/props/tent.glb", "type": "tent", "box": [-1.709, -1.044, 0.0, 1.709, 1.044, 1.5], "preview": "shots/prop-tent.png"}
 ]

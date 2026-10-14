@@ -12,6 +12,5 @@
   {"name": "cryst6", "out": "public/models/props/cryst6.glb", "type": "crystal", "box": [-1.1, -0.4, 0, 1.1, 0.4, 9.0], "preview": "shots/prop-cryst6.png", "color": [0.1, 0.85, 0.9], "shards": 3, "seed": 11},
   {"name": "cryst6a", "out": "public/models/props/cryst6a.glb", "type": "crystal", "box": [-2.95, -1.95, 0, 2.95, 1.95, 8.8], "preview": "shots/prop-cryst6a.png", "color": [0.1, 0.8, 0.85], "shards": 5, "seed": 12},
   {"name": "cryst7", "out": "public/models/props/cryst7.glb", "type": "crystal", "box": [-2.95, -1.95, 0, 2.95, 1.95, 8.8], "preview": "shots/prop-cryst7.png", "color": [0.95, 0.7, 0.2], "shards": 5, "seed": 13},
-  {"name": "corn", "out": "public/models/props/corn.glb", "type": "corn", "box": [-0.8, -0.6, 0, 0.5, 0.6, 3.3], "preview": "shots/prop-corn.png"},
-  {"name": "engine", "out": "public/models/props/engine.glb", "type": "engine", "box": [-3.4, -3.4, 0, 3.4, 3.4, 8.4], "preview": "shots/prop-engine.png"}
+  {"name": "corn", "out": "public/models/props/corn.glb", "type": "corn", "box": [-0.8, -0.6, 0.0, 0.5, 0.6, 1.8], "preview": "shots/prop-corn.png"}
 ]
