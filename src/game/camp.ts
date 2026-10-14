@@ -8,16 +8,19 @@ import { applyTimeReport, canHeal } from './rest';
  * rules live here and `campControls.ts` wires them to the game. See docs/formats/camping.md.
  *
  * Healing, conditions, near death, skill growth and the 13 hour Sick cure use the same rules as
- * inns (`rest.ts`, `applyTimeReport`). Camping adds its own ration sharing across the party, the
- * ambush chance and the morning hour (the last two are *estimated*, not read from the original).
+ * inns (`rest.ts`, `applyTimeReport`). Camping adds its own ration sharing across the party and the
+ * morning hour (*estimated*, not read from the original).
  */
 
 /** ItemType.Ration in OBJINFO. */
 export const ITEM_TYPE_RATION = 0x17;
 /** Hour of day "rest until morning" stops at. */
 export const MORNING_HOUR = 6;
-/** Chance per camped hour that something finds the camp (estimate). */
-export const AMBUSH_CHANCE_PER_HOUR = 0.04;
+/**
+ * Chance per camped hour that something finds the camp: none. The original has no random encounters (every
+ * fight is placed in the world) and BaKGL's camp has no interruption; the machinery stays for callers that ask.
+ */
+export const AMBUSH_CHANCE_PER_HOUR = 0;
 /** Starving points added to a character with no ration at a day boundary. */
 export const STARVE_PENALTY = 5;
 /** Longest single camp, in hours. */

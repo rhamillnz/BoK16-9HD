@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
 import type { ItemDef } from '../formats/objinfo';
-import {
-  AMBUSH_CHANCE_PER_HOUR,
-  MORNING_HOUR,
-  camp,
-  campSummary,
-  countRations,
-  plannedHours,
-  ITEM_TYPE_RATION,
-} from './camp';
+import { MORNING_HOUR, camp, campSummary, countRations, plannedHours, ITEM_TYPE_RATION } from './camp';
 import type { PartyState } from './party';
 import { TICKS_PER_DAY, TICKS_PER_HOUR, hourOfDay, type WorldState } from './state';
 
@@ -159,16 +151,19 @@ describe('camp', () => {
     );
   });
 
-  it('can be interrupted by an ambush', () => {
+  it('can be interrupted by an ambush when a caller asks for one, never by default', () => {
     const r = camp(
       world(),
       party(),
       { kind: 'hours', hours: 8 },
-      { items: ITEMS, ambushChance: AMBUSH_CHANCE_PER_HOUR, random: () => 0 },
+      { items: ITEMS, ambushChance: 0.04, random: () => 0 },
     );
     expect(r.interrupted).toBe(true);
     expect(r.hoursRested).toBe(1);
     expect(campSummary(r, party(), r.party)[0]).toContain('disturbed');
+    expect(camp(world(), party(), { kind: 'hours', hours: 8 }, { items: ITEMS, random: () => 0 }).interrupted).toBe(
+      false,
+    );
   });
 
   it('leaves its inputs untouched', () => {

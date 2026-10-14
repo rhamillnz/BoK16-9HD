@@ -60,7 +60,7 @@ Open a shop hotspot (mouse). Buy, sell, haggle, try to buy with too little money
 
 - Inn: click an inn hotspot, pay, sleep. **Correct:** price in royals, the party heals, time passes, rations are eaten, hunger and conditions update (inns.md).
 - Camp: in the wild press **R**, pick a plan (rest or sleep, hours). **Correct:** time advances, healing matches what an inn would give for the same hours, rations come from the shared party pool. Resting more than 13 hours cures Sick.
-- Most likely wrong: the 30 day maximum health bump (raises the maximum too, unverified), hourly damage after 18 hours awake, the 80 percent camp heal limit, the **4 percent per hour ambush chance, which is our estimate**. Note main.ts does not start fights from ambushes yet.
+- Most likely wrong: the 30 day maximum health bump (raises the maximum too, unverified), hourly damage after 18 hours awake, the 80 percent camp heal limit, and camps are never interrupted (the old 4 percent per hour ambush estimate is gone).
 
 ## 8. Items
 
