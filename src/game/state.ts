@@ -90,9 +90,6 @@ export const worldMinutes = (s: WorldState): number => minutesSinceMidnight(s.ti
 export const hourOfDay = (ticks: number): number => Math.floor(ticks / TICKS_PER_HOUR) % 24;
 export const dayNumber = (ticks: number): number => Math.floor(ticks / TICKS_PER_DAY);
 
-/** Ticks since the party last slept. */
-export const timeSinceSlept = (s: WorldState): number => s.ticks - s.ticksLastSlept;
-
 export function formatTime(ticks: number): string {
   const t = decodeTime(ticks);
   const pad = (n: number) => String(n).padStart(2, '0');

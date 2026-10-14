@@ -16,7 +16,7 @@ Derived from reading BaKGL (`bak/chapterTransitions.cpp`, `bak/cutscenes.cpp`, `
 Intro of chapter n: animation `CHAPTERn` (ADS + TTM), book `Cn1.BOK`, animation `Cn1`.
 Ending of chapter n: book `Cn2.BOK` (not for chapters 2, 4, 6, 7, 8), then animation `Cn2` (chapter 9: `C93`). There is no ending after the last chapter.
 Playback uses the cutscene player (`chapterFinishCutscenes` then `chapterStartCutscenes` in `cutscene.ts`, run through `installCutscenes`); book steps are skipped until a book viewer exists.
-The chapter recap text (contents screen) is dialogue key `0x186ab6 + chapter - 1`.
+The chapter recap text (contents screen) is dialogue key `0x186ab6 + chapter - 1`: a one-paragraph synopsis of that chapter. The remake adds it to the journal (J) when the chapter begins.
 
 ## World reset
 - Time: next midnight plus `timeChange` from `CHAPn.DAT`, and the last-slept time is set to it (`startChapter` in `state.ts`).

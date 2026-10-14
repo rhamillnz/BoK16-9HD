@@ -2,6 +2,7 @@ import type { ChapterStart } from '../formats/world';
 import type { ItemDef } from '../formats/objinfo';
 import {
   LAST_CHAPTER,
+  chapterRecapKey,
   chapterStartTextKey,
   clearTransitionRequest,
   transitionRequested,
@@ -14,6 +15,7 @@ import type { StashSource } from './chapterHandover';
 import type { TownStashSource } from './chapterRules';
 import type { PartyState } from './party';
 import type { WorldState } from './state';
+import { addNote } from './journal';
 
 /** What chapter transitions need from the running game. */
 export interface ChapterHost {
@@ -86,6 +88,9 @@ export function installChapters(host: ChapterHost): ChapterControls {
       host.setWorld(result.world);
       host.setParty(result.party);
       host.onTransitioned?.(chapter);
+      // The chapter's synopsis (the original's contents-screen recap) heads the journal for the new chapter.
+      const recap = store.byKey(chapterRecapKey(chapter))?.snippet.text;
+      if (recap) addNote(recap, start.zone);
       if (opts.arriveFirst) {
         await host.arrive(start, result.teleport);
         opts.onArrived?.();

@@ -69,11 +69,6 @@ export function sameStyle(a: TextStyle, b: TextStyle): boolean {
   );
 }
 
-/** Whether a style draws differently from plain text. */
-export function isPlain(style: TextStyle): boolean {
-  return sameStyle(style, PLAIN_STYLE);
-}
-
 /** Bytes that are consumed silently (never drawn): C0 controls other than the ones handled, and 0xF2, 0xFA-0xFF. */
 function isIgnoredControl(code: number): boolean {
   if (code < 0x20) return true;

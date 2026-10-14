@@ -114,7 +114,6 @@ export function startBattle(fighters: readonly Fighter[], disabled: readonly Gri
   return { fighters: list, turn, disabled: [...disabled], events: [], history: [] };
 }
 
-export const currentIndex = (s: BattleState): number => s.turn.current;
 export const currentFighter = (s: BattleState): Fighter => s.fighters[s.turn.current]!;
 export const isOver = (s: BattleState): boolean => s.turn.outcome !== undefined;
 

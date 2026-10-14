@@ -52,7 +52,7 @@ Backlog 5 (from Opus, 2026-10-08; start after open PRs and Backlog 4):
 - [x] 3 Combat and rules audit against BaKGL: hit chance, damage, armour, wounds, spell costs, skill gains; fix discrepancies; table-driven tests (docs/formats/combat-audit.md; fixed wear, melee practice, blessings and enchantment damage, spell affordability; monster resistances and shields left open)
 - [x] 4 Chapter 1 critical-path e2e test with synthetic data: start, first dialogue, a town, a shop purchase, a combat, a chest, a zone transition, save and load (tests/chapter1Journey.test.ts)
 - [x] 5 Loading and error screens: zone-load progress, friendly errors for missing/wrong game data, WebGPU-not-available message noting the WebGL2 fallback
-- [~] 6 Code health: ESLint + Prettier in CI **done by Opus** (`npm run lint`, `npm run format:check`; run `npm run format` before committing). Still open: split src/game/main.ts into feature modules (mostly composition), remove dead code and stale probe scripts
+- [~] 6 Code health: ESLint + Prettier in CI **done by Opus** (`npm run lint`, `npm run format:check`; run `npm run format` before committing). Dead helpers and nine stale probe scripts removed (Opus 2026-10-14; knip finds no other unreferenced code). Still open: split src/game/main.ts into feature modules (mostly composition)
 - [x] 7 Journal/notes screen: research BaKGL for a bookmark or quest log; otherwise a simple notes screen of key dialogue lines seen (BaKGL not readable from the cloud, so this is the simple notes screen: J, dialogue lines kept via saveExtras)
 
 Backlog 6 (from Opus and the local real-data checks, 2026-10-08; do these before Backlog 5 items 3 and 6; item 1 first, it blocks towns, shops, inns and temples):

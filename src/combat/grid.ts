@@ -44,14 +44,6 @@ const DELTAS: readonly GridPos[] = [
   { x: -1, y: -1 },
 ];
 
-export function directionDelta(d: Direction): GridPos {
-  return DELTAS[d]!;
-}
-
-export function isCardinal(d: Direction): boolean {
-  return d % 2 === 0;
-}
-
 export function oppositeDirection(d: Direction): Direction {
   return ((d + 4) % 8) as Direction;
 }
