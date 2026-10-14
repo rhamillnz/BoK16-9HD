@@ -14,12 +14,13 @@ jobs.json entries:
    "mirror": false, "yaw": 0.0, "ratio": 0.2, "tex": 256,
    "tints": {"Body": {"color": [0.3, 0.16, 0.42], "target": 1.0}},   # per-part recolour, see tint_object
    "cover": ["lowerarm"],                         # more base-character skin to delete (bones the outfit covers)
+   "sink": 0.08,                                  # lying figures: lower this far below z = 0
    "preview": "shots/body-dbody2.png"}
 
 The outfit, base character, hair and the animation library share one 65-bone skeleton, so the action is
 assigned to every imported armature, the meshes are evaluated at the action's last frame (armature modifier applied),
 then laid along X, scaled uniformly so its length matches `length`, centred on the origin with its
-lowest point at z = 0, and exported as a static GLB (no armature). Textures are capped at `tex` px (default 256).
+lowest point at z = -sink (default 0), and exported as a static GLB (no armature). Textures are capped at `tex` px (default 256).
 """
 import json
 import math
@@ -220,7 +221,8 @@ def finish(scene, objs, job):
         fit = Matrix.Diagonal((k * w, k * w, k, 1.0)) @ Matrix.Translation(Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z)))
     else:
         k = job["length"] / max(hi.x - lo.x, 1e-6)
-        fit = Matrix.Diagonal((k, k, k, 1.0)) @ Matrix.Translation(Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z)))
+        # `sink` lowers the corpse into the ground so grass hides the gap under its back.
+        fit = Matrix.Translation((0, 0, -job.get("sink", 0.0))) @ Matrix.Diagonal((k, k, k, 1.0)) @ Matrix.Translation(Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z)))
     for o in objs:
         o.matrix_world = fit @ o.matrix_world
     bpy.context.view_layer.update()

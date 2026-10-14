@@ -159,3 +159,12 @@
 - Perf, `profile-view.mjs`, F3, 15 s after load, 1600x900: (690000,1060000,h100) before ~105-130 fps / 257 meshes / 17.9k visible instances, after 86-92 fps / 467 meshes / 25k; (700000,1050000,h128) before ~105-131 fps / 240 meshes / 17.5k, after 85-92 fps / 452 meshes / 24.7k. Frame time is now mostly draw calls (chunk x model x sub-mesh); bigger cells or a smaller cull distance buy fps back. Run-to-run GPU noise here is about +-15 fps.
 - Screenshots: `shots/foliage/before-*.png` / `after-*.png` (`hillA` = x=720000 y=1040000 h=60, `hillB` = x=672000 y=1030000 h=200, plus the two requested views, which look at flat ground and show little hill).
 - Not sure about: red bushes still read strongly on pale hills; a few shrubs and boulders sit on steep faces (existing rock lean logic); foot detection uses the lowest hill vertex nearby, so a hill on higher ground next to a lower one gets scree/pines judged against the lower foot.
+
+## Prop review round 2 (Opus, 2026-10-14)
+
+- Reuben reviewed all 44 remade props in zones 3-12 (artifact page) and asked for changes; this round applies them.
+- New `tools/blender/props_detail.py`: textured builders (kit stone/wood/bark crops, generated pseudo-script inscriptions, tree rings, dirt and cloth tiles) replace the flat-colour gravestone, waymark, signboard, column, stump, dirtpile, scarecrow, rope, carcass and beetle builders, plus new tomb, molehill, ropepost and boxtrap types. Jobs moved to `art/jobs/props-review2.json`.
+- `build_props.py`: `"fit": "height"` keeps proportions; a negative box zmin buries the foot (nothing floats on grass).
+- `build_bodies.py`: `sink` lowers corpses into the grass; dbody2 drops forearm skin under its sleeves and is less decimated.
+- `build_house.py`: `fit: keep`, `woodgrid_ground`, `windows: thin`, tower `cross`, and `extras` (kit pieces, forge, inn sign) placed after fitting; extra kit dirs on the command line. House is now a one-storey cottage, inn bigger and half-timbered with a sign, blacksmith has a forge yard, church has a bell tower and spire, temple is all stone. Catapult at 80%.
+- Checked in game (zones 3-11) and in a three.js portal with an in-game-size person. Open question to Reuben: small props are 2-3x a person's size at the original scale.

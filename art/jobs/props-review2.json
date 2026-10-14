@@ -1,0 +1,20 @@
+[
+  {"name": "tstone1", "out": "public/models/props/tstone1.glb", "type": "gravestone", "fit": "height", "box": [-1.5, -0.35, -0.35, 1.5, 0.45, 2.82], "preview": "shots/review2/tstone1.png", "variant": 0},
+  {"name": "tstone2", "out": "public/models/props/tstone2.glb", "type": "gravestone", "fit": "height", "box": [-1.4, -0.35, -0.35, 1.4, 0.45, 2.6], "preview": "shots/review2/tstone2.png", "variant": 1},
+  {"name": "tstone3", "out": "public/models/props/tstone3.glb", "type": "gravestone", "fit": "height", "box": [-1.45, -0.35, -0.35, 1.45, 0.45, 2.23], "preview": "shots/review2/tstone3.png", "variant": 2},
+  {"name": "tstone4", "out": "public/models/props/tstone4.glb", "type": "gravestone", "fit": "height", "box": [-1.2, -0.35, -0.35, 1.2, 0.45, 2.8], "preview": "shots/review2/tstone4.png", "variant": 3},
+  {"name": "tstone5", "out": "public/models/props/tstone5.glb", "type": "gravestone", "fit": "height", "box": [-1.5, -0.35, -0.7, 1.5, 0.45, 2.4], "preview": "shots/review2/tstone5.png", "variant": 4},
+  {"name": "tmbstone", "out": "public/models/props/tmbstone.glb", "type": "tomb", "fit": "height", "box": [-0.85, -0.35, -0.15, 0.85, 0.45, 2.0], "preview": "shots/review2/tmbstone.png"},
+  {"name": "sign2", "out": "public/models/props/sign2.glb", "type": "waymark", "fit": "height", "box": [-1.0, -1.0, -0.3, 1.0, 1.0, 3.3], "preview": "shots/review2/sign2.png", "variant": 0},
+  {"name": "sign3", "out": "public/models/props/sign3.glb", "type": "waymark", "fit": "height", "box": [-1.05, -1.05, -0.3, 1.05, 1.05, 2.6], "preview": "shots/review2/sign3.png", "variant": 1},
+  {"name": "sign4", "out": "public/models/props/sign4.glb", "type": "waymark", "fit": "height", "box": [-0.95, -0.95, -0.3, 0.95, 0.95, 3.3], "preview": "shots/review2/sign4.png", "variant": 2},
+  {"name": "sign1", "out": "public/models/props/sign1.glb", "type": "signboard", "fit": "height", "box": [-0.65, -0.15, -0.35, 0.65, 0.15, 3.4], "preview": "shots/review2/sign1.png", "boards": 1},
+  {"name": "signpost", "out": "public/models/props/signpost.glb", "type": "signboard", "fit": "height", "box": [-0.13, -0.13, -0.35, 0.13, 0.13, 3.3], "preview": "shots/review2/signpost.png", "boards": 2, "lantern": true, "ink": [1.0, 0.95, 0.7]},
+  {"name": "column", "out": "public/models/props/column.glb", "type": "column", "fit": "height", "box": [-0.9, -0.9, -0.25, 0.9, 0.9, 6.8], "preview": "shots/review2/column.png"},
+  {"name": "stump", "out": "public/models/props/stump.glb", "type": "stump", "fit": "height", "box": [-1.85, -1.85, -0.3, 1.85, 1.85, 0.8], "preview": "shots/review2/stump.png"},
+  {"name": "dirtpile", "out": "public/models/props/dirtpile.glb", "type": "molehill", "fit": "height", "box": [-1.7, -0.9, -0.15, 1.85, 0.9, 1.17], "preview": "shots/review2/dirtpile.png"},
+  {"name": "rope", "out": "public/models/props/rope.glb", "type": "ropepost", "fit": "height", "box": [-0.6, -0.6, -0.4, 0.6, 0.6, 3.7], "preview": "shots/review2/rope.png"},
+  {"name": "scarcrow", "out": "public/models/props/scarcrow.glb", "type": "scarecrow", "fit": "height", "box": [-1.9, -0.3, -0.3, 1.9, 0.3, 4.4], "preview": "shots/review2/scarcrow.png"},
+  {"name": "trap", "out": "public/models/props/trap.glb", "type": "boxtrap", "fit": "height", "box": [-1.9, -0.6, 0, 1.9, 0.7, 1.0], "preview": "shots/review2/trap.png"},
+  {"name": "deadbug", "out": "public/models/props/deadbug.glb", "type": "beetle", "fit": "height", "box": [-1.9, -1.0, 0, 1.9, 1.0, 1.9], "preview": "shots/review2/deadbug.png"}
+]

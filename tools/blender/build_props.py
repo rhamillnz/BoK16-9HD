@@ -10,14 +10,15 @@ jobs.json entries:
 
 Types: fence (row of wooden panels along X), crate (kit crate), well (brick ring, posts, tiled roof),
 rocks (cluster of nature-kit rocks), slab (one tall rock), firepit (stone ring, ashes, logs),
-dirtpile (low mound), stump (cut trunk with root flare),
-signboard (post with a hanging board), waymark (stone marker, variant 0-2), scarecrow, rope (hanging),
-crystal, corn, carcass, engine, beetle (see props_last.py),
-column (fluted pillar), marker (low rock), catapult (siege engine from beams, wheels and a crate),
-chest (Fantasy Props Chest_Wood), tent (cloth A-frame), gravestone ("variant" 0-4).
+marker (low rock), catapult (siege engine from beams, wheels and a crate),
+chest (Fantasy Props Chest_Wood), tent (cloth A-frame);
+crystal, corn, engine (see props_last.py);
+textured second-pass types (see props_detail.py): gravestone ("variant" 0-4), tomb, waymark ("variant" 0-2),
+signboard ("boards", "lantern", "ink"), column, stump, molehill, ropepost, scarecrow, boxtrap, beetle.
 
 Each type is built at a natural size, then scaled per axis to `box` and placed so the box minimum
-is at (xmin, ymin, zmin). Coordinates match the game (Blender X/Y/Z = BaK x/y/z), so the glTF
+is at (xmin, ymin, zmin). With "fit": "height" the model is scaled uniformly to the box height instead
+(proportions kept) and centred on the box footprint; a negative zmin buries that much below ground. Coordinates match the game (Blender X/Y/Z = BaK x/y/z), so the glTF
 export (Y up) lands on the usual render-space convention. Textures are capped at 512 px as WebP.
 """
 import json
@@ -179,18 +180,8 @@ def build_firepit(kit, job):
         kit.primitive("cylinder", (0, 0, 0.15), (0.22, 0.22, 1.6), char, rot_deg=(90, 0, r), segments=8)
 
 
-def build_dirtpile(kit, job):
-    kit.primitive("mound", (0, 0, 0), (3.0, 1.8, 1.0), flat_material("dirt", (0.16, 0.1, 0.055), 1.0), segments=14)
-    kit.primitive("mound", (0.9, 0.2, 0), (1.5, 1.1, 0.6), flat_material("dirt2", (0.19, 0.12, 0.065), 1.0), segments=12)
 
 
-def build_stump(kit, job):
-    bark = flat_material("bark", (0.11, 0.065, 0.035), 1.0)
-    top = flat_material("rings", (0.33, 0.21, 0.11), 0.9)
-    kit.primitive("cone", (0, 0, 0.5), (1.6, 1.6, 1.0), bark, segments=14)
-    kit.primitive("cylinder", (0, 0, 1.0), (1.0, 1.0, 0.04), top, segments=14)
-    for a in (20, 140, 250):
-        kit.primitive("box", (math.cos(math.radians(a)) * 0.7, math.sin(math.radians(a)) * 0.7, 0.12), (0.7, 0.18, 0.24), bark, rot_deg=(0, 0, a))
 
 
 def build_chest(kit, job):
@@ -219,73 +210,16 @@ def build_tent(kit, job):
     kit.primitive("box", (0, 0, H + 0.06), (L + 0.4, 0.08, 0.08), wood)
 
 
-def build_gravestone(kit, job):
-    stone = flat_material("stone", (0.2, 0.2, 0.19), 1.0)
-    moss = flat_material("moss", (0.07, 0.11, 0.05), 1.0)
-    v = job.get("variant", 0)
-    if v == 0:  # rounded headstone
-        kit.primitive("box", (0, 0, 0.5), (1.0, 0.25, 1.0), stone)
-        kit.primitive("cylinder", (0, 0, 1.0), (1.0, 1.0, 0.25), stone, rot_deg=(90, 0, 0), segments=14)
-    elif v == 1:  # cross
-        kit.primitive("box", (0, 0, 0.7), (0.3, 0.25, 1.4), stone)
-        kit.primitive("box", (0, 0, 1.0), (0.9, 0.25, 0.28), stone)
-    elif v == 2:  # square block
-        kit.primitive("box", (0, 0, 0.45), (1.0, 0.35, 0.9), stone)
-        kit.primitive("box", (0, 0, 0.93), (1.1, 0.4, 0.1), stone)
-    elif v == 3:  # tall slab
-        kit.primitive("box", (0, 0, 0.8), (0.7, 0.22, 1.6), stone, rot_deg=(0, 4, 0))
-    else:  # leaning, broken
-        kit.primitive("box", (0, 0, 0.5), (1.0, 0.25, 0.9), stone, rot_deg=(0, 9, 0))
-        kit.primitive("box", (0.55, 0.1, 0.12), (0.45, 0.25, 0.25), stone, rot_deg=(0, 0, 25))
-    kit.primitive("mound", (0, 0.3, 0), (1.0, 0.5, 0.12), moss, segments=10)
 
 
-def build_signboard(kit, job):
-    wood = flat_material("post", (0.2, 0.11, 0.055))
-    plank = flat_material("board", (0.34, 0.22, 0.12))
-    kit.primitive("box", (0, 0, 1.0), (0.18, 0.18, 2.0), wood)
-    if job.get("boards", 1) >= 1:
-        kit.primitive("box", (0.4, 0, 1.7), (1.0, 0.07, 0.34), plank)
-    if job.get("boards", 1) >= 2:
-        kit.primitive("box", (-0.4, 0, 1.25), (0.95, 0.07, 0.3), plank, rot_deg=(0, 0, 4))
 
 
-def build_waymark(kit, job):
-    """Stone waymarker: square shaft, a cap and a pyramid top (the originals carry painted glyphs)."""
-    stone = flat_material("waystone", (0.27, 0.27, 0.26), 1.0)
-    dark = flat_material("waystone_dark", (0.16, 0.17, 0.17), 1.0)
-    v = job.get("variant", 0)
-    w = (0.9, 1.0, 0.85)[v]
-    kit.primitive("box", (0, 0, 0.12), (w * 1.3, w * 1.3, 0.24), dark)
-    kit.primitive("box", (0, 0, 1.0), (w, w, 1.5), stone)
-    kit.primitive("box", (0, 0, 1.85), (w * 1.2, w * 1.2, 0.2), dark)
-    kit.primitive("cone", (0, 0, 2.3), (w * 1.1, w * 1.1, 0.7), stone, rot_deg=(0, 0, 45), segments=4)
 
 
-def build_scarecrow(kit, job):
-    wood = flat_material("pole", (0.2, 0.12, 0.06))
-    cloth = flat_material("tunic", (0.18, 0.2, 0.3), 1.0)
-    straw = flat_material("straw", (0.55, 0.45, 0.2), 1.0)
-    kit.primitive("box", (0, 0, 1.1), (0.14, 0.14, 2.2), wood)
-    kit.primitive("box", (0, 0, 1.75), (2.4, 0.1, 0.12), wood)
-    kit.primitive("box", (0, 0, 1.45), (0.8, 0.35, 1.0), cloth)
-    kit.primitive("mound", (0, 0, 1.95), (0.5, 0.5, 0.5), straw, segments=10)
-    for sx in (-1, 1):
-        kit.primitive("box", (sx * 0.95, 0, 1.55), (0.7, 0.2, 0.2), cloth)
-        kit.primitive("box", (sx * 0.3, 0, 0.6), (0.2, 0.2, 0.9), straw)
 
 
-def build_rope(kit, job):
-    rope = flat_material("rope", (0.32, 0.25, 0.14), 1.0)
-    kit.primitive("cylinder", (0, 0, 2.5), (0.18, 0.18, 5.0), rope, segments=6)
-    kit.primitive("mound", (0, 0, 0), (0.7, 0.7, 0.25), rope, segments=8)
 
 
-def build_column(kit, job):
-    stone = flat_material("pillar", (0.16, 0.18, 0.3), 0.8)
-    kit.primitive("box", (0, 0, 0.25), (1.8, 1.8, 0.5), stone)
-    kit.primitive("cylinder", (0, 0, 3.4), (1.2, 1.2, 5.8), stone, segments=12)
-    kit.primitive("box", (0, 0, 6.5), (1.7, 1.7, 0.6), stone)
 
 
 def build_marker(kit, job):
@@ -319,12 +253,13 @@ def build_catapult(kit, job):
     kit.primitive("cylinder", (-1.6, 0, 3.0), (0.1, 0.1, 1.6), rope, rot_deg=(0, -24, 0), segments=6)
 
 
-# Extra types live in props_last.py (crystal, corn, carcass, engine, beetle).
+# Extra types live in props_last.py (crystal, corn, carcass, engine, beetle) and props_detail.py (textured second pass).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import props_detail  # noqa: E402
 import props_last  # noqa: E402
 
-BUILDERS = {"signboard": build_signboard, "waymark": build_waymark, "scarecrow": build_scarecrow, "rope": build_rope, "column": build_column, "marker": build_marker, "catapult": build_catapult, "chest": build_chest, "tent": build_tent, "gravestone": build_gravestone, "fence": build_fence, "crate": build_crate, "well": build_well, "rocks": build_rocks, "slab": build_slab,
-            "firepit": build_firepit, "dirtpile": build_dirtpile, "stump": build_stump}
+BUILDERS = {"marker": build_marker, "catapult": build_catapult, "chest": build_chest, "tent": build_tent, "fence": build_fence, "crate": build_crate,
+            "well": build_well, "rocks": build_rocks, "slab": build_slab, "firepit": build_firepit}
 
 
 def bounds(objs):
@@ -350,7 +285,13 @@ def finish(scene, kit, job):
     bx = job["box"]
     size = Vector((bx[3] - bx[0], bx[4] - bx[1], bx[5] - bx[2]))
     s = Vector([size[i] / max(1e-6, (hi - lo)[i]) for i in range(3)])
-    fit = Matrix.Translation((bx[0], bx[1], bx[2])) @ Matrix.Diagonal((s.x, s.y, s.z, 1.0)) @ Matrix.Translation(-lo)
+    if job.get("fit") == "height":
+        # Keep the builder's proportions: scale uniformly to the box height, centred on the box footprint.
+        s = Vector((s.z, s.z, s.z))
+        lo = Vector(((lo.x + hi.x) / 2 - (bx[0] + bx[3]) / 2 / s.z, (lo.y + hi.y) / 2 - (bx[1] + bx[4]) / 2 / s.z, lo.z))
+        fit = Matrix.Translation((0, 0, bx[2])) @ Matrix.Diagonal((s.x, s.y, s.z, 1.0)) @ Matrix.Translation(-lo)
+    else:
+        fit = Matrix.Translation((bx[0], bx[1], bx[2])) @ Matrix.Diagonal((s.x, s.y, s.z, 1.0)) @ Matrix.Translation(-lo)
     joined.data.transform(fit)
     joined.data.update()
     for img in bpy.data.images:
@@ -388,7 +329,9 @@ def main():
     for job in jobs:
         scene = reset()
         kit = Kit(kit_dirs, scene)
-        if job["type"] in props_last.BUILDERS:
+        if job["type"] in props_detail.BUILDERS:
+            props_detail.BUILDERS[job["type"]](kit, job, flat_material)
+        elif job["type"] in props_last.BUILDERS:
             props_last.BUILDERS[job["type"]](kit, job, flat_material)
         else:
             BUILDERS[job["type"]](kit, job)

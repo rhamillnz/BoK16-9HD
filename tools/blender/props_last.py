@@ -1,4 +1,4 @@
-"""Extra prop builders (crystal, corn, carcass, engine, beetle), registered into build_props.BUILDERS.
+"""Extra prop builders (crystal, corn, engine), registered into build_props.BUILDERS.
 
 Imported by build_props.py; kept in its own file so the main builder stays readable.
 """
@@ -53,19 +53,6 @@ def build_corn(kit, job, flat_material):
         kit.primitive("cylinder", (x + 0.06, y, h * 0.62), (0.09, 0.09, 0.3), cob, rot_deg=(0, 12, 0), segments=5)
 
 
-def build_carcass(kit, job, flat_material):
-    hide = flat_material("hide", (0.34, 0.16, 0.08), 1.0)
-    bone = flat_material("antler", (0.6, 0.55, 0.42), 0.8)
-    iron = flat_material("iron", (0.08, 0.08, 0.09), 0.5)
-    kit.primitive("mound", (0, 0, 0), (2.2, 1.0, 0.7), hide, segments=12)
-    kit.primitive("mound", (-1.3, 0, 0), (0.8, 0.5, 0.45), hide, segments=10)
-    for sy in (-1, 1):
-        for k in range(3):
-            kit.primitive("cylinder", (-1.5 - 0.1 * k, sy * 0.15, 0.4 + 0.15 * k), (0.05, 0.05, 0.5), bone, rot_deg=(sy * 30, 20 + 15 * k, 0), segments=5)
-    for sx in (-0.5, 0.5):
-        kit.primitive("cylinder", (sx, 0.55, 0.12), (0.08, 0.08, 0.7), hide, rot_deg=(90, 0, 15), segments=5)
-    kit.primitive("cylinder", (1.5, 0.1, 0.06), (0.9, 0.9, 0.08), iron, segments=10)
-    kit.primitive("box", (1.15, 0.1, 0.07), (0.5, 0.06, 0.06), iron)
 
 
 def build_engine(kit, job, flat_material):
@@ -86,22 +73,10 @@ def build_engine(kit, job, flat_material):
         kit.primitive("box", (math.cos(a) * 1.7, math.sin(a) * 1.7, 2.6 - (i % 3) * 0.3), (0.9, 0.05, 2.2 - (i % 3) * 0.5), c, rot_deg=(0, 0, math.degrees(a) + 90))
 
 
-def build_beetle(kit, job, flat_material):
-    shell = flat_material("shell", (0.28, 0.1, 0.05), 0.35)
-    dark = flat_material("limb", (0.17, 0.07, 0.04), 0.6)
-    kit.primitive("mound", (0, 0, 0), (2.4, 1.6, 1.0), shell, segments=14)
-    kit.primitive("mound", (1.35, 0, 0), (1.0, 0.9, 0.6), shell, segments=10)
-    for side in (-1, 1):
-        for k in range(3):
-            x = -0.5 + k * 0.6
-            kit.primitive("cylinder", (x, side * 1.1, 0.5), (0.1, 0.1, 1.2), dark, rot_deg=(side * -50, 0, 12 * (k - 1)), segments=5)
-        kit.primitive("cylinder", (1.9, side * 0.35, 0.3), (0.12, 0.12, 0.9), dark, rot_deg=(side * -20, 70, 0), segments=5)
 
 
 BUILDERS = {
     "crystal": build_crystal,
     "corn": build_corn,
-    "carcass": build_carcass,
     "engine": build_engine,
-    "beetle": build_beetle,
 }
