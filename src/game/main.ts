@@ -2,8 +2,6 @@ import { makeDialogEnv } from './dialogEnv';
 import * as THREE from 'three/webgpu';
 import { createStage } from '../render/stage';
 import { FlyCamera } from '../render/flyCamera';
-import { createPost } from '../render/post';
-import { parseQuality } from '../render/postSettings';
 import { createSky, DOME_RADIUS } from '../render/sky';
 import { PartyController, NO_INPUT } from '../world/partyController';
 import { DEBUG_TIME_STEP, GameClock } from './clock';
@@ -23,22 +21,12 @@ import {
   prefetchResources,
 } from './encounterDriver';
 import { mountHud } from '../ui/hud';
-import { createBrowserMusicPlayer } from '../audio/music';
-import {
-  COMBAT_SONGS,
-  EXPLORE_SONGS,
-  SONG_TITLE,
-  UNDERGROUND_SONGS,
-  ZONE_SONGS,
-  songFromSoundIndex,
-  SOUND_INDEX_BASE,
-} from '../audio/songs';
+import { SONG_TITLE, songFromSoundIndex, SOUND_INDEX_BASE } from '../audio/songs';
 import { installSfx } from '../audio/sfxWiring';
 import { portraitCanvases } from '../ui/partyBar';
 import { speakerPortraitLoader } from '../ui/speakerPortraits';
 import { clothingColors } from './npcLook';
 import { roadEdgePoints } from '../render/grassGround';
-import { WeatherAmbience } from '../audio/ambience';
 import { Weather } from '../render/weather';
 import { parseWeatherParam, WEATHER_KINDS, type WeatherKind } from '../render/weatherPlan';
 import { TICKS_PER_DAY, hourOfDay } from './state';
@@ -103,7 +91,8 @@ import { installUnderground } from './undergroundMode';
 import { pointInPolygon } from '../world/collision';
 import { currentLight, spellActive, staticSpellActive } from './spells';
 import { installMainMenu } from './mainMenuControls';
-import { DEFAULT_SETTINGS } from './mainMenu';
+import { installGraphics } from './graphicsControls';
+import { installMusic } from './musicControls';
 import { loadTitleArt } from './titleArt';
 import { ensureGameData } from '../ui/dataPicker';
 import { GameDataError, installBootScreen } from '../ui/bootScreen';
@@ -274,38 +263,8 @@ jumpMapScreen.setCallbacks(
   },
 );
 
-// Zone music: the player resumes on the first gesture; M toggles mute. ?song=N overrides the zone song.
-const music = createBrowserMusicPlayer({ volume: DEFAULT_SETTINGS.volume });
-/** Exploring music: `?song=N` loops file N, a zone with its own song loops that, otherwise the rotation. */
-const zoneMusic = (zone: number): void => {
-  const forced = new URLSearchParams(location.search).get('song');
-  const own = forced !== null ? Number(forced) : ZONE_SONGS[zone];
-  const started =
-    own !== undefined
-      ? music.play(own)
-      : music.playRotation(
-          isUndergroundZone(zone) ? UNDERGROUND_SONGS : EXPLORE_SONGS,
-          Math.floor(Math.random() * EXPLORE_SONGS.length),
-        );
-  void started.catch((err) => console.warn('Music unavailable:', err));
-};
-zoneMusic(start.zone);
-/** Whether the fight music is on; the frame loop switches it with `combat.active`. */
-let combatMusic = false;
-const updateCombatMusic = (active: boolean): void => {
-  if (active === combatMusic) return;
-  combatMusic = active;
-  if (!active) return zoneMusic(zoneHost.current.zone);
-  const song = COMBAT_SONGS[Math.floor(Math.random() * COMBAT_SONGS.length)]!;
-  void music.play(song).catch((err) => console.warn('Music unavailable:', err));
-};
-window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyM' && !e.repeat) {
-    music.toggleMute();
-    ambience.setMuted(music.isMuted);
-  }
-});
-const ambience = new WeatherAmbience(); // synthesised rain and wind, scaled by the weather; M mutes it with the music
+// Zone music and fight music, weather ambience; M mutes both.
+const { music, ambience, zoneMusic, updateCombatMusic } = installMusic(start.zone);
 installSfx({ onSong: (song) => void music.play(song, true).catch((err) => console.warn('Song unavailable:', err)) }); // sound effects from frp.sx; other modules play through src/audio/sfxBus.ts
 installJournal({ hud: screens, zone: () => zoneHost.current.zone }); // J: dialogue lines seen
 
@@ -835,53 +794,13 @@ if (debugChapter > 1) {
 const debugScene = /^(\d+)([A-Z])$/.exec(q.get('scene') ?? '');
 if (debugScene) void town.controller.enter({ number: Number(debugScene[1]), letter: debugScene[2]! });
 
-// Graphics quality: P cycles low/medium/high (?post=low|medium|high sets the start). One setting
-// drives post-processing, sun shadows (off on low) and grass density, and is shown briefly on screen.
-const post = createPost(
+// Graphics quality: P cycles low/medium/high (post-processing, shadows, grass).
+const { post, applyGraphics } = installGraphics({
   renderer,
   scene,
   camera,
-  parseQuality(new URLSearchParams(location.search).get('post'), 'medium'),
-);
-const toast = Object.assign(document.createElement('div'), { id: 'toast' });
-Object.assign(toast.style, {
-  position: 'absolute',
-  top: '12%',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  padding: '10px 22px',
-  background: 'rgba(20,16,10,0.75)',
-  border: '2px solid #c9a24a',
-  color: '#f3e6c4',
-  font: '600 22px system-ui, sans-serif',
-  borderRadius: '6px',
-  pointerEvents: 'none',
-  transition: 'opacity 0.4s',
-  opacity: '0',
-});
-document.body.append(toast);
-let toastTimer = 0;
-const applyGraphics = (announce: boolean) => {
-  const q = post.quality;
-  sky.setShadows(q !== 'low');
-  zoneHost.current.grass.setQuality(q);
-  if (!announce) return;
-  const detail = {
-    low: 'no post-processing, no shadows, sparse grass',
-    medium: 'bloom + colour grade, shadows, normal grass',
-    high: 'adds ambient occlusion, dense grass',
-  }[q];
-  toast.textContent = `Graphics: ${q.toUpperCase()} - ${detail}`;
-  toast.style.opacity = '1';
-  clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => (toast.style.opacity = '0'), 2200);
-};
-applyGraphics(false);
-window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyP' && !e.repeat) {
-    post.cycle();
-    applyGraphics(true);
-  }
+  setShadows: (on) => sky.setShadows(on),
+  setGrass: (q) => zoneHost.current.grass.setQuality(q),
 });
 
 // Main menu: shown at start and on Escape (new game, continue, load, options).
@@ -921,7 +840,7 @@ renderer.setAnimationLoop(() => {
       if (clock.walk(dt)) sky.update(clock.minutes);
     }
     combat.update(dt);
-    updateCombatMusic(combat.active);
+    updateCombatMusic(combat.active, zoneHost.current.zone);
     if (combat.active) combat.applyCamera();
     else party.applyToCamera(camera);
     screens.setPose({ x: party.x, y: party.y, heading: party.heading });
