@@ -75,7 +75,7 @@ Every visual change must be checked with `scripts/shoot.mjs` screenshots (and st
 1. **Remaining buildings**: church (17.0 x 13.9 x 9.5, main hall + annex), temple (13.5 x 23.8 x 10.5),
    illhouse (18 x 18 x 8, zone 3), rftshack (14 x 10 x 7, zone 9), catapult (zone 6, use kit/props).
    Extend `build_house.py` (e.g. annex/tower options) rather than one-off scripts.
-   **DONE except catapult** (church, temple, illhouse, rftshack built via `art/jobs/buildings-landmarks.json`; catapult still open).
+   **DONE** (church, temple, illhouse, rftshack built via `art/jobs/buildings-landmarks.json`; the catapult is `public/models/props/catapult.glb`, commit 11a9e10). Opus 2026-10-14 screenshotted one placed instance of each of the 43 replaced props in zones 3-12: all present, upright, on the ground and to scale; the gravestones (`tstone*`) are plain untextured blocks and the stump is a rough cone, candidates for a later art pass.
 2. **DONE** **Roof colour variety**: per-building roof tint variants (terracotta, slate grey-blue, dark
    green-grey, thatch-brown) via the `textures` swap or material tint; vary between `house`,
    `house1`, `inn`, `blcksmth` so villages aren't uniformly red.
