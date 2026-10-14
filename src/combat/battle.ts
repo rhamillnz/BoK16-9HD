@@ -5,7 +5,7 @@
  */
 
 import type { SpellDef } from '../formats/spells';
-import { maxPower, spellAmount, spellKind } from '../game/spells';
+import { maxPower, SPELL_SPLASH, spellAmount, spellKind } from '../game/spells';
 import {
   buildGrid,
   chebyshevDistance,
@@ -85,9 +85,11 @@ export type BattleEvent =
       target: string;
       spell: string;
       power: number;
-      kind: 'damage' | 'heal' | 'hold' | 'ward';
+      kind: 'damage' | 'heal' | 'hold' | 'ward' | 'drain';
       amount: number;
       killed: boolean;
+      /** Other enemies an area spell struck, with the damage each took. */
+      also?: { target: string; amount: number; killed: boolean }[];
     }
   | { type: 'defend'; id: string }
   | { type: 'rest'; id: string }
@@ -269,9 +271,22 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
 }
 
 /** Spell kinds castable in a fight. */
-const COMBAT_KINDS: readonly string[] = ['damage', 'heal', 'hold', 'ward'];
+const COMBAT_KINDS: readonly string[] = ['damage', 'heal', 'hold', 'ward', 'drain'];
 /** Kinds aimed at an enemy (the rest at an ally or the caster). */
-export const HOSTILE_KINDS: readonly string[] = ['damage', 'hold'];
+export const HOSTILE_KINDS: readonly string[] = ['damage', 'hold', 'drain'];
+
+/** The other living enemies of the caster an area spell strikes besides `subject` (see SPELL_SPLASH). */
+function splashVictims(fighters: readonly Fighter[], caster: Fighter, subject: Fighter, spell: number): Fighter[] {
+  const reach = SPELL_SPLASH[spell];
+  if (!reach) return [];
+  const others = fighters.filter((f) => f !== subject && f.side === subject.side && !isDead(f));
+  if (reach === 'all') return others.filter((f) => chebyshevDistance(caster.pos, f.pos) <= RANGED_RANGE);
+  if (reach === 'adjacent') return others.filter((f) => chebyshevDistance(subject.pos, f.pos) === 1);
+  return others
+    .filter((f) => chebyshevDistance(caster.pos, f.pos) <= RANGED_RANGE)
+    .sort((a, b) => chebyshevDistance(subject.pos, a.pos) - chebyshevDistance(subject.pos, b.pos))
+    .slice(0, 2);
+}
 
 /** Combat spells the current fighter could cast right now (it knows them and can pay the minimum). */
 export function castableSpells(s: BattleState, index = s.turn.current): SpellDef[] {
@@ -309,7 +324,7 @@ export function castSpell(
   const me = currentFighter(s);
   const def = castableSpells(s).find((d) => d.index === spellIndex);
   if (!def) return undefined;
-  const kind = spellKind(def) as 'damage' | 'heal' | 'hold' | 'ward';
+  const kind = spellKind(def) as 'damage' | 'heal' | 'hold' | 'ward' | 'drain';
   const hostile = HOSTILE_KINDS.includes(kind);
   const victimIndex = s.fighters.findIndex((f) => !isDead(f) && samePos(f.pos, target));
   const victim = s.fighters[victimIndex];
@@ -326,13 +341,35 @@ export function castSpell(
   const paid = applyDamage(caster, power);
   caster.stamina = paid.stamina;
   caster.health = Math.max(1, paid.health);
-  if (kind === 'damage') Object.assign(subject, applyDamage(subject, warded(subject, amount)));
-  else if (kind === 'hold') subject.held = Math.max(subject.held ?? 0, amount);
+  let also: { target: string; amount: number; killed: boolean }[] | undefined;
+  if (kind === 'damage') {
+    Object.assign(subject, applyDamage(subject, warded(subject, amount)));
+    const splash = splashVictims(fighters, caster, subject, def.index);
+    if (splash.length > 0)
+      also = splash.map((f) => {
+        Object.assign(f, applyDamage(f, warded(f, amount)));
+        return { target: f.id, amount, killed: isDead(f) };
+      });
+  } else if (kind === 'drain') {
+    const before = subject.health;
+    Object.assign(subject, applyDamage(subject, warded(subject, amount)));
+    caster.health = Math.min(caster.maxHealth, caster.health + Math.max(0, before - subject.health));
+  } else if (kind === 'hold') subject.held = Math.max(subject.held ?? 0, amount);
   else if (kind === 'ward') subject.ward = Math.max(subject.ward ?? 0, amount);
   else subject.health = Math.min(subject.maxHealth, subject.health + amount);
-  const killed = kind === 'damage' && isDead(subject);
+  const killed = (kind === 'damage' || kind === 'drain') && isDead(subject);
   return endTurn(s, fighters, [
-    { type: 'cast', caster: me.id, target: subject.id, spell: def.name, power, kind, amount, killed },
+    {
+      type: 'cast',
+      caster: me.id,
+      target: subject.id,
+      spell: def.name,
+      power,
+      kind,
+      amount,
+      killed,
+      ...(also && { also }),
+    },
   ]);
 }
 
@@ -384,8 +421,15 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
           return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is held for ${e.amount} ${e.amount === 1 ? 'turn' : 'turns'}.`;
         case 'ward':
           return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is shielded (${e.amount}).`;
-        default:
-          return `${name(e.caster)} casts ${e.spell} on ${name(e.target)} for ${e.amount}${e.killed ? ' and fells them' : ''}.`;
+        case 'drain':
+          return `${name(e.caster)} casts ${e.spell}, draining ${name(e.target)} of ${e.amount}${e.killed ? ' and felling them' : ''}.`;
+        default: {
+          const hit = (t: string, killed: boolean) => `${name(t)}${killed ? ' (felled)' : ''}`;
+          const others = (e.also ?? []).map((a) => hit(a.target, a.killed));
+          if (others.length === 0)
+            return `${name(e.caster)} casts ${e.spell} on ${name(e.target)} for ${e.amount}${e.killed ? ' and fells them' : ''}.`;
+          return `${name(e.caster)} casts ${e.spell} for ${e.amount} on ${[hit(e.target, e.killed), ...others].join(', ')}.`;
+        }
       }
     case 'defend':
       return `${name(e.id)} defends.`;

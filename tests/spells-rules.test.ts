@@ -209,6 +209,35 @@ describe('casting in combat', () => {
     expect(shielded.fighters[1]!.ward).toBe(14);
     expect(castSpell(s, 6, { x: 3, y: 5 })).toBeUndefined();
   });
+  it('area spells strike the other enemies in their reach', () => {
+    const STORM = spell({ index: 28, name: 'Firestorm', damage: 4, minCost: 1, maxCost: 1 });
+    const FLAME = spell({ index: 4, name: 'Flamecast', damage: 3, minCost: 1, maxCost: 1 });
+    const fight = (d: SpellDef) =>
+      startBattle([
+        fighter('a', 'party', 3, 1, { spells: [d], speed: 9 }),
+        fighter('x', 'enemy', 3, 5, { speed: 1 }),
+        fighter('y', 'enemy', 4, 5, { speed: 1 }),
+        fighter('z', 'enemy', 0, 2, { speed: 1 }),
+      ]);
+    const storm = castSpell(fight(STORM), 28, { x: 3, y: 5 })!;
+    expect(storm.events[0]).toMatchObject({ type: 'cast', amount: 4, also: [{ target: 'y' }, { target: 'z' }] });
+    expect(storm.fighters.slice(1).map((f) => f.stamina)).toEqual([6, 6, 6]);
+    const flame = castSpell(fight(FLAME), 4, { x: 3, y: 5 })!;
+    expect(flame.events[0]).toMatchObject({ also: [{ target: 'y' }] });
+    expect(flame.fighters[3]!.stamina).toBe(10);
+  });
+  it('Strength Drain gives the caster the Health it takes', () => {
+    const DRAIN = spell({ index: 42, name: 'Drain', calc: 5, damage: -1, minCost: 3, maxCost: 3 });
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [DRAIN], speed: 9, health: 10, stamina: 0 }),
+      fighter('x', 'enemy', 3, 5, { speed: 1, stamina: 0 }),
+    ]);
+    const drained = castSpell(s, 42, { x: 3, y: 5 })!;
+    expect(drained.events[0]).toMatchObject({ kind: 'drain', amount: 3 });
+    expect(drained.fighters[1]!.health).toBe(17);
+    // Paid 3 from Health, then got 3 back.
+    expect(drained.fighters[0]!.health).toBe(10);
+  });
   it('Wrath of Killian strikes for the middle of its 10-20', () => {
     expect(spellAmount(spell({ index: 19, calc: 4, damage: 1 }), 20)).toBe(15);
     expect(spellKind(spell({ index: 3, targeting: 1, calc: 3, damage: 20 }))).toBe('hold');

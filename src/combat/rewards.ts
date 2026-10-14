@@ -34,9 +34,13 @@ export function tallyBattle(history: readonly BattleEvent[]): Map<string, Fighte
   for (const e of history) {
     if (e.type === 'cast') {
       of(e.caster).casts++;
-      if (e.kind === 'damage') {
+      if (e.kind === 'damage' || e.kind === 'drain') {
         if (e.killed) of(e.caster).slain.push(e.target);
         of(e.target).hitsTaken++;
+      }
+      for (const a of e.also ?? []) {
+        if (a.killed) of(e.caster).slain.push(a.target);
+        of(a.target).hitsTaken++;
       }
       continue;
     }

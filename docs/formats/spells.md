@@ -30,6 +30,8 @@ BaKGL does not implement combat spell effects, and SPELLDOC text is not needed t
 * `light`: spells 0, 2 and 26, cast outside combat. Dragon's Breath's fog also makes the party harder for ambushes to notice (combatApproach.ts).
 * `hold`: Despair Thy Eyes (SPELLDOC "Blinds target for short time") and Grief of 1000 Nights ("Opponent held"): the enemy loses its next `ceil(power x duration / 4)` turns (at least one); each lost turn shows as "cannot act". Despair Thy Eyes used to be read as a 20-per-point damage spell.
 * `ward`: Hocho's Haven ("Shields target from damage") and Skin of the Dragon ("Invisible armor"): the ally gets `2 x power` shield points that soak up melee, crossbow and spell damage first. Both formulas are ours (**unverified**).
+* Area spells (SPELLDOC, reach **unverified**): Firestorm ("Strikes all targets within LOS") hits every enemy within 8 cells of the caster, Evil Seek ("Strikes more than one target") the target and the two enemies nearest it, Flamecast ("Area fire damage") the target and the enemies next to it; each takes the full amount.
+* `drain`: Strength Drain ("Drains strength from victim and gives to caster") takes `power` from the enemy and gives the caster the Health it took, up to the caster's maximum.
 * Wrath of Killian (calculation type 4, damage 1 in the table) strikes for 15, the middle of SPELLDOC's "Damage: 10-20".
 * `timed`: Union, And the Light Shall Lie and Scent of Sarig, cast outside combat; they answer dialogue `castSpell` tests while in force. Scent of Sarig has no further effect, since trapped chests always warn in the remake (a deliberate kindness).
 * Timed spells in force are kept in the save's `timedSpells` extras section (spell and end time), not in the original's active-spell bits.

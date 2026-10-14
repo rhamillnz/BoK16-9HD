@@ -19,6 +19,20 @@ export const STATIC_SPELLS: readonly number[] = [0, 2, 26, 35, 34, 8];
 export const HOLD_SPELLS: readonly number[] = [3, 13];
 /** Hocho's Haven (shields from damage) and Skin of the Dragon (invisible armour). */
 export const WARD_SPELLS: readonly number[] = [6, 23];
+/** Strength Drain: "Drains strength from victim and gives to caster". */
+export const DRAIN_SPELLS: readonly number[] = [42];
+
+/**
+ * Who else a damage spell strikes besides its target (SPELLDOC): Firestorm "all targets within LOS" (every enemy
+ * in range), Evil Seek "more than one target" (the two enemies nearest the target), Flamecast "area fire damage"
+ * (enemies next to the target). The reach of each is our reading (**unverified**).
+ */
+export const SPELL_SPLASH: Record<number, 'all' | 'nearest2' | 'adjacent'> = {
+  28: 'all',
+  44: 'nearest2',
+  4: 'adjacent',
+};
+
 /** SPELLDOC damage of the special-calculation spells, as a fixed middle: Wrath of Killian "10-20". */
 const SPECIAL_DAMAGE: Record<number, number> = { 19: 15 };
 
@@ -34,6 +48,8 @@ export type SpellKind =
   | 'hold'
   /** Puts a shield of points on a chosen ally that soaks up damage (combat only). */
   | 'ward'
+  /** Hurts a chosen enemy and gives the caster the Health it took (combat only). */
+  | 'drain'
   /** Lights the way for a while (world only). */
   | 'light'
   /** Another timed world spell (disguise, reading moredhel, sensing traps). */
@@ -46,6 +62,7 @@ export function spellKind(s: SpellDef): SpellKind {
   if (STATIC_SPELLS.includes(s.index)) return 'timed';
   if (HOLD_SPELLS.includes(s.index)) return 'hold';
   if (WARD_SPELLS.includes(s.index)) return 'ward';
+  if (DRAIN_SPELLS.includes(s.index)) return 'drain';
   if (s.combat && s.damage > 0 && (s.targeting === 0 || s.targeting === 1 || s.targeting === 4)) return 'damage';
   // Dannon's Delusions (not a combat spell, damage 1) makes an illusionary fighter, it does not heal.
   if (s.combat && s.damage !== 0 && (s.targeting === 2 || s.targeting === 3)) return 'heal';
@@ -80,6 +97,7 @@ export function maxPower(c: Character, s: SpellDef): number {
 export function spellAmount(s: SpellDef, power: number): number {
   if (HOLD_SPELLS.includes(s.index)) return Math.max(1, Math.ceil((power * Math.max(1, s.duration)) / 4));
   if (WARD_SPELLS.includes(s.index)) return power * 2;
+  if (DRAIN_SPELLS.includes(s.index)) return power;
   const special = SPECIAL_DAMAGE[s.index];
   if (special !== undefined) return special;
   const d = Math.abs(s.damage);
