@@ -5,7 +5,7 @@
  */
 
 import type { SpellDef } from '../formats/spells';
-import { maxPower, SPELL_SPLASH, spellAmount, spellKind } from '../game/spells';
+import { BANISHES, carriesFor, maxPower, SKYFIRE, SPELL_SPLASH, spellAmount, spellKind } from '../game/spells';
 import {
   buildGrid,
   chebyshevDistance,
@@ -58,6 +58,14 @@ export interface Fighter extends MeleeStats {
   held?: number;
   /** Shield points from a ward spell, used up by damage before Health and Stamina. */
   ward?: number;
+  /** Turns this fighter still cannot cast (Thoughts Like Clouds). */
+  silenced?: number;
+  /** Hostile spells aimed at this fighter rebound on their caster (Mirror Wall). */
+  mirror?: boolean;
+  /** Driven from the fight by a spell: gone, but neither slain nor searchable. */
+  banished?: boolean;
+  /** Item indices a party member carries (spells that need an item check these). */
+  items?: number[];
 }
 
 /** Damage after the victim's ward soaks up what it can; lowers the ward. */
@@ -85,11 +93,13 @@ export type BattleEvent =
       target: string;
       spell: string;
       power: number;
-      kind: 'damage' | 'heal' | 'hold' | 'ward' | 'drain' | 'push' | 'pull';
+      kind: CastKind;
       amount: number;
       killed: boolean;
       /** Other enemies an area spell struck, with the damage each took. */
       also?: { target: string; amount: number; killed: boolean }[];
+      /** A Mirror Wall on the intended target turned the spell back: `target` is the caster. */
+      reflected?: string;
     }
   | { type: 'defend'; id: string }
   | { type: 'rest'; id: string }
@@ -135,7 +145,12 @@ export function gridFor(s: BattleState, index = s.turn.current): CombatGrid {
 
 /** Copies fighter vitals into the turn state and the turn state's defending flag back to the fighters. */
 function sync(s: BattleState, fighters: Fighter[], turn: TurnState, events: BattleEvent[]): BattleState {
-  const combatants = turn.combatants.map((c, i) => ({ ...c, dead: isDead(fighters[i]!), health: fighters[i]!.health }));
+  const combatants = turn.combatants.map((c, i) => ({
+    ...c,
+    dead: isDead(fighters[i]!) && !fighters[i]!.banished,
+    exorcised: c.exorcised || fighters[i]!.banished === true,
+    health: fighters[i]!.health,
+  }));
   const synced = fighters.map((f, i) =>
     f.defending === combatants[i]!.defending ? f : { ...f, defending: combatants[i]!.defending },
   );
@@ -144,6 +159,9 @@ function sync(s: BattleState, fighters: Fighter[], turn: TurnState, events: Batt
 
 /** Ends the current turn, reporting a new round or the end of the fight. */
 function endTurn(s: BattleState, fighters: Fighter[], events: BattleEvent[], turn: TurnState = s.turn): BattleState {
+  const i = s.turn.current;
+  if ((fighters[i]?.silenced ?? 0) > 0)
+    fighters = fighters.map((f, k) => (k === i ? { ...f, silenced: f.silenced! - 1 } : f));
   const synced = sync(s, fighters, turn, events);
   const before = synced.turn.round;
   let next = finishTurn(synced.turn);
@@ -271,9 +289,23 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
 }
 
 /** Spell kinds castable in a fight. */
-const COMBAT_KINDS: readonly string[] = ['damage', 'heal', 'hold', 'ward', 'drain', 'push', 'pull'];
+/** What a combat spell does (see spellKind). */
+export type CastKind =
+  'damage' | 'heal' | 'hold' | 'ward' | 'drain' | 'push' | 'pull' | 'silence' | 'banish' | 'mirror';
+const COMBAT_KINDS: readonly string[] = [
+  'damage',
+  'heal',
+  'hold',
+  'ward',
+  'drain',
+  'push',
+  'pull',
+  'silence',
+  'banish',
+  'mirror',
+];
 /** Kinds aimed at an enemy (the rest at an ally or the caster). */
-export const HOSTILE_KINDS: readonly string[] = ['damage', 'hold', 'drain', 'push', 'pull'];
+export const HOSTILE_KINDS: readonly string[] = ['damage', 'hold', 'drain', 'push', 'pull', 'silence', 'banish'];
 
 /**
  * Slide `subject` up to `steps` cells in a straight line away from the caster (push) or towards it (pull),
@@ -315,10 +347,10 @@ function splashVictims(fighters: readonly Fighter[], caster: Fighter, subject: F
 /** Combat spells the current fighter could cast right now (it knows them and can pay the minimum). */
 export function castableSpells(s: BattleState, index = s.turn.current): SpellDef[] {
   const me = s.fighters[index]!;
-  if (isDead(me)) return [];
+  if (isDead(me) || (me.silenced ?? 0) > 0) return [];
   return (me.spells ?? []).filter((d) => {
     const kind = spellKind(d);
-    return COMBAT_KINDS.includes(kind) && me.health + me.stamina >= d.minCost;
+    return COMBAT_KINDS.includes(kind) && me.health + me.stamina >= d.minCost && carriesFor(me.items, d);
   });
 }
 
@@ -348,7 +380,7 @@ export function castSpell(
   const me = currentFighter(s);
   const def = castableSpells(s).find((d) => d.index === spellIndex);
   if (!def) return undefined;
-  const kind = spellKind(def) as 'damage' | 'heal' | 'hold' | 'ward' | 'drain' | 'push' | 'pull';
+  const kind = spellKind(def) as CastKind;
   const hostile = HOSTILE_KINDS.includes(kind);
   const victimIndex = s.fighters.findIndex((f) => !isDead(f) && samePos(f.pos, target));
   const victim = s.fighters[victimIndex];
@@ -360,16 +392,22 @@ export function castSpell(
   const amount = spellAmount(def, power);
   const fighters = s.fighters.map((f) => ({ ...f }));
   const caster = fighters[s.turn.current]!;
-  const subject = fighters[victimIndex]!;
-  caster.facing = directionBetween(caster.pos, subject.pos);
+  const aimed = fighters[victimIndex]!;
+  // Mirror Wall: a hostile spell aimed at a warded fighter strikes its caster instead.
+  const reflected = hostile && aimed.mirror ? aimed.id : undefined;
+  const subject = reflected ? caster : aimed;
+  caster.facing = directionBetween(caster.pos, aimed.pos);
   const paid = applyDamage(caster, power);
   caster.stamina = paid.stamina;
   caster.health = Math.max(1, paid.health);
   let also: { target: string; amount: number; killed: boolean }[] | undefined;
   let moved = 0;
+  let effect = amount;
   if (kind === 'damage') {
-    Object.assign(subject, applyDamage(subject, warded(subject, amount)));
-    const splash = splashVictims(fighters, caster, subject, def.index);
+    // Skyfire only strikes a fighter carrying metal (a weapon or armour).
+    if (def.index === SKYFIRE && !subject.weapon && !subject.armor) effect = 0;
+    Object.assign(subject, applyDamage(subject, warded(subject, effect)));
+    const splash = reflected ? [] : splashVictims(fighters, caster, subject, def.index);
     if (splash.length > 0)
       also = splash.map((f) => {
         Object.assign(f, applyDamage(f, warded(f, amount)));
@@ -383,10 +421,19 @@ export function castSpell(
     const path = slide(s, caster, subject, amount, kind === 'push');
     if (path.length > 0) subject.pos = path[path.length - 1]!;
     moved = path.length;
+  } else if (kind === 'silence') subject.silenced = Math.max(subject.silenced ?? 0, amount);
+  else if (kind === 'mirror') subject.mirror = true;
+  else if (kind === 'banish') {
+    const rule = BANISHES[def.index]!;
+    effect = rule.monsters.includes(subject.monster) ? 1 : 0;
+    if (effect) {
+      subject.health = 0;
+      if (rule.effect === 'drive off') subject.banished = true;
+    }
   } else if (kind === 'hold') subject.held = Math.max(subject.held ?? 0, amount);
   else if (kind === 'ward') subject.ward = Math.max(subject.ward ?? 0, amount);
   else subject.health = Math.min(subject.maxHealth, subject.health + amount);
-  const killed = (kind === 'damage' || kind === 'drain') && isDead(subject);
+  const killed = (kind === 'damage' || kind === 'drain' || (kind === 'banish' && !subject.banished)) && isDead(subject);
   return endTurn(s, fighters, [
     {
       type: 'cast',
@@ -395,9 +442,10 @@ export function castSpell(
       spell: def.name,
       power,
       kind,
-      amount: kind === 'push' || kind === 'pull' ? moved : amount,
+      amount: kind === 'push' || kind === 'pull' ? moved : kind === 'damage' || kind === 'banish' ? effect : amount,
       killed,
       ...(also && { also }),
+      ...(reflected && { reflected }),
     },
   ]);
 }
@@ -443,7 +491,21 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
       if (!e.hit) return `${name(e.attacker)} fires at ${name(e.target)} and misses.`;
       return `${name(e.attacker)} shoots ${name(e.target)} for ${e.damage}${e.killed ? ' and fells them' : ''}.`;
     case 'cast':
+      if (e.reflected) {
+        const hurt =
+          e.kind === 'damage' || e.kind === 'drain' ? ` for ${e.amount}${e.killed ? ', felling them' : ''}` : '';
+        return `${name(e.caster)} casts ${e.spell} at ${name(e.reflected)}, but a Mirror Wall turns it back on ${name(e.caster)}${hurt}.`;
+      }
       switch (e.kind) {
+        case 'silence':
+          return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} cannot cast for ${e.amount} ${e.amount === 1 ? 'turn' : 'turns'}.`;
+        case 'mirror':
+          return `${name(e.caster)} casts ${e.spell}; a Mirror Wall shields ${name(e.target)} from spells.`;
+        case 'banish':
+          if (e.amount === 0) return `${name(e.caster)} casts ${e.spell}, but it has no power over ${name(e.target)}.`;
+          return e.killed
+            ? `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is laid to rest.`
+            : `${name(e.caster)} casts ${e.spell}; ${name(e.target)} flees the fight.`;
         case 'heal':
           return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} regains ${e.amount}.`;
         case 'hold':
@@ -458,6 +520,8 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
         case 'drain':
           return `${name(e.caster)} casts ${e.spell}, draining ${name(e.target)} of ${e.amount}${e.killed ? ' and felling them' : ''}.`;
         default: {
+          if (e.amount === 0 && !e.also)
+            return `${name(e.caster)} casts ${e.spell}, but ${name(e.target)} carries no metal for it to strike.`;
           const hit = (t: string, killed: boolean) => `${name(t)}${killed ? ' (felled)' : ''}`;
           const others = (e.also ?? []).map((a) => hit(a.target, a.killed));
           if (others.length === 0)

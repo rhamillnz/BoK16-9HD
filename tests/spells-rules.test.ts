@@ -34,7 +34,7 @@ const spell = (o: Partial<SpellDef>): SpellDef => ({
   ...o,
 });
 const FIRE = spell({ index: 7, name: 'Fire' });
-const MEND = spell({ index: 11, name: 'Mend', combat: true, targeting: 2, calc: SpellCalc.FixedAmount, damage: 9 });
+const MEND = spell({ index: 40, name: 'Mend', combat: true, targeting: 2, calc: SpellCalc.FixedAmount, damage: 9 });
 const LAMP = spell({ index: 2, name: 'Candle', combat: false, targeting: 5, damage: 0 });
 
 const sk = (max: number, trueSkill = max): Skill => ({
@@ -114,7 +114,7 @@ describe('spell rules', () => {
     expect(powerChoices(3, 3)).toEqual([3]);
   });
   it('heals a party member and pays from stamina first', () => {
-    const p = party([mage(0, [11]), mage(1, [])]);
+    const p = party([mage(0, [40]), mage(1, [])]);
     const r = castHeal(p, 0, MEND, 3, 1);
     expect(r.ok).toBe(true);
     const [a, b] = r.party.characters;
@@ -167,9 +167,9 @@ describe('casting in combat', () => {
   });
   it('a healing spell restores an ally, capped at maximum, and refuses enemies', () => {
     const s = start();
-    const healed = castSpell(s, 11, { x: 4, y: 1 })!;
+    const healed = castSpell(s, 40, { x: 4, y: 1 })!;
     expect(healed.fighters[1]!.health).toBe(14);
-    expect(castSpell(s, 11, { x: 3, y: 5 })).toBeUndefined();
+    expect(castSpell(s, 40, { x: 3, y: 5 })).toBeUndefined();
     expect(castSpell(s, 7, { x: 4, y: 1 })).toBeUndefined();
     expect(castSpell(s, 99, { x: 3, y: 5 })).toBeUndefined();
   });
@@ -256,6 +256,83 @@ describe('casting in combat', () => {
     expect(describeEvent(blocked, blocked.events[0]!)).toContain('cannot move');
     const pulled = castSpell(fight(INVITE, 6), 30, { x: 3, y: 6 })!;
     expect(pulled.fighters[1]!.pos).toEqual({ x: 3, y: 2 });
+  });
+  it('Thoughts Like Clouds stops an enemy casting until its turns run out', () => {
+    const CLOUDS = spell({
+      index: 31,
+      name: 'Clouds',
+      calc: SpellCalc.CostTimesDuration,
+      damage: 0,
+      minCost: 10,
+      maxCost: 10,
+    });
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [CLOUDS], speed: 9, stamina: 20 }),
+      fighter('x', 'enemy', 3, 5, { speed: 1, spells: [FIRE] }),
+    ]);
+    const quiet = castSpell(s, 31, { x: 3, y: 5 })!;
+    expect(quiet.fighters[1]!.silenced).toBe(2);
+    expect(castableSpells(quiet)).toEqual([]);
+    const later = rest(rest(quiet)!)!; // the enemy's turn ends, then the caster's
+    expect(later.fighters[1]!.silenced).toBe(1);
+  });
+  it("Final Rest lays Black Slayers to rest and Thy Master's Will drives off wyverns only", () => {
+    const REST = spell({ index: 32, name: 'Final Rest', targeting: 7, damage: 0, minCost: 5, maxCost: 5 });
+    const WILL = spell({
+      index: 41,
+      name: 'Will',
+      targeting: 4,
+      damage: 0,
+      minCost: 1,
+      maxCost: 1,
+      objectRequired: 17,
+    });
+    const fight = (d: SpellDef, monster: number, items?: number[]) =>
+      startBattle([
+        fighter('a', 'party', 3, 1, { spells: [d], speed: 9, stamina: 20, ...(items && { items }) }),
+        fighter('x', 'enemy', 3, 5, { speed: 1, monster }),
+        fighter('y', 'enemy', 4, 5, { speed: 1 }),
+      ]);
+    const slain = castSpell(fight(REST, 22), 32, { x: 3, y: 5 })!;
+    expect(slain.events[0]).toMatchObject({ kind: 'banish', amount: 1, killed: true });
+    const shrug = castSpell(fight(REST, 18), 32, { x: 3, y: 5 })!;
+    expect(shrug.fighters[1]!.health).toBe(20);
+    expect(castableSpells(fight(WILL, 41))).toEqual([]); // no egg
+    const gone = castSpell(fight(WILL, 41, [17]), 41, { x: 3, y: 5 })!;
+    expect(gone.fighters[1]).toMatchObject({ banished: true, health: 0 });
+    expect(gone.events[0]).toMatchObject({ killed: false });
+    expect(gone.turn.combatants[1]).toMatchObject({ exorcised: true, dead: false });
+  });
+  it('Mirror Wall turns a hostile spell back on its caster', () => {
+    const WALL = spell({ index: 14, name: 'Mirror Wall', targeting: 5, damage: 0, minCost: 1, maxCost: 1 });
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [WALL], speed: 9, stamina: 20 }),
+      fighter('x', 'enemy', 3, 5, { speed: 5, spells: [FIRE], stamina: 0 }),
+    ]);
+    const walled = castSpell(s, 14, { x: 3, y: 1 })!;
+    expect(walled.fighters[0]!.mirror).toBe(true);
+    const bounced = castSpell(walled, 7, { x: 3, y: 1 })!;
+    expect(bounced.events[0]).toMatchObject({ reflected: 'a', target: 'x' });
+    expect(bounced.fighters[0]!.health).toBe(20);
+    expect(bounced.fighters[1]!.health).toBeLessThan(20);
+  });
+  it('Skyfire needs metal to strike', () => {
+    const SKY = spell({
+      index: 5,
+      name: 'Skyfire',
+      targeting: 1,
+      calc: SpellCalc.FixedAmount,
+      damage: 40,
+      minCost: 1,
+      maxCost: 1,
+    });
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [SKY], speed: 9 }),
+      fighter('x', 'enemy', 3, 5, { speed: 1 }),
+    ]);
+    const missed = castSpell(s, 5, { x: 3, y: 5 })!;
+    expect(missed.fighters[1]!.health).toBe(20);
+    expect(describeEvent(missed, missed.events[0]!)).toContain('no metal');
   });
   it('Wrath of Killian strikes for the middle of its 10-20', () => {
     expect(spellAmount(spell({ index: 19, calc: 4, damage: 1 }), 20)).toBe(15);

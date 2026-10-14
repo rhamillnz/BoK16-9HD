@@ -20,7 +20,7 @@ const spell = (o: Partial<SpellDef>): SpellDef => ({
 });
 const FIRE = spell({ index: 7, name: 'Fire' });
 const BOLT = spell({ index: 9, name: 'Bolt', minCost: 30, maxCost: 40 });
-const MEND = spell({ index: 11, name: 'Mend', combat: true, targeting: 2, calc: SpellCalc.FixedAmount, damage: 9 });
+const MEND = spell({ index: 40, name: 'Mend', combat: true, targeting: 2, calc: SpellCalc.FixedAmount, damage: 9 });
 const fighter = (id: string, side: 'party' | 'enemy', x: number, y: number, o: Partial<Fighter> = {}): Fighter => ({
   id,
   side,

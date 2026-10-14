@@ -85,6 +85,7 @@ import { LAST_CHAPTER } from './chapters';
 import { installJournal } from './journalControls';
 import { addNote } from './journal';
 import { TextVariables } from './textVariables';
+import { senseNearby } from './senseSpells';
 import { installPerf } from '../render/perf';
 import { installBookPlayer } from './bookControls';
 import { cutsceneMusic, installCutscenes } from './cutsceneControls';
@@ -158,6 +159,15 @@ try {
 boot.loading('Building the world…', 0.5);
 await boot.painted(); // building the zone holds the page up, so get the art on screen first
 const zoneHost = await ZoneHost.create(scene, archive, startZone);
+// Graphics quality: P cycles low/medium/high (post-processing, shadows, grass). Set up before anything can
+// change zone (a ?chapter= start in another zone travels while the rest of the game is still being wired).
+const { post, applyGraphics } = installGraphics({
+  renderer,
+  scene,
+  camera,
+  setShadows: (on) => sky.setShadows(on),
+  setGrass: (q) => zoneHost.current.grass.setQuality(q),
+});
 const [firstTileX, firstTileY] = zoneHost.current.data.tiles[0] ?? [0, 0];
 const entry =
   startZone === chapterStart.zone || !archive.has('TELEPORT.DAT')
@@ -628,6 +638,16 @@ const cast = installCast({
     screens.setParty(p);
   },
   getTicks: () => clock.state.ticks,
+  sense: (n) =>
+    senseNearby(
+      n,
+      containers.store.zone(zoneHost.current.zone),
+      party.x,
+      party.y,
+      start.chapter,
+      clock.state,
+      objectItems,
+    ),
   canCast: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
   menu: (text, choices) =>
     new Promise((resolve) =>
@@ -800,15 +820,6 @@ if (debugChapter > 1) {
 // Debug: ?scene=9A opens that town scene on load.
 const debugScene = /^(\d+)([A-Z])$/.exec(q.get('scene') ?? '');
 if (debugScene) void town.controller.enter({ number: Number(debugScene[1]), letter: debugScene[2]! });
-
-// Graphics quality: P cycles low/medium/high (post-processing, shadows, grass).
-const { post, applyGraphics } = installGraphics({
-  renderer,
-  scene,
-  camera,
-  setShadows: (on) => sky.setShadows(on),
-  setGrass: (q) => zoneHost.current.grass.setQuality(q),
-});
 
 // Main menu: shown at start and on Escape (new game, continue, load, options).
 const menuShown = installMainMenu({

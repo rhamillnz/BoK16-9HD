@@ -9,7 +9,7 @@ export function lootOf(
 ): ContainerItem[] {
   const out: ContainerItem[] = [];
   for (const f of fighters) {
-    if (f.side !== 'enemy' || f.health > 0 || f.slot === undefined) continue;
+    if (f.side !== 'enemy' || f.health > 0 || f.banished || f.slot === undefined) continue;
     for (const i of inventories.get(`${combatIndex}:${f.slot}`) ?? []) out.push({ ...i });
   }
   return out;

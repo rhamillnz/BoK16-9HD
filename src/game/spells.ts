@@ -15,6 +15,8 @@ import { TICKS_PER_MINUTE } from './state';
  * Candle Glow, Stardusk, And the Light Shall Lie, Union, Scent of Sarig. Dialogue `castSpell` choices test a slot.
  */
 export const STATIC_SPELLS: readonly number[] = [0, 2, 26, 35, 34, 8];
+/** Eyes of Ishap (vessels), The Unseen (food), Nacre Cicatrix (magic items). */
+export const SENSING_SPELLS: readonly number[] = [11, 17, 18];
 /** Despair Thy Eyes (blinds) and Grief of 1000 Nights (holds): SPELLDOC effects, not damage. */
 export const HOLD_SPELLS: readonly number[] = [3, 13];
 /** Hocho's Haven (shields from damage) and Skin of the Dragon (invisible armour). */
@@ -37,8 +39,26 @@ export const SPELL_SPLASH: Record<number, 'all' | 'nearest2' | 'adjacent'> = {
   4: 'adjacent',
 };
 
-/** SPELLDOC damage of the special-calculation spells, as a fixed middle: Wrath of Killian "10-20". */
-const SPECIAL_DAMAGE: Record<number, number> = { 19: 15 };
+/**
+ * Fixed damage of spells whose table entry has none: Wrath of Killian (SPELLDOC "10-20", its middle) and
+ * Unfortunate Flux ("Summons sprites to attack enemy"; no number given, so the same 15 is ours).
+ */
+const SPECIAL_DAMAGE: Record<number, number> = { 19: 15, 20: 15 };
+
+/** Thoughts Like Clouds: "Confuses enemy spellcasters". Mirror Wall: "Reflects projectile spells". */
+export const THOUGHTS_LIKE_CLOUDS = 31;
+export const MIRROR_WALL = 14;
+/** Skyfire: "Opponent must be carrying metal". */
+export const SKYFIRE = 5;
+
+/**
+ * Spells that only touch one kind of monster (SPELLDOC): Final Rest "Affects Black Slayers & Nighthawks" (they
+ * are laid to rest: killed), Thy Master's Will "Forces Wyverns to retreat" (they leave the fight).
+ */
+export const BANISHES: Record<number, { monsters: readonly number[]; effect: 'kill' | 'drive off' }> = {
+  32: { monsters: [22, 23], effect: 'kill' },
+  41: { monsters: [41, 42, 43], effect: 'drive off' },
+};
 
 /** The timed spells that light the way (Dragon's Breath also hides the party in fog). */
 export const LIGHT_SPELLS: readonly number[] = [0, 2, 26];
@@ -58,22 +78,35 @@ export type SpellKind =
   | 'push'
   /** Draws a chosen enemy straight towards the caster (combat only). */
   | 'pull'
+  /** Stops a chosen enemy casting for a few turns (combat only). */
+  | 'silence'
+  /** Kills or drives off a chosen enemy of one kind, and does nothing to the rest (combat only). */
+  | 'banish'
+  /** Turns hostile spells aimed at a chosen ally back on their caster (combat only). */
+  | 'mirror'
   /** Lights the way for a while (world only). */
   | 'light'
   /** Another timed world spell (disguise, reading moredhel, sensing traps). */
   | 'timed'
+  /** Senses vessels, food or magic in nearby containers (world only; see senseSpells.ts). */
+  | 'sense'
   /** Understood but not implemented yet. */
   | 'unsupported';
 
 export function spellKind(s: SpellDef): SpellKind {
   if (LIGHT_SPELLS.includes(s.index)) return 'light';
   if (STATIC_SPELLS.includes(s.index)) return 'timed';
+  if (SENSING_SPELLS.includes(s.index)) return 'sense';
   if (HOLD_SPELLS.includes(s.index)) return 'hold';
   if (WARD_SPELLS.includes(s.index)) return 'ward';
   if (DRAIN_SPELLS.includes(s.index)) return 'drain';
   if (s.index === WINDS_OF_EORTIS) return 'push';
   if (s.index === INVITATION) return 'pull';
-  if (s.combat && s.damage > 0 && (s.targeting === 0 || s.targeting === 1 || s.targeting === 4)) return 'damage';
+  if (s.index === THOUGHTS_LIKE_CLOUDS) return 'silence';
+  if (BANISHES[s.index]) return 'banish';
+  if (s.index === MIRROR_WALL) return 'mirror';
+  const harms = s.damage > 0 || SPECIAL_DAMAGE[s.index] !== undefined;
+  if (s.combat && harms && (s.targeting === 0 || s.targeting === 1 || s.targeting === 4)) return 'damage';
   // Dannon's Delusions (not a combat spell, damage 1) makes an illusionary fighter, it does not heal.
   if (s.combat && s.damage !== 0 && (s.targeting === 2 || s.targeting === 3)) return 'heal';
   return 'unsupported';
@@ -92,8 +125,18 @@ export function knownSpells(c: Character, defs: readonly SpellDef[]): SpellDef[]
 
 /** Whether `c` can cast now: a caster who knows it, can pay the minimum (Health + Stamina at least `minCost`, as BaKGL checks) and (for the world) the spell has a world effect. */
 export function canCast(c: Character, s: SpellDef): boolean {
-  return isSpellcaster(c) && c.spells.includes(s.index) && c.skills.health.trueSkill > 0 && castingPool(c) >= s.minCost;
+  return (
+    isSpellcaster(c) &&
+    c.spells.includes(s.index) &&
+    c.skills.health.trueSkill > 0 &&
+    castingPool(c) >= s.minCost &&
+    (s.objectRequired === undefined || c.inventory.items.some((i) => i.itemIndex === s.objectRequired))
+  );
 }
+
+/** A spell that needs an item (Nightfingers the Glory Hand, Thy Master's Will the egg) is only cast while carrying it. */
+export const carriesFor = (items: readonly number[] | undefined, s: SpellDef): boolean =>
+  s.objectRequired === undefined || (items ?? []).includes(s.objectRequired);
 
 /** Strongest power affordable: capped by `maxCost`, and the caster always keeps at least 1 point. */
 export function maxPower(c: Character, s: SpellDef): number {
@@ -111,6 +154,8 @@ export function spellAmount(s: SpellDef, power: number): number {
   // Cells moved (ours, **unverified**): a push goes a third of the power, at least one; a pull all the way in.
   if (s.index === WINDS_OF_EORTIS) return Math.max(1, Math.ceil(power / 3));
   if (s.index === INVITATION) return RANGED_RANGE;
+  // Turns without casting (ours, **unverified**): a fifth of the power, at least one.
+  if (s.index === THOUGHTS_LIKE_CLOUDS) return Math.max(1, Math.ceil(power / 5));
   const special = SPECIAL_DAMAGE[s.index];
   if (special !== undefined) return special;
   const d = Math.abs(s.damage);

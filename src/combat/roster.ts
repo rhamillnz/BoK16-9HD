@@ -137,6 +137,7 @@ export function partyFighter(
     race: RaceKind.None,
     weapon: equippedWeapon(c.inventory.items, defs),
     armor: equippedArmor(c.inventory.items, defs),
+    items: c.inventory.items.map((i) => i.itemIndex),
     ...(known.length > 0 ? { spells: known } : {}),
     ...(bow ? { ranged: { crossbow: skill('crossbow'), weapon: bow } } : {}),
   };

@@ -26,6 +26,8 @@ export interface CastHost {
   canCast(): boolean;
   /** Show text with choices (or none) and resolve to the picked index, -1 when dismissed. */
   menu(text: string, choices: string[]): Promise<number>;
+  /** What sensing spell `spell` finds around the party, as a sentence (Eyes of Ishap, The Unseen, Nacre Cicatrix). */
+  sense?(spell: number): string;
   /** The light in force changed (undefined: dark). Lets the renderer brighten the party's surroundings. */
   onLight?(light: ActiveLight | undefined): void;
 }
@@ -41,7 +43,7 @@ const TIMED_EFFECT: Record<number, string> = {
 };
 
 /** Spells that can be cast outside combat. */
-const WORLD_KINDS = ['heal', 'light', 'timed'];
+const WORLD_KINDS = ['heal', 'light', 'timed', 'sense'];
 
 /** Powers offered for a spell: its cheapest, middle and strongest affordable. */
 export function powerChoices(min: number, max: number): number[] {
@@ -100,6 +102,9 @@ export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<st
     const r = castHeal(host.getParty(), caster.index, spell, power, target.index);
     host.setParty(r.party);
     message = r.message;
+  } else if (spellKind(spell) === 'sense') {
+    host.setParty(updateCharacter(host.getParty(), caster.index, (c) => payCost(c, power)));
+    message = `${caster.name} casts ${spell.name}. ${host.sense?.(spell.index) ?? 'Nothing stirs.'}`;
   } else {
     host.setParty(updateCharacter(host.getParty(), caster.index, (c) => payCost(c, power)));
     const endTicks = host.getTicks() + spellTicks(spell, power);
