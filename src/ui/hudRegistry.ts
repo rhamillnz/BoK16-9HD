@@ -46,6 +46,8 @@ export interface HudHost {
   readonly keyRing: readonly InventoryItem[];
   /** HEADS.BMX portrait of a character (by character index), when loaded. */
   portrait?(index: number): CanvasImageSource | undefined;
+  /** The open screen ('none' when only the world or the base screen shows). */
+  readonly screen?: HudScreen;
   /** Close the open screen (back to the base screen, if any). */
   close(): void;
   /** The picture changed: redraw on the next frame. */

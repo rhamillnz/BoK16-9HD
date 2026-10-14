@@ -15,7 +15,6 @@ import type { StashSource } from './chapterHandover';
 import type { TownStashSource } from './chapterRules';
 import type { PartyState } from './party';
 import type { WorldState } from './state';
-import { addNote } from './journal';
 
 /** What chapter transitions need from the running game. */
 export interface ChapterHost {
@@ -43,6 +42,8 @@ export interface ChapterHost {
   arrive(start: ChapterStart, teleport: number | undefined): Promise<void>;
   /** The new chapter's start-of-chapter script and flag reset are done: refresh the sky and HUD. */
   onTransitioned?(chapter: number): void;
+  /** The new chapter's synopsis (the original's contents-screen recap), for the journal. */
+  onRecap?(text: string, zone: number): void;
 }
 
 export interface ChapterBeginOptions {
@@ -90,7 +91,7 @@ export function installChapters(host: ChapterHost): ChapterControls {
       host.onTransitioned?.(chapter);
       // The chapter's synopsis (the original's contents-screen recap) heads the journal for the new chapter.
       const recap = store.byKey(chapterRecapKey(chapter))?.snippet.text;
-      if (recap) addNote(recap, start.zone);
+      if (recap) host.onRecap?.(recap, start.zone);
       if (opts.arriveFirst) {
         await host.arrive(start, result.teleport);
         opts.onArrived?.();

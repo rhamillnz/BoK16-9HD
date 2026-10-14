@@ -1,5 +1,5 @@
 import { HotspotAction, type GdsRef, type TownEntry } from '../formats/gds';
-import { sceneCanvas } from '../ui/townScreen';
+import { parseFlavour, sceneCanvas, type TownFlavour } from '../ui/townScreen';
 import type { TownView } from '../ui/hud';
 import { destinationAt, type Destination } from './transitions';
 import { TownController, type DialogEnd } from './townController';
@@ -22,6 +22,8 @@ export interface TownHostOptions {
   song?(soundIndex: number): void;
   /** The town closed: the music goes back to exploring. */
   closed?(): void;
+  /** The text of dialogue `key` with its variables filled in (a scene's flavour text), if there is one. */
+  text?(key: number): Promise<string | undefined>;
 }
 
 /** Where the party stands outside a town encounter's door: the entry's exit cell in the encounter's tile. */
@@ -34,11 +36,15 @@ export function createTownHost(o: TownHostOptions) {
   let exitDialog = 0;
   // Upscaled pictures (see sceneHd.ts) by loaded scene; scenes without one keep the original 320x200 picture.
   const hdPictures = new WeakMap<TownScene, HTMLImageElement>();
+  const flavours = new WeakMap<TownScene, TownFlavour>();
   const controller: TownController = new TownController({
     load: async (ref) => {
       const scene = await loadTownScene(o.fetch, ref, o.chapter);
       const hd = await loadSceneHd(scene.image.rgba);
       if (hd) hdPictures.set(scene, hd);
+      const raw = scene.gds.flavourText ? await o.text?.(scene.gds.flavourText) : undefined;
+      const flavour = raw && parseFlavour(raw);
+      if (flavour) flavours.set(scene, flavour);
       return scene;
     },
     show: (scene) => {
@@ -50,6 +56,7 @@ export function createTownHost(o: TownHostOptions) {
         onClick: (h) => controller.click(h),
         onDescribe: (h) => controller.describe(h),
         onLeave: () => controller.leave(),
+        flavour: flavours.get(scene),
       });
     },
     hide: () => {

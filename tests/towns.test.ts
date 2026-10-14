@@ -685,3 +685,14 @@ describe('town screen', () => {
     expect(r.result.kind).toBe('none');
   });
 });
+
+describe('town flavour text', () => {
+  it('splits the place name from the description at the second #', async () => {
+    const { parseFlavour } = await import('../src/ui/townScreen');
+    expect(parseFlavour('#Blue Wheel Inn#\tUndoubtedly the newest\ntavern.')).toEqual({
+      title: 'Blue Wheel Inn',
+      text: 'Undoubtedly the newest tavern.',
+    });
+    expect(parseFlavour('No name here')).toBeUndefined();
+  });
+});

@@ -83,6 +83,8 @@ import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
 import { LAST_CHAPTER } from './chapters';
 import { installJournal } from './journalControls';
+import { addNote } from './journal';
+import { TextVariables } from './textVariables';
 import { installPerf } from '../render/perf';
 import { installBookPlayer } from './bookControls';
 import { cutsceneMusic, installCutscenes } from './cutsceneControls';
@@ -382,6 +384,10 @@ const town = createTownHost({
     if (song !== null) void music.play(song).catch((err) => console.warn('Music unavailable:', err));
   },
   closed: () => zoneMusic(zoneHost.current.zone),
+  text: async (key) => {
+    const raw = (await loadStore()).byKey(key)?.snippet.text;
+    return raw && new TextVariables({ party: partyState, chapter: clock.state.chapter }).substitute(raw);
+  },
 });
 
 // Entering a town: the party stands at the entry's exit position outside the door, then the scene opens.
@@ -750,6 +756,7 @@ const chapters = installChapters({
     if (teleport !== undefined && teleports[teleport]) await travelTo(teleports[teleport]!);
   },
   onTransitioned: () => sky.update(clock.minutes),
+  onRecap: (text, zone) => addNote(text, zone),
 });
 // Shop dialogues offer repairs by the shop's repair types (game state 0x7542), as the original sets on entering.
 town.controller.onEnter((scene) => {

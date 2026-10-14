@@ -31,6 +31,7 @@ import {
 } from './saveScreen';
 import {
   drawTownScreen,
+  type TownFlavour,
   initialTownState,
   layoutTownScreen,
   stepTown,
@@ -53,6 +54,8 @@ export interface TownView {
   onClick(h: Hotspot): void;
   onDescribe(h: Hotspot): void;
   onLeave(): void;
+  /** The place name and description shown under the picture. */
+  flavour?: TownFlavour;
 }
 
 /** Inventory (I): the list + details DOM overlay of `inventoryView.ts`; the canvas draws nothing for it. */
@@ -205,7 +208,10 @@ export class TownScreen implements HudScreenHandler {
   }
   draw(ctx: CanvasRenderingContext2D): void {
     const h = this.host;
-    if (this.s) drawTownScreen(ctx, h.font, this.s.layout, this.s.view.picture, this.s.state, h.width, h.height);
+    const s = this.s;
+    // The flavour text is the scene's idle text: a dialogue or a shop on top replaces it, as in the original.
+    const flavour = h.screen === undefined || h.screen === 'town' ? s?.view.flavour : undefined;
+    if (s) drawTownScreen(ctx, h.font, s.layout, s.view.picture, s.state, h.width, h.height, flavour);
   }
 }
 
