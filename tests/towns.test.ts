@@ -545,7 +545,7 @@ describe('TownController', () => {
     image: { width: SCENE_WIDTH, height: SCENE_HEIGHT, rgba: new Uint8ClampedArray(SCENE_WIDTH * SCENE_HEIGHT * 4) },
   });
 
-  function setup(scenes: Record<string, Hotspot[]>) {
+  function setup(scenes: Record<string, Hotspot[]>, extra: Partial<TownHooks> = {}) {
     const log: string[] = [];
     const pending: ((end: DialogEnd) => void)[] = [];
     const unsupported: number[] = [];
@@ -560,6 +560,7 @@ describe('TownController', () => {
       activeHotspots: (s) => s.gds.hotspots,
       left: () => log.push('left'),
       unsupported: (a) => unsupported.push(a),
+      ...extra,
     };
     return { controller: new TownController(hooks), log, pending, unsupported };
   }
@@ -581,6 +582,16 @@ describe('TownController', () => {
     await t.controller.enter({ number: 1, letter: 'A' });
     t.controller.click(exit);
     expect(t.log).toEqual(['show A', 'hide', 'left']);
+  });
+
+  it('opens the scene shop for a barmaid', async () => {
+    const barmaid = hotspot(0, { action: HotspotAction.Barmaid, arg3: 0x10000 });
+    const shops: string[] = [];
+    const t = setup({ A: [barmaid] }, { shop: (ref) => (shops.push(ref.letter), true) });
+    await t.controller.enter({ number: 1, letter: 'A' });
+    t.controller.click(barmaid);
+    expect(shops).toEqual(['A']);
+    expect(t.unsupported).toEqual([]);
   });
 
   it('ignores clicks while a dialogue is open and a cancelled dialogue does nothing further', async () => {

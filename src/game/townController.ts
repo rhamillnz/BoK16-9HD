@@ -161,6 +161,7 @@ export class TownController {
         else this.hooks.unsupported?.(action, h);
         break;
       case HotspotAction.Shop:
+      case HotspotAction.Barmaid: // the barmaid sells the inn's food and drink: its shop (BaKGL EnterContainer)
         if (this.hooks.shop?.(scene.ref, h)) break;
         this.hooks.unsupported?.(action, h);
         break;
