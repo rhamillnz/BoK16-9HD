@@ -337,6 +337,77 @@ def inscription(kit, key, w_units, h_units, seed, lines, mode="engrave", ink=(0.
     return engrave(base, m) if mode == "engrave" else paint(base, m, ink)
 
 
+def decal_material(name, rgba):
+    """Cut-out material for decals: `rgba` image, clamped at the edges, alpha rounded to a hard mask."""
+    h, w = rgba.shape[:2]
+    img = bpy.data.images.new(name, w, h, alpha=True)
+    img.pixels.foreach_set(np.ascontiguousarray(rgba[::-1]).reshape(-1))
+    img.pack()
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    t = nt.nodes.new("ShaderNodeTexImage")
+    t.image = img
+    t.extension = "EXTEND"
+    cut = nt.nodes.new("ShaderNodeMath")
+    cut.operation = "ROUND"
+    nt.links.new(t.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(t.outputs["Alpha"], cut.inputs[0])
+    nt.links.new(cut.outputs[0], bsdf.inputs["Alpha"])
+    bsdf.inputs["Roughness"].default_value = 0.95
+    return m
+
+
+def carve_writing(kit, objs, side, centre, size, mask, name, rgb, min_dot=0.55, lift=0.004):
+    """Lay `mask` (pseudo-script, True = carved) onto the faces of `objs` that look towards -Y (side -1) or
+    +Y (side +1), projected flat along Y over the rectangle `size` (w, h) centred on `centre` (x, z).
+    The copies sit `lift` off the surface and follow its shape, so nothing stands proud of the stone."""
+    h_px, w_px = mask.shape
+    rgba = np.zeros((h_px, w_px, 4), dtype=np.float32)
+    rgba[mask] = (*rgb, 1.0)
+    # Soft lip under each stroke: a darker shadow line reads as cut into the stone.
+    under = np.zeros_like(mask)
+    under[2:] = mask[:-2]
+    rgba[under & ~mask] = (*[c * 0.6 for c in rgb], 1.0)
+    rgba[:2] = rgba[-2:] = 0
+    rgba[:, :2] = rgba[:, -2:] = 0
+    bm = bmesh.new()
+    uvl = bm.loops.layers.uv.new("UVMap")
+    u0, v0 = -side * centre[0], centre[1]
+    w, h = size
+    for o in objs:
+        mw = o.matrix_world
+        nm = mw.to_3x3().inverted().transposed()
+        for p in o.data.polygons:
+            n = (nm @ p.normal).normalized()
+            if n.y * side < min_dot:
+                continue
+            cos = [mw @ o.data.vertices[i].co for i in p.vertices]
+            uvs = [((-side * c.x - u0) / w + 0.5, (c.z - v0) / h + 0.5) for c in cos]
+            if max(u for u, _ in uvs) < 0 or min(u for u, _ in uvs) > 1 or max(v for _, v in uvs) < 0 or min(v for _, v in uvs) > 1:
+                continue
+            f = bm.faces.new([bm.verts.new(c + n * lift) for c in cos])
+            for lp, uv in zip(f.loops, uvs):
+                lp[uvl].uv = uv
+    if not bm.faces:
+        bm.free()
+        return None
+    return _link(kit, name, bm, decal_material(name, rgba), Matrix.Identity(4))
+
+
+def script_mask(w_units, h_units, seed, lines, px_per_unit=140):
+    w = int(max(64, min(512, w_units * px_per_unit)))
+    h = int(max(64, min(512, h_units * px_per_unit)))
+    pad = int(min(w, h) * 0.1)
+    return writing_mask(w, h, (pad, pad, w - pad, h - pad), lines, seed)
+
+
+def carve_colour(kit, key, depth=0.42):
+    """The colour a carved stroke shows on swatch `key` (as `engrave` darkens it)."""
+    return tuple(float(c) * (1 - depth) for c in swatch(kit, key, 64)[..., :3].reshape(-1, 3).mean(axis=0))
+
+
 def curve_tube(kit, points, radius, material, name="tube", resolution=6):
     """A tube along a polyline (rope, string, wire)."""
     cu = bpy.data.curves.new(name, "CURVE")
@@ -423,12 +494,11 @@ def build_gravestone(kit, job, flat_material):
         grp.append(part(kit, "box", (0, 0, (body - bury) / 2), (W, D, body + bury), stone, bevel=0.03))
         grp.append(part(kit, "pyramid", (0, 0, body + W * 0.3), (W, D, W * 0.6), stone))
         face = (W * 0.75, body * 0.75, body * 0.5)
-    else:  # old leaning stone with a chipped corner; its whole foot stays underground
+    else:  # old leaning stone; its whole foot stays underground
         body = H - W / 2
         lean = []
         lean.append(part(kit, "box", (0, 0, (body - 0.7) / 2), (W, D, body + 0.7), stone, bevel=0.03))
         lean.append(part(kit, "roundtop", (0, 0, body), (W, D, W), stone, segments=20, bevel=0.02))
-        lean.append(part(kit, "box", (W * 0.45, 0, body + W * 0.3), (0.4, D * 1.2, 0.3), dark, rot_deg=(0, 30, 0)))
         txt = inscription(kit, key, W * 0.78, body * 0.8, seed, 4)
         for sy, ry in ((-1, 0), (1, 180)):
             lean.append(panel(kit, (0, sy * (D / 2 + 0.004), body * 0.55), W * 0.78, body * 0.8, txt, f"txt{v}{sy}", rot_deg=(0, 0, ry)))
@@ -487,22 +557,20 @@ def build_waymark(kit, job, flat_material):
             d = 0.272
             panel(kit, (math.sin(math.radians(a)) * d, -math.cos(math.radians(a)) * d, 1.5), 0.42, 1.4, txt, f"ob{k}", rot_deg=(-1.65, 0, a))
     elif v == 1:  # milestone: squat rounded block with an arrow and a line of text
-        part(kit, "box", (0, 0, (1.7 - bury) / 2), (1.5, 0.75, 1.7 + bury), stone, bevel=0.05)
-        part(kit, "roundtop", (0, 0, 1.7), (1.5, 0.75, 1.5), stone, segments=18, bevel=0.03)
+        objs = [part(kit, "box", (0, 0, (1.7 - bury) / 2), (1.5, 0.75, 1.7 + bury), stone, bevel=0.05),
+                part(kit, "roundtop", (0, 0, 1.7), (1.5, 0.75, 1.5), stone, segments=18, bevel=0.03)]
         w, h = 1.2, 1.7
-        px = _resize(swatch(kit, "stone"), int(w * 140), int(h * 140)).copy()
-        m = writing_mask(px.shape[1], px.shape[0], (16, 16, px.shape[1] - 16, int(px.shape[0] * 0.55)), 3, 63)
+        W_, H_ = int(w * 140), int(h * 140)
+        m = writing_mask(W_, H_, (16, 16, W_ - 16, int(H_ * 0.55)), 3, 63)
         # Carved arrow under the text.
-        H_, W_ = px.shape[:2]
         ay = int(H_ * 0.75)
         for x in range(int(W_ * 0.18), int(W_ * 0.8)):
             _stamp(m, x, ay, 4)
         for k in range(26):
             _stamp(m, W_ * 0.8 - k, ay - k, 4)
             _stamp(m, W_ * 0.8 - k, ay + k, 4)
-        img = engrave(px, m)
-        for sy, ry in ((-1, 0), (1, 180)):
-            panel(kit, (0, sy * 0.379, 1.45), w, h, img, f"mile{sy}", rot_deg=(0, 0, ry))
+        for side in (-1, 1):
+            carve_writing(kit, objs, side, (0, 1.45), (w, h), m, f"mile{side}", carve_colour(kit, "stone"), min_dot=0.9)
     else:  # wayside shrine: square pillar with a little gabled stone roof and a niche
         part(kit, "box", (0, 0, 0.12 - bury / 2), (1.4, 1.4, 0.24 + bury), dark, bevel=0.04)
         part(kit, "box", (0, 0, 1.3), (0.9, 0.9, 2.2), stone, bevel=0.04)
@@ -515,6 +583,27 @@ def build_waymark(kit, job, flat_material):
             d = 0.454
             z = 1.05 if a == 0 else 1.3
             panel(kit, (math.sin(math.radians(a)) * d, -math.cos(math.radians(a)) * d, z), 0.72, 1.1 if a == 0 else 1.6, txt, f"shr{k}", rot_deg=(0, 0, a))
+
+
+def arrow_board(kit, cx, z, length, height, tip, side, thickness, material):
+    """Plank cut to a point: a `length` x `height` board centred at (cx, 0, z) whose end on the `side`
+    (+1 = +X) runs out `tip` further to a point. One solid piece, textured like the other planks."""
+    hl, hh = length / 2, height / 2
+    prof = [(-hl, -hh), (hl, -hh), (hl + tip, 0.0), (hl, hh), (-hl, hh)]
+    prof = [(cx + side * x, zz + z) for x, zz in prof]
+    bm = bmesh.new()
+    front = [bm.verts.new((x, -thickness / 2, zz)) for x, zz in prof]
+    back = [bm.verts.new((x, thickness / 2, zz)) for x, zz in prof]
+    bm.faces.new(front)
+    bm.faces.new(back[::-1])
+    n = len(prof)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((front[i], front[j], back[j], back[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    o = _link(kit, "board", bm, material, Matrix.Identity(4))
+    project_uvs(o, 1.2)
+    return o
 
 
 def build_signboard(kit, job, flat_material):
@@ -531,9 +620,7 @@ def build_signboard(kit, job, flat_material):
         side = 1 if i % 2 == 0 else -1
         bw, bh = 1.5, 0.45
         cx = side * (bw / 2 + 0.05)
-        part(kit, "box", (cx, 0, z), (bw, 0.08, bh), swatch_material(kit, "plank"), rot_deg=(0, 0, 2 * side), bevel=0.01, uv=1.2)
-        # Pointed end.
-        part(kit, "cylinder", (cx + side * (bw / 2 + 0.16), 0, z), (0.36, bh * 1.05, 0.08), swatch_material(kit, "plank"), segments=3, rot_deg=(90, 0, 0 if side > 0 else 180))
+        arrow_board(kit, cx, z, bw, bh, 0.3, side, 0.08, swatch_material(kit, "plank"))
         px = _resize(swatch(kit, "plank", 256), 300, 90).copy()
         m = writing_mask(300, 90, (18, 14, 282, 76), 1, 70 + i, centred=True)
         img = paint(px, m, ink)
@@ -572,7 +659,7 @@ def fluted_shaft(kit, centre, z0, z1, radius, material, flutes=20, rings=8):
 
 
 def build_column(kit, job, flat_material):
-    """Fluted column: stepped base, torus mouldings, entasis, capital, a few chips and moss."""
+    """Fluted column: stepped base, torus mouldings, entasis, capital, and moss at the foot."""
     key = job.get("stone", "stone_blue")
     stone = swatch_material(kit, key)
     dark = swatch_material(kit, "stone_dark")
@@ -586,8 +673,7 @@ def build_column(kit, job, flat_material):
     part(kit, "cylinder", (0, 0, z1 + 0.06), (1.12, 1.12, 0.12), stone, segments=24)
     part(kit, "cylinder", (0, 0, z1 + 0.32), (1.4, 1.4, 0.4), stone, segments=24, taper=1.25)
     part(kit, "box", (0, 0, H - 0.22), (1.8, 1.8, 0.44), dark, bevel=0.04)
-    # Weathering: a chipped corner on the capital and moss at the foot.
-    part(kit, "box", (0.85, 0.85, H - 0.1), (0.4, 0.4, 0.3), dark, rot_deg=(20, -15, 45))
+    # Weathering: moss at the foot.
     moss = noise_material("moss", (0.14, 0.22, 0.07), 0.06, 9)
     for a in (30, 150, 260):
         ra = math.radians(a)
@@ -600,11 +686,14 @@ def rings_image(size=256, seed=3):
     rnd = np.random.default_rng(seed)
     ang = np.arctan2(yy - c, xx - c)
     r = np.hypot(xx - c, yy - c) / c * (1 + 0.04 * np.sin(ang * 5 + 1.3))
-    ring = 0.5 + 0.5 * np.sin(r * 38)
+    # Growth rings: thin dark late-wood lines on pale early wood, closer together towards the bark.
+    ring = np.abs(np.sin(r ** 0.85 * 46)) ** 6
     px = np.ones((size, size, 4), dtype=np.float32)
-    base = np.array((0.62, 0.44, 0.26))
+    base = np.array((0.86, 0.7, 0.5))
     for k in range(3):
-        px[..., k] = base[k] * (0.82 + 0.18 * ring) + rnd.uniform(-0.03, 0.03, (size, size))
+        px[..., k] = base[k] * (1 - 0.38 * ring - 0.12 * r) + rnd.uniform(-0.025, 0.025, (size, size))
+    px[r < 0.05, :3] *= 0.7
+    px[(r > 0.86) & (r <= 0.92), :3] = (0.62, 0.46, 0.3)
     px[r > 0.92, :3] = (0.24, 0.15, 0.09)
     crack = (abs(ang - 0.6) < 0.025) & (r < 0.7)
     px[crack, :3] *= 0.45
@@ -625,8 +714,8 @@ def build_stump(kit, job, flat_material):
         for lp in f.loops:
             lp[uvl].uv = (lp.vert.co.x / (2 * R * 0.9) + 0.5, lp.vert.co.y / (2 * R * 0.9) + 0.5)
     _link(kit, "rings", bm, top, Matrix.Translation((0, 0, H + 0.005)))
-    # Rounded rim between bark and rings.
-    part(kit, "cylinder", (0, 0, H - 0.04), (2 * R * 0.97, 2 * R * 0.97, 0.1), bark, segments=18, taper=0.94)
+    # Rounded rim between bark and rings, kept below the cut face so the rings show.
+    part(kit, "cylinder", (0, 0, H - 0.08), (2 * R * 0.97, 2 * R * 0.97, 0.1), bark, segments=18, taper=0.94)
     # Root flares: long, half-buried swellings hugging the ground, merging into the trunk.
     for k in range(6):
         a = k / 6 * math.tau + 0.3
@@ -765,28 +854,50 @@ def build_boxtrap(kit, job, flat_material):
 
 
 def build_beetle(kit, job, flat_material):
-    """Dead giant beetle on its back: ringed belly, wing cases, head with mandibles, spiny legs curled over it."""
-    shell = flat_material("chitin", (0.1, 0.06, 0.045), 0.25)
-    shell.node_tree.nodes["Principled BSDF"].inputs["Metallic"].default_value = 0.4
-    belly = flat_material("belly", (0.3, 0.19, 0.1), 0.45)
-    seam = flat_material("seam", (0.12, 0.07, 0.04), 0.5)
-    leg = flat_material("legs", (0.08, 0.045, 0.03), 0.35)
-    goo = flat_material("goo", (0.38, 0.45, 0.12), 0.2)
+    """Dead giant beetle on its back: ridged wing cases, ringed belly with breathing holes, head with eyes,
+    mandibles and beaded antennae, six jointed spiny legs with claws curled over it, and a broken-off leg."""
+    shell = image_material("chitin", chitin_image, 0.62)
+    belly = image_material("belly", lambda: chitin_image(base=(0.3, 0.19, 0.1), seed=5), 0.7)
+    seam = flat_material("seam", (0.12, 0.07, 0.04), 0.75)
+    leg = image_material("legs", lambda: chitin_image(base=(0.15, 0.09, 0.06), seed=9), 0.6)
+    eye = flat_material("eye", (0.02, 0.02, 0.02), 0.35)
+    goo = flat_material("goo", (0.38, 0.45, 0.12), 0.35)
     # Wing cases lying on the ground (a split dome), belly facing the sky with segment rings.
     for sy in (-1, 1):
         part(kit, "sphere", (-0.25, sy * 0.38, 0.4), (1.95, 0.85, 0.9), shell, segments=20, smooth=True)
+        # Ridges running the length of each wing case.
+        # (The case is an ellipsoid centred (-0.25, +-0.38, 0.4) with half-axes 0.975, 0.425, 0.45.)
+        # The beetle lies on its back, so the ridges run along the visible outer flank.
+        for phi in (5, 30, 55):
+            pts = []
+            for i in range(9):
+                t = -0.88 + i * 0.22
+                c = math.sqrt(max(0.0, 1 - t * t)) * 1.02
+                pts.append((-0.25 + t * 0.975, sy * (0.38 + 0.425 * c * math.cos(math.radians(phi))), 0.4 + 0.45 * c * math.sin(math.radians(phi))))
+            curve_tube(kit, pts, 0.022, seam, "ridge")
     part(kit, "sphere", (-0.25, 0, 0.62), (1.85, 1.35, 0.55), belly, segments=20, smooth=True)
     for k in range(6):
         x = -1.05 + k * 0.3
-        w = 1.25 * math.sqrt(max(0.05, 1 - ((x + 0.25) / 0.95) ** 2))
-        part(kit, "cylinder", (x, 0, 0.62 + 0.24 * math.sqrt(max(0, 1 - ((x + 0.25) / 0.95) ** 2))), (0.05, w, 0.08), seam, segments=8, rot_deg=(0, 0, 0))
+        c = math.sqrt(max(0.05, 1 - ((x + 0.25) / 0.95) ** 2))
+        w = 1.25 * c
+        part(kit, "cylinder", (x, 0, 0.62 + 0.24 * c), (0.05, w, 0.08), seam, segments=8, rot_deg=(0, 0, 0))
+        # A breathing hole at each side of every belly segment.
+        for sy in (-1, 1):
+            part(kit, "sphere", (x + 0.15, sy * w * 0.4, 0.62 + 0.2 * c), (0.07, 0.07, 0.04), eye, segments=8)
     # Thorax plate and head with mandibles and antennae.
     part(kit, "sphere", (0.85, 0, 0.5), (0.8, 1.1, 0.6), shell, segments=16, smooth=True)
     part(kit, "sphere", (0.85, 0, 0.72), (0.6, 0.8, 0.3), belly, segments=14, smooth=True)
     part(kit, "sphere", (1.4, 0, 0.42), (0.55, 0.62, 0.42), shell, segments=14, smooth=True)
     for sy in (-1, 1):
         curve_tube(kit, [(1.55, sy * 0.15, 0.35), (1.85, sy * 0.3, 0.35), (2.0, sy * 0.15, 0.32), (1.95, sy * 0.02, 0.3)], 0.045, leg, "mandible")
-        curve_tube(kit, [(1.55, sy * 0.22, 0.55), (1.85, sy * 0.45, 0.8), (2.15, sy * 0.75, 0.85), (2.35, sy * 0.95, 0.7)], 0.02, leg, "antenna")
+        ant = [(1.55, sy * 0.22, 0.55), (1.85, sy * 0.45, 0.8), (2.15, sy * 0.75, 0.85), (2.35, sy * 0.95, 0.7)]
+        curve_tube(kit, ant, 0.02, leg, "antenna")
+        # Beaded antenna ending in a club, and a bulging compound eye.
+        for t in (0.35, 0.55, 0.75):
+            q = Vector(ant[1]).lerp(Vector(ant[2]), t) if t < 0.7 else Vector(ant[2]).lerp(Vector(ant[3]), (t - 0.7) / 0.3)
+            part(kit, "sphere", tuple(q), (0.06, 0.06, 0.06), leg, segments=8, smooth=True)
+        part(kit, "sphere", ant[3], (0.16, 0.12, 0.12), leg, segments=10, smooth=True)
+        part(kit, "sphere", (1.5, sy * 0.27, 0.5), (0.2, 0.14, 0.2), eye, segments=12, smooth=True)
     # Six legs: femur up and out, tibia folding back over the belly, a hooked foot; spines on the tibia.
     for side in (-1, 1):
         for k, x in enumerate((1.0, 0.65, 0.25)):
@@ -797,11 +908,183 @@ def build_beetle(kit, job, flat_material):
             p3 = p2 + Vector((-0.1, -side * 0.25, -0.12))
             curve_tube(kit, [tuple(p0), tuple(p0 + (p1 - p0) * 0.5 + Vector((0, 0, 0.05))), tuple(p1)], 0.07, leg, "femur")
             curve_tube(kit, [tuple(p1), tuple(p2)], 0.045, leg, "tibia")
-            curve_tube(kit, [tuple(p2), tuple(p3), tuple(p3 + Vector((0.05, side * 0.05, -0.08)))], 0.025, leg, "tarsus")
-            for t in (0.3, 0.6):
+            foot = p3 + Vector((0.05, side * 0.05, -0.08))
+            curve_tube(kit, [tuple(p2), tuple(p3), tuple(foot)], 0.025, leg, "tarsus")
+            # Knobbly joints and a pair of hooked claws.
+            for j, r in ((p0, 0.11), (p1, 0.09), (p2, 0.065)):
+                part(kit, "sphere", tuple(j), (r * 2, r * 2, r * 2), leg, segments=10, smooth=True)
+            for cl in (-1, 1):
+                curve_tube(kit, [tuple(foot), tuple(foot + Vector((0.06, cl * 0.05, -0.02))), tuple(foot + Vector((0.08, cl * 0.03, 0.04)))], 0.012, leg, "claw")
+            for t in (0.25, 0.45, 0.65, 0.85):
                 b = p1 + (p2 - p1) * t
                 curve_tube(kit, [tuple(b), tuple(b + Vector((0.08, side * 0.1, 0.1)))], 0.015, leg, "spine")
+    # A leg torn off in the fight lies beside the body, and the goo it bled.
+    q0, q1, q2 = Vector((-0.6, -1.25, 0.06)), Vector((-0.05, -1.45, 0.08)), Vector((0.4, -1.3, 0.05))
+    curve_tube(kit, [tuple(q0), tuple(q1)], 0.07, leg, "loose_femur")
+    curve_tube(kit, [tuple(q1), tuple(q2)], 0.045, leg, "loose_tibia")
+    part(kit, "sphere", tuple(q1), (0.18, 0.18, 0.18), leg, segments=10, smooth=True)
     part(kit, "sphere", (-1.55, 0.35, 0.0), (0.9, 0.6, 0.05), goo, segments=10, smooth=True)
+    part(kit, "sphere", (-0.7, -1.2, 0.0), (0.45, 0.35, 0.04), goo, segments=10, smooth=True)
+
+
+def chitin_image(size=128, base=(0.2, 0.12, 0.08), seed=3):
+    """Insect shell: fine lengthwise striations and pitting over a blotchy base."""
+    px = noise_tile(size, base, 0.03, seed, blobs=30)
+    yy, xx = np.mgrid[0:size, 0:size]
+    rnd = np.random.default_rng(seed)
+    px[..., :3] *= (0.88 + 0.12 * np.sin(yy / size * math.tau * 24))[..., None]
+    pits = rnd.random((size, size)) < 0.03
+    px[pits, :3] *= 0.55
+    return np.clip(px, 0, 1)
+
+
+def build_rockheap(kit, job, flat_material):
+    """A heap of broken rock shaped like the dirt pile: a faceted cone in the kit's rock material, with
+    kit rocks bedded into its slopes and a few tumbled round the foot."""
+    rock = kit.material_of("Rock_Medium_1")
+    rnd = random.Random(job.get("seed", 9))
+    bm = bmesh.new()
+    rings, seg = 5, 13
+    loops = []
+    for r in range(rings + 1):
+        t = r / rings
+        z = 1.25 * (1 - t) ** 1.2 - 0.12
+        rad = 1.6 * t
+        ring = []
+        for k in range(seg):
+            a = (k + 0.5 * (r % 2)) / seg * math.tau
+            j = 1 + rnd.uniform(-0.14, 0.14) if 0 < r < rings else 1
+            ring.append(bm.verts.new((rad * j * math.cos(a), rad * j * math.sin(a), z + (rnd.uniform(-0.09, 0.09) if 0 < r < rings else 0))))
+        loops.append(ring)
+    for r in range(rings):
+        a_, b_ = loops[r], loops[r + 1]
+        for k in range(seg):
+            bm.faces.new((a_[k], b_[k], b_[(k + 1) % seg], a_[(k + 1) % seg]))
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    o = _link(kit, "heap", bm, rock, Matrix.Identity(4))
+    project_uvs(o, 0.45)
+    names = ("Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3")
+    # Rocks bedded into the slope (half buried), largest near the top.
+    for k in range(7):
+        a = k / 7 * math.tau + rnd.uniform(-0.25, 0.25)
+        d = rnd.uniform(0.35, 1.15)
+        z = 1.25 * (1 - d / 1.6) ** 1.2 - 0.3
+        s = rnd.uniform(0.28, 0.42) * (1.2 - d / 1.6)
+        kit.place(names[k % 3], (math.cos(a) * d, math.sin(a) * d, z), (rnd.uniform(-20, 20), rnd.uniform(-20, 20), rnd.uniform(0, 360)), (s, s, s))
+    for k in range(4):
+        a = rnd.uniform(0, math.tau)
+        d = rnd.uniform(1.5, 1.95)
+        s = rnd.uniform(0.14, 0.22)
+        kit.place(names[k % 3], (math.cos(a) * d, math.sin(a) * d, -0.08), (0, 0, rnd.uniform(0, 360)), (s, s, s))
+
+
+def boards_image(kit, key="plank", boards=4, size=256, seed=61):
+    """Upright weathered boards: the plank swatch turned on end, each board a slightly different shade,
+    with dark gaps between them."""
+    src = np.rot90(swatch(kit, key, size)).copy()
+    rnd = np.random.default_rng(seed)
+    bw = size // boards
+    for b in range(boards):
+        src[:, b * bw:(b + 1) * bw, :3] *= rnd.uniform(0.82, 1.08)
+        src[:, b * bw:b * bw + 3, :3] *= 0.3
+    return np.clip(src, 0, 1)
+
+
+def prism(kit, profile, y0, y1, material, name="prism", axis="y", uv=1.0):
+    """Extrude a closed (u, z) `profile` between y0 and y1 (axis "y": u is x; axis "x": u is y)."""
+    bm = bmesh.new()
+
+    def co(u, z, t):
+        return (u, t, z) if axis == "y" else (t, u, z)
+
+    a = [bm.verts.new(co(u, z, y0)) for u, z in profile]
+    b = [bm.verts.new(co(u, z, y1)) for u, z in profile]
+    bm.faces.new(a)
+    bm.faces.new(b[::-1])
+    n = len(profile)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((a[i], a[j], b[j], b[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    o = _link(kit, name, bm, material, Matrix.Identity(4))
+    project_uvs(o, uv)
+    return o
+
+
+def build_shack(kit, job, flat_material):
+    """Small lean-to shack: four upright-board walls on a timber sill, corner posts, one roof sloping from
+    the front (-Y, high) to the back, a plank door with Z braces, a shuttered window and a woodpile."""
+    boards = image_material("boards", lambda: boards_image(kit), 0.9)
+    wood = swatch_material(kit, "plank_dark", 0.85)
+    post = swatch_material(kit, "bark_grey")
+    iron = flat_material("iron", (0.08, 0.08, 0.09), 0.45)
+    dark = flat_material("shack_dark", (0.03, 0.025, 0.02), 1.0)
+    L, D = 7.2, 5.0              # walls, x by y
+    zf, zb = 3.0, 2.2            # wall top at the front and back
+
+    def wall_top(y):
+        return zf + (zb - zf) * (y + D / 2) / D
+
+    # Sill beams and corner posts.
+    for sy in (-1, 1):
+        part(kit, "box", (0, sy * D / 2, 0.1), (L + 0.3, 0.3, 0.3), wood, uv=0.8)
+    for sx in (-1, 1):
+        part(kit, "box", (sx * L / 2, 0, 0.1), (0.3, D + 0.3, 0.3), wood, uv=0.8)
+        for sy in (-1, 1):
+            h = wall_top(sy * D / 2)
+            part(kit, "box", (sx * L / 2, sy * D / 2, h / 2), (0.28, 0.28, h), post, uv=1.0)
+    # Board walls: front and back straight, the sides cut to the roof slope.
+    part(kit, "box", (0, -D / 2, zf / 2), (L, 0.12, zf), boards, uv=0.55)
+    part(kit, "box", (0, D / 2, zb / 2), (L, 0.12, zb), boards, uv=0.55)
+    for sx in (-1, 1):
+        prism(kit, [(-D / 2, 0.0), (D / 2, 0.0), (D / 2, zb), (-D / 2, zf)], sx * L / 2 - 0.06, sx * L / 2 + 0.06, boards, "side", axis="x", uv=0.55)
+    # Top plates the rafters rest on.
+    part(kit, "box", (0, -D / 2, zf), (L + 0.3, 0.26, 0.22), wood, uv=0.8)
+    part(kit, "box", (0, D / 2, zb), (L + 0.3, 0.26, 0.22), wood, uv=0.8)
+    # The roof: one plank slope with overhangs, battens across it, rafter ends showing at the eaves.
+    ov = 0.55
+    slope = (zb - zf) / D
+    z_front = zf + 0.12 - ov * slope
+    z_back = zb + 0.12 + ov * slope
+    prism(kit, [(-D / 2 - ov, z_front), (D / 2 + ov, z_back), (D / 2 + ov, z_back + 0.16), (-D / 2 - ov, z_front + 0.16)],
+          -L / 2 - ov, L / 2 + ov, wood, "roof", axis="x", uv=0.7)
+    for k in range(5):
+        y = -D / 2 - ov + 0.3 + k * (D + 2 * ov - 0.6) / 4
+        z = z_front + (y + D / 2 + ov) * slope + 0.2
+        part(kit, "box", (0, y, z), (L + 2 * ov, 0.12, 0.08), wood, rot_deg=(math.degrees(math.atan(slope)), 0, 0))
+    for k in range(6):
+        x = -L / 2 + 0.2 + k * (L - 0.4) / 5
+        part(kit, "box", (x, 0, (z_front + z_back) / 2 + 0.02), (0.14, D + 2 * ov - 0.1, 0.14), post,
+             rot_deg=(math.degrees(math.atan(slope)), 0, 0))
+    # Door in the front wall: dark doorway, plank door with Z braces and iron strap hinges, a frame.
+    dx, dw, dh = -1.4, 1.0, 1.8
+    part(kit, "box", (dx, -D / 2 - 0.02, dh / 2 + 0.2), (dw, 0.1, dh), dark)
+    part(kit, "box", (dx, -D / 2 - 0.09, dh / 2 + 0.2), (dw - 0.06, 0.06, dh - 0.04), boards, uv=0.9)
+    for z in (0.55, dh - 0.15):
+        part(kit, "box", (dx, -D / 2 - 0.13, z), (dw - 0.12, 0.04, 0.14), wood)
+        part(kit, "box", (dx - 0.2, -D / 2 - 0.155, z), (0.55, 0.02, 0.06), iron)
+    brace = math.degrees(math.atan2(dh - 0.7, dw - 0.2))
+    part(kit, "box", (dx, -D / 2 - 0.13, dh / 2 + 0.25), (math.hypot(dw - 0.2, dh - 0.7), 0.04, 0.12), wood, rot_deg=(0, -brace, 0))
+    for sx in (-1, 1):
+        part(kit, "box", (dx + sx * (dw / 2 + 0.07), -D / 2 - 0.07, (dh + 0.25) / 2), (0.14, 0.14, dh + 0.25), wood)
+    part(kit, "box", (dx, -D / 2 - 0.07, dh + 0.3), (dw + 0.4, 0.14, 0.14), wood)
+    # Window in the +X side wall with one shutter swung open against the wall.
+    wy, wz, ww, wh = 0.3, 1.5, 0.9, 0.7
+    part(kit, "box", (L / 2 + 0.02, wy, wz), (0.1, ww, wh), dark)
+    for dz in (-1, 1):
+        part(kit, "box", (L / 2 + 0.08, wy, wz + dz * (wh / 2 + 0.06)), (0.12, ww + 0.3, 0.12), wood)
+    for dy in (-1, 1):
+        part(kit, "box", (L / 2 + 0.08, wy + dy * (ww / 2 + 0.06), wz), (0.12, 0.12, wh + 0.12), wood)
+    part(kit, "box", (L / 2 + 0.12, wy - ww - 0.15, wz), (0.06, ww, wh + 0.1), boards, uv=0.9)
+    # Woodpile against the back wall under the eaves, and a chopping block.
+    log = swatch_material(kit, "bark")
+    for row in range(3):
+        for k in range(7 - row):
+            x = -L / 2 + 1.0 + k * 0.42 + row * 0.21
+            part(kit, "cylinder", (x, D / 2 + 0.45, 0.2 + row * 0.36), (0.38, 0.38, 0.9), log, segments=8, rot_deg=(90, 0, 0))
+    part(kit, "cylinder", (1.2, -D / 2 - 1.1, 0.3), (0.7, 0.7, 0.6), log, segments=10)
 
 
 def tiles_material(kit, tile=0.35):
@@ -1022,7 +1305,20 @@ def build_siegeshed(kit, job, flat_material):
         part(kit, "box", (0, sy * (W / 2 - 0.12), z0 + H / 2), (L - 0.3, 0.1, H - 0.1), wattle, uv=0.55)
         for k in range(4):
             part(kit, "box", (-2.0 + k * 1.33, sy * (W / 2 - 0.02), z0 + 0.65), (1.1, 0.04, 1.0), hide, rot_deg=(0, (k % 2) * 3 - 1.5, 0))
-    part(kit, "box", (-L / 2 + 0.12, 0, z0 + H / 2), (0.1, W - 0.3, H - 0.1), wattle, rot_deg=(0, 0, 90), uv=0.55)
+    # Back: two wattle door leaves hinged on the corner posts, swung open outwards, clear of the ram.
+    leaf = (W - 0.3) / 2
+    xb = -L / 2 + 0.12
+    for sy in (-1, 1):
+        hinge = Vector((xb, sy * (W / 2 - 0.15), 0))
+        swing = math.radians(105)
+        d = Vector((-math.sin(swing), -sy * math.cos(swing), 0))
+        yaw = math.degrees(math.atan2(d.y, d.x))
+        c = hinge + d * (leaf / 2)
+        part(kit, "box", (c.x, c.y, z0 + H / 2), (leaf, 0.1, H - 0.1), wattle, rot_deg=(0, 0, yaw), uv=0.55)
+        for zz in (0.35, H - 0.45):
+            part(kit, "box", (c.x, c.y, z0 + zz), (leaf, 0.16, 0.14), dark, rot_deg=(0, 0, yaw))
+            h = hinge + d * 0.12
+            part(kit, "box", (h.x, h.y, z0 + zz), (0.3, 0.18, 0.08), iron, rot_deg=(0, 0, yaw))
     # Steep thatched roof with a ridge pole; gable ends in wattle.
     zt = z0 + H
     ridge = zt + 1.9
@@ -1160,6 +1456,8 @@ BUILDERS = {k: _fresh(f) for k, f in {
     "scarecrow": build_scarecrow,
     "boxtrap": build_boxtrap,
     "beetle": build_beetle,
+    "shack": build_shack,
+    "rockheap": build_rockheap,
     "catapult": build_catapult,
     "siegeshed": build_siegeshed,
     "temple": build_temple,

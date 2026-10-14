@@ -18,6 +18,7 @@ jobs.json entries:
    "woodgrid_ground": true,       # optional: timber-framed panels on the ground floor too
    "windows": "thin",             # optional: tall narrow round-topped windows (default wide)
    "extras": [{"type": "forge", "at": [x, y], "rot": 0}, {"piece": "Anvil_Log", "at": [x, y], "rot": 30}],
+                                  # built extras: forge, inn_sign, cross, banner (freestanding pole)
                                   # optional props placed after fitting, in render units from the base centre;
                                   # kit pieces and built extras (forge, inn_sign, cross) scale with the building
    "preview": "shots/build-inn.png"}
@@ -109,10 +110,14 @@ def wall_layout(count, has_door, upper, tower):
 
     Windows sit every other module counting in from each corner. A door on an even-length wall is
     centred, with the modules either side stretched to fill; a 2-module tower wall gets a single
-    centred opening twice as wide (a big double door, or a wide belfry window)."""
+    centred opening: a big double-width door, or a belfry window the same size as the others with
+    half-width plain wall either side."""
     if tower and count == 2:
-        kind = "door" if has_door else ("window" if upper else "plain")
-        return [(kind, 0.0, 2.0)]
+        if has_door:
+            return [("door", 0.0, 2.0)]
+        if upper:
+            return [("plain", -0.75, 0.5), ("window", 0.0, 1.0), ("plain", 0.75, 0.5)]
+        return [("plain", 0.0, 2.0)]
     if not has_door or count % 2 == 1:
         out = []
         for i in range(count):
@@ -319,6 +324,23 @@ def build_inn_sign(kit):
         pd.panel(kit, (sx * 0.04, -0.8, -0.8), w * 0.95, h * 0.95, img, f"innsign{sx}", rot_deg=(0, 0, rz))
 
 
+def build_banner(kit):
+    """Freestanding banner (metres): a post set in a stone footing, an iron-braced arm, and the kit's
+    cloth banner hanging from it, facing -y."""
+    wood = pd.swatch_material(kit, "plank_dark")
+    iron = _flat("banner_iron", (0.08, 0.08, 0.09), 0.45)
+    pd.part(kit, "box", (0, 0, 1.4), (0.14, 0.14, 3.2), wood, uv=1.5)
+    pd.part(kit, "sphere", (0, 0, 3.05), (0.18, 0.18, 0.18), iron, segments=10)
+    pd.part(kit, "box", (0, 0, 0.06), (0.45, 0.45, 0.2), pd.swatch_material(kit, "stone_dark"), bevel=0.03)
+    pd.part(kit, "box", (0.5, 0, 2.8), (1.1, 0.08, 0.08), wood)
+    pd.part(kit, "box", (0.28, 0, 2.55), (0.05, 0.05, 0.66), iron, rot_deg=(0, 50, 0))
+    for src in kit._load("Banner_1_Cloth"):
+        o = src.copy()
+        kit.scene.collection.objects.link(o)
+        o.matrix_world = Matrix.Translation((0.58, 0, 2.76)) @ src.matrix_world
+        kit.parts.append(o)
+
+
 def build_cross(kit):
     """Iron cross for a steeple top (metres)."""
     iron = _flat("cross_iron", (0.12, 0.11, 0.1), 0.4)
@@ -326,7 +348,7 @@ def build_cross(kit):
     pd.part(kit, "box", (0, 0, 1.25), (0.8, 0.12, 0.12), iron)
 
 
-EXTRA_BUILDERS = {"forge": build_forge, "inn_sign": build_inn_sign, "cross": build_cross}
+EXTRA_BUILDERS = {"forge": build_forge, "inn_sign": build_inn_sign, "cross": build_cross, "banner": build_banner}
 
 
 def add_extra(kit, ex, k):

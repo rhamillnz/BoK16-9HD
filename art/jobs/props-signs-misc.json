@@ -1,4 +1,4 @@
 [
-  {"name": "marker", "out": "public/models/props/marker.glb", "type": "marker", "box": [-1.55, -0.8, -0.4, 1.55, 0.8, 1.6], "preview": "shots/prop-marker.png"},
+  {"name": "marker", "out": "public/models/props/marker.glb", "type": "marker", "box": [-1.55, -0.8, -0.4, 1.55, 0.8, 1.6], "preview": "shots/prop-marker.png", "writing": true},
   {"name": "slab", "out": "public/models/props/slab.glb", "type": "marker", "box": [-1.55, -1.0, -0.7, 1.55, 1.0, 3.5], "preview": "shots/prop-slab.png"}
 ]

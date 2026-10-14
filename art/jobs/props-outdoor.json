@@ -1,7 +1,7 @@
 [
   {"name": "fence", "out": "public/models/props/fence.glb", "type": "fence", "box": [-5.1, 2.03, -0.06, 5.7, 2.33, 0.75], "preview": "shots/prop-fence.png", "panels": 8},
   {"name": "well", "out": "public/models/props/well.glb", "type": "well", "box": [-1.238, -0.982, 0.0, 1.238, 0.982, 2.0], "preview": "shots/prop-well.png"},
-  {"name": "rockpile", "out": "public/models/props/rockpile.glb", "type": "rocks", "box": [-1.55, -0.8, 0, 1.55, 0.8, 1.41], "preview": "shots/prop-rockpile.png"},
+  {"name": "rockpile", "out": "public/models/props/rockpile.glb", "type": "rockheap", "box": [-1.55, -0.8, 0, 1.55, 0.8, 1.41], "preview": "shots/prop-rockpile.png", "decimate": 0.38},
   {"name": "rockslab", "out": "public/models/props/rockslab.glb", "type": "slab", "box": [-1.4, -0.9, 0, 1.4, 0.9, 3.75], "preview": "shots/prop-rockslab.png"},
   {"name": "fireold", "out": "public/models/props/fireold.glb", "type": "firepit", "box": [-0.7, -0.7, 0.0, 0.7, 0.7, 0.2], "preview": "shots/prop-fireold.png"}
 ]

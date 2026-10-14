@@ -14,6 +14,7 @@ jobs.json entries:
    "mirror": false, "yaw": 0.0, "ratio": 0.2, "tex": 256,
    "tints": {"Body": {"color": [0.3, 0.16, 0.42], "target": 1.0}},   # per-part recolour, see tint_object
    "cover": ["lowerarm"],                         # more base-character skin to delete (bones the outfit covers)
+   "gloves": [0.03, 0.03, 0.035],                 # paint the outfit's hands (hand and finger bones) this colour
    "sink": 0.08,                                  # lying figures: lower this far below z = 0
    "preview": "shots/body-dbody2.png"}
 
@@ -111,10 +112,13 @@ def tint_object(obj, spec):
 
     spec = {"color": [r, g, b], "target": 1.0}: the texture's luminance is rescaled to a median of
     `target` and multiplied by `color` (linear, 0..1). Each slot gets its own copy of the material and
-    image, so parts sharing one atlas can be tinted differently.
+    image, so parts sharing one atlas can be tinted differently. Skin slots (the outfit's bare hands and
+    forearms use the base character's MI_Regular_* material) keep their colour.
     """
     import numpy as np
     for slot in obj.material_slots:
+        if slot.material is None or slot.material.name.startswith(SKIN_MATERIAL):
+            continue
         mat = slot.material.copy()
         slot.material = mat
         mat.name = "tint_" + spec.get("name", obj.name)
@@ -140,6 +144,28 @@ def tint_object(obj, spec):
 
 # Base-character parts hidden under the outfit: decimation would let this skin poke through the clothes.
 COVERED_BONES = ("pelvis", "spine", "clavicle", "upperarm", "thigh", "calf", "foot", "ball")
+HAND_BONES = ("hand", "thumb", "index", "middle", "ring", "pinky")
+SKIN_MATERIAL = "MI_Regular"
+
+
+def paint_gloves(obj, group_names, rgb):
+    """Give every face of `obj` whose vertices all hang mainly off hand or finger bones a plain `rgb` material."""
+    mat = bpy.data.materials.new("gloves")
+    mat.use_nodes = True
+    bsdf = mat.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.7
+    obj.data.materials.append(mat)
+    idx = len(obj.data.materials) - 1
+    me = obj.data
+
+    def on_hand(vi):
+        ws = me.vertices[vi].groups
+        return bool(ws) and group_names[max(ws, key=lambda w: w.weight).group].startswith(HAND_BONES)
+
+    for p in me.polygons:
+        if all(on_hand(vi) for vi in p.vertices):
+            p.material_index = idx
 
 
 def strip_covered_skin(obj, group_names, extra=()):
@@ -166,7 +192,7 @@ def strip_covered_skin(obj, group_names, extra=()):
     bm.free()
 
 
-def bake_pose(outfit_objs, action, scene, frame=None, cover=()):
+def bake_pose(outfit_objs, action, scene, frame=None, cover=(), gloves=None):
     for arm in (o for o in outfit_objs if o.type == "ARMATURE"):
         arm.animation_data_create()
         arm.animation_data.action = action
@@ -178,6 +204,10 @@ def bake_pose(outfit_objs, action, scene, frame=None, cover=()):
     scene.frame_set(int(hi_f if frame is None else lo_f + (hi_f - lo_f) * frame))
     bpy.context.view_layer.update()
     depsgraph = bpy.context.evaluated_depsgraph_get()
+    # An outfit's arm piece brings its own forearms and hands: drop the base character's (two skins in one
+    # place showed as patchy, half-and-half arms).
+    if any(o.type == "MESH" and o.name.endswith("_Arms") for o in outfit_objs):
+        cover = tuple(cover) + ("lowerarm",) + HAND_BONES
     baked = []
     for o in outfit_objs:
         # The "Icosphere" is the bone-shape widget shipped with the rig, not part of the body.
@@ -190,6 +220,8 @@ def bake_pose(outfit_objs, action, scene, frame=None, cover=()):
         new.matrix_world = ev.matrix_world.copy()
         if o.name.lower().startswith("superhero"):
             strip_covered_skin(new, [g.name for g in o.vertex_groups], cover)
+        elif gloves and o.name.endswith("_Arms"):
+            paint_gloves(new, [g.name for g in o.vertex_groups], gloves)
         baked.append(new)
     return baked
 
@@ -292,7 +324,7 @@ def main():
         imported = []
         for path in files:
             imported += import_gltf(path)
-        baked = bake_pose(imported, action, scene, frame, job.get("cover", ()))
+        baked = bake_pose(imported, action, scene, frame, job.get("cover", ()), job.get("gloves"))
         for o in anim_objs + imported:
             bpy.data.objects.remove(o, do_unlink=True)
         for o in baked:

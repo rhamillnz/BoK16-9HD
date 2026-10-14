@@ -19,5 +19,6 @@
   {"name": "deadbug", "out": "public/models/props/deadbug.glb", "type": "beetle", "fit": "height", "box": [-1.9, -1.0, 0, 1.9, 1.0, 1.9], "preview": "shots/review2/deadbug.png"},
   {"name": "catapult", "out": "public/models/props/catapult.glb", "type": "catapult", "fit": "height", "box": [-3.28, -2.76, 0, 3.28, 2.76, 4.08], "preview": "shots/review2/catapult.png"},
   {"name": "engine", "out": "public/models/props/engine.glb", "type": "siegeshed", "fit": "height", "box": [-2.72, -2.72, 0, 2.72, 2.72, 4.6], "preview": "shots/review2/engine.png"},
-  {"name": "temple", "out": "public/models/buildings/temple.glb", "type": "temple", "fit": "height", "box": [-6.75, -11.9, 0, 6.75, 11.9, 10.5], "preview": "shots/review2/temple.png"}
+  {"name": "temple", "out": "public/models/buildings/temple.glb", "type": "temple", "fit": "height", "box": [-6.75, -11.9, 0, 6.75, 11.9, 10.5], "preview": "shots/review2/temple.png"},
+  {"name": "rftshack", "out": "public/models/buildings/rftshack.glb", "type": "shack", "fit": "height", "box": [-4.3, -3.3, 0, 4.3, 3.3, 3.6], "preview": "shots/review2/rftshack.png"}
 ]

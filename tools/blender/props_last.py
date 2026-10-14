@@ -45,11 +45,12 @@ def build_corn(kit, job, flat_material):
     stalk = flat_material("stalk", (0.45, 0.4, 0.1), 1.0)
     leaf = flat_material("leaf", (0.3, 0.38, 0.08), 1.0)
     cob = flat_material("cob", (0.85, 0.62, 0.12), 0.8)
-    for i, (x, y, h) in enumerate([(0, 0, 1.0), (0.45, 0.2, 0.85), (-0.4, 0.3, 0.9), (0.15, -0.45, 0.8), (-0.3, -0.35, 0.7)]):
+    plants = [(0, 0, 1.0), (0.45, 0.2, 0.85), (-0.4, 0.3, 0.9), (0.15, -0.45, 0.8), (-0.3, -0.35, 0.7), (0.5, -0.2, 0.92), (-0.1, 0.5, 0.78)]
+    for i, (x, y, h) in enumerate(plants):
         kit.primitive("cylinder", (x, y, h * 0.5), (0.07, 0.07, h), stalk, segments=5)
         for k in range(3):
             a = i * 1.1 + k * 2.1
-            kit.primitive("box", (x + math.cos(a) * 0.22, y + math.sin(a) * 0.22, h * (0.35 + 0.18 * k)), (0.5, 0.06, 0.05), leaf, rot_deg=(0, -25, math.degrees(a)))
+            kit.primitive("box", (x + math.cos(a) * 0.14, y + math.sin(a) * 0.14, h * (0.35 + 0.18 * k)), (0.3, 0.04, 0.035), leaf, rot_deg=(0, -25, math.degrees(a)))
         kit.primitive("cylinder", (x + 0.06, y, h * 0.62), (0.09, 0.09, 0.3), cob, rot_deg=(0, 12, 0), segments=5)
 
 

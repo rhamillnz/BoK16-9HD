@@ -6,11 +6,12 @@ Usage (headless):
 jobs.json entries:
   {"name": "fence", "out": "public/models/props/fence.glb", "type": "fence",
    "box": [xmin, ymin, zmin, xmax, ymax, zmax],     # final bounds in render units (x east, y north, z up)
+   "decimate": 0.3,                                 # optional: collapse-decimate the joined mesh to this ratio
    "preview": "shots/prop-fence.png"}
 
 Types: fence (row of wooden panels along X), crate (kit crate), well (brick ring, posts, tiled roof),
 rocks (cluster of nature-kit rocks), slab (one tall rock), firepit (stone ring, ashes, logs),
-marker (low rock),
+marker (low rock; "writing": true carves pseudo-script on it),
 chest (Fantasy Props Chest_Wood), tent (cloth A-frame);
 crystal, corn (see props_last.py);
 textured second-pass types (see props_detail.py): gravestone ("variant" 0-4), tomb, waymark ("variant" 0-2),
@@ -224,8 +225,31 @@ def build_tent(kit, job):
 
 
 def build_marker(kit, job):
-    kit.place("Rock_Medium_1", (0, 0, 0), (0, 0, 40))
+    rock = kit.place("Rock_Medium_1", (0, 0, 0), (0, 0, 40))
     kit.place("Rock_Medium_2", (0.9, 0.3, 0), (0, 0, 120), (0.5, 0.5, 0.5))
+    if job.get("writing"):
+        # Carved pseudo-script on both broad faces of the big rock, like the gravestones.
+        # Centred on the biggest facet facing each way, so the lines sit on one face rather than straddling edges.
+        bpy.context.view_layer.update()
+        for side in (-1, 1):
+            best = None
+            for o in rock:
+                mw = o.matrix_world
+                nm = mw.to_3x3().inverted().transposed()
+                for p in o.data.polygons:
+                    n = (nm @ p.normal).normalized()
+                    cos = [mw @ o.data.vertices[i].co for i in p.vertices]
+                    # Area as seen along Y (what the projected writing can use).
+                    xs, zs = [c.x for c in cos], [c.z for c in cos]
+                    seen = abs(sum(xs[i] * zs[i - 1] - xs[i - 1] * zs[i] for i in range(len(cos)))) / 2
+                    if n.y * side > 0.6 and (best is None or seen > best[0]):
+                        best = (seen, sum(cos, Vector()) / len(cos))
+            if best is None:
+                continue
+            w, h = math.sqrt(best[0]) * 1.7, math.sqrt(best[0]) * 1.35
+            mask = props_detail.script_mask(w, h, 81 + side, 3)
+            props_detail.carve_writing(kit, rock, side, (best[1].x, best[1].z), (w, h), mask, f"runes{side}",
+                                       (0.04, 0.045, 0.035), min_dot=0.6)
 
 
 
@@ -258,6 +282,11 @@ def finish(scene, kit, job):
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     bpy.ops.object.join()
     joined = bpy.context.view_layer.objects.active
+    if job.get("decimate"):
+        # Props that are also scattered by the thousand (e.g. rockpile as hill scree) keep a small triangle count.
+        mod = joined.modifiers.new("decimate", "DECIMATE")
+        mod.ratio = job["decimate"]
+        bpy.ops.object.modifier_apply(modifier=mod.name)
     lo, hi = bounds([joined])
     bx = job["box"]
     size = Vector((bx[3] - bx[0], bx[4] - bx[1], bx[5] - bx[2]))
