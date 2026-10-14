@@ -1,6 +1,6 @@
 import type { SpellDef } from '../formats/spells';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
-import { formatTime, TICKS_PER_MINUTE } from './state';
+import { formatTime } from './state';
 import {
   canCast,
   castHeal,
@@ -29,20 +29,18 @@ export interface CastHost {
   onLight?(light: ActiveLight | undefined): void;
 }
 
-/** The last spell cast in the world, so dialogue choices that ask "did the player just cast X?" can see it. */
-const recent = { spell: -1, ticks: 0 };
-/** Game time (ticks) a cast stays "just cast": five minutes. */
-export const JUST_CAST_TICKS = 5 * TICKS_PER_MINUTE;
+/** What a timed spell does, for the cast message (SPELLDOC). */
+const TIMED_EFFECT: Record<number, string> = {
+  0: 'The fog',
+  2: 'The light',
+  26: 'The light',
+  35: 'The disguise as a moredhel',
+  34: 'The power to read moredhel',
+  8: 'The scent of traps',
+};
 
-export function noteCast(spell: number, ticks: number): void {
-  recent.spell = spell;
-  recent.ticks = ticks;
-}
-
-/** Whether `spell` was cast within the last few game minutes (feeds the dialogue `castSpell` hook). */
-export function justCast(spell: number, nowTicks: number): boolean {
-  return recent.spell === spell && nowTicks >= recent.ticks && nowTicks - recent.ticks <= JUST_CAST_TICKS;
-}
+/** Spells that can be cast outside combat. */
+const WORLD_KINDS = ['heal', 'light', 'timed'];
 
 /** Powers offered for a spell: its cheapest, middle and strongest affordable. */
 export function powerChoices(min: number, max: number): number[] {
@@ -56,7 +54,7 @@ export function powerChoices(min: number, max: number): number[] {
 export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<string | undefined> {
   const party = host.getParty();
   const casters = activeCharacters(party).filter(
-    (c) => isSpellcaster(c) && knownSpells(c, host.spells).some((s) => ['heal', 'light'].includes(spellKind(s))),
+    (c) => isSpellcaster(c) && knownSpells(c, host.spells).some((s) => WORLD_KINDS.includes(spellKind(s))),
   );
   if (casters.length === 0) {
     await host.menu('Nobody in the party knows a spell that works here.', []);
@@ -67,7 +65,7 @@ export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<st
   if (!caster) return undefined;
 
   const options = knownSpells(caster, host.spells).filter(
-    (s) => ['heal', 'light'].includes(spellKind(s)) && canCast(caster, s),
+    (s) => WORLD_KINDS.includes(spellKind(s)) && canCast(caster, s),
   );
   if (options.length === 0) {
     await host.menu(`${caster.name} is too weary to cast.`, []);
@@ -101,19 +99,20 @@ export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<st
     const r = castHeal(host.getParty(), caster.index, spell, power, target.index);
     host.setParty(r.party);
     message = r.message;
-    if (r.ok) noteCast(spell.index, host.getTicks());
   } else {
     host.setParty(updateCharacter(host.getParty(), caster.index, (c) => payCost(c, power)));
-    lights.push({ spell: spell.index, endTicks: host.getTicks() + spellTicks(power) });
-    noteCast(spell.index, host.getTicks());
+    const endTicks = host.getTicks() + spellTicks(spell, power);
+    // Casting again renews the spell rather than stacking it.
+    const kept = lights.filter((l) => l.spell !== spell.index);
+    lights.splice(0, lights.length, ...kept, { spell: spell.index, endTicks });
     host.onLight?.(currentLight(lights, host.getTicks()));
-    message = `${caster.name} casts ${spell.name}. The light will last until ${formatTime(host.getTicks() + spellTicks(power))}.`;
+    message = `${caster.name} casts ${spell.name}. ${TIMED_EFFECT[spell.index] ?? 'The spell'} will last until ${formatTime(endTicks)}.`;
   }
   await host.menu(message, []);
   return message;
 }
 
-/** V casts a spell. The only wiring main.ts needs: one call with the host. */
+/** V casts a spell. The only wiring main.ts needs: one call with the host. `lights` holds every timed spell in force. */
 export function installCast(host: CastHost): { lights: readonly ActiveLight[] } {
   const lights: ActiveLight[] = [];
   let busy = false;

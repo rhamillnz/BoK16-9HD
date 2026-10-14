@@ -165,7 +165,7 @@ export interface DialogEnv {
   haveItem?: (item: number) => boolean;
   /** The party holds note `n` (haveNote choices). Default false. */
   haveNote?: (note: number) => boolean;
-  /** The player just cast spell `n` (castSpell choices). Default false. */
+  /** Timed spell slot `n` is in force (castSpell choices; STATIC_SPELLS order, e.g. 3 And the Light Shall Lie, 5 Scent of Sarig). Default false. */
   castSpell?: (spell: number) => boolean;
   /** Value of scripted scenario state `id` (customState choices). Default 0. */
   customState?: (id: number) => number;

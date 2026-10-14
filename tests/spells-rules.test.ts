@@ -5,7 +5,19 @@ import { battleRewards } from '../src/combat/rewards';
 import { RaceKind } from '../src/combat/rules';
 import { SKILL_NAMES, type Character, type Skill } from '../src/formats/gam';
 import { SpellCalc, type SpellDef } from '../src/formats/spells';
-import { castHeal, canCast, currentLight, learnFromScroll, maxPower, spellAmount, spellKind } from '../src/game/spells';
+import {
+  castHeal,
+  canCast,
+  currentLight,
+  learnFromScroll,
+  maxPower,
+  spellActive,
+  spellAmount,
+  spellKind,
+  spellTicks,
+  staticSpellActive,
+} from '../src/game/spells';
+import { TICKS_PER_MINUTE } from '../src/game/state';
 import { powerChoices } from '../src/game/castControls';
 import type { PartyState } from '../src/game/party';
 
@@ -22,7 +34,7 @@ const spell = (o: Partial<SpellDef>): SpellDef => ({
   ...o,
 });
 const FIRE = spell({ index: 7, name: 'Fire' });
-const MEND = spell({ index: 8, name: 'Mend', combat: false, targeting: 2, calc: SpellCalc.FixedAmount, damage: 9 });
+const MEND = spell({ index: 11, name: 'Mend', combat: true, targeting: 2, calc: SpellCalc.FixedAmount, damage: 9 });
 const LAMP = spell({ index: 2, name: 'Candle', combat: false, targeting: 5, damage: 0 });
 
 const sk = (max: number, trueSkill = max): Skill => ({
@@ -102,7 +114,7 @@ describe('spell rules', () => {
     expect(powerChoices(3, 3)).toEqual([3]);
   });
   it('heals a party member and pays from stamina first', () => {
-    const p = party([mage(0, [8]), mage(1, [])]);
+    const p = party([mage(0, [11]), mage(1, [])]);
     const r = castHeal(p, 0, MEND, 3, 1);
     expect(r.ok).toBe(true);
     const [a, b] = r.party.characters;
@@ -155,9 +167,9 @@ describe('casting in combat', () => {
   });
   it('a healing spell restores an ally, capped at maximum, and refuses enemies', () => {
     const s = start();
-    const healed = castSpell(s, 8, { x: 4, y: 1 })!;
+    const healed = castSpell(s, 11, { x: 4, y: 1 })!;
     expect(healed.fighters[1]!.health).toBe(14);
-    expect(castSpell(s, 8, { x: 3, y: 5 })).toBeUndefined();
+    expect(castSpell(s, 11, { x: 3, y: 5 })).toBeUndefined();
     expect(castSpell(s, 7, { x: 4, y: 1 })).toBeUndefined();
     expect(castSpell(s, 99, { x: 3, y: 5 })).toBeUndefined();
   });
@@ -172,12 +184,27 @@ describe('casting in combat', () => {
   });
 });
 
-describe('dialogue castSpell hook', () => {
-  it('remembers a cast for a few game minutes', async () => {
-    const { noteCast, justCast, JUST_CAST_TICKS } = await import('../src/game/castControls');
-    noteCast(4, 1000);
-    expect(justCast(4, 1000 + JUST_CAST_TICKS)).toBe(true);
-    expect(justCast(4, 1001 + JUST_CAST_TICKS)).toBe(false);
-    expect(justCast(5, 1000)).toBe(false);
+describe('timed spells', () => {
+  const def = (index: number, duration: number) => ({ index, duration });
+  it('last their duration in minutes, times the power for lights', () => {
+    expect(spellTicks(def(2, 48), 3)).toBe(48 * 3 * TICKS_PER_MINUTE);
+    expect(spellTicks(def(35, 120), 15)).toBe(120 * TICKS_PER_MINUTE);
+  });
+  it('answer the dialogue castSpell test by save slot', () => {
+    const active = [
+      { spell: 35, endTicks: 100 },
+      { spell: 2, endTicks: 50 },
+    ];
+    expect(staticSpellActive(active, 3, 99)).toBe(true);
+    expect(staticSpellActive(active, 3, 100)).toBe(false);
+    expect(staticSpellActive(active, 5, 0)).toBe(false);
+    expect(spellActive(active, 2, 10)).toBe(true);
+  });
+  it("are classified apart; Dannon's Delusions is not a heal", () => {
+    expect(spellKind(spell({ index: 34, combat: false, targeting: 3, damage: 0 }))).toBe('timed');
+    expect(spellKind(spell({ index: 1, combat: false, targeting: 3, damage: 1 }))).toBe('unsupported');
+  });
+  it('only lights count as light', () => {
+    expect(currentLight([{ spell: 35, endTicks: 100 }], 0)).toBeUndefined();
   });
 });

@@ -2,6 +2,7 @@ import { SKILL_NAMES, type Character } from '../formats/gam';
 import { SpellCalc, type SpellDef } from '../formats/spells';
 import { applyDamage } from '../combat/rules';
 import { learnSpell, updateCharacter, type PartyState } from './party';
+import { TICKS_PER_MINUTE } from './state';
 
 /**
  * Spell rules shared by the world and combat. Pure. The data comes from SPELLS.DAT; what a spell
@@ -9,10 +10,13 @@ import { learnSpell, updateCharacter, type PartyState } from './party';
  * effect code is not documented anywhere we have read (**unverified**, see docs/formats/spells.md).
  */
 
-/** Spell numbers BaKGL names as timed "static" spells; the first three are lights. */
+/**
+ * The timed ("static") spells by their slot in the save's active-spell bits (BaKGL's order): Dragon's Breath,
+ * Candle Glow, Stardusk, And the Light Shall Lie, Union, Scent of Sarig. Dialogue `castSpell` choices test a slot.
+ */
+export const STATIC_SPELLS: readonly number[] = [0, 2, 26, 35, 34, 8];
+/** The timed spells that light the way (Dragon's Breath also hides the party in fog). */
 export const LIGHT_SPELLS: readonly number[] = [0, 2, 26];
-/** Ticks of game time one point of power buys for a duration spell (one hour per point, as BaKGL). */
-export const TICKS_PER_POWER = 0x708;
 
 export type SpellKind =
   /** Hurts a chosen enemy (combat only). */
@@ -21,13 +25,17 @@ export type SpellKind =
   | 'heal'
   /** Lights the way for a while (world only). */
   | 'light'
+  /** Another timed world spell (disguise, reading moredhel, sensing traps). */
+  | 'timed'
   /** Understood but not implemented yet. */
   | 'unsupported';
 
 export function spellKind(s: SpellDef): SpellKind {
   if (LIGHT_SPELLS.includes(s.index)) return 'light';
+  if (STATIC_SPELLS.includes(s.index)) return 'timed';
   if (s.combat && s.damage > 0 && (s.targeting === 0 || s.targeting === 1 || s.targeting === 4)) return 'damage';
-  if (s.damage !== 0 && (s.targeting === 2 || s.targeting === 3)) return 'heal';
+  // Dannon's Delusions (not a combat spell, damage 1) makes an illusionary fighter, it does not heal.
+  if (s.combat && s.damage !== 0 && (s.targeting === 2 || s.targeting === 3)) return 'heal';
   return 'unsupported';
 }
 
@@ -65,8 +73,14 @@ export function spellAmount(s: SpellDef, power: number): number {
   }
 }
 
-/** Game time a light spell lasts at `power`. */
-export const spellTicks = (power: number): number => Math.max(1, power) * TICKS_PER_POWER;
+/**
+ * Game time a timed spell lasts: its SPELLS.DAT duration in minutes, times the power for the lights (SPELLDOC:
+ * "Duration: 10 minutes X Cost" for Dragon's Breath, 48 for Candle Glow and Stardusk); the others last a fixed time.
+ */
+export function spellTicks(s: Pick<SpellDef, 'index' | 'duration'>, power: number): number {
+  const minutes = Math.max(1, s.duration) * (LIGHT_SPELLS.includes(s.index) ? Math.max(1, power) : 1);
+  return minutes * TICKS_PER_MINUTE;
+}
 
 /** Pay `power` from Stamina first, then Health (never below 1 Health). */
 export function payCost(c: Character, power: number): Character {
@@ -136,13 +150,23 @@ export function skillOfMask(mask: number): (typeof SKILL_NAMES)[number] | undefi
   return undefined;
 }
 
-/** A timed light. */
+/** A timed spell in force until `endTicks`. */
 export interface ActiveLight {
   spell: number;
   endTicks: number;
 }
 
-/** Light in force at `ticks`: the longest-lasting spell not yet expired. */
+/** Light in force at `ticks`: the longest-lasting light spell not yet expired. */
 export function currentLight(lights: readonly ActiveLight[], ticks: number): ActiveLight | undefined {
-  return lights.filter((l) => l.endTicks > ticks).sort((a, b) => b.endTicks - a.endTicks)[0];
+  return lights
+    .filter((l) => LIGHT_SPELLS.includes(l.spell) && l.endTicks > ticks)
+    .sort((a, b) => b.endTicks - a.endTicks)[0];
 }
+
+/** Whether timed spell `spell` (a SPELLS.DAT index) is in force at `ticks`. */
+export const spellActive = (active: readonly ActiveLight[], spell: number, ticks: number): boolean =>
+  active.some((l) => l.spell === spell && l.endTicks > ticks);
+
+/** Whether the timed spell in save slot `slot` (STATIC_SPELLS order) is in force: the dialogue `castSpell` test. */
+export const staticSpellActive = (active: readonly ActiveLight[], slot: number, ticks: number): boolean =>
+  STATIC_SPELLS[slot] !== undefined && spellActive(active, STATIC_SPELLS[slot]!, ticks);

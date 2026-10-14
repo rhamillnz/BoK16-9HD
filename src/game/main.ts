@@ -89,7 +89,7 @@ import { townStashSource } from './containers';
 import { parseSaveZoneContainers } from '../formats/containers';
 import { installItemControls } from './itemControls';
 import { installTempleControls } from './templeControls';
-import { installCast, justCast } from './castControls';
+import { installCast } from './castControls';
 import { parseSpells } from '../formats/spells';
 import { createShops } from './shopControls';
 import { installChapters, loadDialogStore } from './chapterControls';
@@ -101,7 +101,7 @@ import { cutsceneMusic, installCutscenes } from './cutsceneControls';
 import { overheadPolygons } from '../world/overheadMap';
 import { installUnderground } from './undergroundMode';
 import { pointInPolygon } from '../world/collision';
-import { currentLight } from './spells';
+import { currentLight, spellActive, staticSpellActive } from './spells';
 import { installMainMenu } from './mainMenuControls';
 import { DEFAULT_SETTINGS } from './mainMenu';
 import { loadTitleArt } from './titleArt';
@@ -480,6 +480,7 @@ const combat = new CombatEncounters({
     clock.state = encounters.runner.world;
   },
   now: () => clock.state.ticks,
+  dragonsBreath: () => spellActive(cast.lights, 0, clock.state.ticks),
   searchBodies: (items) => containers.searchBodies(items),
   afterWin: (combatIndex) => {
     clock.state = postCombatFlags(clock.state, combatIndex);
@@ -525,7 +526,7 @@ const makeEncounters = async (zoneNumber: number, tiles: readonly (readonly [num
         zone: zoneNumber,
         chapter: start.chapter,
         extras: () => ({ ...shops.textExtras(), ...combatText }),
-        castSpell: (n) => justCast(n, clock.state.ticks),
+        castSpell: (n) => staticSpellActive(cast.lights, n, clock.state.ticks),
       }),
     }),
     showView,

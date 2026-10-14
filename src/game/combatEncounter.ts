@@ -55,6 +55,8 @@ export interface CombatEncounterDeps {
   markDone: (e: PlacedEncounter) => void;
   /** Game time in ticks (when an ambush was scouted). */
   now?: () => number;
+  /** Dragon's Breath's fog is up (ambushes notice the party less). */
+  dragonsBreath?: () => boolean;
   /** Uniform 0..99 for the scouting and stealth rolls. */
   roll?: () => number;
   /**
@@ -140,6 +142,7 @@ export class CombatEncounters {
         scoutedAt: this.scoutedAt.get(def.combatIndex),
         now,
         roll: this.d.roll ?? (() => Math.floor(Math.random() * 100)),
+        dragonsBreath: this.d.dragonsBreath?.(),
       });
       if (def.ambush) this.scoutTried.add(key);
       this.d.setParty(a.party);
