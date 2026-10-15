@@ -139,7 +139,6 @@
   ],
   "brow_scale": 0.5,
   "drop": [
-   "Feet",
    "Legs"
   ],
   "tints": {
@@ -178,7 +177,7 @@
      0.05,
      0.06
     ],
-    "length": 1.42,
+    "length": 1.57,
     "volume": 0.016,
     "hairline": [
      [
@@ -215,12 +214,12 @@
      0.42,
      0.15
     ],
-    "hem": 0.03,
+    "hem": 0.13,
     "flare": [
      0.3,
      0.26
     ],
-    "follow": 0.85
+    "follow": 1.0
    },
    {
     "type": "belt",
@@ -294,14 +293,14 @@
    {
     "type": "hair",
     "cloth": true,
+    "cowl": true,
     "color": [
      0.03,
      0.03,
      0.035
     ],
-    "volume": 0.035,
-    "length": 1.42,
-    "flare": 0.05,
+    "volume": 0.028,
+    "length": 1.3,
     "hairline": [
      [
       0,
@@ -417,14 +416,14 @@
    {
     "type": "hair",
     "cloth": true,
+    "cowl": true,
     "color": [
      0.05,
      0.05,
      0.055
     ],
-    "volume": 0.035,
-    "length": 1.42,
-    "flare": 0.05,
+    "volume": 0.028,
+    "length": 1.3,
     "hairline": [
      [
       0,
@@ -625,7 +624,7 @@
      0.06,
      0.05
     ],
-    "length": 1.5,
+    "length": 1.57,
     "volume": 0.015,
     "hairline": [
      [
@@ -744,9 +743,9 @@
     "type": "hair",
     "cloth": true,
     "color": [
-     0.6,
-     0.06,
-     0.05
+     0.3,
+     0.36,
+     0.42
     ],
     "volume": 0.03,
     "length": 1.8,
@@ -772,9 +771,9 @@
    {
     "type": "baldric",
     "color": [
-     0.6,
-     0.06,
-     0.05
+     0.3,
+     0.36,
+     0.42
     ],
     "width": 0.09
    },
@@ -789,8 +788,7 @@
    }
   ],
   "weapon": {
-   "type": "sword",
-   "length": 0.72
+   "type": "scimitar"
   }
  },
  {
@@ -800,7 +798,6 @@
   "tex": 256,
   "outfit": "Male_Peasant",
   "drop": [
-   "Feet",
    "Legs"
   ],
   "brow_color": [
@@ -835,14 +832,14 @@
    {
     "type": "hair",
     "cloth": true,
+    "cowl": true,
     "color": [
      0.3,
      0.38,
      0.34
     ],
-    "volume": 0.035,
-    "length": 1.42,
-    "flare": 0.05,
+    "volume": 0.028,
+    "length": 1.3,
     "hairline": [
      [
       0,
@@ -873,12 +870,12 @@
      0.38,
      0.34
     ],
-    "hem": 0.03,
+    "hem": 0.13,
     "flare": [
      0.3,
      0.26
     ],
-    "follow": 0.85
+    "follow": 1.0
    },
    {
     "type": "belt",
@@ -905,10 +902,14 @@
   "tex": 256,
   "outfit": "Male_Peasant",
   "drop": [
-   "Eyebrows",
-   "Feet",
-   "Legs"
+   "Legs",
+   "Eyebrows"
   ],
+  "sculpt": {
+   "snout": 0.055,
+   "slope": 0.025,
+   "nose": -0.004
+  },
   "skin_texture": {
    "kind": "scales",
    "color": [
@@ -944,14 +945,14 @@
    {
     "type": "hair",
     "cloth": true,
+    "cowl": true,
     "color": [
      0.03,
      0.03,
      0.035
     ],
-    "volume": 0.035,
-    "length": 1.42,
-    "flare": 0.05,
+    "volume": 0.028,
+    "length": 1.3,
     "hairline": [
      [
       0,
@@ -982,12 +983,12 @@
      0.03,
      0.035
     ],
-    "hem": 0.03,
+    "hem": 0.13,
     "flare": [
      0.3,
      0.26
     ],
-    "follow": 0.85
+    "follow": 1.0
    },
    {
     "type": "belt",
@@ -1014,10 +1015,14 @@
   "tex": 256,
   "outfit": "Male_Peasant",
   "drop": [
-   "Eyebrows",
-   "Feet",
-   "Legs"
+   "Legs",
+   "Eyebrows"
   ],
+  "sculpt": {
+   "snout": 0.055,
+   "slope": 0.025,
+   "nose": -0.004
+  },
   "skin_texture": {
    "kind": "scales",
    "color": [
@@ -1053,14 +1058,14 @@
    {
     "type": "hair",
     "cloth": true,
+    "cowl": true,
     "color": [
      0.03,
      0.03,
      0.035
     ],
-    "volume": 0.035,
-    "length": 1.42,
-    "flare": 0.05,
+    "volume": 0.028,
+    "length": 1.3,
     "hairline": [
      [
       0,
@@ -1091,12 +1096,12 @@
      0.025,
      0.025
     ],
-    "hem": 0.03,
+    "hem": 0.13,
     "flare": [
      0.3,
      0.26
     ],
-    "follow": 0.85
+    "follow": 1.0
    },
    {
     "type": "belt",
@@ -1107,8 +1112,10 @@
     ]
    }
   ],
-  "weapon": {
-   "type": "dagger"
+  "clips": {
+   "idle": "Idle_Loop",
+   "attack": "Spell_Simple_Shoot",
+   "block": "Hit_Chest"
   }
  },
  {
@@ -1118,18 +1125,12 @@
   "tex": 256,
   "outfit": "Male_Peasant",
   "drop": [
-   "Feet",
    "Legs"
   ],
-  "hair": [
-   "Hair_Long",
-   "Hair_Buzzed"
-  ],
-  "hair_color": [
-   0.88,
-   0.88,
-   0.86
-  ],
+  "sculpt": {
+   "nose": 0.006,
+   "cheeks": -0.004
+  },
   "beard": "Hair_Beard",
   "beard_color": [
    0.9,
@@ -1143,9 +1144,9 @@
    0.82
   ],
   "skin": [
-   0.95,
-   0.85,
-   0.8
+   1.0,
+   0.86,
+   0.66
   ],
   "tints": {
    "Body": {
@@ -1172,18 +1173,90 @@
   },
   "garments": [
    {
+    "type": "hair",
+    "color": [
+     0.86,
+     0.86,
+     0.84
+    ],
+    "tip": [
+     0.95,
+     0.95,
+     0.93
+    ],
+    "length": 1.58,
+    "volume": 0.02,
+    "wave": 0.01,
+    "hairline": [
+     [
+      0,
+      40
+     ],
+     [
+      40,
+      30
+     ],
+     [
+      62,
+      -6
+     ],
+     [
+      72,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
+    "type": "hair",
+    "cloth": true,
+    "cowl": true,
+    "color": [
+     0.03,
+     0.03,
+     0.035
+    ],
+    "volume": 0.028,
+    "length": 1.3,
+    "hairline": [
+     [
+      0,
+      22
+     ],
+     [
+      40,
+      12
+     ],
+     [
+      62,
+      -30
+     ],
+     [
+      74,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
     "type": "robe",
     "color": [
      0.03,
      0.03,
      0.035
     ],
-    "hem": 0.02,
+    "hem": 0.13,
     "flare": [
      0.34,
      0.3
     ],
-    "follow": 0.85
+    "follow": 1.0
    },
    {
     "type": "belt",
@@ -1216,14 +1289,19 @@
   "base": "Superhero_Female_FullBody",
   "outfit": "Female_Peasant",
   "drop": [
-   "Feet",
    "Legs"
   ],
   "skin": [
-   0.85,
-   0.82,
-   0.8
+   0.86,
+   0.84,
+   0.7
   ],
+  "sculpt": {
+   "nose": 0.015,
+   "chin": 0.016,
+   "cheeks": 0.008,
+   "brow": 0.005
+  },
   "brow_color": [
    0.05,
    0.05,
@@ -1299,12 +1377,12 @@
      0.06,
      0.2
     ],
-    "hem": 0.03,
+    "hem": 0.13,
     "flare": [
      0.3,
      0.26
     ],
-    "follow": 0.85
+    "follow": 1.0
    },
    {
     "type": "belt",
@@ -1312,6 +1390,15 @@
      0.1,
      0.07,
      0.05
+    ]
+   },
+   {
+    "type": "warts",
+    "count": 22,
+    "color": [
+     0.22,
+     0.13,
+     0.08
     ]
    }
   ],
@@ -1326,10 +1413,6 @@
   "tex": 256,
   "base": "Superhero_Female_FullBody",
   "outfit": "Female_Peasant",
-  "drop": [
-   "Feet",
-   "Legs"
-  ],
   "alpha": 0.55,
   "skin": [
    0.75,
@@ -1416,12 +1499,12 @@
      0.62,
      0.78
     ],
-    "hem": 0.0,
+    "hem": 0.13,
     "flare": [
      0.28,
      0.24
     ],
-    "follow": 0.85,
+    "follow": 1.0,
     "ragged": 0.04
    },
    {
@@ -1436,7 +1519,6 @@
   "tex": 256,
   "outfit": "Male_Peasant",
   "drop": [
-   "Feet",
    "Legs"
   ],
   "alpha": 0.6,
@@ -1482,14 +1564,14 @@
    {
     "type": "hair",
     "cloth": true,
+    "cowl": true,
     "color": [
      0.3,
      0.32,
      0.31
     ],
-    "volume": 0.035,
-    "length": 1.42,
-    "flare": 0.05,
+    "volume": 0.028,
+    "length": 1.3,
     "hairline": [
      [
       0,
@@ -1520,12 +1602,12 @@
      0.34,
      0.33
     ],
-    "hem": 0.05,
+    "hem": 0.13,
     "flare": [
      0.3,
      0.26
     ],
-    "follow": 0.85,
+    "follow": 1.0,
     "ragged": 0.1
    }
   ]
@@ -1535,85 +1617,104 @@
   "out": "public/models/creatures/gob.glb",
   "preview": "shots/creatures/gob",
   "tex": 256,
-  "outfit": "Male_Peasant",
-  "scale": 0.88,
-  "skin": [
-   0.85,
-   0.82,
-   0.7
-  ],
+  "outfit": null,
+  "scale": 0.72,
+  "skin_texture": {
+   "kind": "hide",
+   "color": [
+    0.38,
+    0.42,
+    0.2
+   ]
+  },
   "brow_color": [
-   0.05,
-   0.04,
-   0.03
+   0.08,
+   0.07,
+   0.04
   ],
-  "tints": {
-   "Body": {
-    "color": [
-     0.09,
-     0.18,
-     0.07
-    ],
-    "target": 0.45
-   },
-   "Arms": {
-    "color": [
-     0.09,
-     0.18,
-     0.07
-    ],
-    "target": 0.45
-   },
-   "Legs": {
-    "color": [
-     0.24,
-     0.06,
-     0.05
-    ]
-   },
-   "Feet": {
-    "color": [
-     0.08,
-     0.06,
-     0.04
-    ]
-   }
+  "brow_scale": 0.5,
+  "elf_ears": 0.055,
+  "sculpt": {
+   "nose": 0.022,
+   "brow": 0.01,
+   "jaw": 0.01,
+   "crown": 0.01
+  },
+  "proportions": {
+   "Head": [
+    1.22,
+    1.22,
+    1.22
+   ],
+   "upperarm_l": [
+    1,
+    1.08,
+    1
+   ],
+   "upperarm_r": [
+    1,
+    1.08,
+    1
+   ],
+   "thigh_l": [
+    1,
+    0.9,
+    1
+   ],
+   "thigh_r": [
+    1,
+    0.9,
+    1
+   ]
   },
   "garments": [
    {
     "type": "hair",
     "color": [
-     0.05,
-     0.04,
-     0.03
+     0.08,
+     0.07,
+     0.05
     ],
-    "length": 1.55,
-    "volume": 0.016,
+    "volume": 0.005,
+    "length": 1.8,
     "hairline": [
      [
       0,
-      30
+      58
      ],
      [
-      38,
-      22
-     ],
-     [
-      62,
-      -6
-     ],
-     [
-      72,
-      -999
+      90,
+      48
      ],
      [
       180,
-      -999
+      45
      ]
     ]
    },
    {
-    "type": "belt"
+    "type": "fangs",
+    "radius": 0.007,
+    "length": 0.026
+   },
+   {
+    "type": "loincloth",
+    "color": [
+     0.3,
+     0.22,
+     0.12
+    ],
+    "ragged": 0.06,
+    "hem": 0.74,
+    "follow": 1.0
+   },
+   {
+    "type": "belt",
+    "color": [
+     0.12,
+     0.08,
+     0.05
+    ]
    }
   ],
   "weapon": {
@@ -1626,43 +1727,84 @@
   "preview": "shots/creatures/ogr",
   "tex": 256,
   "outfit": null,
-  "scale": 1.15,
-  "skin": [
-   0.85,
-   0.78,
-   0.72
-  ],
+  "scale": 1.35,
+  "skin_texture": {
+   "kind": "hide",
+   "color": [
+    0.44,
+    0.5,
+    0.38
+   ]
+  },
   "brow_color": [
-   0.2,
+   0.15,
    0.15,
    0.1
   ],
+  "sculpt": {
+   "brow": 0.022,
+   "nose": 0.016,
+   "jaw": 0.02,
+   "slope": 0.02,
+   "lumps": 0.004
+  },
   "proportions": {
-   "upperarm_l": [
+   "spine_02": [
+    1.3,
     1,
-    1.08,
-    1
-   ],
-   "upperarm_r": [
-    1,
-    1.08,
-    1
+    1.35
    ],
    "spine_03": [
-    0.95,
+    1.28,
     1,
-    0.95
+    1.25
+   ],
+   "upperarm_l": [
+    1.3,
+    1.08,
+    1.3
+   ],
+   "upperarm_r": [
+    1.3,
+    1.08,
+    1.3
+   ],
+   "thigh_l": [
+    1.3,
+    0.95,
+    1.3
+   ],
+   "thigh_r": [
+    1.3,
+    0.95,
+    1.3
+   ],
+   "neck_01": [
+    1.3,
+    0.7,
+    1.3
+   ],
+   "Head": [
+    0.92,
+    0.92,
+    0.92
    ]
   },
   "garments": [
    {
+    "type": "fangs",
+    "radius": 0.009,
+    "length": 0.034
+   },
+   {
     "type": "loincloth",
     "color": [
-     0.3,
-     0.22,
-     0.13
+     0.28,
+     0.2,
+     0.12
     ],
-    "ragged": 0.06
+    "ragged": 0.07,
+    "follow": 1.0
    },
    {
     "type": "belt",
@@ -1674,8 +1816,7 @@
    }
   ],
   "weapon": {
-   "type": "club",
-   "length": 0.75
+   "type": "club"
   }
  },
  {
@@ -1729,45 +1870,11 @@
     1.12
    ]
   },
+  "sculpt": {
+   "brow": 0.012,
+   "jaw": 0.008
+  },
   "garments": [
-   {
-    "type": "hair",
-    "color": [
-     0.2,
-     0.2,
-     0.2
-    ],
-    "tip": [
-     0.32,
-     0.32,
-     0.3
-    ],
-    "length": 1.45,
-    "volume": 0.02,
-    "wave": 0.015,
-    "hairline": [
-     [
-      0,
-      30
-     ],
-     [
-      38,
-      22
-     ],
-     [
-      62,
-      -6
-     ],
-     [
-      72,
-      -999
-     ],
-     [
-      180,
-      -999
-     ]
-    ]
-   },
    {
     "type": "fangs"
    },
@@ -1778,7 +1885,10 @@
      0.2,
      0.15
     ],
-    "ragged": 0.06
+    "ragged": 0.05,
+    "waist": 1.03,
+    "hem": 0.8,
+    "follow": 1.0
    }
   ],
   "weapon": {
@@ -1797,15 +1907,12 @@
    0.88,
    0.78
   ],
-  "hair": [
-   "Hair_Long",
-   "Hair_Buzzed"
-  ],
-  "hair_color": [
-   0.12,
-   0.07,
-   0.04
-  ],
+  "sculpt": {
+   "brow": 0.024,
+   "slope": 0.035,
+   "nose": 0.016,
+   "jaw": 0.014
+  },
   "beard": "Hair_Beard",
   "beard_color": [
    0.12,
@@ -1836,13 +1943,53 @@
   },
   "garments": [
    {
+    "type": "hair",
+    "color": [
+     0.12,
+     0.07,
+     0.04
+    ],
+    "tip": [
+     0.2,
+     0.12,
+     0.07
+    ],
+    "length": 1.42,
+    "volume": 0.024,
+    "wave": 0.02,
+    "flare": 0.06,
+    "hairline": [
+     [
+      0,
+      46
+     ],
+     [
+      40,
+      30
+     ],
+     [
+      62,
+      -6
+     ],
+     [
+      72,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
     "type": "loincloth",
     "color": [
      0.42,
      0.32,
      0.2
     ],
-    "ragged": 0.07
+    "ragged": 0.07,
+    "follow": 1.0
    },
    {
     "type": "belt",
@@ -1882,9 +2029,24 @@
    ],
    "roughness": 0.95
   },
+  "sculpt": {
+   "lumps": 0.03,
+   "brow": 0.014,
+   "crown": -0.01
+  },
   "proportions": {
+   "pelvis": [
+    1.35,
+    1,
+    1.25
+   ],
+   "spine_01": [
+    1.4,
+    1,
+    1.3
+   ],
    "spine_02": [
-    1.25,
+    1.3,
     1,
     1.2
    ],
@@ -1894,29 +2056,44 @@
     1.2
    ],
    "upperarm_l": [
-    1.3,
+    1.35,
     1.05,
-    1.3
+    1.35
    ],
    "upperarm_r": [
-    1.3,
+    1.35,
     1.05,
-    1.3
+    1.35
    ],
    "thigh_l": [
-    1.25,
-    0.95,
-    1.25
+    1.6,
+    0.92,
+    1.6
    ],
    "thigh_r": [
-    1.25,
+    1.6,
+    0.92,
+    1.6
+   ],
+   "calf_l": [
+    1.15,
     0.95,
-    1.25
+    1.15
+   ],
+   "calf_r": [
+    1.15,
+    0.95,
+    1.15
    ],
    "neck_01": [
-    1.3,
-    0.8,
-    1.3
+    1.4,
+    0.7,
+    1.4
+   ],
+   "Head": [
+    1.1,
+    0.95,
+    1.1
    ]
   }
  }

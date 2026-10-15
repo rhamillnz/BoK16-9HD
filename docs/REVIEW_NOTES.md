@@ -256,3 +256,22 @@ From the round-2 notes (collection `party2`); round 3 verdicts go to `party3`.
 - **Not yet built:** the non-humanoid monsters: scorpion, spider, the wyverns, beasthound, Nethermander, Dread, Wind Elemental, Servitor of Lims-Kragma. They keep their sprites.
 - **Compression.** All models are Draco-compressed, which takes them from about 80 MB to 22 MB. The decoder is copied into public/draco/ (three's draco_wasm_wrapper.js, draco_decoder.wasm and draco_decoder.js; the gltf/ subset lacks the wrapper).
 - **Debug option.** `?monsters=18,48,19` replaces every fight's enemies, in turn, to view creatures in any fight.
+
+## Party round 5 and creatures round 2 (Opus, 2026-10-15)
+
+From `party4` and `creatures1`; the next verdicts go to `party5` and `creatures2`.
+
+**Shared fixes:**
+- **Torso fill.** It is now only the neck, collarbones and top of the chest and back (down to 14 cm below the neck base). It meets the neck with a 2 mm inset and sinks inside the cloth below. The full filler poked "ribs and shoulder blades" through the Ranger shirt (James, Nighthawk).
+- **Robes.** They end at the ankle (hem 0.13) with the feet kept: the user read dropped feet as missing legs.
+- **Hoods.** A `cowl` mode hugs the back of the head and neck, then lies on the shoulders at a cloth's thickness (cast at each height). Before, it hung as a cylinder from the head's widest point.
+- **Hair.** It stops above the shoulders for Owyn, Pug, the Moredhel spellcaster and the rogue mage: long hair rigid on the head clips the shoulders in the clips.
+- **Proportions.** Bones no longer inherit their parents' scale while proportions are applied. A short, wide neck squashed the head into a mushroom (ogre, Brak-Nurr).
+- **Face sculpting (`sculpt`).** Ops: brow, slope, nose, jaw, snout, chin, cheeks, crown, lumps; landmarks come from the nose tip. It fades out below 1.58 m so the head and body seam doesn't crack. `warts` adds face bumps, `fangs` takes a radius for tusks, and there is a new scimitar weapon.
+
+**Per model:**
+- Gorath has grey hair; the chained Gorath's hands are 36 cm apart with a longer sagging chain.
+- Rebuilt: the goblin (small, green-brown hide, big head and nose, ears, tusks, fuzz) and the ogre (huge, grey-green hide, brow, tusks).
+- Brak-Nurr is square, with thick legs and a lumpy head. The giant has a Neanderthal face and wild hair off the forehead. The troll is bald with a higher loincloth.
+- The pirate has a scimitar and blue-grey cloth. The Panth Tiandn is unarmed. The Pantathians have snouts.
+- Makala is hooded, with Tsurani skin. The witch has a hooked nose, a pointed chin and warts. The Rusalki has legs.
