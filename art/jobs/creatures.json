@@ -125,7 +125,11 @@
   "out": "public/models/creatures/mor_caster.glb",
   "preview": "shots/creatures/mor_caster",
   "tex": 256,
-  "outfit": "Male_Peasant",
+  "outfit": "Male_Ranger",
+  "drop": [
+   "Head_Hood",
+   "Pauldron"
+  ],
   "elf_ears": 0.035,
   "skin": [
    0.72,
@@ -138,22 +142,28 @@
    0.04
   ],
   "brow_scale": 0.5,
-  "drop": [
-   "Legs"
-  ],
   "tints": {
    "Body": {
     "color": [
-     0.13,
-     0.05,
-     0.17
-    ]
+     0.24,
+     0.15,
+     0.08
+    ],
+    "target": 0.75
    },
    "Arms": {
     "color": [
-     0.13,
-     0.05,
-     0.17
+     0.28,
+     0.18,
+     0.1
+    ],
+    "target": 0.75
+   },
+   "Legs": {
+    "color": [
+     0.26,
+     0.16,
+     0.08
     ]
    },
    "Feet": {
@@ -203,36 +213,35 @@
     ]
    },
    {
-    "type": "robe",
-    "color": [
-     0.13,
-     0.05,
-     0.17
-    ],
-    "trim": [
-     0.55,
-     0.42,
-     0.15
-    ],
-    "hem": 0.13,
-    "flare": [
-     0.3,
-     0.26
-    ],
-    "follow": 1.0
-   },
-   {
     "type": "belt",
     "color": [
-     0.1,
-     0.07,
+     0.12,
+     0.08,
      0.05
     ],
-    "buckle": [
-     0.55,
-     0.42,
-     0.15
-    ]
+    "pouch": true
+   },
+   {
+    "type": "cape",
+    "fur": true,
+    "color": [
+     0.3,
+     0.2,
+     0.12
+    ],
+    "hem": 0.28,
+    "ragged": 0.08
+   },
+   {
+    "type": "collar",
+    "fur": true,
+    "color": [
+     0.26,
+     0.17,
+     0.1
+    ],
+    "height": 0.08,
+    "gap": 40
    }
   ],
   "weapon": {
@@ -258,6 +267,11 @@
    0.04,
    0.03,
    0.03
+  ],
+  "fill_color": [
+   0.03,
+   0.03,
+   0.035
   ],
   "tints": {
    "Body": {
@@ -304,18 +318,18 @@
     "hairline": [
      [
       0,
-      22
-     ],
-     [
-      40,
       12
      ],
      [
-      62,
-      -30
+      30,
+      4
      ],
      [
-      74,
+      50,
+      -40
+     ],
+     [
+      60,
       -999
      ],
      [
@@ -330,7 +344,20 @@
      0.03,
      0.03,
      0.035
-    ]
+    ],
+    "below_eyes": 0.008,
+    "offset": 0.012
+   },
+   {
+    "type": "collar",
+    "color": [
+     0.03,
+     0.03,
+     0.035
+    ],
+    "height": 0.1,
+    "gap": 12,
+    "reach": 0.11
    },
    {
     "type": "belt",
@@ -384,6 +411,11 @@
    0.25,
    0.25,
    0.25
+  ],
+  "eye_color": [
+   0.92,
+   0.92,
+   0.9
   ],
   "sculpt": {
    "cheeks": 0.006,

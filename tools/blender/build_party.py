@@ -74,6 +74,24 @@ def material(name, rgb, roughness=0.8, metallic=0.0, image=None):
     return mat
 
 
+def fur_image(colour, size=256):
+    """A pelt: long tufts running down the hide, darker at the roots, with patches."""
+    import numpy as np
+    rnd = np.random.default_rng(9)
+    y, x = np.mgrid[0:size, 0:size] / size
+    tufts = np.interp((x * size * 7) % size, np.arange(size), rnd.normal(0, 1, size))
+    streak = np.sin(y * 2 * np.pi * 9 + tufts * 2.5) * 0.5 + 0.5
+    patch = np.interp((x * 3 + y * 2) * size % size, np.arange(size), np.convolve(rnd.normal(0, 1, size), np.ones(25) / 25, 'same'))
+    lum = np.clip(0.55 + 0.35 * streak + 0.15 * patch + rnd.normal(0, 0.06, x.shape), 0.2, 1.2)
+    img = bpy.data.images.new("fur", size, size)
+    px = np.ones((size, size, 4), dtype=np.float32)
+    for k in range(3):
+        px[..., k] = np.clip(colour[k] * lum, 0, 1)
+    img.pixels.foreach_set(px.reshape(-1))
+    img.pack()
+    return img
+
+
 def cloth_image(name, size=256, seed=3, folds=True):
     """Pale woven-cloth luminance texture (multiplied by the garment colour): fine weave and soft vertical folds."""
     import numpy as np
@@ -1170,7 +1188,8 @@ def g_cape(ctx, g):
     """Cape hung from the shoulders: each column is cast from behind onto the back, cuirass, belt and scabbard and
     then only falls or moves back (never forward), so it clears everything under it; the lower half also
     follows the thighs a little so striding legs stay behind it."""
-    cloth = material("cape", g.get("color", (0.5, 0.04, 0.03)), 0.85, 0.0, ctx["cloth"])
+    cloth = textured("cape_fur", fur_image(g["color"]), 0.95, 0.0) if g.get("fur") else \
+        material("cape", g.get("color", (0.5, 0.04, 0.03)), 0.85, 0.0, ctx["cloth"])
     cols, rows = 24, 28
     top, bottom = g.get("top", 1.5), g.get("hem", 0.3)
     targets = body_parts(ctx, "_Body", "_Legs", "_Feet") + ctx["layers"]
@@ -1234,7 +1253,8 @@ def g_cape(ctx, g):
 def g_collar(ctx, g):
     """High collar standing round the back and sides of the neck, flaring outward and open at the front; its
     base sits on the cuirass (or shirt), so it never cuts into the armour or the shoulders."""
-    cloth = material("collar", g.get("color", (0.5, 0.04, 0.03)), 0.85, 0.0, ctx["cloth"])
+    cloth = textured("collar_fur", fur_image(g["color"]), 0.95, 0.0) if g.get("fur") else \
+        material("collar", g.get("color", (0.5, 0.04, 0.03)), 0.85, 0.0, ctx["cloth"])
     n = neck_axis(ctx)
     targets = [ctx["shirt"]] + ctx["layers"] + [o for o in ctx["objs"] if o.name.startswith("Head")]
     caster = Caster(targets)
@@ -1338,17 +1358,22 @@ def chains_between(ctx, iron, link_ring):
     """Shackled hands (see shackle_pose): a manacle on each held wrist and a chain sagging between them. The
     meshes are built where the wrists are held and pinned to the upper spine, which the held arms hang from."""
     wl, wr = ctx["wrists"]
+    fl, fr = ctx["forearms"]
     bm = bmesh.new()
-    for w, other in ((wl, wr), (wr, wl)):
-        axis = (w - other).normalized()
+    hangs = []
+    for w, axis in ((wl, fl), (wr, fr)):
+        # Two bands round the wrist, just above the hand, around the forearm's own axis.
         u = axis.orthogonal().normalized()
         v = axis.cross(u)
         for k in range(2):
-            c = w - axis * (0.035 + 0.025 * k)
-            ring = [c + (u * math.cos(2 * math.pi * s / 24) + v * math.sin(2 * math.pi * s / 24)) * 0.045 for s in range(25)]
+            c = w - axis * (0.025 + 0.028 * k)
+            ring = [c + (u * math.cos(2 * math.pi * s / 24) + v * math.sin(2 * math.pi * s / 24)) * 0.047 for s in range(25)]
             tube(bm, ring, 0.011, 8)
-    a = wl - (wl - wr).normalized() * 0.06
-    b = wr + (wl - wr).normalized() * 0.06
+        # The chain hangs from the underside of the cuff.
+        down = Vector((0, 0, -1))
+        down = (down - axis * down.dot(axis)).normalized()
+        hangs.append(w - axis * 0.04 + down * 0.055)
+    a, b = hangs
     span = (b - a).length
     n = max(3, int(span / 0.04))
     prev = None
@@ -1965,7 +1990,18 @@ def g_loincloth(ctx, g):
     """A short ragged skirt of hide or cloth from the hips (giants, trolls, ogres)."""
     cloth = material("loincloth", g.get("color", (0.35, 0.24, 0.14)), 0.95, 0.0, ctx["cloth"])
     shift = ctx.get("waist_shift", 0.0)
-    return [skirt(ctx, "loincloth", cloth, g.get("waist", 1.06 + shift), g.get("hem", 0.68 + shift), g.get("flare", (0.23, 0.19)),
+    top, low = g.get("waist", 1.06 + shift), g.get("wrap", 0.84 + shift)
+    # The wrap is copied from the body itself (hips, seat and the top of the thighs) and keeps its skin weights, so
+    # however the legs move nothing shows through.
+
+    def keep(co, bone):
+        return low < co.z < top + 0.02 and bone.startswith(("pelvis", "thigh", "spine_01"))
+
+    wrap = shell(ctx["shirt"], "loin_wrap", cloth, keep, 0.007, smooth=2, thickness=0.006)
+    bmesh_uv_cylinder(wrap, 0.0)
+    bind(wrap, ctx["arm"])
+    ctx["layers"].append(wrap)
+    return [wrap, skirt(ctx, "loincloth", cloth, g.get("waist", 1.06 + shift), g.get("hem", 0.68 + shift), g.get("flare", (0.23, 0.19)),
                   g.get("follow", 1.0), None, rings=8, ragged=g.get("ragged", 0.05), flare_scale=g.get("flare_scale", 1.3),
                   back=g.get("back", 0.07))]
 
@@ -2258,11 +2294,12 @@ def smash_clip(arm, actions, base, name="Smash"):
     front to the ground and come back. Built from IK poses on top of a copy of `base` (its body motion stays;
     the arms are replaced). Registers the action under `name` and returns it."""
     head = arm.matrix_world @ arm.data.bones["Head"].head_local
+    belly = (arm.matrix_world @ arm.data.bones["spine_01"].head_local).z + 0.08
     poses = [
         (0.0, ik_arms(arm, (0.28, -0.22, 1.05), (-0.28, -0.22, 1.05))),
         (0.38, ik_arms(arm, (0.06, -0.12, head.z + 0.22), (-0.06, -0.12, head.z + 0.22), ((0.6, 0.1, 1.3), (-0.6, 0.1, 1.3)))),
-        (0.55, ik_arms(arm, (0.1, -0.55, 0.55), (-0.1, -0.55, 0.55))),
-        (0.68, ik_arms(arm, (0.12, -0.55, 0.45), (-0.12, -0.55, 0.45))),
+        (0.55, ik_arms(arm, (0.09, -0.4, belly), (-0.09, -0.4, belly))),
+        (0.68, ik_arms(arm, (0.1, -0.42, belly - 0.06), (-0.1, -0.42, belly - 0.06))),
         (1.0, ik_arms(arm, (0.28, -0.22, 1.05), (-0.28, -0.22, 1.05))),
     ]
     act = actions[base].copy()
@@ -2346,6 +2383,8 @@ def shackle_pose(arm, actions, clips, spec):
         pb.rotation_mode = "QUATERNION"
         held[name] = pb.matrix_basis.to_quaternion()
     wrists = [arm.matrix_world @ arm.pose.bones[f"hand_{t}"].head for t in ("l", "r")]
+    forearms = [(arm.matrix_world @ arm.pose.bones[f"hand_{t}"].head - arm.matrix_world @ arm.pose.bones[f"lowerarm_{t}"].head).normalized()
+                for t in ("l", "r")]
     # Hold those bones in every clip.
     for state, src in clips.items():
         act = actions[src]
@@ -2363,7 +2402,7 @@ def shackle_pose(arm, actions, clips, spec):
         pb.matrix_basis = Matrix.Identity(4)
     arm.data.pose_position = "REST"
     bpy.context.view_layer.update()
-    return wrists
+    return wrists, forearms
 
 
 def body_only(obj):
@@ -2716,6 +2755,10 @@ def build(job, roots):
                 bpy.context.scene.collection.objects.link(fill)
                 torso_only(fill, job.get("fill_inset", 0.045), [m for m in outfit if m.type == "MESH" and "_Body" in m.name])
                 fill.name = "Torso_Fill"
+                if job.get("fill_color"):
+                    # Covered characters (a masked assassin): the filler is cloth, not skin.
+                    fill.data.materials.clear()
+                    fill.data.materials.append(own(material("fill_cloth", job["fill_color"], 0.9)))
                 base.append(fill)
             head_only(o)
             o.name = "Head"
@@ -2725,6 +2768,17 @@ def build(job, roots):
                 sculpt(o, job["sculpt"])
             if job.get("elf_ears"):
                 elf_ears(o, job["elf_ears"])
+        elif o.type == "MESH" and o.name.startswith("Eyes") and job.get("eye_color"):
+            for slot in o.material_slots:
+                if slot.material:
+                    m = slot.material.copy()
+                    slot.material = m
+                    bsdf = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+                    if bsdf is not None:
+                        for l in list(bsdf.inputs["Base Color"].links):
+                            m.node_tree.links.remove(l)
+                        bsdf.inputs["Base Color"].default_value = (*job["eye_color"], 1.0)
+                    m["own"] = True
         elif o.type == "MESH" and o.name.startswith("Eyebrows"):
             scale_brows(o, job.get("brow_scale", 0.6))
             if job.get("brow_color"):
@@ -2780,7 +2834,7 @@ def build(job, roots):
            "objs": list(objs), "layers": [], "waist_shift": waist_shift,
            "actions": actions, "clips": clips}
     if job.get("shackled"):
-        ctx["wrists"] = shackle_pose(arm, actions, clips, job["shackled"])
+        ctx["wrists"], ctx["forearms"] = shackle_pose(arm, actions, clips, job["shackled"])
     if job.get("smash"):
         smash_clip(arm, actions, clips.get("idle", "Idle_Loop"))
         clips["attack"] = "Smash"

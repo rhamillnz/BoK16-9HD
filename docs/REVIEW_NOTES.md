@@ -300,3 +300,13 @@ The next verdicts go to `party7` and `creatures4`. The rogue was marked "work" w
 - **Gorath.** Hair to below the ears. The chained version holds its hands 42 cm forward and 44 cm apart, with a shallower chain sag.
 - **Locklear.** The rapier scabbard is shorter (0.8) and swept back.
 - **Patrus.** The robe is wider at the hem and ends at 0.17.
+
+## Party round 8 and creatures round 5 (Opus, 2026-10-15; not yet on the review pages)
+
+- **Loincloths.** A fitted hide wrap (shell of the body over hips and thighs, keeping skin weights) under the ragged flaps.
+- **Manacles.** They ring the wrists around the forearm axis; the chain hangs from the cuffs' undersides.
+- **Brak-Nurr smash.** It ends at belly height with bent elbows.
+- **Black Slayer.** White eyes (`eye_color`).
+- **Nighthawk.** A closer cowl, a mask up to the eyes, a high collar, and a black torso filler (`fill_color`).
+- **Moredhel spellcaster.** Leather outfit, bearskin cape and fur collar (`fur`).
+- **Next.** The non-human creatures (scorpion, spider, wyverns, beasthound, Nethermander, Dread, Wind Elemental, Servitor) are not started.
