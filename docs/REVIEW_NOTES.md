@@ -188,3 +188,26 @@
 - Each is a Modular Outfits outfit on the shared 65-bone rig, the base character's head, kit hair (Hair_Long over Hair_Buzzed for long hair; the beard trimmed to a moustache or goatee), tints per part, and procedural garments skinned to the same bones: breastplate (a smoothed shell of the shirt, pushed clear of it, cut with planes, raised rim and rivets), pauldrons, robe (shell plus a skirt weighted from pelvis to both legs), cape, collar, cap, baldric, scarf, belt and scabbard. The weapon is parented to `hand_r`; its rest direction is solved so it points forward in the attack lunge (`aim`).
 - Clips (glTF animations, one NLA track each): idle Sword_Idle, walk Walk_Loop, attack Sword_Attack, block Sword_Block, cast Spell_Simple_Shoot, shoot Pistol_Shoot, hit Hit_Chest, death Death01 (UAL1/UAL2).
 - In combat (`src/render/fighterModels.ts`, `CombatView`): party members with a model replace their billboard once it loads, sized to their original combat sprite's height; they walk move paths cell by cell, face whoever they act on, play attack/shoot/cast/block, flinch or fall when struck, and the fallen stay lying on the field.
+
+## Party combat models, round 2 (Opus, 2026-10-15)
+
+From the user's round-1 notes (portal collection `party1`). Round 2 verdicts go to `party2`.
+
+- **Fitted garments.** Cuirass, pauldron lames, belts, collars, the baldric and Owyn's V collar are now grids of rays cast from outside onto the rest-pose body (`Caster`, `fit_shell` in tools/blender/build_party.py). They follow the body with an even gap. A one-way envelope bridges laces and folds, and boundary smoothing removes the grid's stair-steps. Rolled rims are tubes along the open edges.
+- **Weights.** Garments take skin weights from the body. Two fixes were needed:
+  - The top of each pauldron stays on the clavicle; with skin weights it swung up like a fin when the arm dropped.
+  - A vertex whose nearby body vertices all use filtered-out bones (the Ranger's cowl is skinned to the head) now searches further, then falls back to spine_03. Unweighted vertices had stayed put while the body moved, which made the fins behind Gorath's head.
+- **Grip.** The weapon goes in the closed right fist, measured from the finger bones in the idle clip and carried back to the rest pose through the hand bone. HOLD slides the weapon so the middle of the grip sits in the fist.
+- **Hair.** Generated over the scalp and hung straight down from the widest point of the head. It has a per-azimuth hairline, strand grooves and texture, ragged ends, an optional ponytail and grey temples. Used for Locklear, Owyn, Pug and James; Gorath and Patrus keep the kit hair.
+- **Per character:**
+  - Locklear and James have rapiers and slim scabbards.
+  - Gorath has gold filigree on dark steel, a wolf's-head relief on the chest and pauldrons, a collar standing on the armour, and a cape cast clear of the legs, belt and scabbard (it sweeps back and follows the thighs a little). There is a chained version, `gorath_chained.glb`, not used in combat yet.
+  - Owyn has a long tunic and a red V collar.
+  - Pug has a black robe with brown trim.
+  - Patrus's robe reaches the ground and follows the legs.
+  - Eyebrows are thinned (`brow_scale`).
+- **Known rough edges:**
+  - Staff users still use the sword clips, so the staff is levelled like a sword. Idle_Torch_Loop was tried and looked worse: the left hand is raised and empty.
+  - James's grey temples are a flat patch.
+  - The tunic skirt reads a little like an apron.
+  - Triangle counts are 29k–119k: Locklear, Gorath and chained Gorath are heavy.
