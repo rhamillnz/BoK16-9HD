@@ -9,7 +9,7 @@ import { WORLD_SCALE } from './zoneScene';
  * tools/blender/build_party.py from art/jobs/party.json). Each model carries one animation per combat state.
  */
 
-export type FighterClip = 'idle' | 'walk' | 'attack' | 'block' | 'cast' | 'shoot' | 'hit' | 'death';
+export type FighterClip = 'idle' | 'walk' | 'attack' | 'block' | 'cast' | 'hit' | 'death';
 
 /** Height of a party model in model units (metres); Gorath's is scaled up in the model itself. */
 export const PARTY_MODEL_HEIGHT = 1.8;

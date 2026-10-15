@@ -17,7 +17,7 @@ hairstyle (the beard can be trimmed to a moustache or goatee) and procedural gar
   belt         belt with a buckle; "scabbard" hangs an empty scabbard on the left hip
 
 The weapon ("sword" or "staff") is parented to the right hand bone. The animation libraries' clips are renamed to
-the game's states (idle, walk, attack, block, cast, shoot, hit, death) and exported as one glTF animation each.
+the game's states (idle, walk, attack, block, cast, hit, death) and exported as one glTF animation each.
 
 jobs.json entries:
   {"name": "locklear", "out": "public/models/party/locklear.glb", "outfit": "Male_Peasant",
@@ -46,7 +46,6 @@ DEFAULT_CLIPS = {
     "attack": "Sword_Attack",
     "block": "Sword_Block",
     "cast": "Spell_Simple_Shoot",
-    "shoot": "Pistol_Shoot",
     "hit": "Hit_Chest",
     "death": "Death01",
 }
@@ -701,18 +700,24 @@ def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=4
     """A skirt from the waist (`zt`) to the hem (`zb`), flaring to `flare` (half widths), weighted from the pelvis
     to both legs (`follow` = how much the hem follows the legs). `trim` colours a band round the hem."""
     waist = waist_extent(ctx["shirt"], zt)
+    # The top ring sits on whatever is at the waist (the robe's top, the shirt), so the skirt joins it seamlessly.
+    caster = Caster(torso_parts(ctx) + body_parts(ctx, "_Legs") + ctx["layers"])
+    centre = Vector((0, waist[2], zt))
+    angles = [2 * math.pi * s / seg for s in range(seg)]
+    top = [centre + sphere_dir(0, a) * ((caster.inward(centre, sphere_dir(0, a)) or waist[0]) + 0.005) for a in angles]
     bm = bmesh.new()
     grid = []
     for r in range(rings + 1):
         t = r / rings
-        rx = waist[0] + (flare[0] - waist[0]) * t ** 0.8
-        ry = waist[1] + (flare[1] - waist[1]) * t ** 0.8
+        k = t ** 0.8
         z = zt - (zt - zb) * t
         row = []
-        for s in range(seg):
-            a = 2 * math.pi * s / seg
+        for s, a in enumerate(angles):
             wob = 1 + 0.035 * math.sin(a * 7 + t * 2) * t
-            row.append(bm.verts.new((math.sin(a) * rx * wob, waist[2] - math.cos(a) * ry * wob, z)))
+            bot = Vector((math.sin(a) * flare[0], waist[2] - math.cos(a) * flare[1], z))
+            p = top[s].lerp(bot, k)
+            off = Vector((p.x, p.y - waist[2], 0)) * (wob - 1)
+            row.append(bm.verts.new((p.x + off.x, p.y + off.y, z)))
         grid.append(row)
     for r in range(rings):
         for s in range(seg):
@@ -771,7 +776,7 @@ def g_robe(ctx, g):
     ctx["layers"].append(top)
     if trim is not None:
         skin_from(ctx, band, ("spine", "pelvis", "clavicle", "neck"))
-    out.append(skirt(ctx, "robe_skirt", cloth, g.get("waist", 1.0), g.get("hem", 0.07), g.get("flare", (0.25, 0.21)),
+    out.append(skirt(ctx, "robe_skirt", cloth, g.get("waist", 1.06), g.get("hem", 0.07), g.get("flare", (0.25, 0.21)),
                      g.get("follow", 0.65), trim))
     # Wide cuffs at the ends of the sleeves.
     for side, tag in ((1, "l"), (-1, "r")):
@@ -863,8 +868,13 @@ def torso_fit(ctx, name, mat, offset, keep, rows=72, cols=128, bump=None, target
     centre = torso_centre(ctx)
     elevs = lin(math.radians(-62), math.radians(86), rows)
     azims = [2 * math.pi * k / cols - math.pi for k in range(cols)]
-    caster = Caster(targets or [ctx["shirt"]])
+    caster = Caster(targets or torso_parts(ctx))
     return fit_shell(caster, centre, elevs, azims, offset, name, mat, keep=lambda i, j, p: keep(p), bump=bump, passes=passes)
+
+
+def torso_parts(ctx):
+    """Every outfit mesh on the torso: the shirt plus separate pieces such as the Ranger's belts and pouches."""
+    return [o for o in ctx["objs"] if o.type == "MESH" and "_Body" in o.name]
 
 
 def off_neck(ctx, p, r=0.092, z=1.4):
@@ -1041,17 +1051,20 @@ def g_belt(ctx, g):
     """Belt fitted round whatever is at the waist (shirt, robe, tunic, cuirass), with a buckle; `scabbard` hangs
     a scabbard on the left hip (`rapier` makes it long and slim)."""
     leather = material("belt", g.get("color", (0.12, 0.07, 0.04)), 0.7)
-    z = g.get("z", 1.0)
+    z = g.get("z", 1.06)
+    tilt = g.get("tilt", 0.03)
     cy = waist_extent(ctx["shirt"], z)[2]
-    targets = body_parts(ctx, "_Body", "_Legs") + ctx["layers"]
+    targets = torso_parts(ctx) + body_parts(ctx, "_Legs") + ctx["layers"]
     caster = Caster(targets)
     cols = 96
     azims = [2 * math.pi * k / cols - math.pi for k in range(cols)]
+    # The back sits a little higher than the front, as a belt does over the hips (not sagging over the seat).
+    lift = [tilt * (1 - math.cos(a)) / 2 for a in azims]
     zs = lin(z - 0.026, z + 0.026, 5)
-    raw = [[caster.inward(Vector((0, cy, zz)), sphere_dir(0, a)) or 0.0 for a in azims] for zz in zs]
-    env = envelope(raw, True, 10)
+    raw = [[caster.inward(Vector((0, cy, zz + lift[j])), sphere_dir(0, a)) or 0.0 for j, a in enumerate(azims)] for zz in zs]
+    env = envelope(raw, True, 2)
     top_r = [max(env[i][j] for i in range(len(zs))) for j in range(cols)]
-    pts = [[Vector((0, cy, zz)) + sphere_dir(0, a) * (top_r[j] + 0.006) for j, a in enumerate(azims)] for zz in zs]
+    pts = [[Vector((0, cy, zz + lift[j])) + sphere_dir(0, a) * (top_r[j] + 0.003) for j, a in enumerate(azims)] for zz in zs]
     belt = grid_object("belt", pts, leather, True, None, Vector((0, cy, z)))
     solidify(belt, 0.008, 1.0)
     smooth_shading(belt)
@@ -1266,17 +1279,14 @@ def g_chains(ctx, g):
             off = Vector((side * (k * 0.03 - 0.015), 0, 0))
             seg_pts = [p + off for p in ring_pts] + [ring_pts[0] + off]
             tube(bm, seg_pts, 0.012, 8)
-        # Broken chain hanging from the manacle (along -Z in the rest pose).
-        p = wrist + Vector((0, 0, -0.06))
-        for k in range(4):
-            axis = Vector((1, 0, 0)) if k % 2 == 0 else Vector((0, 1, 0))
-            link_ring(bm, p + Vector((0, 0, -0.045 * k)), axis, Vector((0, 0, 1)))
+        # A ring on the manacle where a chain was struck off.
+        link_ring(bm, wrist + Vector((0, 0, -0.06)), Vector((1, 0, 0)), Vector((0, 0, 1)))
         man = link(f"manacle_{tag}", bm, iron)
         smooth_shading(man, 50)
         set_weights(man, ctx["arm"], lambda co, tag=tag: {f"hand_{tag}": 0.4, f"lowerarm_{tag}": 0.6})
         out.append(man)
     # The body chain: links along a strip fitted over the torso from the left shoulder to the right hip.
-    a, b = Vector((0.13, 1.5)), Vector((-0.18, 1.0))
+    a, b = Vector((0.1, 1.42)), Vector((-0.18, 1.0))
     centre = torso_centre(ctx)
     caster = Caster([ctx["shirt"]] + ctx["layers"])
     bm = bmesh.new()
@@ -1289,7 +1299,7 @@ def g_chains(ctx, g):
             d = (Vector((q.x, side_y * 0.4, q.y)) - centre).normalized()
             r = caster.inward(centre, d)
             if r:
-                p = centre + d * (r + 0.012)
+                p = centre + d * (r + 0.03)
                 tangent = Vector((b.x - a.x, 0, b.y - a.y))
                 axis = d if k % 2 == 0 else tangent.cross(d)
                 link_ring(bm, p, axis, tangent, 0.016, 0.026, 0.005)
@@ -1333,8 +1343,18 @@ def g_hair(ctx, g):
             out.append(np.clip(base * lum, 0, 1))
         return out
 
-    mat = textured("hair_gen", pattern_image("hair_strands", strands(colour, tip), 256), 0.55, 0.0)
+    if g.get("knit"):
+        def knit(x, y):
+            import numpy as np
+            rib = 0.5 + 0.5 * np.cos(x * 2 * np.pi * 48)
+            stitch = 0.5 + 0.5 * np.cos(y * 2 * np.pi * 70 + np.sin(x * 2 * np.pi * 48) * 1.5)
+            lum = 0.55 + 0.3 * rib + 0.15 * stitch + np.random.default_rng(4).normal(0, 0.04, x.shape)
+            return [np.clip(colour[k] * lum, 0, 1) for k in range(3)]
+        mat = textured("knit", pattern_image("knit", knit, 256), 0.95, 0.0)
+    else:
+        mat = textured("hair_gen", pattern_image("hair_strands", strands(colour, tip), 256), 0.55, 0.0)
     caster = Caster([head])
+    body = Caster(torso_parts(ctx) + ctx["layers"])
     rows, cols = 44, 120
     elevs = lin(math.radians(89), math.radians(-48), rows)
     azims = [2 * math.pi * k / cols - math.pi for k in range(cols)]
@@ -1357,7 +1377,7 @@ def g_hair(ctx, g):
         pts.append([None] * cols)
         noms.append(math.degrees(elevs[i]) if i < rows else -100 - i)
     for j, a in enumerate(azims):
-        groove = 0.0035 * (math.sin(a * 23) + 0.6 * math.sin(a * 41 + 1.3)) + 0.002 * math.sin(a * 7)
+        groove = 0.0 if g.get("knit") else 0.0035 * (math.sin(a * 23) + 0.6 * math.sin(a * 41 + 1.3)) + 0.002 * math.sin(a * 7)
         hd = Vector((math.sin(a), -math.cos(a), 0))
         hr_max, last = 0.0, None
         for i, e in enumerate(elevs):
@@ -1374,16 +1394,25 @@ def g_hair(ctx, g):
         if last is None:
             continue
         end = length + 0.02 * math.sin(a * 7) + 0.012 * math.sin(a * 17 + 1)
+        wave = g.get("wave", 0.0)
+        hr = hr_max
         for k in range(ext):
             t = (k + 1) / ext
             z = last.z + (end - last.z) * t
             if z > last.z:
                 z = last.z - 0.001 * (k + 1)
-            pts[rows + k][j] = Vector((centre.x, centre.y, z)) + hd * (hr_max + g.get("flare", 0.03) * t ** 1.5)
+            hr = max(hr, hr_max + g.get("flare", 0.03) * t ** 1.5)
+            # Long hair lies over the shoulders and back rather than through them.
+            under = body.inward(Vector((centre.x, centre.y, z)), hd, 0.6)
+            # (Hits much further out are the rest pose's outstretched sleeves, not the shoulders.)
+            if under and under < hr_max + 0.07:
+                hr = max(hr, under + 0.014)
+            w = wave * math.sin(z * 55 + a * 3) * t
+            pts[rows + k][j] = Vector((centre.x, centre.y, z)) + hd * (hr + w)
 
     def keep(i, j, p):
         a = azims[j]
-        ragged = 2.5 * math.sin(a * 19) + 1.5 * math.sin(a * 31 + 2) if abs(a) < 1.3 else 0.0
+        ragged = 2.5 * math.sin(a * 19) + 1.5 * math.sin(a * 31 + 2) if abs(a) < 1.3 and not g.get("knit") else 0.0
         return noms[i] >= hairline(a) + ragged
 
     hair = grid_object("hair_gen", pts, mat, True, keep, centre)
@@ -1394,9 +1423,14 @@ def g_hair(ctx, g):
         a = math.atan2(co.x - centre.x, -(co.y - centre.y))
         uv.data[loop.index].uv = (a / (2 * math.pi) * 4 + 0.5, min(max((centre.z + 0.2 - co.z) / 0.5, 0), 1))
     soften(hair, 1, 0.25)
+    cuff = rim_tube(hair, "cap_cuff", mat, g.get("cuff", 0.016), smooth=10) if g.get("knit") else None
     solidify(hair, g.get("thickness", 0.012), -1.0)
     smooth_shading(hair, 70)
     out = [hair]
+    if cuff is not None:
+        # The turned-up cuff of a woolly cap.
+        planar_uv(cuff, 6.0)
+        out.append(cuff)
     if g.get("ponytail"):
         back = centre + sphere_dir(math.radians(-12), math.pi) * ((caster.inward(centre, sphere_dir(math.radians(-12), math.pi), 0.5) or 0.09) + vol)
         path = [back + Vector((0, -0.02, 0.0)), back + Vector((0, 0.012, -0.03)), back + Vector((0, 0.02, -0.08)),
@@ -1425,7 +1459,44 @@ def g_hair(ctx, g):
     return out
 
 
+def g_hood(ctx, g):
+    """A hood lying down: a soft collar round the back and sides of the neck that rolls back into the folded
+    hood on the upper back. Each point is kept clear of what is under it by casting at its own height."""
+    cloth = material("hood", g.get("color", (0.05, 0.045, 0.05)), 0.9, 0.0, ctx["cloth"])
+    trim = material("hood_trim", g["trim"], 0.85, 0.0, ctx["cloth"]) if g.get("trim") else None
+    n = neck_axis(ctx)
+    caster = Caster(torso_parts(ctx) + ctx["layers"] + [o for o in ctx["objs"] if o.name.startswith("Head")])
+    # Profile (outward offset, height) from the neck up and back over into the folded hood.
+    prof = [(0.0, 1.43), (0.012, 1.5), (0.035, 1.545), (0.075, 1.54), (0.105, 1.49), (0.12, 1.42), (0.11, 1.34), (0.085, 1.29)]
+    span = math.radians(g.get("span", 125))
+    cols = 48
+    azims = [math.pi - span + 2 * span * k / cols for k in range(cols + 1)]
+    pts = []
+    for off, z in prof:
+        row = []
+        for a in azims:
+            w = math.cos((a - math.pi) / span * math.pi / 2) ** 0.7
+            d = sphere_dir(0, a)
+            c = Vector((0, n.y, z))
+            base = min(caster.inward(c, d, 0.6) or 0.1, 0.17)
+            row.append(c + d * (base + 0.014 + off * w))
+        pts.append(row)
+    hood = grid_object("hood", pts, cloth, wrap=False, centre=Vector((0, n.y, 1.42)))
+    bmesh_uv_cylinder(hood, n.y)
+    out = [hood]
+    if trim is not None:
+        edge = rim_tube(hood, "hood_edge", trim, 0.006, smooth=4)
+        planar_uv(edge, 6.0)
+        out.append(edge)
+    solidify(hood, 0.01, 1.0)
+    smooth_shading(hood)
+    for o in out:
+        set_weights(o, ctx["arm"], lambda co: {"spine_03": 0.75, "neck_01": 0.25} if co.z > 1.47 else {"spine_03": 1.0})
+    return out
+
+
 GARMENTS = {
+    "hood": g_hood,
     "breastplate": g_breastplate,
     "pauldrons": g_pauldrons,
     "robe": g_robe,
@@ -1538,7 +1609,7 @@ def fist_grip(ctx, clip="idle", frame=0.3):
         pts = [pose[f"{f}_01_r"][0], pose[f"{f}_02_r"][0], pose[f"{f}_03_r"][0], pose[f"{f}_03_r"][1]]
         loops.append(sum(pts, Vector()) / 4)
     centre = sum(loops, Vector()) / 4
-    axis = (loops[3] - loops[0]).normalized()
+    axis = (loops[0] - loops[3]).normalized()
     knuckles = sum((pose[f"{f}_02_r"][0] for f in fingers), Vector()) / 4
     x = (knuckles - centre)
     x = (x - axis * x.dot(axis)).normalized()
@@ -1672,6 +1743,21 @@ def head_only(obj):
     bm.free()
 
 
+def hug_surface(obj, skin, keep):
+    """A close-trimmed beard: every vertex moves towards the nearest point of the skin, keeping `keep` of its
+    height above it, so the beard covers the same area but lies close to the face."""
+    from mathutils.bvhtree import BVHTree
+    mw = skin.matrix_world
+    tree = BVHTree.FromPolygons([mw @ v.co for v in skin.data.vertices], [list(p.vertices) for p in skin.data.polygons])
+    ow = obj.matrix_world
+    inv = ow.inverted()
+    for v in obj.data.vertices:
+        p = ow @ v.co
+        hit = tree.find_nearest(p)
+        if hit[0] is not None:
+            v.co = inv @ (hit[0] + (p - hit[0]) * keep + hit[1] * 0.002)
+
+
 def clear_face(obj):
     """Drop hair that hangs in front of the face (the kit's long hair has locks over the brows)."""
     bm = bmesh.new()
@@ -1696,6 +1782,10 @@ def trim_beard(obj, style):
         return True
 
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not keep(v.co)], context="VERTS")
+    if style == "close":
+        bm.to_mesh(obj.data)
+        bm.free()
+        return "close"
     if style == "stubble":
         # Close-cropped: pull every beard vertex most of the way back to the face.
         pts = [mw @ v.co for v in bm.verts]
@@ -1877,6 +1967,7 @@ def build(job, roots):
             if job.get("brow_color"):
                 tint_object(o, {"color": job["brow_color"], "name": "brows"})
     objs += base
+    close_trim = []
     for key in ("hair", "beard"):
         if not job.get(key):
             continue
@@ -1886,13 +1977,17 @@ def build(job, roots):
             if o.type != "MESH" or o.name.startswith("Icosphere"):
                 continue
             if key == "beard" and job.get("trim"):
-                trim_beard(o, job["trim"])
+                if trim_beard(o, job["trim"]) == "close":
+                    close_trim.append(o)
             if key == "hair" and job.get("face_clear"):
                 clear_face(o)
             colour = job.get(f"{key}_color")
             if colour:
                 tint_object(o, {"color": colour, "name": key, "target": job.get(f"{key}_target", 1.0)})
         objs += hs
+    head_obj = next((o for o in objs if o.name == "Head"), None)
+    for o in close_trim:
+        hug_surface(o, head_obj, job.get("beard_depth", 0.4))
     adopt(objs, arm)
     objs = [o for o in bpy.data.objects if o.type == "MESH" and o.parent is arm]
     for o in objs:
@@ -1922,6 +2017,9 @@ def build(job, roots):
                 cs = [o.matrix_world @ v.co for v in o.data.vertices]
                 print("DBG", o.name, len(cs), [round(min(c[i] for c in cs), 3) for i in range(3)], [round(max(c[i] for c in cs), 3) for i in range(3)])
     keep_materials(job.get("tex", 512))
+    # Double-sided: looking into a collar or sleeve must show the cloth's inside, not straight through it.
+    for mat in bpy.data.materials:
+        mat.use_backface_culling = False
     arm.data.pose_position = "POSE"
     s = job.get("scale", 1.0)
     arm.scale = (s, s, s)

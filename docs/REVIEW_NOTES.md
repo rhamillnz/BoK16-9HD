@@ -211,3 +211,26 @@ From the user's round-1 notes (portal collection `party1`). Round 2 verdicts go 
   - James's grey temples are a flat patch.
   - The tunic skirt reads a little like an apron.
   - Triangle counts are 29k–119k: Locklear, Gorath and chained Gorath are heavy.
+
+## Party combat models, round 3 (Opus, 2026-10-15)
+
+From the round-2 notes (collection `party2`); round 3 verdicts go to `party3`.
+
+- **Weapons.** They pointed backwards: the fist axis now runs from the little finger to the index finger again, so the blade comes out of the thumb side. HOLD keeps the grip in the fist.
+- **Belts.**
+  - The default height is now 1.06, and the back is 3 cm higher than the front, so the belt sits over the hips instead of sagging over the seat.
+  - Only 2 envelope passes and a 3 mm gap make it tighter.
+  - Owyn has no added belt (the outfit's own fits).
+  - Robe skirts start at the belt and their top ring is cast onto the robe's top, so the two halves join and the kit belt underneath is hidden.
+- **Torso fits.** They now cast against every outfit mesh with "_Body" in the name (`torso_parts`), so the Ranger's separate belts and pouches stay under Gorath's armour.
+- **Cloth.** All materials are double-sided, so looking into a collar shows the cloth's inside instead of through the character.
+- **Hair.**
+  - Long hair lies over the shoulders (cast at each height and pushed out).
+  - Hits more than 7 cm beyond the head are ignored: they are the rest pose's horizontal sleeves and made "wings".
+  - A `wave` option. The hood clamps its reach for the same reason.
+- **New garments and trims.**
+  - The `knit` hair mode is a woolly cap (rib texture, rolled cuff) for Patrus.
+  - `hood` lies down on the back.
+  - The `close` beard trim pulls the kit beard towards the skin (`hug_surface`) for James and Pug.
+- **Chained Gorath.** No weapon; the manacles keep one ring each; the body chain sits 3 cm proud of the armour.
+- **Animations.** The pistol "shoot" clip is gone from models and the portal; a crossbow shot plays the attack.

@@ -242,7 +242,8 @@ export class CombatView {
           const a = actorOf(e.attacker);
           const target = at(e.target);
           if (a && target) a.face(target);
-          a?.act(e.type === 'shoot' ? 'shoot' : 'attack', a.walking ? 0.4 : 0);
+          // No crossbow clip in the animation kit (its "shoot" is a pistol): a shot plays the attack.
+          a?.act('attack', a.walking ? 0.4 : 0);
           if (e.hit) struck(e.target, e.killed, 0.45);
           else actorOf(e.target)?.act('block', 0.25);
           break;
