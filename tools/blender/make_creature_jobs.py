@@ -94,14 +94,14 @@ jobs = [
                   {"type": "belt", "color": [0.2, 0.15, 0.1]}],
         weapon={"type": "staff", "wood": [0.3, 0.22, 0.14]}),
     # Pantathian: a snake priest under a black hooded robe, scaled green skin; a staff.
-    job("pan", outfit="Male_Peasant", drop=["Legs", "Eyebrows"], sculpt={"snout": 0.055, "slope": 0.025, "nose": -0.004}, skin_texture={"kind": "scales", "color": [0.32, 0.48, 0.26]},
+    job("pan", outfit="Male_Peasant", drop=["Legs", "Eyebrows"], sculpt={"snout": 0.032, "slope": 0.02, "nose": -0.003}, skin_texture={"kind": "scales", "color": [0.32, 0.48, 0.26]},
         tints={"Body": {"color": [0.03, 0.03, 0.03]}, "Arms": {"color": [0.03, 0.03, 0.03]}, "Feet": {"color": [0.05, 0.05, 0.04]}},
         garments=[hood([0.03, 0.03, 0.035]),
                   {"type": "robe", "color": [0.03, 0.03, 0.035], "hem": 0.03, "flare": [0.3, 0.26], "follow": 0.85},
                   {"type": "belt", "color": [0.08, 0.06, 0.04]}],
         weapon={"type": "staff", "wood": [0.2, 0.14, 0.08]}),
     # Panth Tiandn: a Pantathian in a dark red robe with a dagger.
-    job("pai", outfit="Male_Peasant", drop=["Legs", "Eyebrows"], sculpt={"snout": 0.055, "slope": 0.025, "nose": -0.004}, skin_texture={"kind": "scales", "color": [0.28, 0.42, 0.24]},
+    job("pai", outfit="Male_Peasant", drop=["Legs", "Eyebrows"], sculpt={"snout": 0.032, "slope": 0.02, "nose": -0.003}, skin_texture={"kind": "scales", "color": [0.28, 0.42, 0.24]},
         tints={"Body": {"color": [0.14, 0.025, 0.025]}, "Arms": {"color": [0.14, 0.025, 0.025]}, "Feet": {"color": [0.05, 0.05, 0.04]}},
         garments=[hood([0.03, 0.03, 0.035]),
                   {"type": "robe", "color": [0.14, 0.025, 0.025], "hem": 0.03, "flare": [0.3, 0.26], "follow": 0.85},
@@ -109,11 +109,9 @@ jobs = [
         clips={"idle": "Idle_Loop", "attack": "Spell_Simple_Shoot", "block": "Hit_Chest"}),
     # Great One (Makala): voluminous black robe over a frail frame, wild white hair and beard (manual p. 66).
     job("mak", outfit="Male_Peasant", drop=["Legs"], sculpt={"nose": 0.006, "cheeks": -0.004},
-        beard="Hair_Beard", beard_color=[0.9, 0.9, 0.88], beard_target=1.1, brow_color=[0.85, 0.85, 0.82], skin=[1.0, 0.86, 0.66],
+        beard="Hair_Beard", beard_color=[0.3, 0.3, 0.31], beard_target=1.0, brow_color=[0.35, 0.35, 0.36], skin=[1.0, 0.86, 0.66],
         tints={"Body": {"color": [0.03, 0.03, 0.03]}, "Arms": {"color": [0.03, 0.03, 0.03]}, "Feet": {"color": [0.05, 0.05, 0.05]}},
-        garments=[{"type": "hair", "color": [0.86, 0.86, 0.84], "tip": [0.95, 0.95, 0.93], "length": 1.58, "volume": 0.02,
-                   "wave": 0.01, "hairline": [[0, 40], [40, 30], [62, -6], [72, -999], [180, -999]]},
-                  hood([0.03, 0.03, 0.035]),
+        garments=[hood([0.03, 0.03, 0.035]),
                   {"type": "robe", "color": [0.03, 0.03, 0.035], "hem": 0.02, "flare": [0.34, 0.3], "follow": 0.85},
                   {"type": "belt", "color": [0.05, 0.05, 0.05], "buckle": [0.4, 0.4, 0.42]}],
         weapon={"type": "staff", "wood": [0.45, 0.32, 0.18]}),
@@ -185,7 +183,8 @@ jobs = [
         sculpt={"lumps": 0.03, "brow": 0.014, "crown": -0.01},
         proportions={"pelvis": [1.35, 1, 1.25], "spine_01": [1.4, 1, 1.3], "spine_02": [1.3, 1, 1.2], "spine_03": [1.3, 1, 1.2],
                      "upperarm_l": [1.35, 1.05, 1.35], "upperarm_r": [1.35, 1.05, 1.35],
-                     "thigh_l": [1.6, 0.92, 1.6], "thigh_r": [1.6, 0.92, 1.6], "calf_l": [1.15, 0.95, 1.15], "calf_r": [1.15, 0.95, 1.15],
+                     "thigh_l": [1.35, 0.92, 1.35], "thigh_r": [1.35, 0.92, 1.35], "calf_l": [1.5, 0.95, 1.5], "calf_r": [1.5, 0.95, 1.5],
+                     "foot_l": [1.45, 1.3, 1.45], "foot_r": [1.45, 1.3, 1.45],
                      "neck_01": [1.4, 0.7, 1.4], "Head": [1.1, 0.95, 1.1]}),
 ]
 # Robes end at the ankle so the feet show below the hem instead of poking through it; the hem follows the legs.

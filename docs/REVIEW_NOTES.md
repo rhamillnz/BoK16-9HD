@@ -275,3 +275,15 @@ From `party4` and `creatures1`; the next verdicts go to `party5` and `creatures2
 - Brak-Nurr is square, with thick legs and a lumpy head. The giant has a Neanderthal face and wild hair off the forehead. The troll is bald with a higher loincloth.
 - The pirate has a scimitar and blue-grey cloth. The Panth Tiandn is unarmed. The Pantathians have snouts.
 - Makala is hooded, with Tsurani skin. The witch has a hooked nose, a pointed chin and warts. The Rusalki has legs.
+
+## Party round 6 and creatures round 3 (Opus, 2026-10-15)
+
+Approved: Locklear, Gorath (both versions), Owyn, Patrus, and 12 of the creatures. The next verdicts go to `party6` and `creatures3`.
+
+- **Bare-bodied creatures.** They keep the whole body as one mesh. The neck split showed as a seam, and the heads looked like they floated. `Head` is now a helper copy, used for casting and hair and deleted before export. Sculpting and ears apply to the whole body.
+- **Belts and loincloths.** They follow `waist_shift`, the pelvis moving under `proportions`. The loincloth flares from the hips it hangs from (`flare_scale`) and follows the legs fully.
+- **Torso filler.** It settles 4 mm inside the nearest outfit cloth wherever it would show through or touch, and keeps its place at open collars. This closed James's neck gap.
+- **Hair options.** `smooth` hair has no grooves or fringe (James's hair pulled back). `peak` gives a cowl a magician's point (Pug).
+- **Snout.** It is smaller and rounder (Pantathians).
+- **Makala.** Hood only, with a black-grey beard.
+- **Brak-Nurr.** Thinner thighs, thicker calves, bigger feet.

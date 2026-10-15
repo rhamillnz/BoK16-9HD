@@ -696,7 +696,7 @@ def snap_to_surface(obj, target, lift):
         v.co.y += best_y - lift - back + 0.012
 
 
-def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=40, ragged=0.0):
+def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=40, ragged=0.0, flare_scale=None):
     """A skirt from the waist (`zt`) to the hem (`zb`), flaring to `flare` (half widths), weighted from the pelvis
     to both legs (`follow` = how much the hem follows the legs). `trim` colours a band round the hem."""
     waist = waist_extent(ctx["shirt"], zt)
@@ -715,7 +715,11 @@ def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=4
         for s, a in enumerate(angles):
             wob = 1 + 0.035 * math.sin(a * 7 + t * 2) * t
             zr = z + ragged * t ** 4 * (math.sin(a * 9) + 0.7 * math.sin(a * 23 + 1.3) + 0.5)
-            bot = Vector((math.sin(a) * flare[0], waist[2] - math.cos(a) * flare[1], z))
+            if flare_scale:
+                # Flare from the hips it hangs from (thick-thighed creatures need a wider skirt).
+                bot = Vector((top[s].x * flare_scale, waist[2] + (top[s].y - waist[2]) * flare_scale, z))
+            else:
+                bot = Vector((math.sin(a) * flare[0], waist[2] - math.cos(a) * flare[1], z))
             p = top[s].lerp(bot, k)
             off = Vector((p.x, p.y - waist[2], 0)) * (wob - 1)
             row.append(bm.verts.new((p.x + off.x, p.y + off.y, zr)))
@@ -1062,7 +1066,7 @@ def g_belt(ctx, g):
     """Belt fitted round whatever is at the waist (shirt, robe, tunic, cuirass), with a buckle; `scabbard` hangs
     a scabbard on the left hip (`rapier` makes it long and slim)."""
     leather = material("belt", g.get("color", (0.12, 0.07, 0.04)), 0.7)
-    z = g.get("z", 1.06)
+    z = g.get("z", 1.06 + ctx.get("waist_shift", 0.0))
     tilt = g.get("tilt", 0.03)
     cy = waist_extent(ctx["shirt"], z)[2]
     targets = torso_parts(ctx) + body_parts(ctx, "_Legs") + ctx["layers"]
@@ -1427,13 +1431,17 @@ def g_hair(ctx, g):
         pts.append([None] * cols)
         noms.append(math.degrees(elevs[i]) if i < rows else -100 - i)
     for j, a in enumerate(azims):
-        groove = 0.0 if g.get("knit") or g.get("cloth") else 0.0035 * (math.sin(a * 23) + 0.6 * math.sin(a * 41 + 1.3)) + 0.002 * math.sin(a * 7)
+        groove = 0.0 if g.get("knit") or g.get("cloth") or g.get("smooth") else 0.0035 * (math.sin(a * 23) + 0.6 * math.sin(a * 41 + 1.3)) + 0.002 * math.sin(a * 7)
         hd = Vector((math.sin(a), -math.cos(a), 0))
         hr_max, last = 0.0, None
         for i, e in enumerate(elevs):
             if raw[i][j] <= 0:
                 continue
             p = centre + sphere_dir(e, a) * (env[i][j] + vol + groove * (1 - max(e, 0) / 1.6))
+            if g.get("peak"):
+                # A magician's hood: the crown drawn up and back into a soft point.
+                kk = smoothstep(math.radians(25), math.radians(85), e) * max(0.0, -math.cos(a)) ** 1.5
+                p = p + Vector((0, g["peak"] * 0.8, g["peak"] * 0.6)) * kk
             hr = (p - centre).dot(hd)
             if hr >= hr_max:
                 hr_max = hr
@@ -1466,7 +1474,7 @@ def g_hair(ctx, g):
 
     def keep(i, j, p):
         a = azims[j]
-        ragged = 2.5 * math.sin(a * 19) + 1.5 * math.sin(a * 31 + 2) if abs(a) < 1.3 and not (g.get("knit") or g.get("cloth")) else 0.0
+        ragged = 2.5 * math.sin(a * 19) + 1.5 * math.sin(a * 31 + 2) if abs(a) < 1.3 and not (g.get("knit") or g.get("cloth") or g.get("smooth")) else 0.0
         return noms[i] >= hairline(a) + ragged
 
     hair = grid_object("hair_gen", pts, mat, True, keep, centre)
@@ -1954,8 +1962,9 @@ def g_mask(ctx, g):
 def g_loincloth(ctx, g):
     """A short ragged skirt of hide or cloth from the hips (giants, trolls, ogres)."""
     cloth = material("loincloth", g.get("color", (0.35, 0.24, 0.14)), 0.95, 0.0, ctx["cloth"])
-    return [skirt(ctx, "loincloth", cloth, g.get("waist", 1.0), g.get("hem", 0.68), g.get("flare", (0.23, 0.19)),
-                  g.get("follow", 0.85), None, rings=8, ragged=g.get("ragged", 0.05))]
+    shift = ctx.get("waist_shift", 0.0)
+    return [skirt(ctx, "loincloth", cloth, g.get("waist", 1.06 + shift), g.get("hem", 0.68 + shift), g.get("flare", (0.23, 0.19)),
+                  g.get("follow", 1.0), None, rings=8, ragged=g.get("ragged", 0.05), flare_scale=g.get("flare_scale", 1.22))]
 
 
 def g_seaweed(ctx, g):
@@ -2087,8 +2096,9 @@ def sculpt(obj, ops):
                 d.y -= amt * k
             elif op == "snout":
                 k = front * smoothstep(ez - 0.005, ez - 0.05, p.z) * smoothstep(1.5, 1.56, p.z)
+                k *= 1 - 0.5 * smoothstep(0.015, 0.055, abs(p.x))
                 d.y -= amt * k
-                d.x -= p.x * 0.35 * k
+                d.x -= p.x * 0.18 * k
             elif op == "chin":
                 k = front * smoothstep(ez - 0.07, ez - 0.12, p.z) * smoothstep(0.04, 0.0, abs(p.x)) * (p.z > 1.48)
                 d += Vector((0, -amt * 0.6 * k, -amt * k))
@@ -2152,7 +2162,7 @@ def elf_ears(obj, amount):
         v.co = inv @ Vector((p.x + math.copysign(lift * 0.25, p.x), p.y + lift * 0.45, p.z + lift))
 
 
-def torso_only(obj, inset):
+def torso_only(obj, inset, cloth=()):
     """Keep the chest, back, shoulders and neck base (no head, arms or legs), pulled `inset` in along the
     normals so it stays inside the clothes."""
     names = [g.name for g in obj.vertex_groups]
@@ -2168,10 +2178,26 @@ def torso_only(obj, inset):
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not top_bone(v, layer, names).startswith(keep)
                                or (mw @ v.co).z < neck_base - 0.14], context="VERTS")
     bm.normal_update()
-    # Meets the head's neck without a step at the top, sinks inside the cloth further down.
+    # Settle just inside the clothes: wherever a vertex is outside the nearest cloth, or within a few millimetres
+    # of it, it moves to 4 mm under that cloth. Elsewhere (open collars) it keeps its place, meeting the neck.
+    from mathutils.bvhtree import BVHTree
+    trees = []
+    for c in cloth:
+        cw = c.matrix_world
+        trees.append(BVHTree.FromPolygons([cw @ v.co for v in c.data.vertices], [list(f.vertices) for f in c.data.polygons]))
+    inv = mw.inverted()
     for v in bm.verts:
-        z = (mw @ v.co).z
-        v.co -= v.normal * (0.002 + inset * smoothstep(neck_base + 0.01, neck_base - 0.06, z))
+        w = mw @ v.co
+        best = None
+        for t in trees:
+            hit = t.find_nearest(w, 0.08)
+            if hit[0] is not None and (best is None or hit[3] < best[3]):
+                best = hit
+        if best is None:
+            continue
+        loc, nrm = best[0], best[1]
+        if (w - loc).dot(nrm) > -0.004:
+            v.co = inv @ (loc - nrm * 0.004)
     bm.to_mesh(obj.data)
     bm.free()
 
@@ -2580,26 +2606,33 @@ def build(job, roots):
         objs += import_gltf(os.path.join(outfits_root, "Modular Parts", e + ".gltf"))
     for o in list(base):
         if o.type == "MESH" and o.name.lower().startswith("superhero"):
+            body = None
             if not outfit:
-                # Split the body at the neck: "Head" (head and neck) for hair, beards and casting, and
-                # "Base_Body" (the rest) as the torso the garments fit. Same vertices, so no seam shows.
+                # The whole body stays one mesh ("Base_Body"; a split at the neck showed as a seam, the head
+                # looking separate). "Head" below is then only a helper for hair, beards and casting, removed
+                # before export.
                 body = o.copy()
                 body.data = o.data.copy()
                 bpy.context.scene.collection.objects.link(body)
-                body_only(body)
                 body.name = "Base_Body"
                 base.append(body)
+                if job.get("sculpt"):
+                    sculpt(body, job["sculpt"])
+                if job.get("elf_ears"):
+                    elf_ears(body, job["elf_ears"])
             if outfit and job.get("fill", True):
                 # Outfits are hollow shells: fill them with the body's own torso, set just inside the cloth, so
                 # looking into a collar or past an open neck shows skin and cloth, never the far side.
                 fill = o.copy()
                 fill.data = o.data.copy()
                 bpy.context.scene.collection.objects.link(fill)
-                torso_only(fill, job.get("fill_inset", 0.045))
+                torso_only(fill, job.get("fill_inset", 0.045), [m for m in outfit if m.type == "MESH" and "_Body" in m.name])
                 fill.name = "Torso_Fill"
                 base.append(fill)
             head_only(o)
             o.name = "Head"
+            if body is not None:
+                o["helper"] = True
             if job.get("sculpt"):
                 sculpt(o, job["sculpt"])
             if job.get("elf_ears"):
@@ -2632,8 +2665,10 @@ def build(job, roots):
         hug_surface(o, head_obj, job.get("beard_depth", 0.4))
     adopt(objs, arm)
     objs = [o for o in bpy.data.objects if o.type == "MESH" and o.parent is arm]
+    pelvis0 = (arm.matrix_world @ arm.data.bones["pelvis"].head_local).z
     if job.get("proportions"):
         apply_proportions(arm, objs, job["proportions"])
+    waist_shift = (arm.matrix_world @ arm.data.bones["pelvis"].head_local).z - pelvis0
     for o in objs:
         for key, spec in job.get("tints", {}).items():
             if key in o.name:
@@ -2654,7 +2689,7 @@ def build(job, roots):
                 if slot.material and slot.material.name.startswith((SKIN_MATERIAL, "MI_Superhero")):
                     reskin(slot, job["skin_texture"])
     ctx = {"arm": arm, "shirt": shirt, "skin": Skinner([o for o in objs if o.vertex_groups]), "cloth": cloth_image("cloth"),
-           "objs": list(objs), "layers": [],
+           "objs": list(objs), "layers": [], "waist_shift": waist_shift,
            "actions": actions, "clips": clips}
     if job.get("shackled"):
         ctx["wrists"] = shackle_pose(arm, actions, clips, job["shackled"])
@@ -2662,6 +2697,9 @@ def build(job, roots):
         objs += GARMENTS[g["type"]](ctx, g)
     if job.get("weapon"):
         objs.append(attach_weapon(ctx, job["weapon"]))
+    for o in [o for o in objs if o.get("helper")]:
+        objs.remove(o)
+        bpy.data.objects.remove(o, do_unlink=True)
     if os.environ.get("PARTY_DEBUG"):
         for o in objs:
             if o.type == "MESH":
