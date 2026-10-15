@@ -1,12 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three/webgpu';
-import { angleDelta, headingTowards, partyModelName } from './fighterModels';
+import { existsSync } from 'node:fs';
+import { angleDelta, creatureModelName, headingTowards, partyModelName } from './fighterModels';
 
 describe('party combat models', () => {
   it('maps party members to their model files', () => {
     expect(partyModelName('Locklear')).toBe('locklear');
     expect(partyModelName(' Patrus ')).toBe('patrus');
     expect(partyModelName('scorpion')).toBeUndefined();
+  });
+
+  it('maps monsters to creature models, sharing one model across a sprite set', () => {
+    expect(creatureModelName(18)).toBe('mor');
+    expect(creatureModelName(29)).toBe('gnt');
+    expect(creatureModelName(33)).toBe('gnt');
+    expect(creatureModelName(39)).toBeUndefined(); // scorpion: not built yet
+  });
+
+  it('has a model file for every mapped creature', () => {
+    for (let m = 0; m < 70; m++) {
+      const name = creatureModelName(m);
+      if (name) expect(existsSync(`public/models/creatures/${name}.glb`), name).toBe(true);
+    }
   });
 
   it('takes the short way round when turning', () => {

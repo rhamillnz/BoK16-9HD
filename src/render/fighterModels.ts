@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { EYE_HEIGHT } from '../world/partyController';
 import { WORLD_SCALE } from './zoneScene';
@@ -28,12 +29,59 @@ export function partyModelName(name: string): string | undefined {
   return PARTY_MODELS.has(n) ? n : undefined;
 }
 
+/**
+ * Creature models (public/models/creatures/<name>.glb, built from art/jobs/creatures.json) by monster index
+ * (MNAMES.DAT). Monsters that share a sprite set share a model (the four giants, the ogres, both Nighthawks).
+ */
+const CREATURE_MODELS: Readonly<Record<number, string>> = {
+  18: 'mor',
+  19: 'brk',
+  21: 'mor_caster',
+  22: 'bsy',
+  23: 'nhk',
+  24: 'rog',
+  25: 'pan',
+  26: 'pai',
+  27: 'spl',
+  29: 'gnt',
+  30: 'rog_mage',
+  31: 'gnt',
+  32: 'gnt',
+  33: 'gnt',
+  34: 'ogr',
+  35: 'ogr',
+  36: 'ogr',
+  37: 'ogr',
+  48: 'tro',
+  52: 'wit',
+  53: 'gob',
+  55: 'que',
+  56: 'rus',
+  57: 'sha',
+  61: 'mak',
+  62: 'nhk',
+  63: 'mor_caster',
+};
+
+/** The creature model file name for a monster index, or undefined when it has none yet. */
+export function creatureModelName(monster: number): string | undefined {
+  return CREATURE_MODELS[monster];
+}
+
 const cache = new Map<string, Promise<GLTF | undefined>>();
+let loader: GLTFLoader | undefined;
+
+/** One loader for every model; the meshes are Draco-compressed (decoder copied into public/draco/). */
+function gltfLoader(): GLTFLoader {
+  if (!loader) loader = new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('/draco/'));
+  return loader;
+}
 
 export function loadPartyModel(name: string, baseUrl = '/models/party/'): Promise<GLTF | undefined> {
-  let p = cache.get(name);
+  const key = baseUrl + name;
+  let p = cache.get(key);
   if (!p) {
-    p = new GLTFLoader()
+    p = gltfLoader()
       .loadAsync(`${baseUrl}${name}.glb`)
       .then((g) => {
         // Clips play in place: the cell-to-cell walk moves the model, so drop any root translation.
@@ -41,12 +89,39 @@ export function loadPartyModel(name: string, baseUrl = '/models/party/'): Promis
         return g;
       })
       .catch((err) => {
-        console.warn(`Party model ${name} failed:`, err);
+        console.warn(`Model ${name} failed:`, err);
         return undefined;
       });
-    cache.set(name, p);
+    cache.set(key, p);
   }
   return p;
+}
+
+/**
+ * See-through creatures (Rusalki, shades) carry their opacity as an "alpha" extra on a node (glTF extras become
+ * userData); every material of the model is made transparent at that opacity. Materials are cloned first, as a
+ * cloned model shares them with the cached original.
+ */
+export function applyModelAlpha(root: THREE.Object3D): void {
+  let alpha: number | undefined;
+  root.traverse((o) => {
+    const a = (o.userData as { alpha?: unknown }).alpha;
+    if (typeof a === 'number') alpha = a;
+  });
+  if (alpha === undefined) return;
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const one = (m: THREE.Material) => {
+      const c = m.clone();
+      c.transparent = true;
+      c.opacity = alpha!;
+      c.depthWrite = true; // hides its own far side, so the hair is not drawn under the scalp
+      return c;
+    };
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(one) : one(mesh.material);
+    mesh.castShadow = false;
+  });
 }
 
 /** Shortest signed angle from `a` to `b`. */
@@ -85,6 +160,7 @@ export class FighterActor {
   constructor(gltf: GLTF, height = PARTY_MODEL_HEIGHT * PARTY_SCALE) {
     this.object = cloneSkinned(gltf.scene);
     this.object.scale.setScalar(height / PARTY_MODEL_HEIGHT);
+    applyModelAlpha(this.object);
     this.object.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) {
         o.castShadow = true;

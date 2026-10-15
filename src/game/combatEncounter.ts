@@ -208,7 +208,7 @@ export class CombatEncounters {
     this.starting = true;
     let restore: (() => void) | undefined;
     try {
-      const enemies = enemiesOf(s, def).map((e) => (fresh ? { ...e, dead: false } : e));
+      const enemies = debugMonsters(enemiesOf(s, def).map((e) => (fresh ? { ...e, dead: false } : e)));
       const pos = this.d.position();
       // Slide or turn the grid off any rock face or hill the party is facing, to where the camera can see it;
       // cells that stay on one are disabled.
@@ -290,4 +290,17 @@ export class CombatEncounters {
     }
     this.d.setParty(party);
   }
+}
+
+/**
+ * Debug: `?monsters=18,48,19` makes the enemies of every fight those monsters, in turn (to look at creature
+ * models and sprites in a fight anywhere). The fight's own stats and positions are kept.
+ */
+function debugMonsters<T extends { monster: number }>(enemies: T[]): T[] {
+  const raw = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('monsters');
+  const list = (raw ?? '')
+    .split(',')
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0);
+  return list.length ? enemies.map((e, i) => ({ ...e, monster: list[i % list.length]! })) : enemies;
 }

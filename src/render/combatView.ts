@@ -6,7 +6,7 @@ import type { GridPos } from '../combat/grid';
 import { cameraPlan, gridPointToWorld, worldToGridCell, type Point } from '../combat/layout';
 import type { CombatSprite } from '../combat/sprites';
 import { createBillboards } from './zoneScene';
-import { FighterActor, loadPartyModel, partyModelName } from './fighterModels';
+import { creatureModelName, FighterActor, loadPartyModel, partyModelName } from './fighterModels';
 
 const WORLD_SCALE = 100;
 /** Lift of the grid overlay above the ground, in BaK units. */
@@ -35,7 +35,7 @@ export interface CombatViewOptions {
   /** Original sprite and its palette for a monster index, when one could be loaded. */
   spriteFor: (monster: number) => CombatSprite | undefined;
   palette: Uint8Array;
-  /** Use the party's animated 3D models when they load (default true; tests and tools turn it off). */
+  /** Use the animated 3D models (party and creatures) when they load (default true; tests and tools turn it off). */
   models?: boolean;
 }
 
@@ -181,9 +181,11 @@ export class CombatView {
     this.group.add(mesh, ghost);
     const node: FighterNode = { fighter: f, mesh, ghost, textures };
     this.nodes.set(f.id, node);
-    const model = f.side === 'party' && this.o.models !== false ? partyModelName(f.name) : undefined;
+    // Party members by name; monsters (and summoned allies such as a Rusalki) by monster index.
+    const partyModel = f.side === 'party' ? partyModelName(f.name) : undefined;
+    const model = this.o.models === false ? undefined : (partyModel ?? creatureModelName(f.monster));
     if (model)
-      void loadPartyModel(model).then((gltf) => {
+      void loadPartyModel(model, partyModel ? '/models/party/' : '/models/creatures/').then((gltf) => {
         if (!gltf || this.disposed || this.nodes.get(f.id) !== node) return;
         // Combat draws everyone at the original sprites' scale: stand as tall as this character's combat sprite.
         const actor = new FighterActor(gltf, (sprite?.height ?? MARKER_SIZE.height) / WORLD_SCALE);

@@ -696,7 +696,7 @@ def snap_to_surface(obj, target, lift):
         v.co.y += best_y - lift - back + 0.012
 
 
-def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=40):
+def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=40, ragged=0.0):
     """A skirt from the waist (`zt`) to the hem (`zb`), flaring to `flare` (half widths), weighted from the pelvis
     to both legs (`follow` = how much the hem follows the legs). `trim` colours a band round the hem."""
     waist = waist_extent(ctx["shirt"], zt)
@@ -714,10 +714,11 @@ def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=4
         row = []
         for s, a in enumerate(angles):
             wob = 1 + 0.035 * math.sin(a * 7 + t * 2) * t
+            zr = z + ragged * t ** 4 * (math.sin(a * 9) + 0.7 * math.sin(a * 23 + 1.3) + 0.5)
             bot = Vector((math.sin(a) * flare[0], waist[2] - math.cos(a) * flare[1], z))
             p = top[s].lerp(bot, k)
             off = Vector((p.x, p.y - waist[2], 0)) * (wob - 1)
-            row.append(bm.verts.new((p.x + off.x, p.y + off.y, z)))
+            row.append(bm.verts.new((p.x + off.x, p.y + off.y, zr)))
         grid.append(row)
     for r in range(rings):
         for s in range(seg):
@@ -734,7 +735,7 @@ def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=4
     def w(co):
         t = min(max((zt - co.z) / (zt - zb), 0.0), 1.0)
         legs = smoothstep(0.0, 0.55, t) * follow
-        calf = smoothstep(0.5, 1.0, t) * 0.55 if zb < 0.5 else 0.0
+        calf = smoothstep(0.5, 1.0, t) * 0.85 if zb < 0.5 else 0.0
         left = min(max(0.5 + co.x / (2 * 0.11), 0.0), 1.0)
         out = {"pelvis": 1 - legs}
         for tag, k in (("l", left), ("r", 1 - left)):
@@ -777,18 +778,21 @@ def g_robe(ctx, g):
     if trim is not None:
         skin_from(ctx, band, ("spine", "pelvis", "clavicle", "neck"))
     out.append(skirt(ctx, "robe_skirt", cloth, g.get("waist", 1.06), g.get("hem", 0.07), g.get("flare", (0.25, 0.21)),
-                     g.get("follow", 0.65), trim))
+                     g.get("follow", 0.65), trim, ragged=g.get("ragged", 0.0)))
     # Wide cuffs at the ends of the sleeves.
     for side, tag in ((1, "l"), (-1, "r")):
         bm = bmesh.new()
         geom = bmesh.ops.create_cone(bm, cap_ends=False, segments=24, radius1=0.055, radius2=0.1, depth=0.16)
         bmesh.ops.rotate(bm, verts=geom["verts"], cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(90 * side), 3, "Y"))
-        bmesh.ops.translate(bm, verts=geom["verts"], vec=(side * 0.6, 0.068, 1.452))
+        # On the forearm, 60% of the way from the elbow to the wrist (works for any body, male or female).
+        at = bone_rest(ctx, f"lowerarm_{tag}").lerp(bone_rest(ctx, f"hand_{tag}"), 0.6)
+        bmesh.ops.translate(bm, verts=geom["verts"], vec=at)
         cuff = link(f"robe_cuff_{tag}", bm, cloth)
         if trim is not None:
             cuff.data.materials.append(trim)
             for p in cuff.data.polygons:
-                p.material_index = 1 if sum(abs(cuff.data.vertices[i].co.x) for i in p.vertices) / len(p.vertices) > 0.64 else 0
+                mx = sum(cuff.data.vertices[i].co.x for i in p.vertices) / len(p.vertices)
+                p.material_index = 1 if side * (mx - at.x) > 0.04 else 0
         bmesh_uv_cylinder(cuff, 0.07)
         solidify(cuff, 0.008, 1.0)
         smooth_shading(cuff)
@@ -1003,15 +1007,22 @@ def g_baldric(ctx, g):
     metal = own(material("buckle", (0.6, 0.6, 0.62), 0.35, 0.85))
     # Buckle on the chest, a third of the way down the strap.
     p = a + d * 0.3
-    caster = Caster([strap])
-    centre = torso_centre(ctx)
-    dirv = (Vector((p.x, -0.3, p.y)) - centre).normalized()
-    r = caster.inward(centre, dirv) or 0.2
+    # Seat it on the strap: the front-most strap vertex nearest that point on the chest, along its normal.
+    me = strap.data
+    best = min((v for v in me.vertices if (strap.matrix_world @ v.co).y < 0),
+               key=lambda v: ((strap.matrix_world @ v.co).x - p.x) ** 2 + ((strap.matrix_world @ v.co).z - p.y) ** 2
+               + 0.5 * (strap.matrix_world @ v.co).y ** 2)
+    at = strap.matrix_world @ best.co
+    nrm = (strap.matrix_world.to_3x3() @ best.normal).normalized()
+    if nrm.y > 0:
+        nrm = -nrm
     bm = bmesh.new()
     geom = bmesh.ops.create_cube(bm, size=1)
     bmesh.ops.scale(bm, verts=geom["verts"], vec=(0.055, 0.01, 0.045))
     bmesh.ops.rotate(bm, verts=geom["verts"], cent=(0, 0, 0), matrix=Matrix.Rotation(-math.atan2(d.y, d.x) - math.pi / 2, 3, "Y"))
-    bmesh.ops.translate(bm, verts=geom["verts"], vec=centre + dirv * (r + 0.004))
+    rot = Vector((0, -1, 0)).rotation_difference(nrm).to_matrix()
+    bmesh.ops.rotate(bm, verts=geom["verts"], cent=(0, 0, 0), matrix=rot)
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=at + nrm * 0.004)
     buckle = link("baldric_buckle", bm, metal)
     skin_from(ctx, buckle, ("spine",))
     return [strap, buckle]
@@ -1174,7 +1185,8 @@ def g_cape(ctx, g):
             elif y is None:
                 y = 0.12
             y += 0.012 * math.sin(u * math.pi * 3) * v + g.get("sweep", 0.04) * smoothstep(0.35, 1.0, v)
-            row.append(Vector((x, y, z)))
+            zr = z + g.get("ragged", 0.0) * v ** 6 * (math.sin(u * 19) + 0.7 * math.sin(u * 41 + 1) + 0.6)
+            row.append(Vector((x, y, zr)))
         pts.append(row)
         prev = row
     cape = grid_object("cape", pts, cloth, wrap=False, centre=Vector((0, -0.3, 0.9)))
@@ -1271,6 +1283,8 @@ def g_chains(ctx, g):
             for s in range(segs):
                 bm.faces.new((a[s], a[(s + 1) % segs], b[(s + 1) % segs], b[s]))
 
+    if ctx.get("wrists"):
+        return chains_between(ctx, iron, link_ring)
     for side, tag in ((1, "l"), (-1, "r")):
         wrist = bone_rest(ctx, f"hand_{tag}") - Vector((side * 0.05, 0, 0))
         bm = bmesh.new()
@@ -1313,6 +1327,39 @@ def g_chains(ctx, g):
     return out
 
 
+def chains_between(ctx, iron, link_ring):
+    """Shackled hands (see shackle_pose): a manacle on each held wrist and a chain sagging between them. The
+    meshes are built where the wrists are held and pinned to the upper spine, which the held arms hang from."""
+    wl, wr = ctx["wrists"]
+    bm = bmesh.new()
+    for w, other in ((wl, wr), (wr, wl)):
+        axis = (w - other).normalized()
+        u = axis.orthogonal().normalized()
+        v = axis.cross(u)
+        for k in range(2):
+            c = w - axis * (0.035 + 0.025 * k)
+            ring = [c + (u * math.cos(2 * math.pi * s / 24) + v * math.sin(2 * math.pi * s / 24)) * 0.045 for s in range(25)]
+            tube(bm, ring, 0.011, 8)
+    a = wl - (wl - wr).normalized() * 0.06
+    b = wr + (wl - wr).normalized() * 0.06
+    span = (b - a).length
+    n = max(3, int(span / 0.04))
+    prev = None
+    for k in range(n + 1):
+        t = k / n
+        p = a.lerp(b, t) + Vector((0, 0, -0.09 * 4 * t * (1 - t) - 0.05))
+        if prev is not None:
+            along = (p - prev).normalized()
+            mid = (p + prev) / 2
+            axis = Vector((0, 1, 0)) if k % 2 else along.cross(Vector((0, 1, 0))).normalized()
+            link_ring(bm, mid, axis, along, 0.015, 0.024, 0.005)
+        prev = p
+    obj = link("shackle_chain", bm, iron)
+    smooth_shading(obj, 50)
+    set_weights(obj, ctx["arm"], lambda co: {"spine_03": 1.0})
+    return [obj]
+
+
 def g_hair(ctx, g):
     """Hair grown over the scalp and hung straight down from the widest part of the head (so long hair drapes
     instead of hugging the neck). `hairline` maps azimuth (degrees from the front) to the lowest elevation (degrees
@@ -1343,7 +1390,9 @@ def g_hair(ctx, g):
             out.append(np.clip(base * lum, 0, 1))
         return out
 
-    if g.get("knit"):
+    if g.get("cloth"):
+        mat = material("hood_cloth", g["color"], 0.9, 0.0, ctx["cloth"])
+    elif g.get("knit"):
         def knit(x, y):
             import numpy as np
             rib = 0.5 + 0.5 * np.cos(x * 2 * np.pi * 48)
@@ -1377,7 +1426,7 @@ def g_hair(ctx, g):
         pts.append([None] * cols)
         noms.append(math.degrees(elevs[i]) if i < rows else -100 - i)
     for j, a in enumerate(azims):
-        groove = 0.0 if g.get("knit") else 0.0035 * (math.sin(a * 23) + 0.6 * math.sin(a * 41 + 1.3)) + 0.002 * math.sin(a * 7)
+        groove = 0.0 if g.get("knit") or g.get("cloth") else 0.0035 * (math.sin(a * 23) + 0.6 * math.sin(a * 41 + 1.3)) + 0.002 * math.sin(a * 7)
         hd = Vector((math.sin(a), -math.cos(a), 0))
         hr_max, last = 0.0, None
         for i, e in enumerate(elevs):
@@ -1403,16 +1452,16 @@ def g_hair(ctx, g):
                 z = last.z - 0.001 * (k + 1)
             hr = max(hr, hr_max + g.get("flare", 0.03) * t ** 1.5)
             # Long hair lies over the shoulders and back rather than through them.
-            under = body.inward(Vector((centre.x, centre.y, z)), hd, 0.6)
-            # (Hits much further out are the rest pose's outstretched sleeves, not the shoulders.)
-            if under and under < hr_max + 0.07:
+            # Cast from just beyond the shoulders: the rest pose's outstretched sleeves lie further out.
+            under = body.inward(Vector((centre.x, centre.y, z)), hd, 0.26)
+            if under and under < 0.25:
                 hr = max(hr, under + 0.014)
             w = wave * math.sin(z * 55 + a * 3) * t
             pts[rows + k][j] = Vector((centre.x, centre.y, z)) + hd * (hr + w)
 
     def keep(i, j, p):
         a = azims[j]
-        ragged = 2.5 * math.sin(a * 19) + 1.5 * math.sin(a * 31 + 2) if abs(a) < 1.3 and not g.get("knit") else 0.0
+        ragged = 2.5 * math.sin(a * 19) + 1.5 * math.sin(a * 31 + 2) if abs(a) < 1.3 and not (g.get("knit") or g.get("cloth")) else 0.0
         return noms[i] >= hairline(a) + ragged
 
     hair = grid_object("hair_gen", pts, mat, True, keep, centre)
@@ -1433,10 +1482,10 @@ def g_hair(ctx, g):
         out.append(cuff)
     if g.get("ponytail"):
         back = centre + sphere_dir(math.radians(-12), math.pi) * ((caster.inward(centre, sphere_dir(math.radians(-12), math.pi), 0.5) or 0.09) + vol)
-        path = [back + Vector((0, -0.02, 0.0)), back + Vector((0, 0.012, -0.03)), back + Vector((0, 0.02, -0.08)),
-                back + Vector((0, 0.018, -0.13)), back + Vector((0, 0.012, -0.17)), back + Vector((0, 0.008, -0.2))]
+        path = [back + Vector((0, -0.02, 0.0)), back + Vector((0, 0.015, -0.025)), back + Vector((0, 0.035, -0.06)),
+                back + Vector((0, 0.045, -0.1)), back + Vector((0, 0.045, -0.13))]
         bm = bmesh.new()
-        tube(bm, path, [0.017, 0.016, 0.015, 0.013, 0.01, 0.004], 12)
+        tube(bm, path, [0.017, 0.016, 0.014, 0.01, 0.003], 12)
         tail = link("ponytail", bm, mat)
         planar_uv(tail, 3.0, (0, 2))
         smooth_shading(tail, 70)
@@ -1467,8 +1516,10 @@ def g_hood(ctx, g):
     n = neck_axis(ctx)
     caster = Caster(torso_parts(ctx) + ctx["layers"] + [o for o in ctx["objs"] if o.name.startswith("Head")])
     # Profile (outward offset, height) from the neck up and back over into the folded hood.
-    prof = [(0.0, 1.43), (0.012, 1.5), (0.035, 1.545), (0.075, 1.54), (0.105, 1.49), (0.12, 1.42), (0.11, 1.34), (0.085, 1.29)]
-    span = math.radians(g.get("span", 125))
+    k = g.get("size", 0.6)
+    prof = [(0.0, 1.43), (0.01 * k, 1.5), (0.035 * k, 1.54), (0.075 * k, 1.535), (0.1 * k, 1.49), (0.11 * k, 1.42),
+            (0.1 * k, 1.35), (0.075 * k, 1.3)]
+    span = math.radians(g.get("span", 95))
     cols = 48
     azims = [math.pi - span + 2 * span * k / cols for k in range(cols + 1)]
     pts = []
@@ -1704,6 +1755,226 @@ def attach_weapon(ctx, w):
     return weapon
 
 
+def lathe(bm, profile, segs=12, z0=0.0):
+    """A turned shape along +Z from (radius, z) pairs; capped at both ends."""
+    rings = []
+    for r, z in profile:
+        rings.append([bm.verts.new((math.cos(2 * math.pi * k / segs) * r, math.sin(2 * math.pi * k / segs) * r, z + z0))
+                      for k in range(segs)])
+    for a, b in zip(rings, rings[1:]):
+        for k in range(segs):
+            bm.faces.new((a[k], a[(k + 1) % segs], b[(k + 1) % segs], b[k]))
+    bm.faces.new(rings[0][::-1])
+    bm.faces.new(rings[-1])
+
+
+def slab(bm, outline, thickness):
+    """A flat plate in the XZ plane from a closed outline of (x, z) points, `thickness` deep in Y."""
+    top = [bm.verts.new((x, -thickness / 2, z)) for x, z in outline]
+    bot = [bm.verts.new((x, thickness / 2, z)) for x, z in outline]
+    bm.faces.new(top[::-1])
+    bm.faces.new(bot)
+    n = len(outline)
+    for k in range(n):
+        bm.faces.new((top[k], top[(k + 1) % n], bot[(k + 1) % n], bot[k]))
+
+
+def wood_mat(g, name="haft"):
+    return own(material(name, g.get("wood", (0.36, 0.24, 0.13)), 0.8))
+
+
+def iron_mat(g, name="iron_head"):
+    return own(material(name, g.get("metal", (0.45, 0.46, 0.5)), 0.35, 0.9))
+
+
+def axe_mesh(g):
+    """Moredhel war axe: a long haft and a broad crescent blade facing the knuckles, a spike behind."""
+    bm = bmesh.new()
+    lathe(bm, [(0.017, -0.38), (0.018, 0.0), (0.016, 0.5)], 10)
+    haft = link("haft", bm, wood_mat(g))
+    bm = bmesh.new()
+    curve = [(0.02 + 0.16 * math.sin(t * math.pi) ** 0.7, 0.33 + 0.2 * t) for t in lin(0.0, 1.0, 12)]
+    outline = [(0.02, 0.4), (0.03, 0.33)] + [(x + 0.02, z) for x, z in curve[1:-1]] + [(0.03, 0.53), (0.02, 0.46)]
+    slab(bm, outline, 0.012)
+    slab(bm, [(-0.02, 0.41), (-0.11, 0.435), (-0.02, 0.46)], 0.016)
+    lathe(bm, [(0.026, 0.39), (0.026, 0.48)], 10)
+    head = link("axe_head", bm, iron_mat(g))
+    smooth_shading(head, 30)
+    return [haft, head]
+
+
+def spear_mesh(g):
+    """Troll spear: a rough shaft and a leaf-shaped iron head, held a third of the way up."""
+    L = g.get("length", 2.0)
+    bm = bmesh.new()
+    lathe(bm, [(0.02, -0.6), (0.022, 0.0), (0.019, L - 0.6)], 10)
+    shaft = link("shaft", bm, wood_mat(g))
+    bm = bmesh.new()
+    top = L - 0.6
+    rings = []
+    for z, w in [(0.0, 0.02), (0.06, 0.045), (0.2, 0.03), (0.3, 0.0005)]:
+        rings.append([bm.verts.new(p) for p in ((w, 0, top + z), (0, 0.008, top + z), (-w, 0, top + z), (0, -0.008, top + z))])
+    for a, b in zip(rings, rings[1:]):
+        for k in range(4):
+            bm.faces.new((a[k], a[(k + 1) % 4], b[(k + 1) % 4], b[k]))
+    bm.faces.new(rings[0][::-1])
+    head = link("spear_head", bm, iron_mat(g))
+    return [shaft, head]
+
+
+def club_mesh(g):
+    """A giant's club: a knotted log thickening towards the striking end."""
+    L = g.get("length", 0.9)
+    bm = bmesh.new()
+    prof = [(0.025, -0.15), (0.027, 0.0)] + [(0.03 + 0.05 * t + 0.008 * math.sin(t * 17), -0.0 + L * t) for t in lin(0.05, 1.0, 10)] + [(0.04, L + 0.03)]
+    lathe(bm, prof, 12)
+    for k in range(7):
+        a = k * 2.4
+        z = L * (0.4 + 0.08 * k)
+        knot = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=0.022)
+        bmesh.ops.translate(bm, verts=knot["verts"], vec=(math.cos(a) * 0.06, math.sin(a) * 0.06, z))
+    club = link("club", bm, wood_mat(g, "club"))
+    smooth_shading(club, 40)
+    return [club]
+
+
+def mace_mesh(g):
+    """Flanged mace: an iron-bound haft with six flanges round the head."""
+    bm = bmesh.new()
+    lathe(bm, [(0.016, -0.14), (0.016, 0.42)], 10)
+    haft = link("haft", bm, wood_mat(g))
+    bm = bmesh.new()
+    lathe(bm, [(0.022, 0.38), (0.035, 0.42), (0.035, 0.52), (0.012, 0.56)], 12)
+    for k in range(6):
+        a = k * math.pi / 3
+        out = [(0.0, 0.39), (0.075, 0.43), (0.075, 0.52), (0.0, 0.55)]
+        geom_bm = bmesh.new()
+        slab(geom_bm, out, 0.01)
+        bmesh.ops.rotate(geom_bm, verts=geom_bm.verts, cent=(0, 0, 0), matrix=Matrix.Rotation(a, 3, "Z"))
+        me = bpy.data.meshes.new("tmp")
+        geom_bm.to_mesh(me)
+        geom_bm.free()
+        bm.from_mesh(me)
+        bpy.data.meshes.remove(me)
+    head = link("mace_head", bm, iron_mat(g))
+    smooth_shading(head, 30)
+    return [haft, head]
+
+
+def flail_mesh(g):
+    """Flail: a short handle, a few heavy links and a spiked iron ball."""
+    bm = bmesh.new()
+    lathe(bm, [(0.017, -0.12), (0.018, 0.22)], 10)
+    handle = link("handle", bm, wood_mat(g))
+    bm = bmesh.new()
+    for k in range(4):
+        z = 0.25 + 0.05 * k
+        pts = [Vector((math.cos(t) * 0.014 * (k % 2 == 0), math.cos(t) * 0.014 * (k % 2 == 1), z + math.sin(t) * 0.024))
+               for t in lin(0, 2 * math.pi, 13)]
+        tube(bm, pts, 0.005, 6)
+    ball = bmesh.ops.create_icosphere(bm, subdivisions=2, radius=0.045)
+    bmesh.ops.translate(bm, verts=ball["verts"], vec=(0, 0, 0.5))
+    for v in [v.co.copy() for v in bm.verts if abs((v.co - Vector((0, 0, 0.5))).length - 0.045) < 1e-4][::3]:
+        d = (v - Vector((0, 0, 0.5))).normalized()
+        tip = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.009, radius2=0.0005, depth=0.03)
+        q = d.to_track_quat("Z", "Y").to_matrix()
+        bmesh.ops.rotate(bm, verts=tip["verts"], cent=(0, 0, 0), matrix=q)
+        bmesh.ops.translate(bm, verts=tip["verts"], vec=Vector((0, 0, 0.5)) + d * 0.055)
+    head = link("flail_head", bm, iron_mat(g))
+    smooth_shading(head, 40)
+    return [handle, head]
+
+
+def dagger_mesh(g):
+    return sword_mesh({**g, "length": g.get("length", 0.3)})
+
+
+WEAPONS.update({"axe": axe_mesh, "spear": spear_mesh, "club": club_mesh, "mace": mace_mesh, "flail": flail_mesh,
+                "dagger": dagger_mesh})
+HOLD.update({"axe": 0.0, "spear": 0.0, "club": 0.0, "mace": 0.0, "flail": 0.0, "dagger": 0.1})
+
+
+def head_info(ctx):
+    head = next(o for o in ctx["objs"] if o.name.startswith("Head"))
+    cs = [head.matrix_world @ v.co for v in head.data.vertices if (head.matrix_world @ v.co).z > 1.55]
+    lo = Vector([min(c[i] for c in cs) for i in range(3)])
+    hi = Vector([max(c[i] for c in cs) for i in range(3)])
+    eyes = next((o for o in ctx["objs"] if o.name.startswith("Eyes")), None)
+    ez = (sum((eyes.matrix_world @ v.co).z for v in eyes.data.vertices) / len(eyes.data.vertices)) if eyes else lo.z + (hi.z - lo.z) * 0.6
+    centre = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z + (hi.z - lo.z) * 0.55))
+    return head, centre, lo, hi, ez
+
+
+def g_mask(ctx, g):
+    """A cloth mask over the lower face and neck, up to just under the eyes (Nighthawks)."""
+    head, centre, lo, hi, ez = head_info(ctx)
+    cloth = material("mask", g.get("color", (0.03, 0.03, 0.035)), 0.9, 0.0, ctx["cloth"])
+    caster = Caster([head])
+    elevs = lin(math.radians(20), math.radians(-70), 30)
+    azims = [2 * math.pi * k / 96 - math.pi for k in range(96)]
+    top = ez - g.get("below_eyes", 0.018)
+    obj = fit_shell(caster, centre, elevs, azims, g.get("offset", 0.008), "mask", cloth,
+                    keep=lambda i, j, p: p.z < top and p.z > lo.z - 0.06, passes=6)
+    bmesh_uv_cylinder(obj, centre.y)
+    solidify(obj, 0.006, -1.0)
+    smooth_shading(obj)
+    set_weights(obj, ctx["arm"], lambda co: {"Head": 1.0} if co.z > lo.z + 0.03 else {"Head": 0.5, "neck_01": 0.5})
+    return [obj]
+
+
+def g_loincloth(ctx, g):
+    """A short ragged skirt of hide or cloth from the hips (giants, trolls, ogres)."""
+    cloth = material("loincloth", g.get("color", (0.35, 0.24, 0.14)), 0.95, 0.0, ctx["cloth"])
+    return [skirt(ctx, "loincloth", cloth, g.get("waist", 1.0), g.get("hem", 0.68), g.get("flare", (0.23, 0.19)),
+                  g.get("follow", 0.85), None, rings=8, ragged=g.get("ragged", 0.05))]
+
+
+def g_seaweed(ctx, g):
+    """Strands of weed trailing from the forearms (Rusalki)."""
+    weed = own(material("seaweed", g.get("color", (0.12, 0.3, 0.2)), 0.6))
+    out = []
+    for side, tag in ((1, "l"), (-1, "r")):
+        elbow = bone_rest(ctx, f"lowerarm_{tag}")
+        wrist = bone_rest(ctx, f"hand_{tag}")
+        bm = bmesh.new()
+        for k in range(5):
+            t0 = 0.15 + 0.17 * k
+            start = elbow.lerp(wrist, t0) + Vector((0, (k % 2) * 0.02 - 0.01, -0.035))
+            length = 0.18 + 0.05 * (k % 3)
+            pts = [start + Vector((side * length * u, 0.01 * math.sin(u * 9 + k), -0.09 * u * u - 0.01 * math.sin(u * 7 + k)))
+                   for u in lin(0.0, 1.0, 8)]
+            tube(bm, pts, [0.006 * (1 - 0.8 * u) for u in lin(0.0, 1.0, 8)], 5)
+        o = link(f"seaweed_{tag}", bm, weed)
+        smooth_shading(o)
+        set_weights(o, ctx["arm"], lambda co, tag=tag: {f"lowerarm_{tag}": 1.0})
+        out.append(o)
+    return out
+
+
+def g_fangs(ctx, g):
+    """Lower fangs jutting up from the corners of the mouth (trolls)."""
+    head, centre, lo, hi, ez = head_info(ctx)
+    tooth = own(material("fang", g.get("color", (0.85, 0.82, 0.7)), 0.4))
+    caster = Caster([head])
+    bm = bmesh.new()
+    mz = ez - g.get("mouth_below_eyes", 0.06)
+    for sx in (-1, 1):
+        d = Vector((sx * 0.35, -1, 0)).normalized()
+        c = Vector((centre.x, centre.y, mz))
+        r = caster.inward(c, d, 0.4) or 0.09
+        base = c + d * (r - 0.004)
+        cone = bmesh.ops.create_cone(bm, cap_ends=True, segments=8, radius1=0.0075, radius2=0.0006, depth=g.get("length", 0.035))
+        bmesh.ops.rotate(bm, verts=cone["verts"], cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(-12 * sx), 3, "Y"))
+        bmesh.ops.translate(bm, verts=cone["verts"], vec=base + Vector((0, 0, 0.012)))
+    o = link("fangs", bm, tooth)
+    smooth_shading(o)
+    set_weights(o, ctx["arm"], lambda co: {"Head": 1.0})
+    return [o]
+
+
+GARMENTS.update({"mask": g_mask, "loincloth": g_loincloth, "seaweed": g_seaweed, "fangs": g_fangs})
+
+
 # ---------------------------------------------------------------- assembly
 
 
@@ -1730,6 +2001,211 @@ def scale_brows(obj, f):
         for v, w in vs:
             w = Vector((w.x, c.y + (w.y - c.y) * (0.5 + f / 2), c.z + (w.z - c.z) * f))
             v.co = inv @ w
+
+
+def elf_ears(obj, amount):
+    """Draw the ears up and back into the lobeless points of elves and Moredhel: vertices on the outer rim of
+    each ear move up, back and out, more the higher and further out they are."""
+    mw = obj.matrix_world
+    inv = mw.inverted()
+    pts = [mw @ v.co for v in obj.data.vertices]
+    head = [p for p in pts if p.z > 1.55]
+    top = max(p.z for p in head)
+    # The ears sit level with the eyes, at the sides: find their outermost extent.
+    band = [p for p in head if top - 0.2 < p.z < top - 0.09]
+    xmax = max(abs(p.x) for p in band)
+    zc = sum(p.z for p in band) / len(band)
+    for v, p in zip(obj.data.vertices, pts):
+        k = smoothstep(xmax - 0.022, xmax, abs(p.x)) * smoothstep(zc - 0.01, zc + 0.04, p.z) * (1 - smoothstep(0.03, 0.06, abs(p.y - 0.0)))
+        if k <= 0:
+            continue
+        lift = amount * k
+        v.co = inv @ Vector((p.x + math.copysign(lift * 0.25, p.x), p.y + lift * 0.45, p.z + lift))
+
+
+def torso_only(obj, inset):
+    """Keep the chest, back, shoulders and neck base (no head, arms or legs), pulled `inset` in along the
+    normals so it stays inside the clothes."""
+    names = [g.name for g in obj.vertex_groups]
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    layer = bm.verts.layers.deform.active
+    keep = ("spine", "clavicle", "neck", "pelvis")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not top_bone(v, layer, names).startswith(keep)], context="VERTS")
+    bm.normal_update()
+    # The base body is bulkier than the outfits: sink it well inside, except at the neck where it must meet
+    # the head's neck without a gap.
+    for v in bm.verts:
+        neck = top_bone(v, layer, names).startswith("neck")
+        v.co -= v.normal * (inset * 0.4 if neck else inset)
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
+def action_fcurves(act):
+    """An action's F-curves (Blender 4.4+ keeps them in a layered action's channel bag)."""
+    if getattr(act, "layers", None) and act.layers and act.layers[0].strips:
+        bag = act.layers[0].strips[0].channelbag(act.slots[0])
+        return bag.fcurves
+    return act.fcurves
+
+
+def shackle_pose(arm, actions, clips, spec):
+    """Shackled wrists: solve the arms with IK so both hands meet in front of the belly, then hold the
+    collarbones, upper arms, forearms and hands at that pose in every clip (fingers and the rest of the body
+    keep moving). The hands then keep the same place relative to the chest whatever the clip does, so a chain
+    between them stays whole. Returns the posed wrist positions (rest space)."""
+    target = Vector(spec.get("hands", (0.0, -0.3, 1.08)))
+    gap = spec.get("gap", 0.13)
+    bones = []
+    for side, tag in ((1, "l"), (-1, "r")):
+        bones += [f"clavicle_{tag}", f"upperarm_{tag}", f"lowerarm_{tag}", f"hand_{tag}"]
+    arm.data.pose_position = "POSE"
+    arm.animation_data_create()
+    arm.animation_data.action = None
+    for pb in arm.pose.bones:
+        pb.matrix_basis = Matrix.Identity(4)
+    empties = []
+    for side, tag in ((1, "l"), (-1, "r")):
+        t = bpy.data.objects.new(f"ik_{tag}", None)
+        t.location = target + Vector((side * gap / 2, 0, 0))
+        pole = bpy.data.objects.new(f"pole_{tag}", None)
+        pole.location = Vector((side * 0.45, 0.25, 0.85))
+        bpy.context.scene.collection.objects.link(t)
+        bpy.context.scene.collection.objects.link(pole)
+        empties += [t, pole]
+        c = arm.pose.bones[f"lowerarm_{tag}"].constraints.new("IK")
+        c.target = t
+        c.pole_target = pole
+        c.pole_angle = math.radians(-90)
+        c.chain_count = 2
+    bpy.context.view_layer.update()
+    # The IK result as each bone's own (local) transform, then drop the constraints and keep it.
+    basis = {name: arm.convert_space(pose_bone=arm.pose.bones[name], matrix=arm.pose.bones[name].matrix,
+                                     from_space="POSE", to_space="LOCAL") for name in bones}
+    for tag in ("l", "r"):
+        pb = arm.pose.bones[f"lowerarm_{tag}"]
+        for c in list(pb.constraints):
+            pb.constraints.remove(c)
+    for name in bones:
+        arm.pose.bones[name].matrix_basis = basis[name]
+    for e in empties:
+        bpy.data.objects.remove(e, do_unlink=True)
+    bpy.context.view_layer.update()
+    held = {}
+    for name in bones:
+        pb = arm.pose.bones[name]
+        pb.rotation_mode = "QUATERNION"
+        held[name] = pb.matrix_basis.to_quaternion()
+    wrists = [arm.matrix_world @ arm.pose.bones[f"hand_{t}"].head for t in ("l", "r")]
+    # Hold those bones in every clip.
+    for state, src in clips.items():
+        act = actions[src]
+        fcs = action_fcurves(act)
+        lo, hi = act.frame_range
+        for name in bones:
+            path = f'pose.bones["{name}"].rotation_quaternion'
+            for fc in [fc for fc in fcs if fc.data_path == path]:
+                fcs.remove(fc)
+            for i in range(4):
+                fc = fcs.new(path, index=i, group_name=name)
+                fc.keyframe_points.insert(lo, held[name][i])
+                fc.keyframe_points.insert(hi, held[name][i])
+    for pb in arm.pose.bones:
+        pb.matrix_basis = Matrix.Identity(4)
+    arm.data.pose_position = "REST"
+    bpy.context.view_layer.update()
+    return wrists
+
+
+def body_only(obj):
+    """Everything but the head and neck (the complement of head_only)."""
+    names = [g.name for g in obj.vertex_groups]
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    layer = bm.verts.layers.deform.active
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if top_bone(v, layer, names).startswith(("Head", "neck"))], context="VERTS")
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
+def apply_proportions(arm, meshes, scales):
+    """Reshape the body for a creature (long troll arms, a broad stone hulk): scale bones in pose mode, bake that
+    into the meshes, then make it the rest pose. The clips only turn bones, so they still fit."""
+    arm.data.pose_position = "POSE"
+    for name, sc in scales.items():
+        arm.pose.bones[name].scale = Vector(sc)
+    bpy.context.view_layer.update()
+    for o in meshes:
+        for m in [m for m in o.modifiers if m.type == "ARMATURE"]:
+            apply_modifier(o, m)
+        mod = o.modifiers.new("Armature", "ARMATURE")
+        mod.object = arm
+    bpy.context.view_layer.objects.active = arm
+    for o in bpy.context.view_layer.objects:
+        o.select_set(o is arm)
+    bpy.ops.object.mode_set(mode="POSE")
+    bpy.ops.pose.armature_apply(selected=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.update()
+
+
+def skin_pattern(kind, colour):
+    """Creature skin images: "stone" (Brak-Nurr: cracked blocks with gold flecks), "hide" (troll: wrinkled grey),
+    "scales" (Pantathian: overlapping scales)."""
+    import numpy as np
+    c = np.array(colour, dtype=np.float32)
+
+    def fn(x, y):
+        rnd = np.random.default_rng(7)
+        if kind == "stone":
+            pts = rnd.random((70, 2))
+            d = np.full(x.shape, 9.0)
+            d2 = np.full(x.shape, 9.0)
+            for px, py in pts:
+                for ox in (-1, 0, 1):
+                    for oy in (-1, 0, 1):
+                        dd = np.hypot(x - px - ox, y - py - oy)
+                        d2 = np.minimum(d2, np.maximum(dd, d))
+                        d = np.minimum(d, dd)
+            crack = np.clip((d2 - d) * 25, 0, 1)
+            lum = 0.55 + 0.4 * crack + rnd.normal(0, 0.05, x.shape)
+            gold = (rnd.random(x.shape) > 0.996) & (crack > 0.5)
+            out = [np.clip(c[k] * lum, 0, 1) for k in range(3)]
+            for k, g in enumerate((0.85, 0.65, 0.2)):
+                out[k] = np.where(gold, g, out[k])
+            return out
+        if kind == "scales":
+            X, Y = x * 40, y * 40
+            row = np.floor(Y)
+            fx = (X + 0.5 * (row % 2)) % 1 - 0.5
+            fy = Y % 1
+            edge = np.clip(np.hypot(fx, fy - 1) * 1.6, 0, 1)
+            lum = 0.5 + 0.5 * edge + rnd.normal(0, 0.04, x.shape)
+            return [np.clip(c[k] * lum, 0, 1) for k in range(3)]
+        # hide
+        w = np.sin(x * 90 + np.sin(y * 13) * 3) * np.sin(y * 70 + np.sin(x * 11) * 3)
+        lum = 0.75 + 0.18 * w + rnd.normal(0, 0.05, x.shape)
+        return [np.clip(c[k] * lum, 0, 1) for k in range(3)]
+
+    return pattern_image(f"skin_{kind}", fn, 512)
+
+
+def reskin(slot, spec):
+    """Replace a skin material's colour with a creature pattern (keeping its normal map for the body's form)."""
+    mat = slot.material.copy()
+    slot.material = mat
+    nt = mat.node_tree
+    bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if bsdf is None:
+        return
+    for l in list(bsdf.inputs["Base Color"].links):
+        nt.links.remove(l)
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = skin_pattern(spec["kind"], spec["color"])
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = spec.get("roughness", 0.85)
+    mat["own"] = True
 
 
 def head_only(obj):
@@ -1947,21 +2423,44 @@ def build(job, roots):
     actions = load_actions([ual1, ual2])
     clips = {**DEFAULT_CLIPS, **job.get("clips", {})}
     hair_dir = os.path.join(base_root, "Hairstyles", "Rigged to Head Bone", "glTF (Godot -Unreal)")
-    outfit = import_gltf(os.path.join(outfits_root, "Outfits", job["outfit"] + ".gltf"))
-    arm = next(o for o in outfit if o.type == "ARMATURE")
+    # With an outfit, its armature is the rig and the base character supplies only the head; without one
+    # ("outfit": null, for bare-bodied creatures) the base character's own armature and whole body are used.
+    outfit = import_gltf(os.path.join(outfits_root, "Outfits", job["outfit"] + ".gltf")) if job.get("outfit") else []
+    base = import_gltf(os.path.join(base_root, "Base Characters", "Godot - UE", job.get("base", "Superhero_Male_FullBody") + ".gltf"))
+    arm = next(o for o in (outfit or base) if o.type == "ARMATURE")
     arm.name = "Rig"
     for d in job.get("drop", []):
-        for o in [o for o in outfit if o.type == "MESH" and d in o.name]:
-            outfit.remove(o)
-            bpy.data.objects.remove(o, do_unlink=True)
+        for group in (outfit, base):
+            for o in [o for o in group if o.type == "MESH" and d in o.name]:
+                group.remove(o)
+                bpy.data.objects.remove(o, do_unlink=True)
     objs = list(outfit)
     for e in job.get("extras", []):
         objs += import_gltf(os.path.join(outfits_root, "Modular Parts", e + ".gltf"))
-    base = import_gltf(os.path.join(base_root, "Base Characters", "Godot - UE", job.get("base", "Superhero_Male_FullBody") + ".gltf"))
-    for o in base:
-        if o.type == "MESH" and o.name.startswith("SuperHero"):
+    for o in list(base):
+        if o.type == "MESH" and o.name.lower().startswith("superhero"):
+            if not outfit:
+                # Split the body at the neck: "Head" (head and neck) for hair, beards and casting, and
+                # "Base_Body" (the rest) as the torso the garments fit. Same vertices, so no seam shows.
+                body = o.copy()
+                body.data = o.data.copy()
+                bpy.context.scene.collection.objects.link(body)
+                body_only(body)
+                body.name = "Base_Body"
+                base.append(body)
+            if outfit and job.get("fill", True):
+                # Outfits are hollow shells: fill them with the body's own torso, set just inside the cloth, so
+                # looking into a collar or past an open neck shows skin and cloth, never the far side.
+                fill = o.copy()
+                fill.data = o.data.copy()
+                bpy.context.scene.collection.objects.link(fill)
+                torso_only(fill, job.get("fill_inset", 0.045))
+                fill.name = "Torso_Fill"
+                base.append(fill)
             head_only(o)
             o.name = "Head"
+            if job.get("elf_ears"):
+                elf_ears(o, job["elf_ears"])
         elif o.type == "MESH" and o.name.startswith("Eyebrows"):
             scale_brows(o, job.get("brow_scale", 0.6))
             if job.get("brow_color"):
@@ -1990,6 +2489,8 @@ def build(job, roots):
         hug_surface(o, head_obj, job.get("beard_depth", 0.4))
     adopt(objs, arm)
     objs = [o for o in bpy.data.objects if o.type == "MESH" and o.parent is arm]
+    if job.get("proportions"):
+        apply_proportions(arm, objs, job["proportions"])
     for o in objs:
         for key, spec in job.get("tints", {}).items():
             if key in o.name:
@@ -2004,9 +2505,16 @@ def build(job, roots):
     arm.data.pose_position = "REST"
     bpy.context.view_layer.update()
     shirt = part_of(objs, "_Body")
+    if job.get("skin_texture"):
+        for o in objs:
+            for slot in o.material_slots:
+                if slot.material and slot.material.name.startswith((SKIN_MATERIAL, "MI_Superhero")):
+                    reskin(slot, job["skin_texture"])
     ctx = {"arm": arm, "shirt": shirt, "skin": Skinner([o for o in objs if o.vertex_groups]), "cloth": cloth_image("cloth"),
            "objs": list(objs), "layers": [],
            "actions": actions, "clips": clips}
+    if job.get("shackled"):
+        ctx["wrists"] = shackle_pose(arm, actions, clips, job["shackled"])
     for g in job.get("garments", []):
         objs += GARMENTS[g["type"]](ctx, g)
     if job.get("weapon"):
@@ -2020,6 +2528,22 @@ def build(job, roots):
     # Double-sided: looking into a collar or sleeve must show the cloth's inside, not straight through it.
     for mat in bpy.data.materials:
         mat.use_backface_culling = False
+    if job.get("alpha") is not None:
+        # Spirits (Rusalki, shades) are see-through. The exporter drops the alpha of textured materials, so the
+        # rig also carries it as an extra ("alpha") that the game applies to every material when it loads.
+        arm["alpha"] = job["alpha"]
+        for mat in bpy.data.materials:
+            if not mat.use_nodes:
+                continue
+            bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+            if bsdf is not None:
+                for l in list(bsdf.inputs["Alpha"].links):
+                    mat.node_tree.links.remove(l)
+                bsdf.inputs["Alpha"].default_value = job["alpha"]
+            if hasattr(mat, "surface_render_method"):
+                mat.surface_render_method = "BLENDED"
+            if hasattr(mat, "blend_method"):
+                mat.blend_method = "BLEND"
     arm.data.pose_position = "POSE"
     s = job.get("scale", 1.0)
     arm.scale = (s, s, s)
@@ -2034,7 +2558,8 @@ def build(job, roots):
     bpy.ops.export_scene.gltf(filepath=os.path.abspath(job["out"]), export_format="GLB", export_yup=True,
                               use_selection=True, export_image_format="WEBP", export_skins=True,
                               export_animations=True, export_animation_mode="NLA_TRACKS", export_force_sampling=True,
-                              export_def_bones=False, export_apply=False)
+                              export_def_bones=False, export_apply=False, export_extras=True,
+                              export_draco_mesh_compression_enable=bool(job.get("draco", True)))
     tris = sum(len(p.vertices) - 2 for o in bpy.context.scene.objects if o.type == "MESH" for p in o.data.polygons)
     print(f"built {job['name']}: {len([o for o in bpy.context.scene.objects if o.type == 'MESH'])} meshes, {tris} tris, clips {sorted(clips)}")
 
