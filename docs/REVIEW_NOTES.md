@@ -310,3 +310,22 @@ The next verdicts go to `party7` and `creatures4`. The rogue was marked "work" w
 - **Nighthawk.** A closer cowl, a mask up to the eyes, a high collar, and a black torso filler (`fill_color`).
 - **Moredhel spellcaster.** Leather outfit, bearskin cape and fur collar (`fur`).
 - **Next.** The non-human creatures (scorpion, spider, wyverns, beasthound, Nethermander, Dread, Wind Elemental, Servitor) are not started.
+
+## Non-human creatures, round 1 (Opus, 2026-10-16)
+
+`tools/blender/build_beasts.py` builds the creatures no kit has: scorpion, spider, Servitor, beasthound, Nethermander and wyvern. Run it as `blender ... build_beasts.py -- public/models/creatures shots/beasts [name ...]`.
+
+- **Rigs.** Each creature is a function building a skeleton (the root bone is `pivot`; `root.position` tracks are stripped by the loader).
+- **Bodies.**
+  - Metaball groups converted to meshes, with each element radius scaled 1.6x so the visible surface matches the given radius.
+  - Tubes for legs, tails and struts; rigid pieces for claws, teeth, eyes and stingers; a sheet for the wing membranes.
+  - Skinned by distance to the allowed bones' segments (inverse fourth power, best three).
+- **Animations.** Written as rotations about rest-pose world axes and converted per bone, keyed every other frame for every bone. Clips: idle, walk, attack (also cast), block, hit and death; deaths roll or flip the body with a lift on the pivot.
+
+**Humanoid additions:**
+- The Dread and Wind Elemental are humanoids with a new `wings` garment.
+- Monster mapping now covers every monster index with a sprite.
+
+**Sizing.**
+- Every build writes the model's standing height as a rig extra (`height`). FighterActor scales each model to its combat sprite's height by that, instead of assuming 1.8 m.
+- This fixes the giant, ogre and goblin, which were drawn oversized or undersized by their own `scale`.

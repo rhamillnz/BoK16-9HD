@@ -146,6 +146,19 @@ jobs = [
         tints={"Body": {"color": [0.32, 0.34, 0.33]}, "Arms": {"color": [0.32, 0.34, 0.33]}, "Feet": {"color": [0.2, 0.2, 0.2]}},
         garments=[hood([0.3, 0.32, 0.31]),
                   {"type": "robe", "color": [0.32, 0.34, 0.33], "hem": 0.05, "flare": [0.3, 0.26], "follow": 0.85, "ragged": 0.1}]),
+    # Dread: a winged horror in the sprite's deep blue hooded robe with great red bat wings and glowing eyes.
+    job("dre", outfit="Male_Peasant", drop=["Legs"], skin=[0.55, 0.6, 0.75], brow_color=[0.1, 0.1, 0.12], eye_color=[1.0, 0.75, 0.2],
+        sculpt={"cheeks": 0.008, "brow": 0.01},
+        tints={"Body": {"color": [0.05, 0.07, 0.24]}, "Arms": {"color": [0.05, 0.07, 0.24]}, "Feet": {"color": [0.04, 0.04, 0.05]}},
+        clips={"idle": "Idle_Loop", "attack": "Zombie_Scratch", "block": "Hit_Chest"},
+        garments=[hood([0.04, 0.06, 0.22]),
+                  {"type": "robe", "color": [0.05, 0.07, 0.24], "ragged": 0.08},
+                  {"type": "wings", "color": [0.42, 0.05, 0.04], "bone": [0.15, 0.05, 0.04], "size": 1.1}]),
+    # Wind Elemental: a dark, half-seen winged figure (sprite AIR): blue-black hide, pale glowing eyes.
+    job("air", outfit=None, alpha=0.75, skin_texture={"kind": "hide", "color": [0.1, 0.13, 0.22]}, drop=["Eyebrows"],
+        eye_color=[0.7, 0.9, 1.0], sculpt={"brow": 0.012, "cheeks": 0.006},
+        clips={"idle": "Idle_Loop", "attack": "Zombie_Scratch", "block": "Hit_Chest"},
+        garments=[{"type": "wings", "color": [0.06, 0.08, 0.14], "bone": [0.03, 0.04, 0.08], "size": 1.25}]),
     # Goblin: small, green-brown skin, a big nose, pointed ears, tusks from the lower jaw, nearly bald with a little
     # fuzz on top; a ragged loincloth and a flail.
     job("gob", outfit=None, scale=0.72, skin_texture={"kind": "hide", "color": [0.38, 0.42, 0.2]}, brow_color=[0.08, 0.07, 0.04],

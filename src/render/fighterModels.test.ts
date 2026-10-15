@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three/webgpu';
 import { existsSync } from 'node:fs';
-import { angleDelta, creatureModelName, headingTowards, partyModelName } from './fighterModels';
+import { angleDelta, creatureModelName, headingTowards, modelHeight, partyModelName } from './fighterModels';
 
 describe('party combat models', () => {
   it('maps party members to their model files', () => {
@@ -14,7 +14,9 @@ describe('party combat models', () => {
     expect(creatureModelName(18)).toBe('mor');
     expect(creatureModelName(29)).toBe('gnt');
     expect(creatureModelName(33)).toBe('gnt');
-    expect(creatureModelName(39)).toBeUndefined(); // scorpion: not built yet
+    expect(creatureModelName(39)).toBe('scp');
+    expect(creatureModelName(42)).toBe('wyv');
+    expect(creatureModelName(40)).toBeUndefined(); // no such monster
   });
 
   it('has a model file for every mapped creature', () => {
@@ -22,6 +24,15 @@ describe('party combat models', () => {
       const name = creatureModelName(m);
       if (name) expect(existsSync(`public/models/creatures/${name}.glb`), name).toBe(true);
     }
+  });
+
+  it("reads a model's height from the rig's extras, else a person's", () => {
+    const root = new THREE.Group();
+    expect(modelHeight(root)).toBe(1.8);
+    const rig = new THREE.Group();
+    rig.userData.height = 3.2;
+    root.add(rig);
+    expect(modelHeight(root)).toBe(3.2);
   });
 
   it('takes the short way round when turning', () => {

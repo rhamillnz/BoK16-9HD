@@ -43,6 +43,7 @@ const CREATURE_MODELS: Readonly<Record<number, string>> = {
   25: 'pan',
   26: 'pai',
   27: 'spl',
+  28: 'ser',
   29: 'gnt',
   30: 'rog_mage',
   31: 'gnt',
@@ -52,12 +53,21 @@ const CREATURE_MODELS: Readonly<Record<number, string>> = {
   35: 'ogr',
   36: 'ogr',
   37: 'ogr',
+  39: 'scp',
+  41: 'wyv',
+  42: 'wyv',
+  43: 'wyv',
+  44: 'spi',
+  46: 'dog',
   48: 'tro',
+  49: 'dre',
   52: 'wit',
   53: 'gob',
+  54: 'air',
   55: 'que',
   56: 'rus',
   57: 'sha',
+  58: 'nth',
   61: 'mak',
   62: 'nhk',
   63: 'mor_caster',
@@ -124,6 +134,20 @@ export function applyModelAlpha(root: THREE.Object3D): void {
   });
 }
 
+/**
+ * A model's standing height in model units: the "height" extra the build scripts write on the rig (glTF extras
+ * become userData), else a person's height. Every model is then scaled to its combat sprite's height, whatever
+ * its size: a giant, a goblin and a scorpion all stand as tall as their sprites.
+ */
+export function modelHeight(root: THREE.Object3D): number {
+  let h: number | undefined;
+  root.traverse((o) => {
+    const v = (o.userData as { height?: unknown }).height;
+    if (h === undefined && typeof v === 'number' && v > 0) h = v;
+  });
+  return h ?? PARTY_MODEL_HEIGHT;
+}
+
 /** Shortest signed angle from `a` to `b`. */
 export function angleDelta(a: number, b: number): number {
   let d = (b - a) % (Math.PI * 2);
@@ -159,7 +183,7 @@ export class FighterActor {
   /** `height`: how tall to stand in render units (default: a person at world scale). */
   constructor(gltf: GLTF, height = PARTY_MODEL_HEIGHT * PARTY_SCALE) {
     this.object = cloneSkinned(gltf.scene);
-    this.object.scale.setScalar(height / PARTY_MODEL_HEIGHT);
+    this.object.scale.setScalar(height / modelHeight(gltf.scene));
     applyModelAlpha(this.object);
     this.object.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) {

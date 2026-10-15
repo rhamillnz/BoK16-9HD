@@ -2054,7 +2054,62 @@ def g_warts(ctx, g):
     return warts(ctx, head, g.get("count", 14), g.get("color", (0.35, 0.25, 0.18)))
 
 
-GARMENTS.update({"mask": g_mask, "loincloth": g_loincloth, "seaweed": g_seaweed, "fangs": g_fangs, "warts": g_warts})
+def g_wings(ctx, g):
+    """Bat wings from the upper back: an arm bone-strut rising up and out, three finger struts fanning down,
+    and a membrane between them with a scalloped trailing edge; fixed to the upper spine."""
+    skin_m = own(material("wing_membrane", g.get("color", (0.35, 0.05, 0.04)), 0.7))
+    bone_m = own(material("wing_bone", g.get("bone", (0.12, 0.05, 0.04)), 0.6))
+    k = g.get("size", 1.0)
+    neck = neck_axis(ctx)
+    out = []
+    for s_, tag in ((1, "l"), (-1, "r")):
+        root = Vector((s_ * 0.07, neck.y + 0.12, 1.4))
+        el = root + Vector((s_ * 0.35, 0.18, 0.38)) * k
+        wr = root + Vector((s_ * 0.8, 0.28, 0.55)) * k
+        tips = [root + Vector((s_ * 1.3, 0.35, 0.2)) * k, root + Vector((s_ * 1.15, 0.38, -0.3)) * k,
+                root + Vector((s_ * 0.7, 0.32, -0.55)) * k]
+        bm = bmesh.new()
+        tube(bm, [root, el, wr], [0.035 * k, 0.03 * k, 0.022 * k], 8)
+        for tip in tips:
+            tube(bm, [wr, tip], [0.018 * k, 0.004 * k], 6)
+        cone = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.02 * k, radius2=0.001, depth=0.12 * k)
+        bmesh.ops.translate(bm, verts=cone["verts"], vec=wr + Vector((s_ * 0.02, 0.02, 0.07)) * k)
+        struts = link(f"wing_struts_{tag}", bm, bone_m)
+        smooth_shading(struts, 60)
+        rim = [el, wr, tips[0], tips[1], tips[2], root + Vector((s_ * 0.05, 0.05, -0.3)) * k]
+        lens = [(rim[i + 1] - rim[i]).length for i in range(len(rim) - 1)]
+
+        def along(u):
+            d = u * sum(lens)
+            for i, L in enumerate(lens):
+                if d <= L or i == len(lens) - 1:
+                    return rim[i].lerp(rim[i + 1], min(d / L, 1.0))
+                d -= L
+            return rim[-1]
+
+        bm = bmesh.new()
+        rows = []
+        n = 10
+        for j in range(n + 1):
+            u = j / n
+            outer = along(u)
+            inner = root.lerp(rim[-1], u)
+            if u > 0.3:
+                outer = outer.lerp(inner, 0.2 * abs(math.sin((u - 0.3) / 0.7 * math.pi * 3)))
+            rows.append([bm.verts.new(inner.lerp(outer, i / 6)) for i in range(7)])
+        for j in range(n):
+            for i in range(6):
+                bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
+        mem = link(f"wing_{tag}", bm, skin_m)
+        solidify(mem, 0.008, 0.0)
+        smooth_shading(mem, 60)
+        for o in (struts, mem):
+            set_weights(o, ctx["arm"], lambda co: {"spine_03": 1.0})
+        out += [struts, mem]
+    return out
+
+
+GARMENTS.update({"wings": g_wings, "mask": g_mask, "loincloth": g_loincloth, "seaweed": g_seaweed, "fangs": g_fangs, "warts": g_warts})
 
 
 # ---------------------------------------------------------------- assembly
@@ -2775,8 +2830,9 @@ def build(job, roots):
                     slot.material = m
                     bsdf = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
                     if bsdf is not None:
-                        for l in list(bsdf.inputs["Base Color"].links):
-                            m.node_tree.links.remove(l)
+                        for inp in ("Base Color", "Normal"):
+                            for l in list(bsdf.inputs[inp].links):
+                                m.node_tree.links.remove(l)
                         bsdf.inputs["Base Color"].default_value = (*job["eye_color"], 1.0)
                     m["own"] = True
         elif o.type == "MESH" and o.name.startswith("Eyebrows"):
@@ -2873,6 +2929,9 @@ def build(job, roots):
     arm.data.pose_position = "POSE"
     s = job.get("scale", 1.0)
     arm.scale = (s, s, s)
+    # Standing height (without the weapon), so the game can size every model to its combat sprite.
+    arm["height"] = s * max((o.matrix_world @ vtx.co).z for o in objs if o.type == "MESH" and o.name != "weapon"
+                            for vtx in o.data.vertices)
     bpy.context.view_layer.update()
     if job.get("preview"):
         os.makedirs(os.path.dirname(os.path.abspath(job["preview"])), exist_ok=True)
