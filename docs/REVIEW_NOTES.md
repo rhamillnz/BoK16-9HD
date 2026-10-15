@@ -287,3 +287,16 @@ Approved: Locklear, Gorath (both versions), Owyn, Patrus, and 12 of the creature
 - **Snout.** It is smaller and rounder (Pantathians).
 - **Makala.** Hood only, with a black-grey beard.
 - **Brak-Nurr.** Thinner thighs, thicker calves, bigger feet.
+
+## Party round 7 and creatures round 4 (Opus, 2026-10-15)
+
+The next verdicts go to `party7` and `creatures4`. The rogue was marked "work" with no note; it is unchanged pending one.
+
+- **Loincloth back panel.** `skirt(back=...)` hangs the rear panel lower and further out; the loincloth flares 1.3x from the hips. This covers the seat on the goblin, ogre, troll and giant.
+- **Fallen hood.** `g_hood` is now a collar round the back of the neck that falls into a pointed pouch between the shoulder blades (Pug: one hood, down).
+- **Smash attack.** `smash_clip` builds a two-handed overhead smash from IK poses (`ik_arms`) on a copy of the idle, for the Brak-Nurr. No kit clip lifts both hands over the head together.
+- **Claw attacks.** The Rusalki and Shade attack with Zombie_Scratch (two-handed claw); the Shade also gets the zombie idle and walk.
+- **Black Slayer.** Pale grey hide skin, a light close beard, hollow cheeks.
+- **Gorath.** Hair to below the ears. The chained version holds its hands 42 cm forward and 44 cm apart, with a shallower chain sag.
+- **Locklear.** The rapier scabbard is shorter (0.8) and swept back.
+- **Patrus.** The robe is wider at the hem and ends at 0.17.

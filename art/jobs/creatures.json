@@ -372,16 +372,31 @@
    "Head_Hood",
    "Pauldron"
   ],
-  "skin": [
-   0.62,
-   0.7,
-   0.62
-  ],
+  "skin_texture": {
+   "kind": "hide",
+   "color": [
+    0.74,
+    0.76,
+    0.73
+   ]
+  },
   "brow_color": [
-   0.1,
-   0.1,
-   0.1
+   0.25,
+   0.25,
+   0.25
   ],
+  "sculpt": {
+   "cheeks": 0.006,
+   "brow": 0.004
+  },
+  "beard": "Hair_Beard",
+  "trim": "close",
+  "beard_color": [
+   0.55,
+   0.55,
+   0.53
+  ],
+  "beard_depth": 0.25,
   "tints": {
    "Body": {
     "color": [
@@ -1388,7 +1403,7 @@
   ],
   "clips": {
    "idle": "Idle_Loop",
-   "attack": "Punch_Cross",
+   "attack": "Zombie_Scratch",
    "block": "Hit_Chest"
   },
   "tints": {
@@ -1495,9 +1510,10 @@
    0.3
   ],
   "clips": {
-   "idle": "Idle_Loop",
-   "attack": "Punch_Cross",
-   "block": "Hit_Chest"
+   "idle": "Zombie_Idle_Loop",
+   "attack": "Zombie_Scratch",
+   "block": "Hit_Chest",
+   "walk": "Zombie_Walk_Fwd_Loop"
   },
   "tints": {
    "Body": {
@@ -1979,9 +1995,10 @@
   ],
   "clips": {
    "idle": "Idle_Loop",
-   "attack": "Punch_Cross",
    "block": "Hit_Chest"
   },
+  "smash": true,
+  "attack_frame": 0.38,
   "skin_texture": {
    "kind": "stone",
    "color": [

@@ -53,7 +53,9 @@ jobs = [
                   {"type": "belt", "color": [0.03, 0.03, 0.03], "scabbard": True, "scabbard_color": [0.02, 0.02, 0.02]}],
         weapon={"type": "sword", "length": 0.72, "blade": [0.35, 0.36, 0.4], "guard": [0.1, 0.1, 0.1]}),
     # Black Slayer: a Nighthawk raised undead: grey dead skin, tattered black, no mask.
-    job("bsy", outfit="Male_Ranger", drop=["Head_Hood", "Pauldron"], skin=[0.62, 0.7, 0.62], brow_color=[0.1, 0.1, 0.1],
+    job("bsy", outfit="Male_Ranger", drop=["Head_Hood", "Pauldron"], skin_texture={"kind": "hide", "color": [0.74, 0.76, 0.73]},
+        brow_color=[0.25, 0.25, 0.25],
+        sculpt={"cheeks": 0.006, "brow": 0.004}, beard="Hair_Beard", trim="close", beard_color=[0.55, 0.55, 0.53], beard_depth=0.25,
         tints={"Body": {"color": [0.05, 0.05, 0.05]}, "Arms": {"color": [0.06, 0.06, 0.06]}, "Legs": {"color": [0.05, 0.05, 0.05]},
                "Feet": {"color": [0.03, 0.03, 0.03]}},
         garments=[hood([0.05, 0.05, 0.055]), {"type": "belt", "color": [0.04, 0.04, 0.04]},
@@ -127,14 +129,14 @@ jobs = [
         weapon={"type": "mace"}),
     # Rusalki: the ghost of a drowned girl, semi-transparent, weed trailing from her arms (manual p. 73).
     job("rus", base="Superhero_Female_FullBody", outfit="Female_Peasant", alpha=0.55, skin=[0.75, 0.85, 0.95],
-        brow_color=[0.1, 0.15, 0.18], clips=UNARMED,
+        brow_color=[0.1, 0.15, 0.18], clips={"idle": "Idle_Loop", "attack": "Zombie_Scratch", "block": "Hit_Chest"},
         tints={"Body": {"color": [0.45, 0.62, 0.78]}, "Arms": {"color": [0.6, 0.72, 0.82]}, "Feet": {"color": [0.5, 0.6, 0.7]}},
         garments=[{"type": "hair", "color": [0.1, 0.16, 0.2], "tip": [0.2, 0.3, 0.32], "length": 1.15, "volume": 0.02,
                    "flare": 0.05, "wave": 0.015, "hairline": LONG_DARK},
                   {"type": "robe", "color": [0.45, 0.62, 0.78], "hem": 0.0, "flare": [0.28, 0.24], "follow": 0.85, "ragged": 0.04},
                   {"type": "seaweed"}]),
     # Shade: a grey, ragged, half-seen spirit from a dug-up grave.
-    job("sha", outfit="Male_Peasant", drop=["Legs"], alpha=0.6, skin=[0.6, 0.65, 0.65], brow_color=[0.3, 0.3, 0.3], clips=UNARMED,
+    job("sha", outfit="Male_Peasant", drop=["Legs"], alpha=0.6, skin=[0.6, 0.65, 0.65], brow_color=[0.3, 0.3, 0.3], clips={"idle": "Zombie_Idle_Loop", "attack": "Zombie_Scratch", "block": "Hit_Chest", "walk": "Zombie_Walk_Fwd_Loop"},
         tints={"Body": {"color": [0.32, 0.34, 0.33]}, "Arms": {"color": [0.32, 0.34, 0.33]}, "Feet": {"color": [0.2, 0.2, 0.2]}},
         garments=[hood([0.3, 0.32, 0.31]),
                   {"type": "robe", "color": [0.32, 0.34, 0.33], "hem": 0.05, "flare": [0.3, 0.26], "follow": 0.85, "ragged": 0.1}]),
@@ -178,7 +180,8 @@ jobs = [
                   {"type": "belt", "color": [0.15, 0.1, 0.06]}],
         weapon={"type": "club"}),
     # Brak-Nurr: a broad eyeless hulk of crumbled stone flecked with gold (manual p. 74); unarmed.
-    job("brk", outfit=None, scale=1.08, drop=["Eyes", "Eyebrows"], clips=UNARMED,
+    job("brk", outfit=None, scale=1.08, drop=["Eyes", "Eyebrows"],
+        clips={"idle": "Idle_Loop", "block": "Hit_Chest"}, smash=True, attack_frame=0.38,
         skin_texture={"kind": "stone", "color": [0.5, 0.47, 0.42], "roughness": 0.95},
         sculpt={"lumps": 0.03, "brow": 0.014, "crown": -0.01},
         proportions={"pelvis": [1.35, 1, 1.25], "spine_01": [1.4, 1, 1.3], "spine_02": [1.3, 1, 1.2], "spine_03": [1.3, 1, 1.2],

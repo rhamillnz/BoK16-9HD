@@ -696,7 +696,8 @@ def snap_to_surface(obj, target, lift):
         v.co.y += best_y - lift - back + 0.012
 
 
-def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=40, ragged=0.0, flare_scale=None):
+def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=40, ragged=0.0, flare_scale=None,
+          back=0.0):
     """A skirt from the waist (`zt`) to the hem (`zb`), flaring to `flare` (half widths), weighted from the pelvis
     to both legs (`follow` = how much the hem follows the legs). `trim` colours a band round the hem."""
     waist = waist_extent(ctx["shirt"], zt)
@@ -714,10 +715,12 @@ def skirt(ctx, name, mat, zt, zb, flare, follow=0.65, trim=None, rings=16, seg=4
         row = []
         for s, a in enumerate(angles):
             wob = 1 + 0.035 * math.sin(a * 7 + t * 2) * t
-            zr = z + ragged * t ** 4 * (math.sin(a * 9) + 0.7 * math.sin(a * 23 + 1.3) + 0.5)
+            zr = z + ragged * t ** 4 * (math.sin(a * 9) + 0.7 * math.sin(a * 23 + 1.3) + 0.5) - back * t * max(0.0, math.cos(a)) ** 2
             if flare_scale:
-                # Flare from the hips it hangs from (thick-thighed creatures need a wider skirt).
-                bot = Vector((top[s].x * flare_scale, waist[2] + (top[s].y - waist[2]) * flare_scale, z))
+                # Flare from the hips it hangs from (thick-thighed creatures need a wider skirt); `back` pushes the
+                # rear panel out and down so it covers the seat.
+                rear = max(0.0, math.cos(a)) ** 2
+                bot = Vector((top[s].x * flare_scale, waist[2] + (top[s].y - waist[2]) * flare_scale + back * rear, z - back * rear))
             else:
                 bot = Vector((math.sin(a) * flare[0], waist[2] - math.cos(a) * flare[1], z))
             p = top[s].lerp(bot, k)
@@ -1115,8 +1118,8 @@ def g_belt(ctx, g):
         fittings = own(material("scabbard_fittings", g.get("fittings", (0.5, 0.44, 0.3)), 0.35, 0.85))
         j = front + int(cols * 0.29)
         top = pts[2][j] + sphere_dir(0, azims[j]) * 0.03 + Vector((0, 0, -0.02))
-        length = 0.92 if rapier else 0.74
-        bottom = top + Vector((0.03, 0.14, -length))
+        length = 0.8 if rapier else 0.74
+        bottom = top + Vector((0.05, 0.3 if rapier else 0.14, -length))
         axis = bottom - top
         rot = axis.normalized().to_track_quat("-Z", "Y").to_matrix()
         r0, r1 = (0.017, 0.009) if rapier else (0.03, 0.018)
@@ -1351,7 +1354,7 @@ def chains_between(ctx, iron, link_ring):
     prev = None
     for k in range(n + 1):
         t = k / n
-        p = a.lerp(b, t) + Vector((0, 0, -0.16 * 4 * t * (1 - t) - 0.04))
+        p = a.lerp(b, t) + Vector((0, -0.03 * 4 * t * (1 - t), -0.13 * 4 * t * (1 - t) - 0.03))
         if prev is not None:
             along = (p - prev).normalized()
             mid = (p + prev) / 2
@@ -1528,22 +1531,21 @@ def g_hood(ctx, g):
     trim = material("hood_trim", g["trim"], 0.85, 0.0, ctx["cloth"]) if g.get("trim") else None
     n = neck_axis(ctx)
     caster = Caster(torso_parts(ctx) + ctx["layers"] + [o for o in ctx["objs"] if o.name.startswith("Head")])
-    # Profile (outward offset, height) from the neck up and back over into the folded hood.
-    k = g.get("size", 0.6)
-    prof = [(0.0, 1.43), (0.01 * k, 1.5), (0.035 * k, 1.54), (0.075 * k, 1.535), (0.1 * k, 1.49), (0.11 * k, 1.42),
-            (0.1 * k, 1.35), (0.075 * k, 1.3)]
-    span = math.radians(g.get("span", 95))
-    cols = 48
-    azims = [math.pi - span + 2 * span * k / cols for k in range(cols + 1)]
+    # Rows from the collar down to the hood's point: (height, half-width in degrees round the back, bulge).
+    k = g.get("size", 1.0)
+    rows = [(1.52, 100, 0.006), (1.49, 98, 0.012), (1.45, 70, 0.03 * k), (1.41, 58, 0.045 * k), (1.37, 48, 0.05 * k),
+            (1.33, 36, 0.045 * k), (1.29, 22, 0.032 * k), (1.26, 8, 0.016 * k), (1.245, 1, 0.008)]
+    cols = 40
     pts = []
-    for off, z in prof:
+    for z, half, bulge in rows:
         row = []
-        for a in azims:
-            w = math.cos((a - math.pi) / span * math.pi / 2) ** 0.7
+        for c in range(cols + 1):
+            u = c / cols * 2 - 1
+            a = math.pi + math.radians(half) * u
             d = sphere_dir(0, a)
-            c = Vector((0, n.y, z))
-            base = min(caster.inward(c, d, 0.6) or 0.1, 0.17)
-            row.append(c + d * (base + 0.014 + off * w))
+            cen = Vector((0, n.y, z))
+            base = min(caster.inward(cen, d, 0.6) or 0.1, 0.17)
+            row.append(cen + d * (base + 0.012 + bulge * (1 - u * u) ** 0.5))
         pts.append(row)
     hood = grid_object("hood", pts, cloth, wrap=False, centre=Vector((0, n.y, 1.42)))
     bmesh_uv_cylinder(hood, n.y)
@@ -1964,7 +1966,8 @@ def g_loincloth(ctx, g):
     cloth = material("loincloth", g.get("color", (0.35, 0.24, 0.14)), 0.95, 0.0, ctx["cloth"])
     shift = ctx.get("waist_shift", 0.0)
     return [skirt(ctx, "loincloth", cloth, g.get("waist", 1.06 + shift), g.get("hem", 0.68 + shift), g.get("flare", (0.23, 0.19)),
-                  g.get("follow", 1.0), None, rings=8, ragged=g.get("ragged", 0.05), flare_scale=g.get("flare_scale", 1.22))]
+                  g.get("follow", 1.0), None, rings=8, ragged=g.get("ragged", 0.05), flare_scale=g.get("flare_scale", 1.3),
+                  back=g.get("back", 0.07))]
 
 
 def g_seaweed(ctx, g):
@@ -2208,6 +2211,91 @@ def action_fcurves(act):
         bag = act.layers[0].strips[0].channelbag(act.slots[0])
         return bag.fcurves
     return act.fcurves
+
+
+ARM_BONES = [f"{b}_{t}" for t in ("l", "r") for b in ("clavicle", "upperarm", "lowerarm", "hand")]
+
+
+def ik_arms(arm, left, right, poles=((0.45, 0.25, 0.85), (-0.45, 0.25, 0.85))):
+    """Solve both arms with IK from the rest pose so the wrists reach `left` and `right` (rest space); returns each
+    arm bone's local rotation (quaternion)."""
+    arm.data.pose_position = "POSE"
+    arm.animation_data_create()
+    arm.animation_data.action = None
+    for pb in arm.pose.bones:
+        pb.matrix_basis = Matrix.Identity(4)
+    empties = []
+    for tag, goal, pole_at in (("l", left, poles[0]), ("r", right, poles[1])):
+        t = bpy.data.objects.new(f"ik_{tag}", None)
+        t.location = Vector(goal)
+        pole = bpy.data.objects.new(f"pole_{tag}", None)
+        pole.location = Vector(pole_at)
+        bpy.context.scene.collection.objects.link(t)
+        bpy.context.scene.collection.objects.link(pole)
+        empties += [t, pole]
+        c = arm.pose.bones[f"lowerarm_{tag}"].constraints.new("IK")
+        c.target = t
+        c.pole_target = pole
+        c.pole_angle = math.radians(-90)
+        c.chain_count = 2
+    bpy.context.view_layer.update()
+    basis = {name: arm.convert_space(pose_bone=arm.pose.bones[name], matrix=arm.pose.bones[name].matrix,
+                                     from_space="POSE", to_space="LOCAL") for name in ARM_BONES}
+    for tag in ("l", "r"):
+        pb = arm.pose.bones[f"lowerarm_{tag}"]
+        for c in list(pb.constraints):
+            pb.constraints.remove(c)
+    for e in empties:
+        bpy.data.objects.remove(e, do_unlink=True)
+    for pb in arm.pose.bones:
+        pb.matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+    return {name: basis[name].to_quaternion() for name in ARM_BONES}
+
+
+def smash_clip(arm, actions, base, name="Smash"):
+    """A two-handed overhead smash for big brutes: both hands rise together above the head, then slam down in
+    front to the ground and come back. Built from IK poses on top of a copy of `base` (its body motion stays;
+    the arms are replaced). Registers the action under `name` and returns it."""
+    head = arm.matrix_world @ arm.data.bones["Head"].head_local
+    poses = [
+        (0.0, ik_arms(arm, (0.28, -0.22, 1.05), (-0.28, -0.22, 1.05))),
+        (0.38, ik_arms(arm, (0.06, -0.12, head.z + 0.22), (-0.06, -0.12, head.z + 0.22), ((0.6, 0.1, 1.3), (-0.6, 0.1, 1.3)))),
+        (0.55, ik_arms(arm, (0.1, -0.55, 0.55), (-0.1, -0.55, 0.55))),
+        (0.68, ik_arms(arm, (0.12, -0.55, 0.45), (-0.12, -0.55, 0.45))),
+        (1.0, ik_arms(arm, (0.28, -0.22, 1.05), (-0.28, -0.22, 1.05))),
+    ]
+    act = actions[base].copy()
+    act.name = name
+    fcs = action_fcurves(act)
+    lo, hi = act.frame_range
+    hi = lo + max(hi - lo, 36)
+    for bone in ARM_BONES:
+        path = f'pose.bones["{bone}"].rotation_quaternion'
+        for fc in [fc for fc in fcs if fc.data_path == path]:
+            fcs.remove(fc)
+        for i in range(4):
+            fc = fcs.new(path, index=i, group_name=bone)
+            prev = None
+            for t, q in poses:
+                v = q[bone]
+                if prev is not None and prev.dot(v) < 0:
+                    v = -v
+                fc.keyframe_points.insert(lo + (hi - lo) * t, v[i])
+                prev = v
+    # Lean into the blow.
+    for bone, ang in (("spine_02", 0.35), ("spine_03", 0.25)):
+        path = f'pose.bones["{bone}"].rotation_quaternion'
+        for fc in [fc for fc in fcs if fc.data_path == path]:
+            fcs.remove(fc)
+        for i in range(4):
+            fc = fcs.new(path, index=i, group_name=bone)
+            for t, a in ((0.0, 0.0), (0.38, -0.12), (0.6, ang), (1.0, 0.0)):
+                q = Matrix.Rotation(a, 4, "X").to_quaternion()
+                fc.keyframe_points.insert(lo + (hi - lo) * t, q[i])
+    act.use_fake_user = True
+    actions[name] = act
+    return act
 
 
 def shackle_pose(arm, actions, clips, spec):
@@ -2545,7 +2633,7 @@ def preview(job, arm, objs, actions, clips):
     scene.render.resolution_x, scene.render.resolution_y = 520, 720
     s = job.get("scale", 1.0)
     views = [("front", (0.35, -1, 0.12)), ("back", (-0.4, 1, 0.15)), ("side", (1, -0.15, 0.1))]
-    shots = [("idle", 0.3, views), ("attack", 0.45, views[::2]), ("cast", 0.6, views[:1]), ("walk", 0.25, views[::2]), ("block", 0.5, views[::2])]
+    shots = [("idle", 0.3, views), ("attack", job.get("attack_frame", 0.45), views[::2]), ("cast", 0.6, views[:1]), ("walk", 0.25, views[::2]), ("block", 0.5, views[::2])]
     for state, frame, vs in shots:
         if state not in clips:
             continue
@@ -2693,6 +2781,9 @@ def build(job, roots):
            "actions": actions, "clips": clips}
     if job.get("shackled"):
         ctx["wrists"] = shackle_pose(arm, actions, clips, job["shackled"])
+    if job.get("smash"):
+        smash_clip(arm, actions, clips.get("idle", "Idle_Loop"))
+        clips["attack"] = "Smash"
     for g in job.get("garments", []):
         objs += GARMENTS[g["type"]](ctx, g)
     if job.get("weapon"):
