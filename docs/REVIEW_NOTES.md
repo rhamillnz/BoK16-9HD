@@ -377,3 +377,14 @@ Eight characters who talk to the party, built with `build_party.py` from `art/jo
 - When the party comes within 6000 they turn and walk towards it, stopping 900 short. The fight still starts when the party enters the encounter's area.
 - Ambushes stay hidden until they spring. Every figure hides while a fight or dialogue is on, and an encounter's figures go once it can no longer fire.
 - Checked in game at combat 1 in zone 1: the Moredhel warrior walks up to the party from 5600 away. The walk clip runs at a matched speed (`WALK_CLIP_SPEED`), so the feet don't slide.
+
+## Real-data checkpoint run (Opus, 2026-10-16)
+
+A headless browser run on the GOG data. Each stage starts at a real chapter 1 place and uses the real game data, with no debug swaps. No page errors in any stage.
+- **Fresh start** (no URL options): the Dynamix and title screens, the opening cutscene ("Do not struggle so, Haseth...") and the chapter card play, then the world loads at the start.
+- **Town:** walking east into the zone 1 town gate gives Locklear's "go in for supplies?" prompt; Yes shows the LaMut screen, and leaving turns the party around.
+- **Real fight:** combat 1's Moredhel warrior is seen from 5600 away walking up, the fight starts on entering its area, auto-combat wins in 6 rounds, and the Bodies screen shows the real loot (armour, broadsword, 42 royals).
+- **Chest ambush:** opening the chest south of the start springs the real ambush.
+- **Camp (R):** the menu shows rations and wounds; resting an hour moves the clock 08:00 to 09:00.
+- **Zone change:** walking south through the exit in tile 10,11 loads zone 2. The exit in tile 10,13 is behind a cliff from the side I tried.
+- Not covered: long-distance travel. A blind driver holding W off the road walks into hills, because Follow Road only engages in the middle of a road. A full chapter route needs a pathfinding driver.
