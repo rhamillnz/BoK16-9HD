@@ -700,12 +700,12 @@ DIFF = implemented differently; NO = missing.
 | Health ratio scales other skills | YES/PARTIAL | `formats/gam.ts` `effectiveSkill`; combat takes skills at the start of the fight, so they don't drop mid-fight |
 | Heal Health first, then Stamina | YES | `game/rest.ts` |
 | Camping heals to 80%, inns 100% | YES | `game/rest.ts`, `game/state.ts` |
-| No camping with enemies near | NO | `canCamp` checks only screens and modes |
-| Daily ration, hunger | PARTIAL | eaten when camping or at inns, but not while walking; no eat-at-once on transfer |
+| No camping with enemies near | YES | refused within two cells of a combat encounter that can still fire |
+| Daily ration, hunger | YES | eaten at the day boundary while walking too; rations handed to a starving character are eaten at once |
 | Practice focus (selected skills) | PARTIAL | maths in `game/practice.ts`; no UI to toggle the selection |
 | Strength grows on hits; Speed fixed | YES | `combat/rewards.ts` |
 | Conditions; long rest cures sickness | YES | `game/rest.ts`, `game/temple.ts` |
-| Poison worse in combat | NO | combat never applies poison |
+| Poison worse in combat | YES | a poisoned fighter loses 2 at the end of each of its turns |
 | Weaponcraft repair, sword wear | DIFF | flat +25 with a chance to fail; no "recently repaired" lock |
 | Armorcraft repairs a share of the loss | DIFF | same flat +25 |
 | Barding | YES | `game/bard.ts` |
@@ -732,7 +732,7 @@ DIFF = implemented differently; NO = missing.
 | Drop items in bags | NO | |
 | Wordlocks | YES/PARTIAL | the clue plate shows without the Moredhel-reading check |
 | Temples: teleport, bless, cure | YES | `game/temple.ts` |
-| Follow Road | NO | the save flag is parsed only |
+| Follow Road | YES | H: from the middle of a road; steers along it, stops at forks and road ends, keeps the party on it (src/world/followRoad.ts) |
 | Map: N, dark dungeons, town colours | PARTIAL | |
 | Bookmark quick save | YES | F5 |
 | Shades from graves | NO | |

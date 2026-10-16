@@ -108,7 +108,12 @@ export interface Fighter extends MeleeStats {
   rising?: boolean;
   /** Given Final Rest: it stays dead (and its body can be searched). */
   laidToRest?: boolean;
+  /** Poisoned: loses POISON_PER_TURN at the end of each of its turns (manual p. 51: worse in a fight). */
+  poisoned?: boolean;
 }
+
+/** Health/Stamina a poisoned fighter loses at the end of each of its turns. */
+export const POISON_PER_TURN = 2;
 
 /** A fallen Black Slayer rises again; a fallen Nighthawk rises as one while any Black Slayer fights on its side. */
 function willRise(fighters: readonly Fighter[], f: Fighter): boolean {
@@ -243,6 +248,7 @@ export type BattleEvent =
   | { type: 'assess'; id: string; target: string; facts: string[] }
   | { type: 'retreat'; id: string }
   | { type: 'rise'; id: string }
+  | { type: 'poison'; id: string; damage: number; killed: boolean }
   | { type: 'held'; id: string }
   | { type: 'flee'; success: boolean; refused?: boolean }
   | { type: 'round'; round: number }
@@ -343,6 +349,13 @@ function endTurn(s: BattleState, fighters: Fighter[], events: BattleEvent[], tur
     fighters = fighters.map((f, k) => (k === i ? { ...f, silenced: f.silenced! - 1 } : f));
   // A riposte lasts until the fighter's own next action is over.
   fighters = fighters.map((f, k) => (k === i && f.riposte ? { ...f, riposte: undefined } : f));
+  // Poison works on a fighter at the end of each of its turns.
+  const me = fighters[i];
+  if (me?.poisoned && !gone(me)) {
+    const hurt = { ...me, ...applyDamage(me, POISON_PER_TURN) };
+    fighters = fighters.map((f, k) => (k === i ? hurt : f));
+    events = [...events, { type: 'poison', id: me.id, damage: POISON_PER_TURN, killed: isDead(hurt) }];
+  }
   const synced = sync(s, fighters, turn, events);
   const before = synced.turn.round;
   let next = finishTurn(synced.turn);
@@ -947,6 +960,8 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
       return `${name(e.id)} breaks and runs.`;
     case 'rise':
       return `${name(e.id)} rises again as a Black Slayer!`;
+    case 'poison':
+      return `The poison saps ${name(e.id)} (${e.damage})${e.killed ? ', who falls' : ''}.`;
     case 'held':
       return `${name(e.id)} cannot act.`;
     case 'flee':

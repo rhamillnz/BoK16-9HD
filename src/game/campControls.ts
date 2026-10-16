@@ -18,6 +18,8 @@ export interface CampHost {
   onTimePassed(): void;
   /** An ambush cut the rest short. Optional hook for starting a fight. */
   onInterrupted?(): void;
+  /** Enemies are close by: camping is impossible (manual p. 19). */
+  enemiesNear?(): boolean;
 }
 
 const PLANS: { label: string; plan: CampPlan }[] = [
@@ -29,6 +31,10 @@ const PLANS: { label: string; plan: CampPlan }[] = [
 
 /** Run one camp: pick a plan, rest, report. Resolves to the result, or undefined when cancelled. */
 export async function runCamp(host: CampHost): Promise<CampResult | undefined> {
+  if (host.enemiesNear?.()) {
+    await host.menu('You cannot camp with enemies nearby.', []);
+    return undefined;
+  }
   const party = host.getParty();
   const world = host.getWorld();
   const rations = countRations(party, host.items);

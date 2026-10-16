@@ -136,6 +136,7 @@ export function partyFighter(
     melee: skill('melee'),
     assessment: skill('assessment'),
     ...(isSpellcaster(c) ? { casting: skill('casting') } : {}),
+    ...(c.conditions.poisoned > 0 ? { poisoned: true } : {}),
     race: RaceKind.None,
     weapon: equippedWeapon(c.inventory.items, defs),
     armor: equippedArmor(c.inventory.items, defs),

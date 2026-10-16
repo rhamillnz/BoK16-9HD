@@ -627,6 +627,19 @@ export class EncounterRunner {
     return undefined;
   }
 
+  /**
+   * A combat encounter that can still fire lies within `reach` world units of (x, y) (its trigger rectangle,
+   * grown by `reach`): the enemy is close by.
+   */
+  enemiesNear(x: number, y: number, reach: number): boolean {
+    for (const e of this.o.map.all()) {
+      if (e.record.typeId !== EncounterType.Combat) continue;
+      if (x < e.minX - reach || x >= e.maxX + reach || y < e.minY - reach || y >= e.maxY + reach) continue;
+      if (this.isPending(e)) return true;
+    }
+    return false;
+  }
+
   /** Can this encounter still fire in the party's current world (flags allow it, not yet done this chapter)? */
   isPending(e: PlacedEncounter): boolean {
     const used = (x: PlacedEncounter) =>

@@ -34,7 +34,7 @@ import { isUndergroundZone } from '../world/underground';
 import { NpcFigures } from '../render/npcFigures';
 import { loadChapterStart } from '../world/zone';
 import { warnIfOffMap } from './chapterStartCheck';
-import { TILE_SIZE } from '../formats/world';
+import { CELL_SIZE, TILE_SIZE } from '../formats/world';
 import { loadZoneMap } from '../formats/zoneMap';
 import { ZoneHost } from './zoneHost';
 import { CombatEncounters } from './combatEncounter';
@@ -69,7 +69,10 @@ import { installSaveControls } from './saveControls';
 import { createInnHost } from './inn';
 import { findShop, parseShopContainers } from '../formats/gdsContainers';
 import { ruleFor } from './dialogEffects';
+import { applyTimeReport } from './rest';
 import { createNotice } from '../ui/notice';
+import { followRoad, onRoadCentre } from '../world/followRoad';
+import { roadMask } from '../render/grassGround';
 import { installCamp } from './campControls';
 import { installChestAmbushes } from './ambushes';
 import { installContainers } from './containerControls';
@@ -235,6 +238,29 @@ window.addEventListener('keydown', (e) => {
 // Testing aid: G toggles 10x walking speed (`?speed=N` starts with N).
 const SPRINT = 10;
 party.sprint = Math.max(1, num('speed', 1)) || 1;
+/** Brief messages near the top of the screen (one element, shared). */
+const notify = createNotice();
+// Follow Road (H): walking forward keeps the party on the road and stops it at forks (manual p. 16).
+let followingRoad = false;
+/** Distance the party may still walk after picking a branch at a fork before it stops at forks again. */
+let committedToBranch = 0;
+let roadNoticeShown = '';
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyH' || e.repeat || screens.blocking || combat.active || flyMode) return;
+  if (followingRoad) {
+    followingRoad = false;
+    notify('Follow Road off.');
+    return;
+  }
+  const mask = roadMask(zoneHost.current.data);
+  if (!onRoadCentre(mask, party.x, party.y, party.heading)) {
+    notify('Stand in the middle of a road to follow it.');
+    return;
+  }
+  followingRoad = true;
+  committedToBranch = 0;
+  notify('Follow Road on: hold forward to follow it (H to stop).');
+});
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'KeyG' || e.repeat || screens.blocking || combat.active) return;
   party.sprint = party.sprint > 1 ? 1 : SPRINT;
@@ -366,7 +392,7 @@ const inns = createInnHost({
   },
   playDialog: (key, done) => town.playDialog(key, done),
   itemRule: (i) => ruleFor(objectItems, i),
-  notify: createNotice(),
+  notify,
 });
 
 // Town and temple scenes: a 2D screen on the HUD whose hotspots open dialogues.
@@ -606,6 +632,8 @@ installCamp({
     encounters.runner.setWorld(w);
   },
   canCamp: () => !screens.blocking && !encounters.busy && !travelling && !combat.active && !town.active && !flyMode,
+  // Two cells around any combat still waiting to happen.
+  enemiesNear: () => encounters.runner.enemiesNear(party.x, party.y, 2 * CELL_SIZE),
   menu: (text, choices) =>
     new Promise((resolve) =>
       screens.showDialog({ text, displayStyle3: 0 }, choices, (r) => resolve(r.kind === 'choose' ? r.index : -1)),
@@ -854,9 +882,42 @@ renderer.setAnimationLoop(() => {
     const py = party.y;
     prevX = px;
     prevY = py;
-    party.update(dt, screens.blocking || combat.active ? NO_INPUT : partyKeys.read());
+    let input = screens.blocking || combat.active ? NO_INPUT : partyKeys.read();
+    if (followingRoad && !screens.blocking && !combat.active) {
+      const mask = roadMask(zoneHost.current.data);
+      // Turning at a fork picks the branch the party then faces.
+      if (input.turnLeft || input.turnRight || Math.abs(input.turnAxis ?? 0) > 0.3) committedToBranch = 800;
+      if (input.forward || (input.moveAxis ?? 0) > 0.3) {
+        const step = followRoad(mask, party.x, party.y, party.heading, committedToBranch > 0);
+        if (step.kind === 'steer') {
+          // Ease towards the road's line rather than snapping to it.
+          const d = ((step.heading - party.heading + 384) % 256) - 128;
+          party.heading = (party.heading + d * Math.min(1, dt * 6) + 256) % 256;
+          roadNoticeShown = '';
+        } else {
+          input = { ...input, forward: false, moveAxis: 0 };
+          const text = step.kind === 'fork' ? 'The road divides: turn to choose a way.' : 'The road ends here.';
+          if (roadNoticeShown !== text) notify(text);
+          roadNoticeShown = text;
+        }
+      }
+    }
+    party.update(dt, input);
+    if (followingRoad) {
+      // Follow Road keeps the party on the road (manual p. 16): a step off it is taken back.
+      if (!roadMask(zoneHost.current.data).get(party.x, party.y)) party.setPosition(px, py);
+      else committedToBranch = Math.max(0, committedToBranch - Math.hypot(party.x - px, party.y - py));
+    }
     if (party.x !== px || party.y !== py) {
-      if (clock.walk(dt)) sky.update(clock.minutes);
+      const report = clock.walk(dt);
+      if (report) {
+        sky.update(clock.minutes);
+        // Days and hours pass on the road too: the daily meal, hunger, poison and sickness (manual p. 38).
+        if (report.consumeRations || report.hourChanged || report.improveNearDeath || report.improveHealthStamina) {
+          partyState = applyTimeReport(partyState, report, (i) => ruleFor(objectItems, i));
+          screens.setParty(partyState);
+        }
+      }
     }
     combat.update(dt);
     updateCombatMusic(combat.active, zoneHost.current.zone);

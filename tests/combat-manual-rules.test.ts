@@ -234,3 +234,15 @@ describe('enemy morale (manual p. 51)', () => {
     expect(viaAi.events[0]).toMatchObject({ type: 'retreat', id: 'x' });
   });
 });
+
+describe('poison in a fight (manual p. 51)', () => {
+  it('a poisoned fighter loses 2 at the end of each of its turns', () => {
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { speed: 9, poisoned: true, stamina: 0 }),
+      fighter('x', 'enemy', 3, 8),
+    ]);
+    const next = defend(s)!;
+    expect(next.fighters[0]!.health).toBe(18);
+    expect(next.events.some((e) => e.type === 'poison')).toBe(true);
+  });
+});

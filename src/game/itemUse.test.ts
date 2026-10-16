@@ -221,3 +221,26 @@ describe('repairItem', () => {
     expect(repairItem(party([item(3)], tool), 0, 0, DEFS, () => 0).message).toMatch(/cannot be repaired/);
   });
 });
+
+describe('feeding the starving (manual p. 38)', () => {
+  it('a starving character eats rations handed to them at once', () => {
+    const defs = [...DEFS];
+    defs[72] = D(72, ItemType.Ration, { stackSize: 5 });
+    const p = party([item(72, { conditionOrQuantity: 3 })]);
+    const hungry = {
+      ...p,
+      characters: p.characters.map((c) => (c.index === 1 ? { ...c, conditions: { ...c.conditions, starving: 5 } } : c)),
+    };
+    const r = giveToCharacter(hungry, 0, 0, 1, defs);
+    expect(r.message).toContain('eats at once');
+    const fed = r.party.characters[1]!;
+    expect(fed.conditions.starving).toBe(0);
+    expect(fed.inventory.items[0]!.conditionOrQuantity).toBe(2);
+    // A character who is not starving just keeps them.
+    const full = {
+      ...p,
+      characters: p.characters.map((c) => (c.index === 1 ? { ...c, conditions: { ...c.conditions, starving: 0 } } : c)),
+    };
+    expect(giveToCharacter(full, 0, 0, 1, defs).party.characters[1]!.inventory.items[0]!.conditionOrQuantity).toBe(3);
+  });
+});

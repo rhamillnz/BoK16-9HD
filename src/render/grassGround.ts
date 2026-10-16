@@ -97,6 +97,18 @@ export function createGroundSampler(zone: ZoneData, heightField: HeightField): G
   return sample;
 }
 
+const roadMasks = new WeakMap<ZoneData, ReturnType<typeof buildGroundMask>>();
+
+/** Where the zone's roads and paths are (BaK world units, 100-unit cells): what Follow Road steers along. */
+export function roadMask(zone: ZoneData): ReturnType<typeof buildGroundMask> {
+  let mask = roadMasks.get(zone);
+  if (!mask) {
+    mask = buildGroundMask(collectGroundTriangles(zone).road, []);
+    roadMasks.set(zone, mask);
+  }
+  return mask;
+}
+
 /**
  * Render-space (x, z) points on the edge of roads and paths (road cells with grass beside them),
  * one per road-edge mask cell, for placing roadside stones.

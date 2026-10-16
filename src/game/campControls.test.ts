@@ -81,3 +81,13 @@ describe('runCamp', () => {
     expect(t.state().world.ticks).toBe(0);
   });
 });
+
+describe('camping near enemies (manual p. 19)', () => {
+  it('is refused while enemies are close by', async () => {
+    const t = host(0);
+    const r = await runCamp({ ...t.h, enemiesNear: () => true });
+    expect(r).toBeUndefined();
+    expect(t.shown[0]).toContain('enemies nearby');
+    expect(t.state().world.ticks).toBe(0);
+  });
+});

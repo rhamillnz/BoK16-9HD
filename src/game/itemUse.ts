@@ -4,6 +4,7 @@ import { ItemType, type ItemDef } from '../formats/objinfo';
 import type { SpellDef } from '../formats/spells';
 import { learnFromScroll, skillOfMask } from './spells';
 import { addCondition, addToCharacter, updateCharacter, type ItemRule, type PartyState } from './party';
+import { eatRation, ITEM_RATIONS } from './rest';
 
 /**
  * Using, equipping, repairing and handing over inventory items. Pure like party.ts: each function
@@ -242,6 +243,12 @@ export function giveToCharacter(
     { ...from },
     from.inventory.items.filter((_, i) => i !== slot),
   );
+  // A starving character eats rations handed to them straight away (manual p. 38).
+  const receiver = characterOf(moved, to.index)!;
+  if (it.itemIndex === ITEM_RATIONS && receiver.conditions.starving > 0) {
+    const fed = updateCharacter(moved, to.index, (c) => eatRation(c, (i) => ruleOf(defs[i])));
+    return { party: fed, message: `${def.name} given to ${to.name}, who eats at once.`, ok: true };
+  }
   return { party: moved, message: `${def.name} given to ${to.name}.`, ok: true };
 }
 
