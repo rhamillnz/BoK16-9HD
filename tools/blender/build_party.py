@@ -92,6 +92,29 @@ def fur_image(colour, size=256):
     return img
 
 
+def leather_image(colour, size=512):
+    """Bat-wing leather: fine wrinkles, a web of darker veins and a mottled, slightly translucent-looking skin."""
+    import numpy as np
+    rnd = np.random.default_rng(13)
+    y, x = np.mgrid[0:size, 0:size] / size
+    wrinkle = np.sin(x * 2 * np.pi * 60 + np.sin(y * 2 * np.pi * 7) * 3) * np.sin(y * 2 * np.pi * 45 + np.sin(x * 2 * np.pi * 5) * 2)
+    veins = np.zeros_like(x)
+    for k in range(9):
+        ang = rnd.uniform(0, np.pi)
+        f = rnd.uniform(3, 7)
+        d = np.abs(np.sin((x * np.cos(ang) + y * np.sin(ang)) * f * np.pi + np.sin((x - y) * 6 + k) * 1.2))
+        veins = np.maximum(veins, (d < 0.035).astype(np.float32) * rnd.uniform(0.5, 1.0))
+    mott = np.interp((x * 2.3 + y * 1.7) * size % size, np.arange(size), np.convolve(rnd.normal(0, 1, size), np.ones(31) / 31, 'same'))
+    lum = np.clip(0.85 + 0.06 * wrinkle + 0.12 * mott - 0.35 * veins, 0.3, 1.2)
+    img = bpy.data.images.new("leather", size, size)
+    px = np.ones((size, size, 4), dtype=np.float32)
+    for k in range(3):
+        px[..., k] = np.clip(colour[k] * lum, 0, 1)
+    img.pixels.foreach_set(px.reshape(-1))
+    img.pack()
+    return img
+
+
 def cloth_image(name, size=256, seed=3, folds=True):
     """Pale woven-cloth luminance texture (multiplied by the garment colour): fine weave and soft vertical folds."""
     import numpy as np
@@ -1372,14 +1395,14 @@ def chains_between(ctx, iron, link_ring):
         # The chain hangs from the underside of the cuff.
         down = Vector((0, 0, -1))
         down = (down - axis * down.dot(axis)).normalized()
-        hangs.append(w - axis * 0.04 + down * 0.055)
+        hangs.append(w - axis * 0.04 + down * 0.05)
     a, b = hangs
     span = (b - a).length
     n = max(3, int(span / 0.04))
     prev = None
     for k in range(n + 1):
         t = k / n
-        p = a.lerp(b, t) + Vector((0, -0.03 * 4 * t * (1 - t), -0.13 * 4 * t * (1 - t) - 0.03))
+        p = a.lerp(b, t) + Vector((0, -0.02 * 4 * t * (1 - t), -0.06 * 4 * t * (1 - t)))
         if prev is not None:
             along = (p - prev).normalized()
             mid = (p + prev) / 2
@@ -1542,7 +1565,8 @@ def g_hair(ctx, g):
         for poly in me.polygons:
             c = hair.matrix_world @ poly.center
             a = abs(math.degrees(math.atan2(c.x - centre.x, -(c.y - centre.y))))
-            if 50 < a < 110 and centre.z - 0.06 < c.z < centre.z + 0.06:
+            # Grey at the temples only, above the ear; sideburns below stay the hair's own colour.
+            if 50 < a < 110 and centre.z + 0.0 < c.z < centre.z + 0.06:
                 poly.material_index = 1
     for o in out:
         set_weights(o, ctx["arm"], lambda co: {"Head": 1.0})
@@ -1949,13 +1973,52 @@ def scimitar_mesh(g):
     return [blade] + parts[1:]
 
 
+def katana_mesh(g):
+    steel = own(material("blade", g.get("blade", (0.7, 0.72, 0.76)), 0.2, 0.95))
+    dark = own(material("tsuba", g.get("guard", (0.08, 0.08, 0.08)), 0.4, 0.8))
+    wrap = own(material("tsuka", g.get("grip", (0.06, 0.05, 0.05)), 0.8))
+    L = g.get("length", 0.75)
+    bm = bmesh.new()
+    n = 16
+    back, edge = [], []
+    for k in range(n + 1):
+        t = k / n
+        bend = 0.05 * t * t
+        w = 0.016 * (1 - 0.15 * t)
+        z = L * t
+        if t > 0.92:
+            w *= (1 - t) / 0.08
+        back.append((-0.006 - bend, z))
+        edge.append((-0.006 - bend + max(w, 0.0015), z))
+    slab(bm, edge + back[::-1], 0.006)
+    blade = link("blade", bm, steel)
+    smooth_shading(blade, 25)
+    bm = bmesh.new()
+    geom = bmesh.ops.create_cone(bm, cap_ends=True, segments=24, radius1=0.038, radius2=0.038, depth=0.008)
+    bmesh.ops.scale(bm, verts=geom["verts"], vec=(1, 0.8, 1))
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=(0, 0, -0.004))
+    guard = link("guard", bm, dark)
+    bm = bmesh.new()
+    geom = bmesh.ops.create_cone(bm, cap_ends=True, segments=10, radius1=0.016, radius2=0.015, depth=0.26)
+    bmesh.ops.scale(bm, verts=geom["verts"], vec=(1, 0.8, 1))
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=(0, 0, -0.14))
+    for k in range(10):
+        r = bmesh.ops.create_cone(bm, cap_ends=False, segments=10, radius1=0.0168, radius2=0.0168, depth=0.008)
+        bmesh.ops.scale(bm, verts=r["verts"], vec=(1, 0.8, 1))
+        bmesh.ops.translate(bm, verts=r["verts"], vec=(0, 0, -0.025 - k * 0.024))
+    grip = link("grip", bm, wrap)
+    for o in (guard, grip):
+        smooth_shading(o, 40)
+    return [blade, guard, grip]
+
+
 def dagger_mesh(g):
     return sword_mesh({**g, "length": g.get("length", 0.3)})
 
 
-WEAPONS.update({"scimitar": scimitar_mesh, "axe": axe_mesh, "spear": spear_mesh, "club": club_mesh, "mace": mace_mesh, "flail": flail_mesh,
+WEAPONS.update({"katana": katana_mesh, "scimitar": scimitar_mesh, "axe": axe_mesh, "spear": spear_mesh, "club": club_mesh, "mace": mace_mesh, "flail": flail_mesh,
                 "dagger": dagger_mesh})
-HOLD.update({"scimitar": 0.1, "axe": 0.0, "spear": 0.0, "club": 0.0, "mace": 0.0, "flail": 0.0, "dagger": 0.1})
+HOLD.update({"katana": 0.07, "scimitar": 0.1, "axe": 0.0, "spear": 0.0, "club": 0.0, "mace": 0.0, "flail": 0.0, "dagger": 0.1})
 
 
 def head_info(ctx):
@@ -1990,18 +2053,19 @@ def g_loincloth(ctx, g):
     """A short ragged skirt of hide or cloth from the hips (giants, trolls, ogres)."""
     cloth = material("loincloth", g.get("color", (0.35, 0.24, 0.14)), 0.95, 0.0, ctx["cloth"])
     shift = ctx.get("waist_shift", 0.0)
-    top, low = g.get("waist", 1.06 + shift), g.get("wrap", 0.84 + shift)
+    knee = (ctx["arm"].matrix_world @ ctx["arm"].data.bones["calf_l"].head_local).z
+    top, low = g.get("waist", 1.06 + shift), g.get("wrap", knee + 0.03)
     # The wrap is copied from the body itself (hips, seat and the top of the thighs) and keeps its skin weights, so
     # however the legs move nothing shows through.
 
     def keep(co, bone):
-        return low < co.z < top + 0.02 and bone.startswith(("pelvis", "thigh", "spine_01"))
+        return low < co.z < top + 0.02 and bone.startswith(("pelvis", "thigh", "spine_01", "calf"))
 
     wrap = shell(ctx["shirt"], "loin_wrap", cloth, keep, 0.007, smooth=2, thickness=0.006)
     bmesh_uv_cylinder(wrap, 0.0)
     bind(wrap, ctx["arm"])
     ctx["layers"].append(wrap)
-    return [wrap, skirt(ctx, "loincloth", cloth, g.get("waist", 1.06 + shift), g.get("hem", 0.68 + shift), g.get("flare", (0.23, 0.19)),
+    return [wrap, skirt(ctx, "loincloth", cloth, g.get("waist", 1.06 + shift), g.get("hem", knee - 0.02), g.get("flare", (0.23, 0.19)),
                   g.get("follow", 1.0), None, rings=8, ragged=g.get("ragged", 0.05), flare_scale=g.get("flare_scale", 1.3),
                   back=g.get("back", 0.07))]
 
@@ -2057,7 +2121,7 @@ def g_warts(ctx, g):
 def g_wings(ctx, g):
     """Bat wings from the upper back: an arm bone-strut rising up and out, three finger struts fanning down,
     and a membrane between them with a scalloped trailing edge; fixed to the upper spine."""
-    skin_m = own(material("wing_membrane", g.get("color", (0.35, 0.05, 0.04)), 0.7))
+    skin_m = textured("wing_leather", leather_image(g.get("color", (0.35, 0.05, 0.04))), 0.55, 0.0)
     bone_m = own(material("wing_bone", g.get("bone", (0.12, 0.05, 0.04)), 0.6))
     k = g.get("size", 1.0)
     neck = neck_axis(ctx)
@@ -2066,17 +2130,20 @@ def g_wings(ctx, g):
         root = Vector((s_ * 0.07, neck.y + 0.12, 1.4))
         el = root + Vector((s_ * 0.35, 0.18, 0.38)) * k
         wr = root + Vector((s_ * 0.8, 0.28, 0.55)) * k
-        tips = [root + Vector((s_ * 1.3, 0.35, 0.2)) * k, root + Vector((s_ * 1.15, 0.38, -0.3)) * k,
-                root + Vector((s_ * 0.7, 0.32, -0.55)) * k]
+        tips = [root + Vector((s_ * 1.3, 0.35, 0.25)) * k, root + Vector((s_ * 1.28, 0.38, -0.12)) * k,
+                root + Vector((s_ * 1.05, 0.38, -0.45)) * k, root + Vector((s_ * 0.65, 0.32, -0.6)) * k]
         bm = bmesh.new()
         tube(bm, [root, el, wr], [0.035 * k, 0.03 * k, 0.022 * k], 8)
         for tip in tips:
             tube(bm, [wr, tip], [0.018 * k, 0.004 * k], 6)
         cone = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.02 * k, radius2=0.001, depth=0.12 * k)
         bmesh.ops.translate(bm, verts=cone["verts"], vec=wr + Vector((s_ * 0.02, 0.02, 0.07)) * k)
+        for tip in tips:
+            claw = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.008 * k, radius2=0.0005, depth=0.05 * k)
+            bmesh.ops.translate(bm, verts=claw["verts"], vec=tip + (tip - wr).normalized() * 0.02 * k)
         struts = link(f"wing_struts_{tag}", bm, bone_m)
         smooth_shading(struts, 60)
-        rim = [el, wr, tips[0], tips[1], tips[2], root + Vector((s_ * 0.05, 0.05, -0.3)) * k]
+        rim = [el, wr, tips[0], tips[1], tips[2], tips[3], root + Vector((s_ * 0.05, 0.05, -0.3)) * k]
         lens = [(rim[i + 1] - rim[i]).length for i in range(len(rim) - 1)]
 
         def along(u):
@@ -2101,9 +2168,16 @@ def g_wings(ctx, g):
             for i in range(6):
                 bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
         mem = link(f"wing_{tag}", bm, skin_m)
+        me = mem.data
+        uv = me.uv_layers.new(name="UVMap")
+        for loop in me.loops:
+            co = me.vertices[loop.vertex_index].co
+            uv.data[loop.index].uv = (co.x * 1.6 + 0.5, co.z * 1.6)
+        edge = rim_tube(mem, f"wing_edge_{tag}", bone_m, 0.006 * k, smooth=2)
+        out.append(edge)
         solidify(mem, 0.008, 0.0)
         smooth_shading(mem, 60)
-        for o in (struts, mem):
+        for o in (struts, mem, edge):
             set_weights(o, ctx["arm"], lambda co: {"spine_03": 1.0})
         out += [struts, mem]
     return out

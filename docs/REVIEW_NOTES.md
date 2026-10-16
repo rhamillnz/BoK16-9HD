@@ -329,3 +329,15 @@ The next verdicts go to `party7` and `creatures4`. The rogue was marked "work" w
 **Sizing.**
 - Every build writes the model's standing height as a rig extra (`height`). FighterActor scales each model to its combat sprite's height by that, instead of assuming 1.8 m.
 - This fixes the giant, ogre and goblin, which were drawn oversized or undersized by their own `scale`.
+
+## Party round 9 and creatures round 6 (Opus, 2026-10-16)
+
+- **Wings.** `leather_image` gives the Dread and Wind Elemental a vein and wrinkle texture, with a fourth finger, tip claws and a rolled edge.
+- **Loincloths.** The wrap and flaps now reach the knee, read from the calf bone.
+- **Nighthawk.** New `katana` weapon.
+- **Chained Gorath.** Hands at belt height; the chain hangs with little sag between the cuffs.
+- **James.** Sideburns down to the beard (hairline table); the grey is limited to above the ear.
+- **Beasts.**
+  - New helpers: `limb` (metaball limbs, or smooth tubes below 5 cm radius, where metaballs bead), `teeth_arc` (teeth seated on the jaw edges), `spikes`, `emissive`, `lava_material` (cracked crust with an emissive crack map).
+  - Rebuilt: the beasthound as a Rottweiler (one-piece head, tan markings), the Nethermander in lava red with spines and frill, the scorpion with plates, eyes, mouthparts and serrated claws, and a detailed wyvern.
+  - Metaball resolution is 1.8 cm.

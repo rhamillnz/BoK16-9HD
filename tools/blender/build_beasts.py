@@ -112,46 +112,167 @@ def strike(t, wind=0.3, hit=0.5, back=0.85):
     return 1.0 * (1 - smoothstep(hit, back, t))
 
 
+def limb(b, name, mat, pts, radii, bones, per=4, bulge=1.12, squash=(1, 1, 1)):
+    """A metaball limb along a polyline: blends into its joints (and into the body where they overlap), with a
+    slight bulge at each joint. Thin limbs are smooth tubes instead: metaballs below a few centimetres break up
+    into beads."""
+    if min(radii) < 0.05:
+        fine, fr = [], []
+        for k in range(len(pts) - 1):
+            fine.append(pts[k])
+            fr.append(radii[k] * (bulge if 0 < k else 1.0))
+            for j in (1, 2):
+                fine.append(pts[k].lerp(pts[k + 1], j / 3))
+                fr.append(radii[k] + (radii[k + 1] - radii[k]) * j / 3)
+        fine.append(pts[-1])
+        fr.append(radii[-1])
+        b.parts.append(("tube", name, mat, (fine, fr, 12), bones))
+        return
+    els = []
+    for k in range(len(pts) - 1):
+        for j in range(per):
+            t = (j + 0.5) / per
+            els.append((pts[k].lerp(pts[k + 1], t), radii[k] + (radii[k + 1] - radii[k]) * t, squash))
+    for k in range(1, len(pts) - 1):
+        els.append((pts[k], radii[k] * bulge, (1, 1, 1)))
+    b.balls(name, mat, els, bones)
+
+
+def teeth_arc(b, name, mat, centre, rx, ry, z, n, length, bone, up=False, r=0.008, span=(0.12, 0.88)):
+    """A row of teeth round the front of a jaw: on the ellipse (rx, ry) about `centre` at height z, pointing
+    down (upper teeth) or up (lower)."""
+    def build(bm):
+        for i in range(n):
+            th = math.pi * (span[0] + (span[1] - span[0]) * i / max(n - 1, 1))
+            p = Vector((centre.x + rx * math.cos(th), centre.y - ry * math.sin(th), z))
+            # Canines (the outer pair either side of the front) are longer.
+            k = 1.6 if i in (1, n - 2) else 1.0
+            cone_to(bm, p, p + Vector((0, 0, (length if up else -length) * k)), r * (1.2 if k > 1 else 1.0))
+    b.rigid(name, mat, build, bone)
+
+
+def spikes(b, name, mat, pts, bone, length=0.08, r=0.02, lean=(0, 0.6, 1)):
+    """Cones standing on the given points, leaning back (dorsal spines, frills)."""
+    d = Vector(lean).normalized()
+    b.rigid(name, mat, lambda bm: [cone_to(bm, p, p + d * length * (1 - 0.15 * i), r) for i, p in enumerate(pts)], bone)
+
+
+def emissive(mat, colour, strength):
+    bsdf = mat.node_tree.nodes["Principled BSDF"]
+    bsdf.inputs["Emission Color"].default_value = (*colour, 1)
+    bsdf.inputs["Emission Strength"].default_value = strength
+    return mat
+
+
+def lava_material():
+    """Lava hide: a dark red crust broken by glowing orange-red cracks (the cracks also feed the emission)."""
+    import numpy as np
+    from build_party import pattern_image
+    size = 512
+    rnd = np.random.default_rng(21)
+    y, x = np.mgrid[0:size, 0:size] / size
+    pts = rnd.random((90, 2))
+    d = np.full(x.shape, 9.0)
+    d2 = np.full(x.shape, 9.0)
+    for px_, py_ in pts:
+        for ox in (-1, 0, 1):
+            for oy in (-1, 0, 1):
+                dd = np.hypot(x - px_ - ox, y - py_ - oy)
+                d2 = np.minimum(d2, np.maximum(dd, d))
+                d = np.minimum(d, dd)
+    crack = np.clip(1 - (d2 - d) * 70, 0, 1) ** 2
+    noise = rnd.normal(0, 0.04, x.shape)
+    base = [np.clip(0.16 + noise + crack * 0.75, 0, 1), np.clip(0.025 + noise * 0.3 + crack * 0.12, 0, 1), np.clip(0.015 + crack * 0.02, 0, 1)]
+    glow = [crack * 1.0, crack * 0.16, crack * 0.01]
+    img = pattern_image("lava_base", lambda xx, yy: base, size)
+    gimg = pattern_image("lava_glow", lambda xx, yy: glow, size)
+    mat = bpy.data.materials.new("lava")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    t1 = nt.nodes.new("ShaderNodeTexImage")
+    t1.image = img
+    t2 = nt.nodes.new("ShaderNodeTexImage")
+    t2.image = gimg
+    nt.links.new(t1.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(t2.outputs["Color"], bsdf.inputs["Emission Color"])
+    bsdf.inputs["Emission Strength"].default_value = 2.2
+    bsdf.inputs["Roughness"].default_value = 0.6
+    return own(mat)
+
+
 # ---------------------------------------------------------------- creatures
 
 
 def scorpion():
-    """Giant scorpion: armoured body, two big pincers, eight legs, a segmented tail arched over the back to a
-    hooked stinger (combat sprite SCP)."""
+    """Giant scorpion: an armoured body of overlapping dorsal plates over a paler belly, eyes on the head plate,
+    mouthparts, two big serrated pincers, eight jointed legs ending in claws, and a keeled, segmented tail arched
+    over the back to a bulb and barbed, hooked stinger (combat sprite SCP)."""
     b = Beast("scp")
-    chitin = textured("chitin", skin_pattern("scales", (0.24, 0.16, 0.1)), 0.35, 0.15)
-    dark = own(material("chitin_dark", (0.07, 0.05, 0.04), 0.3, 0.2))
+    chitin = textured("chitin", skin_pattern("scales", (0.22, 0.14, 0.08)), 0.3, 0.2)
+    plate = textured("plates", skin_pattern("hide", (0.17, 0.11, 0.07)), 0.25, 0.25)
+    belly = textured("scp_belly", skin_pattern("hide", (0.42, 0.33, 0.2)), 0.5, 0.0)
+    dark = own(material("chitin_dark", (0.05, 0.035, 0.03), 0.2, 0.3))
+    eye = emissive(own(material("scp_eye", (0.02, 0.02, 0.02), 0.05, 0.5)), (0.3, 0.05, 0.02), 0.6)
     b.bone("pivot", None, v(0, 0, 0), v(0, 0, 0.15))
     b.bone("body", "pivot", v(0, 0.35, 0.42), v(0, -0.35, 0.42))
     tail_pts = [v(0, 0.4, 0.45), v(0, 0.66, 0.6), v(0, 0.8, 0.86), v(0, 0.77, 1.12), v(0, 0.6, 1.32), v(0, 0.38, 1.42), v(0, 0.16, 1.37)]
     tail = b.chain("tail", "body", tail_pts)
     b.bone("sting", tail[-1], tail_pts[-1], v(0, 0.04, 1.2))
-    b.balls("body", chitin, [(v(0, -0.32, 0.42), 0.2, (1.15, 1, 0.6)), (v(0, -0.1, 0.42), 0.25, (1.2, 1, 0.62)),
-                             (v(0, 0.12, 0.43), 0.24, (1.15, 1, 0.6)), (v(0, 0.33, 0.44), 0.19, (1.0, 1, 0.6))], ["body"])
+    # Body: a belly, a head plate (prosoma) and seven overlapping dorsal plates, each with a raised rear edge.
+    b.balls("belly", belly, [(v(0, -0.15, 0.38), 0.22, (1.15, 1.9, 0.45))], ["body"])
+    b.balls("head", plate, [(v(0, -0.33, 0.46), 0.2, (1.15, 0.85, 0.5))], ["body"])
     els = []
+    for k in range(7):
+        y = -0.18 + k * 0.085
+        w = 1.25 - 0.06 * abs(k - 3)
+        els.append((v(0, y, 0.47), 0.19, (w, 0.42, 0.5)))
+    b.balls("plates", plate, els, ["body"])
+    b.balls("plate_rims", dark, [(v(0, -0.14 + k * 0.085, 0.52), 0.07, (2.6, 0.3, 0.3)) for k in range(7)], ["body"])
+    b.rigid("eyes", eye, lambda bm: [sphere_at(bm, v(sx, -0.33, 0.56), 0.022, 1) for sx in (-0.03, 0.03)]
+            + [sphere_at(bm, v(sx * (0.13 + 0.025 * j), -0.44 + 0.015 * j, 0.5), 0.012, 1) for sx in (-1, 1) for j in range(3)], "body")
+    b.rigid("mouth", dark, lambda bm: [cone_to(bm, v(sx * 0.04, -0.47, 0.42), v(sx * 0.02, -0.56, 0.38), 0.02) for sx in (-1, 1)], "body")
+    # Tail: five keeled segments that swell and pinch, a bulb and a barbed stinger.
+    els, keel = [], []
     for k in range(len(tail_pts) - 1):
         for j in range(3):
-            c = tail_pts[k].lerp(tail_pts[k + 1], (j + 0.5) / 3)
-            # Each segment swells in the middle and pinches at the joints.
-            els.append((c, (0.11 - 0.01 * k) * (0.85 + 0.2 * math.sin(math.pi * (j + 0.5) / 3)), (1, 1, 1)))
+            t = (j + 0.5) / 3
+            c = tail_pts[k].lerp(tail_pts[k + 1], t)
+            r = (0.11 - 0.01 * k) * (0.85 + 0.2 * math.sin(math.pi * t))
+            els.append((c, r, (1, 1, 1)))
+            # The keels: two ridges along the top of each segment.
+            out = (c - v(0, 0.4, 0.75)).normalized()
+            for sx in (-1, 1):
+                keel.append((c + out * r * 0.75 + v(sx * r * 0.45, 0, 0), r * 0.32, (1, 1, 1)))
     b.balls("tail", chitin, els, ["body"] + tail)
     tip = tail_pts[-1]
-    b.rigid("bulb", chitin, lambda bm: sphere_at(bm, tip + v(0, -0.02, -0.03), 0.09), "sting")
-    b.rigid("stinger", dark, lambda bm: cone_to(bm, tip + v(0, -0.06, -0.08), v(0, -0.02, 1.13), 0.035), "sting")
+    b.balls("bulb", chitin, [(tip + v(0, -0.02, -0.04), 0.095, (0.9, 1.2, 1))], ["sting"])
+    b.rigid("stinger", dark, lambda bm: [cone_to(bm, tip + v(0, -0.08, -0.08), v(0, -0.02, 1.12), 0.035),
+                                         cone_to(bm, tip + v(0, -0.07, -0.12), tip + v(0, -0.02, -0.2), 0.012)], "sting")
     for s, t in ((1, "l"), (-1, "r")):
         a1 = b.bone(f"arm1_{t}", "body", v(s * 0.16, -0.3, 0.42), v(s * 0.42, -0.55, 0.45))
         a2 = b.bone(f"arm2_{t}", a1, v(s * 0.42, -0.55, 0.45), v(s * 0.38, -0.84, 0.47))
         pin = b.bone(f"pincer_{t}", a2, v(s * 0.38, -0.84, 0.47), v(s * 0.3, -1.12, 0.46))
         fin = b.bone(f"finger_{t}", a2, v(s * 0.43, -0.92, 0.49), v(s * 0.42, -1.14, 0.47))
-        b.tube(f"arm_{t}", chitin, [v(s * 0.16, -0.3, 0.42), v(s * 0.42, -0.55, 0.45), v(s * 0.38, -0.84, 0.47)], [0.06, 0.07, 0.07], ["body", a1, a2])
-        b.balls(f"claw_{t}", chitin, [(v(s * 0.36, -0.92, 0.47), 0.13, (0.8, 1.3, 0.7)), (v(s * 0.33, -1.05, 0.46), 0.08, (0.7, 1.4, 0.6))], [pin])
-        b.rigid(f"finger_{t}", dark, lambda bm, s=s: cone_to(bm, v(s * 0.43, -0.93, 0.49), v(s * 0.41, -1.15, 0.47), 0.04), fin)
+        limb(b, f"arm_{t}", chitin, [v(s * 0.16, -0.3, 0.42), v(s * 0.42, -0.55, 0.45), v(s * 0.38, -0.84, 0.47)], [0.055, 0.065, 0.07], ["body", a1, a2])
+        # The hand: a swollen palm and the fixed finger, with a row of teeth on the inner edges.
+        b.balls(f"claw_{t}", chitin, [(v(s * 0.37, -0.9, 0.47), 0.12, (0.85, 1.25, 0.75)), (v(s * 0.34, -1.04, 0.46), 0.065, (0.7, 1.6, 0.6)),
+                                      (v(s * 0.32, -1.13, 0.455), 0.035, (0.7, 1.4, 0.6))], [pin])
+        b.balls(f"finger_{t}", dark, [(v(s * 0.43, -0.98, 0.485), 0.045, (0.7, 1.7, 0.65)), (v(s * 0.425, -1.1, 0.475), 0.028, (0.7, 1.5, 0.6))], [fin])
+        b.rigid(f"claw_teeth_{t}", dark, lambda bm, s=s: [cone_to(bm, v(s * 0.355, -0.98 - 0.04 * i, 0.47), v(s * 0.385, -0.985 - 0.04 * i, 0.47), 0.008)
+                                                         for i in range(4)], pin)
         for k, (y, dy) in enumerate(zip((-0.2, -0.05, 0.1, 0.25), (-0.12, -0.04, 0.05, 0.14))):
             hip, knee, foot = v(s * 0.2, y, 0.4), v(s * 0.55, y + dy, 0.64), v(s * 0.86, y + dy * 1.7, 0.0)
+            ankle = knee.lerp(foot, 0.62) + v(s * 0.03, 0, 0.04)
             l1 = b.bone(f"leg{k}a_{t}", "body", hip, knee)
             l2 = b.bone(f"leg{k}b_{t}", l1, knee, foot)
-            b.tube(f"leg{k}_{t}", chitin, [hip, knee, foot], [0.04, 0.035, 0.012], ["body", l1, l2], 8)
+            limb(b, f"leg{k}_{t}", chitin, [hip, knee, ankle, foot + v(0, 0, 0.02)], [0.04, 0.034, 0.024, 0.014], ["body", l1, l2], per=3)
+            b.rigid(f"toe{k}_{t}", dark, lambda bm, foot=foot, s=s: cone_to(bm, foot + v(0, 0, 0.02), foot + v(s * 0.04, 0, -0.005), 0.01), l2)
+    _scorpion_anims(b)
+    return b
 
+
+def _scorpion_anims(b):
     def legs_walk(t, p):
         for k in range(4):
             for s, tg in ((1, "l"), (-1, "r")):
@@ -214,7 +335,6 @@ def scorpion():
     b.anim("block", 20, False, block)
     b.anim("hit", 14, False, hit)
     b.anim("death", 36, False, death, root=lambda t: v(0, 0, 0.88 * smoothstep(0.05, 0.6, t)))
-    return b
 
 
 def arachnid(name, body_mat, belly_mat, legs_mat, eye_mat, scale=1.0, stalks=None):
@@ -366,87 +486,112 @@ def servitor():
 
 
 def quadruped(name, kind):
-    """Four-legged: `kind` "hound" (the beasthound: a huge dark wolf-dog) or "lizard" (the Nethermander: a low
-    red fire-salamander with sprawling legs and a long tail)."""
+    """Four-legged: `kind` "hound" (the beasthound as a huge Rottweiler: black with tan markings, a deep chest,
+    heavy shoulders, a broad head, folded ears, a docked tail) or "lizard" (the Nethermander: a low lava-red
+    salamander, glowing cracks in a dark crust, sprawling clawed legs, dorsal spines and a long tail)."""
     b = Beast(name)
     hound = kind == "hound"
+    tooth = own(material(f"{name}_tooth", (0.9, 0.87, 0.78), 0.35))
+    dark = own(material(f"{name}_claw", (0.05, 0.04, 0.04), 0.3, 0.2))
     if hound:
-        fur = textured("hound_fur", fur_image((0.22, 0.15, 0.1)), 0.95, 0.0)
-        skin = fur
-        H = 0.8
+        black = textured("rott_black", skin_pattern("hide", (0.075, 0.065, 0.06)), 0.55, 0.0)
+        tan = textured("rott_tan", skin_pattern("hide", (0.5, 0.27, 0.11)), 0.6, 0.0)
+        eye = emissive(own(material("dog_eye", (0.35, 0.18, 0.05), 0.15)), (0.9, 0.5, 0.1), 0.8)
+        nose = own(material("dog_nose", (0.02, 0.02, 0.02), 0.25))
     else:
-        skin = textured("salamander", skin_pattern("scales", (0.62, 0.14, 0.05)), 0.45, 0.0)
-        bsdf = skin.node_tree.nodes["Principled BSDF"]
-        bsdf.inputs["Emission Color"].default_value = (1.0, 0.35, 0.05, 1)
-        bsdf.inputs["Emission Strength"].default_value = 0.35
-        H = 0.38
-    eye = own(material(f"{name}_eye", (0.9, 0.7, 0.1) if hound else (1.0, 0.85, 0.2), 0.2))
-    eye.node_tree.nodes["Principled BSDF"].inputs["Emission Color"].default_value = (1.0, 0.6, 0.05, 1)
-    eye.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 2.0
-    tooth = own(material(f"{name}_tooth", (0.9, 0.87, 0.78), 0.4))
-    L = 0.45 if hound else 0.55
+        crust = lava_material()
+        eye = emissive(own(material("nth_eye", (1.0, 0.8, 0.2), 0.2)), (1.0, 0.6, 0.05), 3.0)
     b.bone("pivot", None, v(0, 0, 0), v(0, 0, 0.15))
-    b.bone("hips", "pivot", v(0, L, H), v(0, 0.05, H + 0.04))
-    b.bone("chest", "hips", v(0, 0.05, H + 0.04), v(0, -L * 0.85, H + 0.07))
     if hound:
-        neck_pts = [v(0, -0.38, H + 0.08), v(0, -0.52, H + 0.28)]
-        head = [v(0, -0.52, H + 0.28), v(0, -0.86, H + 0.2)]
+        b.bone("hips", "pivot", v(0, 0.42, 0.66), v(0, 0.0, 0.7))
+        b.bone("chest", "hips", v(0, 0.0, 0.7), v(0, -0.36, 0.74))
+        b.bone("neck", "chest", v(0, -0.36, 0.78), v(0, -0.5, 0.92))
+        b.bone("head", "neck", v(0, -0.5, 0.92), v(0, -0.78, 0.88))
+        b.bone("jaw", "head", v(0, -0.62, 0.85), v(0, -0.8, 0.8))
+        tail = b.chain("tail", "hips", [v(0, 0.44, 0.72), v(0, 0.52, 0.8)])
+        # Body: muscular rump, tucked waist, deep chest, heavy shoulders.
+        b.balls("body", black, [(v(0, 0.36, 0.7), 0.16, (1.15, 1.15, 1.05)), (v(0, 0.12, 0.74), 0.13, (1.1, 1.3, 0.95)),
+                                (v(0, -0.15, 0.72), 0.19, (1.05, 1.1, 1.25)), (v(0, -0.31, 0.8), 0.15, (1.25, 1.0, 1.05))], ["hips", "chest"])
+        b.balls("chest_tan", tan, [(v(sx * 0.07, -0.42, 0.7), 0.06, (1, 0.6, 1.2)) for sx in (-1, 1)], ["chest"])
+        b.balls("neck", black, [(v(0, -0.41, 0.86), 0.12, (1.1, 1, 1.05)), (v(0, -0.48, 0.94), 0.105, (1.05, 1, 1))], ["chest", "neck", "head"])
+        # Skull, stop and muzzle in one blended piece; the tan markings sit on it.
+        b.balls("head", black, [(v(0, -0.58, 0.98), 0.1, (1.15, 1.1, 0.85)), (v(0, -0.63, 0.93), 0.075, (1.45, 0.9, 0.85)),
+                                (v(0, -0.7, 0.92), 0.065, (1.1, 1.0, 0.85)), (v(0, -0.77, 0.9), 0.058, (1.0, 1.4, 0.75))], ["head"])
+        b.balls("ears", black, [(v(sx * 0.11, -0.57, 0.99), 0.05, (0.4, 0.75, 1.05)) for sx in (-1, 1)], ["head"])
+        b.balls("cheeks", tan, [(v(sx * 0.04, -0.76, 0.875), 0.042, (0.9, 1.6, 0.75)) for sx in (-1, 1)], ["head"])
+        b.balls("jaw", tan, [(v(0, -0.74, 0.84), 0.042, (1.0, 2.0, 0.55))], ["jaw"])
+        b.rigid("nose", nose, lambda bm: sphere_at(bm, v(0, -0.835, 0.915), 0.026, 2), "head")
+        b.rigid("brows", tan, lambda bm: [sphere_at(bm, v(sx * 0.045, -0.7, 0.99), 0.015, 1) for sx in (-1, 1)], "head")
+        # Teeth seated on the muzzle's lower edge and the jaw's upper edge.
+        teeth_arc(b, "teeth_top", tooth, v(0, -0.75, 0), 0.05, 0.075, 0.862, 8, 0.024, "head")
+        teeth_arc(b, "teeth_low", tooth, v(0, -0.74, 0), 0.036, 0.07, 0.848, 7, 0.018, "jaw", up=True)
+        for sx in (-1, 1):
+            b.rigid(f"eye{sx}", eye, lambda bm, sx=sx: sphere_at(bm, v(sx * 0.055, -0.69, 0.965), 0.016, 1), "head")
+        b.balls("tail", black, [(v(0, 0.47, 0.75), 0.05, (1, 1, 1)), (v(0, 0.51, 0.79), 0.04, (1, 1, 1))], ["hips"] + tail)
+        H = 0.7
     else:
-        neck_pts = [v(0, -0.47, H + 0.06), v(0, -0.68, H + 0.1)]
-        head = [v(0, -0.68, H + 0.1), v(0, -0.98, H + 0.06)]
-    b.bone("neck", "chest", neck_pts[0], neck_pts[1])
-    b.bone("head", "neck", head[0], head[1])
-    b.bone("jaw", "head", head[0] + v(0, -0.05, -0.06), head[1] + v(0, -0.02, -0.08))
-    if hound:
-        tail_pts = [v(0, L + 0.05, H + 0.02), v(0, L + 0.25, H + 0.08), v(0, L + 0.45, H - 0.05), v(0, L + 0.58, H - 0.22)]
-    else:
-        tail_pts = [v(0, L + 0.05, H), v(0, L + 0.4, H - 0.08), v(0, L + 0.8, H - 0.2), v(0, L + 1.15, H - 0.3), v(0, L + 1.45, H - 0.34)]
-    tail = b.chain("tail", "hips", tail_pts)
-    # Body
-    if hound:
-        b.balls("body", skin, [(v(0, 0.38, H), 0.2, (1, 1.2, 1.05)), (v(0, 0.12, H + 0.04), 0.21, (1, 1.2, 1.05)),
-                               (v(0, -0.15, H + 0.06), 0.25, (1, 1.15, 1.2)), (v(0, -0.36, H + 0.07), 0.2, (1, 1, 1.1))], ["hips", "chest"])
-        b.balls("neck", skin, [(v(0, -0.44, H + 0.18), 0.15, (1, 1, 1.2)), (v(0, -0.53, H + 0.28), 0.14, (1, 1, 1))], ["chest", "neck", "head"])
-        b.balls("head", skin, [(v(0, -0.6, H + 0.28), 0.16, (1, 1.1, 0.95)), (v(0, -0.78, H + 0.23), 0.095, (0.95, 1.6, 0.85))], ["head"])
-        b.balls("jaw", skin, [(v(0, -0.72, H + 0.15), 0.06, (0.9, 1.7, 0.6))], ["jaw"])
-        for s in (1, -1):
-            b.rigid(f"ear{s}", skin, lambda bm, s=s: cone_to(bm, v(s * 0.07, -0.56, H + 0.36), v(s * 0.1, -0.53, H + 0.5), 0.045), "head")
-    else:
-        b.balls("body", skin, [(v(0, 0.4, H), 0.21, (1.15, 1.3, 0.8)), (v(0, 0.1, H + 0.02), 0.25, (1.25, 1.3, 0.8)),
-                               (v(0, -0.2, H + 0.04), 0.24, (1.2, 1.3, 0.8)), (v(0, -0.45, H + 0.05), 0.17, (1, 1.2, 0.85))], ["hips", "chest"])
-        b.balls("neck", skin, [(v(0, -0.6, H + 0.07), 0.11, (1, 1, 0.8))], ["chest", "neck", "head"])
-        b.balls("head", skin, [(v(0, -0.75, H + 0.1), 0.12, (1.1, 1.1, 0.65)), (v(0, -0.92, H + 0.07), 0.08, (1.1, 1.4, 0.5))], ["head"])
-        b.balls("jaw", skin, [(v(0, -0.86, H + 0.02), 0.07, (1.1, 1.6, 0.4))], ["jaw"])
-    ty = [tail_pts[k] for k in range(len(tail_pts))]
-    b.tube("tail", skin, ty, [0.07 if hound else 0.13] + [(0.06 if hound else 0.1) * (1 - k / len(ty)) + 0.01 for k in range(1, len(ty))],
-           ["hips"] + tail, 12)
-    hy = head[0]
-    for s in (1, -1):
-        b.rigid(f"eye{s}", eye, lambda bm, s=s: sphere_at(bm, hy + v(s * 0.07, -0.12, 0.04 if hound else 0.05), 0.022, 1), "head")
-    for k in range(6):
-        x = (k / 5 - 0.5) * 0.1
-        b.rigid(f"tooth{k}", tooth, lambda bm, x=x: cone_to(bm, head[1] + v(x, 0.08, -0.06), head[1] + v(x, 0.08, -0.1), 0.012), "head")
-        b.rigid(f"ltooth{k}", tooth, lambda bm, x=x: cone_to(bm, head[1] + v(x * 0.9, 0.1, -0.13), head[1] + v(x * 0.9, 0.1, -0.09), 0.01), "jaw")
-    # Legs
+        H = 0.36
+        b.bone("hips", "pivot", v(0, 0.5, H), v(0, 0.05, H + 0.02))
+        b.bone("chest", "hips", v(0, 0.05, H + 0.02), v(0, -0.45, H + 0.04))
+        b.bone("neck", "chest", v(0, -0.47, H + 0.05), v(0, -0.66, H + 0.08))
+        b.bone("head", "neck", v(0, -0.66, H + 0.08), v(0, -0.98, H + 0.04))
+        b.bone("jaw", "head", v(0, -0.72, H + 0.01), v(0, -0.97, H - 0.03))
+        tail_pts = [v(0, 0.55, H), v(0, 0.88, H - 0.06), v(0, 1.22, H - 0.15), v(0, 1.55, H - 0.24), v(0, 1.85, H - 0.29), v(0, 2.1, H - 0.31)]
+        tail = b.chain("tail", "hips", tail_pts)
+        b.balls("body", crust, [(v(0, 0.42, H), 0.2, (1.2, 1.3, 0.8)), (v(0, 0.12, H + 0.02), 0.24, (1.3, 1.3, 0.8)),
+                                (v(0, -0.2, H + 0.03), 0.23, (1.25, 1.3, 0.8)), (v(0, -0.46, H + 0.05), 0.16, (1.1, 1.2, 0.85))], ["hips", "chest"])
+        b.balls("neck", crust, [(v(0, -0.58, H + 0.07), 0.13, (1.1, 1, 0.85))], ["chest", "neck", "head"])
+        b.balls("head", crust, [(v(0, -0.76, H + 0.09), 0.12, (1.25, 1.1, 0.65)), (v(0, -0.91, H + 0.05), 0.08, (1.15, 1.45, 0.55)),
+                                (v(0, -0.79, H + 0.13), 0.06, (1.6, 1, 0.5))],
+                ["head"])
+        b.balls("jaw", crust, [(v(0, -0.87, H - 0.01), 0.07, (1.15, 1.55, 0.42))], ["jaw"])
+        teeth_arc(b, "teeth_top", tooth, v(0, -0.9, 0), 0.07, 0.1, H + 0.02, 9, 0.022, "head")
+        teeth_arc(b, "teeth_low", tooth, v(0, -0.87, 0), 0.062, 0.095, H + 0.01, 8, 0.018, "jaw", up=True)
+        for sx in (-1, 1):
+            b.rigid(f"eye{sx}", eye, lambda bm, sx=sx: sphere_at(bm, v(sx * 0.085, -0.8, H + 0.12), 0.024, 1), "head")
+        limb(b, "tail", crust, tail_pts, [0.15, 0.12, 0.09, 0.065, 0.04, 0.015], ["hips"] + tail, per=3)
+        # Dorsal spines along the back and down the tail; a frill of spikes behind the head.
+        spikes(b, "spines_back", dark, [v(0, y, H + 0.17) for y in (0.35, 0.18, 0.0, -0.18, -0.34)], "chest", 0.09, 0.025)
+        spikes(b, "spines_tail", dark, [tail_pts[k].lerp(tail_pts[k + 1], 0.5) + v(0, 0, 0.12 - 0.02 * k) for k in range(3)], tail[1], 0.07, 0.02)
+        spikes(b, "frill", dark, [v(sx * (0.08 + 0.03 * i), -0.68 + 0.02 * i, H + 0.14 - 0.02 * i) for sx in (-1, 1) for i in range(3)], "head",
+               0.07, 0.015, (0, 1, 0.7))
+    # Legs: metaball limbs, so the joints blend; claws on the toes.
     for s, t in ((1, "l"), (-1, "r")):
-        for end, (y, z) in (("f", (-L * 0.7, H)), ("b", (L * 0.8, H - 0.02))):
+        for end in ("f", "b"):
             if hound:
-                hip = v(s * 0.15, y, z)
-                knee = v(s * 0.17, y + (0.02 if end == "f" else -0.12), z * 0.55)
-                ank = v(s * 0.17, y + (0.0 if end == "f" else 0.1), z * 0.18)
-                foot = v(s * 0.17, y - 0.08, 0.0)
+                if end == "f":
+                    pts = [v(s * 0.13, -0.3, 0.72), v(s * 0.15, -0.26, 0.42), v(s * 0.15, -0.3, 0.14), v(s * 0.15, -0.36, 0.035)]
+                    radii = [0.09, 0.065, 0.048, 0.045]
+                else:
+                    pts = [v(s * 0.14, 0.38, 0.66), v(s * 0.16, 0.26, 0.42), v(s * 0.16, 0.44, 0.2), v(s * 0.16, 0.38, 0.035)]
+                    radii = [0.12, 0.07, 0.05, 0.045]
             else:
-                hip = v(s * 0.2, y, z)
-                knee = v(s * 0.48, y + (-0.08 if end == "f" else 0.08), z + 0.1)
-                ank = v(s * 0.6, y + (-0.12 if end == "f" else 0.12), 0.08)
-                foot = v(s * 0.68, y + (-0.22 if end == "f" else 0.02), 0.0)
-            l1 = b.bone(f"{end}leg1_{t}", "chest" if end == "f" else "hips", hip, knee)
-            l2 = b.bone(f"{end}leg2_{t}", l1, knee, ank)
-            l3 = b.bone(f"{end}leg3_{t}", l2, ank, foot)
-            r = (0.085, 0.06, 0.045, 0.04) if hound else (0.085, 0.065, 0.05, 0.035)
-            b.tube(f"{end}leg_{t}", skin, [hip, knee, ank, foot], list(r), ["chest" if end == "f" else "hips", l1, l2, l3], 10)
-            b.balls(f"{end}paw_{t}", skin, [(foot + v(0, -0.03, 0.03), 0.055 if hound else 0.05, (1, 1.4, 0.6))], [l3])
+                if end == "f":
+                    pts = [v(s * 0.2, -0.32, H + 0.02), v(s * 0.46, -0.36, H + 0.12), v(s * 0.58, -0.42, 0.1), v(s * 0.64, -0.5, 0.03)]
+                else:
+                    pts = [v(s * 0.2, 0.4, H), v(s * 0.48, 0.46, H + 0.12), v(s * 0.6, 0.52, 0.1), v(s * 0.66, 0.45, 0.03)]
+                radii = [0.1, 0.075, 0.055, 0.04]
+            parent = "chest" if end == "f" else "hips"
+            l1 = b.bone(f"{end}leg1_{t}", parent, pts[0], pts[1])
+            l2 = b.bone(f"{end}leg2_{t}", l1, pts[1], pts[2])
+            l3 = b.bone(f"{end}leg3_{t}", l2, pts[2], pts[3])
+            if hound:
+                limb(b, f"{end}leg_up_{t}", black, pts[:3], radii[:3], [parent, l1, l2], per=4)
+                limb(b, f"{end}leg_low_{t}", tan, pts[2:], radii[2:], [l2, l3], per=3)
+                b.balls(f"{end}paw_{t}", tan, [(pts[3] + v(0, -0.03, 0.0), 0.05, (1.1, 1.3, 0.65))], [l3])
+                b.rigid(f"{end}nails_{t}", dark, lambda bm, p=pts[3]: [cone_to(bm, p + v(dx, -0.08, -0.005), p + v(dx, -0.1, -0.025), 0.008)
+                                                                       for dx in (-0.03, -0.01, 0.01, 0.03)], l3)
+            else:
+                limb(b, f"{end}leg_{t}", crust, pts, radii, [parent, l1, l2, l3], per=4)
+                foot = pts[3]
+                dirs = [v(s * 0.6, -0.8, 0), v(s * 0.9, -0.4, 0), v(s * 1, 0.1, 0), v(-s * 0.2, 0.9, 0)]
+                b.rigid(f"{end}claws_{t}", dark, lambda bm, foot=foot, dirs=dirs: [cone_to(bm, foot, foot + d.normalized() * 0.09 + v(0, 0, -0.025), 0.016)
+                                                                                    for d in dirs], l3)
+    _quad_anims(b, hound, tail)
+    return b
 
+
+def _quad_anims(b, hound, tail):
     def gait(t, p, amp):
         for s, tg in ((1, "l"), (-1, "r")):
             for end, ph in (("f", 0.0 if s > 0 else 0.5), ("b", 0.5 if s > 0 else 0.0)):
@@ -503,7 +648,6 @@ def quadruped(name, kind):
     b.anim("block", 18, False, block)
     b.anim("hit", 14, False, hit)
     b.anim("death", 36, False, death, root=lambda t: v(0, 0, (0.18 if hound else 0.1) * smoothstep(0.05, 0.6, t)))
-    return b
 
 
 def beasthound():
@@ -515,16 +659,19 @@ def nethermander():
 
 
 def wyvern():
-    """Wyvern: a two-legged dragon with bat wings for arms-of-flight, a long neck and tail, dark green scales with
-    a paler belly (sprites WYV; the three wyverns share it)."""
+    """Wyvern: a two-legged dragon. A muscular dark green body with a banded pale belly, a long neck and a
+    horned head (brow ridges, nostrils, glowing eyes, toothed jaws), spines down the neck, back and tail, a
+    spade at the tail's tip, heavy taloned legs, and leathery bat wings on four fingers with a hooked thumb and
+    a scalloped trailing edge (sprites WYV; the three wyverns share it)."""
+    from build_party import leather_image
     b = Beast("wyv")
-    scales = textured("wyvern_scales", skin_pattern("scales", (0.17, 0.26, 0.13)), 0.45, 0.05)
-    belly = textured("wyvern_belly", skin_pattern("hide", (0.5, 0.45, 0.3)), 0.6, 0.0)
-    membrane = own(material("wyvern_wing", (0.12, 0.13, 0.08), 0.7))
-    tooth = own(material("wyvern_tooth", (0.85, 0.82, 0.7), 0.4))
-    eye = own(material("wyvern_eye", (0.95, 0.6, 0.05), 0.2))
-    eye.node_tree.nodes["Principled BSDF"].inputs["Emission Color"].default_value = (1.0, 0.5, 0.0, 1)
-    eye.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 2.0
+    scales = textured("wyvern_scales", skin_pattern("scales", (0.15, 0.24, 0.11)), 0.4, 0.08)
+    belly = textured("wyvern_belly", wyvern_belly_image(), 0.55, 0.0)
+    membrane = textured("wyvern_wing", leather_image((0.2, 0.22, 0.12)), 0.6, 0.0)
+    horn = own(material("wyvern_horn", (0.75, 0.7, 0.58), 0.4))
+    dark = own(material("wyvern_dark", (0.06, 0.08, 0.05), 0.35, 0.1))
+    tooth = own(material("wyvern_tooth", (0.88, 0.85, 0.75), 0.35))
+    eye = emissive(own(material("wyvern_eye", (0.95, 0.6, 0.05), 0.2)), (1.0, 0.5, 0.0), 2.5)
     b.bone("pivot", None, v(0, 0, 0), v(0, 0, 0.15))
     b.bone("hips", "pivot", v(0, 0.2, 1.0), v(0, -0.1, 1.05))
     b.bone("chest", "hips", v(0, -0.1, 1.05), v(0, -0.45, 1.22))
@@ -534,53 +681,84 @@ def wyvern():
     b.bone("jaw", "head", v(0, -0.86, 1.72), v(0, -1.12, 1.62))
     tail_pts = [v(0, 0.22, 1.0), v(0, 0.55, 0.92), v(0, 0.9, 0.78), v(0, 1.25, 0.62), v(0, 1.55, 0.5), v(0, 1.8, 0.42)]
     tail = b.chain("tail", "hips", tail_pts)
-    b.balls("body", scales, [(v(0, 0.15, 1.0), 0.3, (1, 1.2, 1)), (v(0, -0.15, 1.08), 0.33, (1, 1.15, 1.1)),
-                             (v(0, -0.42, 1.22), 0.25, (1, 1, 1.05))], ["hips", "chest"])
-    b.balls("belly", belly, [(v(0, -0.2, 1.0), 0.2, (0.85, 1.4, 0.8))], ["hips", "chest"])
-    b.tube("neck", scales, neck_pts, [0.2, 0.16, 0.13, 0.11], ["chest"] + neck, 12)
-    b.balls("head", scales, [(v(0, -0.88, 1.78), 0.14, (1, 1.1, 0.95)), (v(0, -1.05, 1.74), 0.09, (0.9, 1.7, 0.7))], ["head"])
-    b.balls("jaw", scales, [(v(0, -0.98, 1.66), 0.055, (0.85, 1.9, 0.5))], ["jaw"])
-    for s in (1, -1):
-        b.rigid(f"horn{s}", tooth, lambda bm, s=s: cone_to(bm, v(s * 0.06, -0.84, 1.85), v(s * 0.1, -0.7, 1.98), 0.03), "head")
-        b.rigid(f"eye{s}", eye, lambda bm, s=s: sphere_at(bm, v(s * 0.07, -0.95, 1.8), 0.022, 1), "head")
-    for k in range(5):
-        y = -0.95 - 0.04 * k
-        b.rigid(f"tooth{k}", tooth, lambda bm, y=y: [cone_to(bm, v(sx * 0.045, y, 1.7), v(sx * 0.045, y, 1.66), 0.012) for sx in (1, -1)], "head")
-    b.tube("tail", scales, tail_pts, [0.17, 0.13, 0.1, 0.07, 0.05, 0.02], ["hips"] + tail, 12)
-    b.rigid("tailspike", tooth, lambda bm: cone_to(bm, v(0, 1.75, 0.44), v(0, 2.0, 0.38), 0.05), tail[-1])
+    # Body: chest and shoulders, a muscled back, the banded belly underneath.
+    b.balls("body", scales, [(v(0, 0.16, 1.02), 0.28, (1.05, 1.15, 1)), (v(0, -0.12, 1.1), 0.31, (1.1, 1.1, 1.08)),
+                             (v(0, -0.38, 1.24), 0.24, (1.2, 0.95, 1.05)),
+                             (v(0, -0.36, 1.34), 0.15, (2.0, 0.8, 0.8))], ["hips", "chest"])
+    b.balls("belly", belly, [(v(0, -0.12, 0.93), 0.22, (0.9, 1.6, 0.6)), (v(0, -0.42, 1.12), 0.16, (0.85, 0.9, 0.9))], ["hips", "chest"])
+    limb(b, "neck", scales, neck_pts + [v(0, -0.86, 1.8)], [0.19, 0.15, 0.125, 0.11, 0.1], ["chest"] + neck, per=4)
+    b.balls("throat", belly, [(neck_pts[k].lerp(neck_pts[k + 1], 0.5) + v(0, -0.07, -0.06), 0.1 - 0.015 * k, (0.8, 1, 1)) for k in range(3)],
+            ["chest"] + neck)
+    # Head: skull, snout, brow ridges over the eyes, nostrils, cheek spikes, two swept-back horns.
+    b.balls("head", scales, [(v(0, -0.9, 1.79), 0.135, (1.05, 1.1, 0.9)), (v(0, -1.06, 1.75), 0.085, (0.9, 1.6, 0.7)),
+                             (v(0, -0.94, 1.86), 0.05, (2.2, 1.0, 0.7))], ["head"])
+    b.balls("brows", dark, [(v(sx * 0.07, -0.95, 1.87), 0.035, (1.2, 1.4, 0.7)) for sx in (-1, 1)], ["head"])
+    b.balls("nostrils", dark, [(v(sx * 0.025, -1.17, 1.79), 0.018, (1, 1, 1)) for sx in (-1, 1)], ["head"])
+    b.balls("jaw", scales, [(v(0, -1.0, 1.66), 0.06, (0.95, 1.9, 0.5))], ["jaw"])
+    teeth_arc(b, "teeth_top", tooth, v(0, -1.06, 0), 0.06, 0.12, 1.705, 10, 0.03, "head")
+    teeth_arc(b, "teeth_low", tooth, v(0, -1.0, 0), 0.05, 0.1, 1.675, 9, 0.025, "jaw", up=True)
+    for sx in (-1, 1):
+        b.rigid(f"eye{sx}", eye, lambda bm, sx=sx: sphere_at(bm, v(sx * 0.075, -0.97, 1.83), 0.024, 1), "head")
+        b.rigid(f"horn{sx}", horn, lambda bm, sx=sx: [cone_to(bm, v(sx * 0.06, -0.86, 1.86), v(sx * 0.11, -0.72, 1.98), 0.035),
+                                                       cone_to(bm, v(sx * 0.11, -0.73, 1.97), v(sx * 0.13, -0.58, 1.99), 0.018)], "head")
+        b.rigid(f"cheek{sx}", horn, lambda bm, sx=sx: [cone_to(bm, v(sx * 0.1, -0.88, 1.74 - 0.03 * i), v(sx * 0.17, -0.8, 1.74 - 0.04 * i), 0.012)
+                                                        for i in range(2)], "head")
+    # Spines down the neck, back and tail.
+    spikes(b, "spines_neck", dark, [neck_pts[k].lerp(neck_pts[k + 1], 0.5) + v(0, 0.09, 0.09) for k in range(3)], neck[1], 0.08, 0.022, (0, 1, 0.8))
+    spikes(b, "spines_back", dark, [v(0, y, 1.37 - 0.25 * (y + 0.3)) for y in (-0.25, -0.05, 0.15)], "chest", 0.1, 0.03)
+    limb(b, "tail", scales, tail_pts, [0.18, 0.14, 0.11, 0.08, 0.055, 0.03], ["hips"] + tail, per=4)
+    spikes(b, "spines_tail", dark, [tail_pts[k].lerp(tail_pts[k + 1], 0.5) + v(0, 0, 0.13 - 0.025 * k) for k in range(4)], tail[2], 0.08, 0.022)
+    b.balls("spade", dark, [(v(0, 1.92, 0.4), 0.09, (1.8, 1.3, 0.25))], [tail[-1]])
     for s, t in ((1, "l"), (-1, "r")):
-        hip, knee, ank, foot = v(s * 0.2, 0.05, 0.95), v(s * 0.27, -0.12, 0.6), v(s * 0.26, 0.12, 0.26), v(s * 0.25, -0.12, 0.0)
+        hip, knee, ank, foot = v(s * 0.2, 0.05, 0.95), v(s * 0.27, -0.12, 0.6), v(s * 0.26, 0.12, 0.26), v(s * 0.25, -0.1, 0.04)
         l1 = b.bone(f"thigh_{t}", "hips", hip, knee)
         l2 = b.bone(f"shin_{t}", l1, knee, ank)
         l3 = b.bone(f"foot_{t}", l2, ank, foot)
-        b.tube(f"leg_{t}", scales, [hip, knee, ank, foot], [0.13, 0.08, 0.05, 0.04], ["hips", l1, l2, l3], 12)
-        b.balls(f"thighm_{t}", scales, [(v(s * 0.22, 0.0, 0.82), 0.13, (0.9, 1, 1.4))], ["hips", l1])
-        for k, dx in enumerate((-0.05, 0.0, 0.05)):
-            b.rigid(f"talon{k}_{t}", tooth, lambda bm, s=s, dx=dx: cone_to(bm, v(s * 0.25 + dx, -0.12, 0.03), v(s * 0.25 + dx * 1.4, -0.26, 0.0), 0.02), l3)
-        # Wing: an arm, a forearm and three fingers, with a membrane from the fingers to the flank.
+        limb(b, f"leg_{t}", scales, [hip, knee, ank, foot], [0.17, 0.1, 0.065, 0.05], ["hips", l1, l2, l3], per=4)
+        b.balls(f"thighm_{t}", scales, [(v(s * 0.22, 0.02, 0.84), 0.15, (0.9, 1.05, 1.35))], ["hips", l1])
+        b.balls(f"toes_{t}", scales, [(foot + v(dx, -0.09, -0.015), 0.03, (0.8, 1.8, 0.6)) for dx in (-0.06, 0.0, 0.06)], [l3])
+        b.rigid(f"talons_{t}", horn, lambda bm, foot=foot: [cone_to(bm, foot + v(dx * 1.3, -0.15, -0.01), foot + v(dx * 1.5, -0.22, -0.04), 0.018)
+                                                            for dx in (-0.05, 0.0, 0.05)] + [cone_to(bm, foot + v(0, 0.05, 0), foot + v(0, 0.13, -0.04), 0.016)], l3)
+        # Wing: arm, forearm, four fingers, a hooked thumb at the wrist; leather membrane with a rolled edge.
         sh, el, wr = v(s * 0.15, -0.35, 1.3), v(s * 0.68, -0.2, 1.68), v(s * 1.25, 0.08, 1.88)
-        tips = [v(s * 1.95, 0.55, 1.45), v(s * 1.75, 0.85, 1.05), v(s * 1.3, 0.8, 0.88)]
+        tips = [v(s * 2.0, 0.45, 1.6), v(s * 1.95, 0.62, 1.3), v(s * 1.7, 0.85, 1.02), v(s * 1.28, 0.82, 0.88)]
         w1 = b.bone(f"warm_{t}", "chest", sh, el)
         w2 = b.bone(f"wfore_{t}", w1, el, wr)
         fingers = [b.bone(f"wfing{k}_{t}", w2, wr, tip) for k, tip in enumerate(tips)]
-        b.tube(f"wingarm_{t}", scales, [sh, el, wr], [0.06, 0.045, 0.03], ["chest", w1, w2], 8)
+        limb(b, f"wingarm_{t}", scales, [sh, el, wr], [0.075, 0.055, 0.04], ["chest", w1, w2], per=4)
         for k, tip in enumerate(tips):
-            b.tube(f"wingfinger{k}_{t}", scales, [wr, tip], [0.025, 0.008], [w2, fingers[k]], 6)
-        flank = v(s * 0.18, 0.3, 1.02)
-        rim = [el, wr, tips[0], tips[1], tips[2], flank]
+            b.tube(f"wingfinger{k}_{t}", dark, [wr, wr.lerp(tip, 0.5) + v(0, 0, 0.03), tip], [0.022, 0.015, 0.006], [w2, fingers[k]], 6)
+        b.rigid(f"thumb_{t}", horn, lambda bm, wr=wr, s=s: cone_to(bm, wr + v(0, -0.03, 0.04), wr + v(s * 0.02, -0.12, 0.14), 0.02), w2)
+        flank = v(s * 0.2, 0.32, 1.02)
+        rim = [el, wr] + tips + [flank]
         rows = []
-        n = 8
+        n = 12
         for j in range(n + 1):
             u = j / n
-            # Sweep from the arm (top edge) to the trailing edge; each row runs from the body line to the rim.
             outer = rim_point(rim, u)
-            # Scallop the trailing edge: between the finger tips the membrane is drawn in towards the body.
-            if u > 0.35:
-                outer = outer.lerp(sh.lerp(flank, u), 0.22 * abs(math.sin((u - 0.35) / 0.65 * math.pi * 3)))
             inner = sh.lerp(flank, u)
-            rows.append([inner.lerp(outer, k / 6) for k in range(7)])
+            if u > 0.28:
+                outer = outer.lerp(inner, 0.2 * abs(math.sin((u - 0.28) / 0.72 * math.pi * 4)))
+            rows.append([inner.lerp(outer, k / 7) for k in range(8)])
         b.sheet(f"wing_{t}", membrane, rows, ["chest", w1, w2] + fingers)
+    _wyvern_anims(b, tail)
+    return b
 
+
+def wyvern_belly_image():
+    """Pale belly scutes: broad horizontal bands with darker seams."""
+    import numpy as np
+    from build_party import pattern_image
+
+    def fn(x, y):
+        band = np.abs(np.sin(y * np.pi * 26))
+        lum = 0.55 + 0.4 * np.clip(band * 1.3, 0, 1) + np.random.default_rng(2).normal(0, 0.03, x.shape)
+        return [np.clip(0.52 * lum, 0, 1), np.clip(0.47 * lum, 0, 1), np.clip(0.3 * lum, 0, 1)]
+
+    return pattern_image("wyvern_belly", fn, 256)
+
+
+def _wyvern_anims(b, tail):
     def idle(t):
         p = {"chest": (0.02 * sine(t), 0, 0), "head": (0.05 * sine(t, 1, 0.2), 0, 0.15 * sine(t, 0.5)),
              "neck2": (0.04 * sine(t, 1, 0.1), 0, 0.05 * sine(t, 0.5, 0.2))}
@@ -636,7 +814,6 @@ def wyvern():
     b.anim("block", 20, False, block)
     b.anim("hit", 14, False, hit)
     b.anim("death", 40, False, death, root=lambda t: v(0, 0, 0.35 * smoothstep(0.05, 0.65, t)))
-    return b
 
 
 def rim_point(rim, u):
@@ -708,8 +885,8 @@ def uv_wrap(obj):
 def build_part(kind, name, mat, data):
     if kind == "mball":
         mb = bpy.data.metaballs.new(f"mb_{name}")
-        mb.resolution = 0.025
-        mb.render_resolution = 0.025
+        mb.resolution = 0.018
+        mb.render_resolution = 0.018
         mb.threshold = 0.6
         for c, r, sc in data:
             e = mb.elements.new(type="ELLIPSOID")

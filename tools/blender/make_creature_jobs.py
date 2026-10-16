@@ -57,7 +57,7 @@ jobs = [
                   {"type": "mask", "color": [0.03, 0.03, 0.035], "below_eyes": 0.008, "offset": 0.012},
                   {"type": "collar", "color": [0.03, 0.03, 0.035], "height": 0.1, "gap": 12, "reach": 0.11},
                   {"type": "belt", "color": [0.03, 0.03, 0.03], "scabbard": True, "scabbard_color": [0.02, 0.02, 0.02]}],
-        weapon={"type": "sword", "length": 0.72, "blade": [0.35, 0.36, 0.4], "guard": [0.1, 0.1, 0.1]}),
+        weapon={"type": "katana", "blade": [0.5, 0.52, 0.56]}),
     # Black Slayer: a Nighthawk raised undead: grey dead skin, tattered black, no mask.
     job("bsy", outfit="Male_Ranger", drop=["Head_Hood", "Pauldron"], skin_texture={"kind": "hide", "color": [0.74, 0.76, 0.73]},
         brow_color=[0.25, 0.25, 0.25], eye_color=[0.92, 0.92, 0.9],
