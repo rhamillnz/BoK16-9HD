@@ -5,6 +5,7 @@ import type { ItemDef } from '../formats/objinfo';
 import type { SlotInfo } from '../game/saveGame';
 import type { ZoneMap } from '../formats/zoneMap';
 import type { MapLayout, PartyPose } from './mapScreen';
+import type { MapExtras } from './localMap';
 
 /** Id of a registered HUD screen, or 'none' when only the party bar and compass show. */
 export type HudScreen = string;
@@ -37,7 +38,7 @@ export interface HudHost {
   /** The active party, rebuilt whenever `setParty` is called. */
   readonly party: Character[];
   readonly pose: PartyPose;
-  readonly map: { layout: MapLayout; zone: number } | undefined;
+  readonly map: { layout: MapLayout; zone: number; extras?: MapExtras } | undefined;
   readonly saveHandler: SaveHandler | undefined;
   /** Set by the game to let the inventory use, equip, repair and hand over items. */
   readonly itemHandler: ItemHandler | undefined;

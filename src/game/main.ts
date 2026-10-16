@@ -71,6 +71,7 @@ import { findShop, parseShopContainers } from '../formats/gdsContainers';
 import { ruleFor } from './dialogEffects';
 import { applyTimeReport } from './rest';
 import { createNotice } from '../ui/notice';
+import { installMapExtras } from './mapControls';
 import { followRoad, onRoadCentre } from '../world/followRoad';
 import { roadMask } from '../render/grassGround';
 import { installCamp } from './campControls';
@@ -214,6 +215,10 @@ const fly = new FlyCamera(camera, renderer.domElement);
 fly.speed = 20; // world units per second
 let flyMode = false;
 // Rebindable keys, gamepad, mouse-look, field of view and UI scale (Options in the main menu).
+/** The map screen is open: the party may still walk (manual p. 20), but the map owns its keys. */
+const mapOpen = () => screens.openScreen === 'map';
+/** A screen that stops the party walking (anything but the map). */
+const worldBlocked = () => screens.blocking && !mapOpen();
 const partyKeys = installInput({
   party,
   camera,
@@ -224,7 +229,7 @@ const partyKeys = installInput({
 });
 party.applyToCamera(camera);
 window.addEventListener('keydown', (e) => {
-  if (e.code !== 'KeyF' || e.repeat) return;
+  if (e.code !== 'KeyF' || e.repeat || mapOpen()) return;
   flyMode = !flyMode;
   fly.enabled = flyMode;
   if (flyMode) {
@@ -281,6 +286,9 @@ screens.setMap(
   start.zone,
   overheadPolygons(zoneHost.current.data),
 ); // Tab: map screen + compass
+// The map's roads, explored dungeon cells and the full kingdom map (manual pp. 20, 21).
+const mapExtras = installMapExtras({ archive, setExtras: (e) => screens.setMapExtras(e) });
+mapExtras.zoneChanged(start.zone, zoneHost.current.data);
 
 // Jump map screen (F7): debug tool to teleport to any zone/tile
 const jumpMapScreen = screens.screenHandler<JumpMapScreen>('jumpmap');
@@ -562,6 +570,7 @@ async function travelTo(d: Destination): Promise<void> {
       party.polygons = next.scene.collision;
       next.grass.setQuality(post.quality);
       screens.setMap(loadZoneMap(archive, plan.zone, next.data.tiles), plan.zone, overheadPolygons(next.data));
+      mapExtras.zoneChanged(plan.zone, next.data);
       encounters = await makeEncounters(plan.zone, next.data.tiles, clock.state);
       zoneMusic(plan.zone);
     }
@@ -882,8 +891,8 @@ renderer.setAnimationLoop(() => {
     const py = party.y;
     prevX = px;
     prevY = py;
-    let input = screens.blocking || combat.active ? NO_INPUT : partyKeys.read();
-    if (followingRoad && !screens.blocking && !combat.active) {
+    let input = worldBlocked() || combat.active ? NO_INPUT : partyKeys.read();
+    if (followingRoad && !worldBlocked() && !combat.active) {
       const mask = roadMask(zoneHost.current.data);
       // Turning at a fork picks the branch the party then faces.
       if (input.turnLeft || input.turnRight || Math.abs(input.turnAxis ?? 0) > 0.3) committedToBranch = 800;
@@ -924,7 +933,8 @@ renderer.setAnimationLoop(() => {
     if (combat.active) combat.applyCamera();
     else party.applyToCamera(camera);
     screens.setPose({ x: party.x, y: party.y, heading: party.heading });
-    if (!screens.blocking && !encounters.busy && !travelling && !combat.active) {
+    mapExtras.moved(party.x, party.y);
+    if (!worldBlocked() && !encounters.busy && !travelling && !combat.active) {
       // The clock owns the shared world state: hand it over for the check, take back the flags it set.
       encounters.runner.setWorld(clock.state);
       encounters.update(party.x, party.y);

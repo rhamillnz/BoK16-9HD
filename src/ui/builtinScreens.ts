@@ -19,7 +19,8 @@ import {
   type DialogState,
 } from './dialogBox';
 import { InventoryView } from './inventoryView';
-import { drawMap } from './mapScreen';
+import { MAP_COLORS } from './mapScreen';
+import { drawFullMap, drawLocalMap, ZOOMS, type LocalMapView } from './localMap';
 import { JumpMapScreen } from './jumpMapScreen';
 import {
   drawSaveScreen,
@@ -110,17 +111,57 @@ class SheetScreen implements HudScreenHandler {
   }
 }
 
+/** Tab: the map of the party's surroundings; F switches to the full map of the kingdom (manual pp. 20, 21). */
 class MapScreen implements HudScreenHandler {
   hotkey = 'Tab';
   hotkeyInBase = true;
+  ownsKeys = ['KeyN', 'KeyF', 'Equal', 'Minus', 'NumpadAdd', 'NumpadSubtract'] as const;
+  /** Survives closing the map: the player's choice of north-up and zoom stays. */
+  private view: LocalMapView = { northUp: false, zoom: 4, full: false };
   constructor(private readonly host: HudHost) {}
   open(): boolean {
+    this.view = { ...this.view, full: false, hover: undefined };
     return this.host.map !== undefined;
   }
-  event(): void {}
+  event(ev: HudEvent): void {
+    if (ev.type === 'key') {
+      const i = ZOOMS.indexOf(this.view.zoom as (typeof ZOOMS)[number]);
+      // The HUD passes the character typed (KeyboardEvent.key).
+      const k = ev.key.toLowerCase();
+      if (k === 'n') this.view.northUp = !this.view.northUp;
+      else if (k === 'f' && this.host.map?.extras?.full) this.view.full = !this.view.full;
+      else if (k === '+' || k === '=') this.view.zoom = ZOOMS[Math.max(0, i - 1)]!;
+      else if (k === '-' || k === '_') this.view.zoom = ZOOMS[Math.min(ZOOMS.length - 1, i + 1)]!;
+      else return;
+      this.host.invalidate();
+    } else if (ev.type === 'hover' && this.view.full) {
+      this.view.hover = { x: ev.x, y: ev.y };
+      this.host.invalidate();
+    }
+  }
   draw(ctx: CanvasRenderingContext2D): void {
     const h = this.host;
-    if (h.map) drawMap(ctx, h.font, h.map.layout, h.pose, h.map.zone);
+    if (!h.map) return;
+    const { layout, zone, extras } = h.map;
+    if (this.view.full && extras?.full) {
+      drawFullMap(ctx, h.font, layout.panel, layout.scale, MAP_COLORS, extras.full, this.view, performance.now());
+      // Keep the party marker flashing.
+      setTimeout(() => h.invalidate(), 400);
+      return;
+    }
+    drawLocalMap(
+      ctx,
+      h.font,
+      layout.panel,
+      layout.scale,
+      MAP_COLORS,
+      h.pose,
+      zone,
+      layout.tiles,
+      layout.overhead,
+      extras,
+      this.view,
+    );
   }
 }
 

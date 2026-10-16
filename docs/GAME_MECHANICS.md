@@ -733,7 +733,7 @@ DIFF = implemented differently; NO = missing.
 | Wordlocks | YES/PARTIAL | the clue plate shows without the Moredhel-reading check |
 | Temples: teleport, bless, cure | YES | `game/temple.ts` |
 | Follow Road | YES | H: from the middle of a road; steers along it, stops at forks and road ends, keeps the party on it (src/world/followRoad.ts) |
-| Map: N, dark dungeons, town colours | PARTIAL | |
+| Map: N, dark dungeons, town colours | YES | Tab: local map centred on the party, +/- zoom, N north-up, roads drawn, dungeons dark until explored (saved); F: the full kingdom map (FULLMAP.SCX) with cities white, towns brown, names on hover, the party flashing. The city/town split is ours. Walking with the map open works |
 | Bookmark quick save | YES | F5 |
 | Shades from graves | NO | |
 | Spell details (table above) | YES | Flamecast burns all within two steps; Gift of Sung (not the caster, one-for-one); Grief only on minds (`MINDLESS_MONSTERS`); Stardusk outdoors only; Lightning Staff casts Skyfire free; Infinity Pool x1.5; Black Slayers and Nighthawks rise again without Final Rest |

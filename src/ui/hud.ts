@@ -15,6 +15,7 @@ import {
   type PortraitSet,
 } from './partyBar';
 import { drawCompass, layoutCompass, layoutMap, type CompassLayout, type MapLayout, type PartyPose } from './mapScreen';
+import type { MapExtras } from './localMap';
 import './builtinScreens'; // registers the built-in screens
 import type { DialogScreen, TownScreen, TownView } from './builtinScreens';
 import {
@@ -59,7 +60,7 @@ export class HudScreens implements HudHost {
   saveHandler: SaveHandler | undefined;
   /** Set by the game to enable using and equipping items in the inventory. */
   itemHandler: ItemHandler | undefined;
-  map: { layout: MapLayout; zone: number } | undefined;
+  map: { layout: MapLayout; zone: number; extras?: MapExtras } | undefined;
   gold: number;
   keyRing: readonly InventoryItem[];
   pose: PartyPose = { x: 0, y: 0, heading: 0 };
@@ -148,9 +149,20 @@ export class HudScreens implements HudHost {
   }
 
   /** Set the zone's map (ZxxMAP.DAT); Tab opens it. Mines pass their overhead model polygons. */
-  setMap(map: ZoneMap, zone: number, overhead?: OverheadPolygon[]): void {
-    this.map = { layout: layoutMap(map, this.width, this.height, overhead), zone };
+  setMap(map: ZoneMap, zone: number, overhead?: OverheadPolygon[], extras?: MapExtras): void {
+    this.map = { layout: layoutMap(map, this.width, this.height, overhead), zone, extras };
     this.dirty = true;
+  }
+
+  /** Roads, the explored area underground and the kingdom map for the map screen (see localMap.ts). */
+  setMapExtras(extras: MapExtras): void {
+    if (this.map) this.map = { ...this.map, extras: { ...this.map.extras, ...extras } };
+    this.dirty = true;
+  }
+
+  /** The id of the open screen ('none' when only the world shows). */
+  get openScreen(): string {
+    return this.screen;
   }
 
   /** True while a screen is open; the party controller must ignore movement then. */
