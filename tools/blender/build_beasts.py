@@ -112,7 +112,7 @@ def strike(t, wind=0.3, hit=0.5, back=0.85):
     return 1.0 * (1 - smoothstep(hit, back, t))
 
 
-def limb(b, name, mat, pts, radii, bones, per=4, bulge=1.12, squash=(1, 1, 1)):
+def limb(b, name, mat, pts, radii, bones, per=4, bulge=1.12, squash=(1, 1, 1), extra=()):
     """A metaball limb along a polyline: blends into its joints (and into the body where they overlap), with a
     slight bulge at each joint. Thin limbs are smooth tubes instead: metaballs below a few centimetres break up
     into beads."""
@@ -135,7 +135,7 @@ def limb(b, name, mat, pts, radii, bones, per=4, bulge=1.12, squash=(1, 1, 1)):
             els.append((pts[k].lerp(pts[k + 1], t), radii[k] + (radii[k + 1] - radii[k]) * t, squash))
     for k in range(1, len(pts) - 1):
         els.append((pts[k], radii[k] * bulge, (1, 1, 1)))
-    b.balls(name, mat, els, bones)
+    b.balls(name, mat, els + list(extra), bones)
 
 
 def teeth_arc(b, name, mat, centre, rx, ry, z, n, length, bone, up=False, r=0.008, span=(0.12, 0.88)):
@@ -252,14 +252,14 @@ def scorpion():
     for s, t in ((1, "l"), (-1, "r")):
         a1 = b.bone(f"arm1_{t}", "body", v(s * 0.16, -0.3, 0.42), v(s * 0.42, -0.55, 0.45))
         a2 = b.bone(f"arm2_{t}", a1, v(s * 0.42, -0.55, 0.45), v(s * 0.38, -0.84, 0.47))
-        pin = b.bone(f"pincer_{t}", a2, v(s * 0.38, -0.84, 0.47), v(s * 0.3, -1.12, 0.46))
-        fin = b.bone(f"finger_{t}", a2, v(s * 0.43, -0.92, 0.49), v(s * 0.42, -1.14, 0.47))
+        pin = b.bone(f"pincer_{t}", a2, v(s * 0.38, -0.84, 0.47), v(s * 0.44, -1.12, 0.46))
+        fin = b.bone(f"finger_{t}", a2, v(s * 0.33, -0.92, 0.49), v(s * 0.34, -1.14, 0.47))
         limb(b, f"arm_{t}", chitin, [v(s * 0.16, -0.3, 0.42), v(s * 0.42, -0.55, 0.45), v(s * 0.38, -0.84, 0.47)], [0.055, 0.065, 0.07], ["body", a1, a2])
         # The hand: a swollen palm and the fixed finger, with a row of teeth on the inner edges.
-        b.balls(f"claw_{t}", chitin, [(v(s * 0.37, -0.9, 0.47), 0.12, (0.85, 1.25, 0.75)), (v(s * 0.34, -1.04, 0.46), 0.065, (0.7, 1.6, 0.6)),
-                                      (v(s * 0.32, -1.13, 0.455), 0.035, (0.7, 1.4, 0.6))], [pin])
-        b.balls(f"finger_{t}", dark, [(v(s * 0.43, -0.98, 0.485), 0.045, (0.7, 1.7, 0.65)), (v(s * 0.425, -1.1, 0.475), 0.028, (0.7, 1.5, 0.6))], [fin])
-        b.rigid(f"claw_teeth_{t}", dark, lambda bm, s=s: [cone_to(bm, v(s * 0.355, -0.98 - 0.04 * i, 0.47), v(s * 0.385, -0.985 - 0.04 * i, 0.47), 0.008)
+        b.balls(f"claw_{t}", chitin, [(v(s * 0.4, -0.9, 0.47), 0.12, (0.85, 1.25, 0.75)), (v(s * 0.42, -1.04, 0.46), 0.065, (0.7, 1.6, 0.6)),
+                                      (v(s * 0.44, -1.13, 0.455), 0.035, (0.7, 1.4, 0.6))], [pin])
+        b.balls(f"finger_{t}", dark, [(v(s * 0.335, -0.98, 0.485), 0.045, (0.7, 1.7, 0.65)), (v(s * 0.34, -1.1, 0.475), 0.028, (0.7, 1.5, 0.6))], [fin])
+        b.rigid(f"claw_teeth_{t}", dark, lambda bm, s=s: [cone_to(bm, v(s * 0.405, -0.98 - 0.04 * i, 0.47), v(s * 0.375, -0.985 - 0.04 * i, 0.47), 0.008)
                                                          for i in range(4)], pin)
         for k, (y, dy) in enumerate(zip((-0.2, -0.05, 0.1, 0.25), (-0.12, -0.04, 0.05, 0.14))):
             hip, knee, foot = v(s * 0.2, y, 0.4), v(s * 0.55, y + dy, 0.64), v(s * 0.86, y + dy * 1.7, 0.0)
@@ -286,7 +286,7 @@ def _scorpion_anims(b):
         for k, bn in enumerate(["tail1", "tail2", "tail3", "tail4", "tail5", "tail6"]):
             p[bn] = (0.03 * sine(t, 1, 0.1 * k), 0, 0.05 * sine(t, 1, -0.08 * k))
         for tg in ("l", "r"):
-            p[f"finger_{tg}"] = (0, 0, (0.25 if tg == "l" else -0.25) * max(0.0, sine(t, 2)))
+            p[f"finger_{tg}"] = (0, 0, (-0.25 if tg == "l" else 0.25) * max(0.0, sine(t, 2)))
         return p
 
     def walk(t):
@@ -304,7 +304,7 @@ def _scorpion_anims(b):
         p["sting"] = (0.4 * a, 0, 0)
         for tg, s in (("l", 1), ("r", -1)):
             p[f"arm1_{tg}"] = (-0.2 * bump(t, 0.1, 0.8), 0, 0)
-            p[f"finger_{tg}"] = (0, 0, s * 0.35 * bump(t, 0.3, 0.7))
+            p[f"finger_{tg}"] = (0, 0, -s * 0.35 * bump(t, 0.3, 0.7))
         return p
 
     def block(t):
@@ -507,7 +507,7 @@ def quadruped(name, kind):
         b.bone("chest", "hips", v(0, 0.0, 0.7), v(0, -0.36, 0.74))
         b.bone("neck", "chest", v(0, -0.36, 0.78), v(0, -0.5, 0.92))
         b.bone("head", "neck", v(0, -0.5, 0.92), v(0, -0.78, 0.88))
-        b.bone("jaw", "head", v(0, -0.62, 0.85), v(0, -0.8, 0.8))
+        b.bone("jaw", "head", v(0, -0.62, 0.86), v(0, -0.8, 0.82))
         tail = b.chain("tail", "hips", [v(0, 0.44, 0.72), v(0, 0.52, 0.8)])
         # Body: muscular rump, tucked waist, deep chest, heavy shoulders.
         b.balls("body", black, [(v(0, 0.36, 0.7), 0.16, (1.15, 1.15, 1.05)), (v(0, 0.12, 0.74), 0.13, (1.1, 1.3, 0.95)),
@@ -516,10 +516,11 @@ def quadruped(name, kind):
         b.balls("neck", black, [(v(0, -0.41, 0.86), 0.12, (1.1, 1, 1.05)), (v(0, -0.48, 0.94), 0.105, (1.05, 1, 1))], ["chest", "neck", "head"])
         # Skull, stop and muzzle in one blended piece; the tan markings sit on it.
         b.balls("head", black, [(v(0, -0.58, 0.98), 0.1, (1.15, 1.1, 0.85)), (v(0, -0.63, 0.93), 0.075, (1.45, 0.9, 0.85)),
-                                (v(0, -0.7, 0.92), 0.065, (1.1, 1.0, 0.85)), (v(0, -0.77, 0.9), 0.058, (1.0, 1.4, 0.75))], ["head"])
+                                (v(0, -0.7, 0.92), 0.065, (1.1, 1.0, 0.85)), (v(0, -0.77, 0.9), 0.058, (1.0, 1.4, 0.75)),
+                                (v(0, -0.66, 0.85), 0.06, (1.2, 1.2, 0.8)), (v(0, -0.74, 0.835), 0.045, (1.0, 1.9, 0.55))], ["head", "jaw"])
         b.balls("ears", black, [(v(sx * 0.11, -0.57, 0.99), 0.05, (0.4, 0.75, 1.05)) for sx in (-1, 1)], ["head"])
         b.balls("cheeks", tan, [(v(sx * 0.04, -0.76, 0.875), 0.042, (0.9, 1.6, 0.75)) for sx in (-1, 1)], ["head"])
-        b.balls("jaw", tan, [(v(0, -0.74, 0.84), 0.042, (1.0, 2.0, 0.55))], ["jaw"])
+        b.balls("chin", tan, [(v(0, -0.75, 0.83), 0.032, (1.0, 1.9, 0.5))], ["jaw"])
         b.rigid("nose", nose, lambda bm: sphere_at(bm, v(0, -0.835, 0.915), 0.026, 2), "head")
         b.rigid("brows", tan, lambda bm: [sphere_at(bm, v(sx * 0.045, -0.7, 0.99), 0.015, 1) for sx in (-1, 1)], "head")
         # Teeth seated on the muzzle's lower edge and the jaw's upper edge.
@@ -535,16 +536,16 @@ def quadruped(name, kind):
         b.bone("chest", "hips", v(0, 0.05, H + 0.02), v(0, -0.45, H + 0.04))
         b.bone("neck", "chest", v(0, -0.47, H + 0.05), v(0, -0.66, H + 0.08))
         b.bone("head", "neck", v(0, -0.66, H + 0.08), v(0, -0.98, H + 0.04))
-        b.bone("jaw", "head", v(0, -0.72, H + 0.01), v(0, -0.97, H - 0.03))
+        b.bone("jaw", "head", v(0, -0.7, H - 0.01), v(0, -0.97, H - 0.05))
         tail_pts = [v(0, 0.55, H), v(0, 0.88, H - 0.06), v(0, 1.22, H - 0.15), v(0, 1.55, H - 0.24), v(0, 1.85, H - 0.29), v(0, 2.1, H - 0.31)]
         tail = b.chain("tail", "hips", tail_pts)
         b.balls("body", crust, [(v(0, 0.42, H), 0.2, (1.2, 1.3, 0.8)), (v(0, 0.12, H + 0.02), 0.24, (1.3, 1.3, 0.8)),
                                 (v(0, -0.2, H + 0.03), 0.23, (1.25, 1.3, 0.8)), (v(0, -0.46, H + 0.05), 0.16, (1.1, 1.2, 0.85))], ["hips", "chest"])
         b.balls("neck", crust, [(v(0, -0.58, H + 0.07), 0.13, (1.1, 1, 0.85))], ["chest", "neck", "head"])
         b.balls("head", crust, [(v(0, -0.76, H + 0.09), 0.12, (1.25, 1.1, 0.65)), (v(0, -0.91, H + 0.05), 0.08, (1.15, 1.45, 0.55)),
-                                (v(0, -0.79, H + 0.13), 0.06, (1.6, 1, 0.5))],
-                ["head"])
-        b.balls("jaw", crust, [(v(0, -0.87, H - 0.01), 0.07, (1.15, 1.55, 0.42))], ["jaw"])
+                                (v(0, -0.79, H + 0.13), 0.06, (1.6, 1, 0.5)),
+                                (v(0, -0.72, H + 0.0), 0.08, (1.2, 1.1, 0.5)), (v(0, -0.87, H - 0.01), 0.07, (1.15, 1.55, 0.42))],
+                ["head", "jaw"])
         teeth_arc(b, "teeth_top", tooth, v(0, -0.9, 0), 0.07, 0.1, H + 0.02, 9, 0.022, "head")
         teeth_arc(b, "teeth_low", tooth, v(0, -0.87, 0), 0.062, 0.095, H + 0.01, 8, 0.018, "jaw", up=True)
         for sx in (-1, 1):
@@ -671,7 +672,7 @@ def wyvern():
     horn = own(material("wyvern_horn", (0.75, 0.7, 0.58), 0.4))
     dark = own(material("wyvern_dark", (0.06, 0.08, 0.05), 0.35, 0.1))
     tooth = own(material("wyvern_tooth", (0.88, 0.85, 0.75), 0.35))
-    eye = emissive(own(material("wyvern_eye", (0.95, 0.6, 0.05), 0.2)), (1.0, 0.5, 0.0), 2.5)
+    eye = own(material("wyvern_eye", (0.01, 0.01, 0.01), 0.05, 0.3))
     b.bone("pivot", None, v(0, 0, 0), v(0, 0, 0.15))
     b.bone("hips", "pivot", v(0, 0.2, 1.0), v(0, -0.1, 1.05))
     b.bone("chest", "hips", v(0, -0.1, 1.05), v(0, -0.45, 1.22))
@@ -693,14 +694,14 @@ def wyvern():
     b.balls("head", scales, [(v(0, -0.9, 1.79), 0.135, (1.05, 1.1, 0.9)), (v(0, -1.06, 1.75), 0.085, (0.9, 1.6, 0.7)),
                              (v(0, -0.94, 1.86), 0.05, (2.2, 1.0, 0.7))], ["head"])
     b.balls("brows", dark, [(v(sx * 0.07, -0.95, 1.87), 0.035, (1.2, 1.4, 0.7)) for sx in (-1, 1)], ["head"])
-    b.balls("nostrils", dark, [(v(sx * 0.025, -1.17, 1.79), 0.018, (1, 1, 1)) for sx in (-1, 1)], ["head"])
+    b.rigid("nostrils", dark, lambda bm: [sphere_at(bm, v(sx * 0.028, -1.16, 1.77), 0.013, 1) for sx in (-1, 1)], "head")
     b.balls("jaw", scales, [(v(0, -1.0, 1.66), 0.06, (0.95, 1.9, 0.5))], ["jaw"])
     teeth_arc(b, "teeth_top", tooth, v(0, -1.06, 0), 0.06, 0.12, 1.705, 10, 0.03, "head")
     teeth_arc(b, "teeth_low", tooth, v(0, -1.0, 0), 0.05, 0.1, 1.675, 9, 0.025, "jaw", up=True)
     for sx in (-1, 1):
         b.rigid(f"eye{sx}", eye, lambda bm, sx=sx: sphere_at(bm, v(sx * 0.075, -0.97, 1.83), 0.024, 1), "head")
-        b.rigid(f"horn{sx}", horn, lambda bm, sx=sx: [cone_to(bm, v(sx * 0.06, -0.86, 1.86), v(sx * 0.11, -0.72, 1.98), 0.035),
-                                                       cone_to(bm, v(sx * 0.11, -0.73, 1.97), v(sx * 0.13, -0.58, 1.99), 0.018)], "head")
+        b.rigid(f"horn{sx}", horn, lambda bm, sx=sx: tube(bm, [v(sx * 0.06, -0.86, 1.85), v(sx * 0.09, -0.78, 1.94), v(sx * 0.115, -0.68, 1.99),
+                                                               v(sx * 0.13, -0.57, 1.99), v(sx * 0.135, -0.5, 1.96)], [0.035, 0.027, 0.019, 0.011, 0.002], 10), "head")
         b.rigid(f"cheek{sx}", horn, lambda bm, sx=sx: [cone_to(bm, v(sx * 0.1, -0.88, 1.74 - 0.03 * i), v(sx * 0.17, -0.8, 1.74 - 0.04 * i), 0.012)
                                                         for i in range(2)], "head")
     # Spines down the neck, back and tail.
@@ -710,15 +711,15 @@ def wyvern():
     spikes(b, "spines_tail", dark, [tail_pts[k].lerp(tail_pts[k + 1], 0.5) + v(0, 0, 0.13 - 0.025 * k) for k in range(4)], tail[2], 0.08, 0.022)
     b.balls("spade", dark, [(v(0, 1.92, 0.4), 0.09, (1.8, 1.3, 0.25))], [tail[-1]])
     for s, t in ((1, "l"), (-1, "r")):
-        hip, knee, ank, foot = v(s * 0.2, 0.05, 0.95), v(s * 0.27, -0.12, 0.6), v(s * 0.26, 0.12, 0.26), v(s * 0.25, -0.1, 0.04)
+        hip, knee, ank, foot = v(s * 0.2, 0.05, 0.95), v(s * 0.27, -0.12, 0.6), v(s * 0.26, 0.12, 0.28), v(s * 0.25, -0.1, 0.07)
         l1 = b.bone(f"thigh_{t}", "hips", hip, knee)
         l2 = b.bone(f"shin_{t}", l1, knee, ank)
         l3 = b.bone(f"foot_{t}", l2, ank, foot)
-        limb(b, f"leg_{t}", scales, [hip, knee, ank, foot], [0.17, 0.1, 0.065, 0.05], ["hips", l1, l2, l3], per=4)
+        toes = [(foot + v(dx * 0.5, -0.05, -0.03), 0.04, (0.9, 1.4, 0.7)) for dx in (-0.06, 0.0, 0.06)] +                [(foot + v(dx, -0.11, -0.04), 0.03, (0.8, 1.6, 0.6)) for dx in (-0.06, 0.0, 0.06)]
+        limb(b, f"leg_{t}", scales, [hip, knee, ank, foot], [0.17, 0.1, 0.065, 0.05], ["hips", l1, l2, l3], per=4, extra=toes)
         b.balls(f"thighm_{t}", scales, [(v(s * 0.22, 0.02, 0.84), 0.15, (0.9, 1.05, 1.35))], ["hips", l1])
-        b.balls(f"toes_{t}", scales, [(foot + v(dx, -0.09, -0.015), 0.03, (0.8, 1.8, 0.6)) for dx in (-0.06, 0.0, 0.06)], [l3])
-        b.rigid(f"talons_{t}", horn, lambda bm, foot=foot: [cone_to(bm, foot + v(dx * 1.3, -0.15, -0.01), foot + v(dx * 1.5, -0.22, -0.04), 0.018)
-                                                            for dx in (-0.05, 0.0, 0.05)] + [cone_to(bm, foot + v(0, 0.05, 0), foot + v(0, 0.13, -0.04), 0.016)], l3)
+        b.rigid(f"talons_{t}", horn, lambda bm, foot=foot: [cone_to(bm, foot + v(dx, -0.13, -0.04), foot + v(dx * 1.2, -0.2, -0.068), 0.016)
+                                                            for dx in (-0.05, 0.0, 0.05)] + [cone_to(bm, foot + v(0, 0.05, -0.03), foot + v(0, 0.13, -0.068), 0.016)], l3)
         # Wing: arm, forearm, four fingers, a hooked thumb at the wrist; leather membrane with a rolled edge.
         sh, el, wr = v(s * 0.15, -0.35, 1.3), v(s * 0.68, -0.2, 1.68), v(s * 1.25, 0.08, 1.88)
         tips = [v(s * 2.0, 0.45, 1.6), v(s * 1.95, 0.62, 1.3), v(s * 1.7, 0.85, 1.02), v(s * 1.28, 0.82, 0.88)]

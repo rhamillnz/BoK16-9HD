@@ -341,3 +341,12 @@ The next verdicts go to `party7` and `creatures4`. The rogue was marked "work" w
   - New helpers: `limb` (metaball limbs, or smooth tubes below 5 cm radius, where metaballs bead), `teeth_arc` (teeth seated on the jaw edges), `spikes`, `emissive`, `lava_material` (cracked crust with an emissive crack map).
   - Rebuilt: the beasthound as a Rottweiler (one-piece head, tan markings), the Nethermander in lava red with spines and frill, the scorpion with plates, eyes, mouthparts and serrated claws, and a detailed wyvern.
   - Metaball resolution is 1.8 cm.
+
+## Creatures round 7 (Opus, 2026-10-16)
+
+All 7 party models are approved, and 23 of the 27 creatures. The last four:
+- **Beasthound and Nethermander.** The lower jaw is now part of the head's metaball group, skinned to the head and jaw bones, so the mouth opens as one surface instead of a separate floating blob.
+- **Scorpion.** The claws are turned over: the hand and fixed finger are on the outside, the moving finger is on the inside (the snap direction is flipped to match).
+- **Wyvern.**
+  - Black eyes; the nostrils are set into the snout; each horn is a single curved tapered tube.
+  - The feet are raised to the ground, with the toes in the leg's metaball group (`limb(extra=...)`).
