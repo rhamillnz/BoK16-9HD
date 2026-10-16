@@ -1201,6 +1201,29 @@ def g_belt(ctx, g):
         bmesh.ops.translate(bm, verts=geom["verts"], vec=pts[2][j] + sphere_dir(0, azims[j]) * 0.016 + Vector((0, 0, -0.03)))
         frog = link("scabbard_frog", bm, leather)
         out += [scab, fit, frog]
+    if g.get("knife"):
+        # A hunting knife in a short sheath on the right hip, handle up.
+        j = front - int(cols * 0.2)
+        at = pts[2][j] + sphere_dir(0, azims[j]) * 0.022
+        rot = Matrix.Rotation(-azims[j], 3, "Z") @ Matrix.Rotation(math.radians(-12), 3, "Y")
+        sheath_m = material("knife_sheath", g.get("scabbard_color", (0.2, 0.12, 0.06)), 0.6)
+        bm = bmesh.new()
+        geom = bmesh.ops.create_cube(bm, size=1)
+        bmesh.ops.scale(bm, verts=geom["verts"], vec=(0.05, 0.022, 0.2))
+        for v in geom["verts"]:
+            if v.co.z < 0:
+                v.co.x *= 0.45
+        bmesh.ops.rotate(bm, verts=geom["verts"], cent=(0, 0, 0), matrix=rot)
+        bmesh.ops.translate(bm, verts=geom["verts"], vec=at + Vector((0, 0, -0.08)))
+        sheath = link("pouch_knife_sheath", bm, sheath_m)
+        bm = bmesh.new()
+        geom = bmesh.ops.create_cone(bm, cap_ends=True, segments=10, radius1=0.014, radius2=0.012, depth=0.1)
+        bmesh.ops.rotate(bm, verts=geom["verts"], cent=(0, 0, 0), matrix=rot)
+        bmesh.ops.translate(bm, verts=geom["verts"], vec=at + rot @ Vector((0, 0, 0.07)))
+        handle = link("pouch_knife_handle", bm, material("knife_handle", (0.3, 0.2, 0.1), 0.6))
+        for o in (sheath, handle):
+            smooth_shading(o, 40)
+        out += [sheath, handle]
     for o in out:
         if o.name.startswith(("scabbard", "pouch")):
             set_weights(o, ctx["arm"], lambda co: {"pelvis": 1.0})
@@ -1526,9 +1549,16 @@ def g_hair(ctx, g):
             w = wave * math.sin(z * 55 + a * 3) * t
             pts[rows + k][j] = Vector((centre.x, centre.y, z)) + hd * (hr + w)
 
+    # `tonsure`: radius (metres) of the shaved circle round the top of the crown.
+    tonsure = g.get("tonsure")
+    crown = Vector((centre.x, centre.y + 0.015, hi.z + vol))
+
     def keep(i, j, p):
         a = azims[j]
         ragged = 2.5 * math.sin(a * 19) + 1.5 * math.sin(a * 31 + 2) if abs(a) < 1.3 and not (g.get("knit") or g.get("cloth") or g.get("smooth")) else 0.0
+        # A monk's tonsure: the crown shaved, leaving a ring of hair (elevation measured from the head centre).
+        if tonsure and i < rows and (p - crown).length < tonsure:
+            return False
         return noms[i] >= hairline(a) + ragged
 
     hair = grid_object("hair_gen", pts, mat, True, keep, centre)
@@ -1549,8 +1579,9 @@ def g_hair(ctx, g):
         out.append(cuff)
     if g.get("ponytail"):
         back = centre + sphere_dir(math.radians(-12), math.pi) * ((caster.inward(centre, sphere_dir(math.radians(-12), math.pi), 0.5) or 0.09) + vol)
-        path = [back + Vector((0, -0.02, 0.0)), back + Vector((0, 0.015, -0.025)), back + Vector((0, 0.035, -0.06)),
-                back + Vector((0, 0.045, -0.1)), back + Vector((0, 0.045, -0.13))]
+        tl = g.get("tail", 1.0)
+        path = [back + Vector((0, -0.02, 0.0)), back + Vector((0, 0.015, -0.025 * tl)), back + Vector((0, 0.035, -0.06 * tl)),
+                back + Vector((0, 0.045, -0.1 * tl)), back + Vector((0, 0.045, -0.13 * tl))]
         bm = bmesh.new()
         tube(bm, path, [0.017, 0.016, 0.014, 0.01, 0.003], 12)
         tail = link("ponytail", bm, mat)
@@ -1570,6 +1601,9 @@ def g_hair(ctx, g):
             a = abs(math.degrees(math.atan2(c.x - centre.x, -(c.y - centre.y))))
             # Grey at the temples only, above the ear; sideburns below stay the hair's own colour.
             if 50 < a < 110 and centre.z + 0.0 < c.z < centre.z + 0.06:
+                poly.material_index = 1
+            # `streaks`: that share of the strands grey all the way down (a grizzled head, not just the temples).
+            elif g.get("streaks") and (math.sin(a * 0.9) * 0.5 + math.sin(a * 2.3 + 1.0) * 0.3 + math.sin(a * 5.1) * 0.2) > 1 - 2 * g["streaks"]:
                 poly.material_index = 1
     for o in out:
         set_weights(o, ctx["arm"], lambda co: {"Head": 1.0})
@@ -1711,7 +1745,7 @@ def staff_mesh(g):
     return [staff, bands, grip]
 
 
-def fist_grip(ctx, clip="idle", frame=0.3):
+def fist_grip(ctx, clip="idle", frame=0.3, side="r"):
     """Where the right fist's hole is, as a rest-pose world matrix: Z runs through the fist from the little finger
     to the index finger (where a blade or staff head comes out) and X points to the knuckles. Measured in a
     clip with the hand closed, then carried back to the rest pose through the hand bone, so the weapon parented
@@ -1724,17 +1758,17 @@ def fist_grip(ctx, clip="idle", frame=0.3):
     fingers = ("index", "middle", "ring", "pinky")
     loops = []
     for f in fingers:
-        pts = [pose[f"{f}_01_r"][0], pose[f"{f}_02_r"][0], pose[f"{f}_03_r"][0], pose[f"{f}_03_r"][1]]
+        pts = [pose[f"{f}_01_{side}"][0], pose[f"{f}_02_{side}"][0], pose[f"{f}_03_{side}"][0], pose[f"{f}_03_{side}"][1]]
         loops.append(sum(pts, Vector()) / 4)
     centre = sum(loops, Vector()) / 4
     axis = (loops[0] - loops[3]).normalized()
-    knuckles = sum((pose[f"{f}_02_r"][0] for f in fingers), Vector()) / 4
+    knuckles = sum((pose[f"{f}_02_{side}"][0] for f in fingers), Vector()) / 4
     x = (knuckles - centre)
     x = (x - axis * x.dot(axis)).normalized()
     y = axis.cross(x)
     posed = Matrix((x, y, axis)).transposed().to_4x4()
     posed.translation = centre
-    pb = arm.pose.bones["hand_r"]
+    pb = arm.pose.bones[f"hand_{side}"]
     hand_posed = arm.matrix_world @ pb.matrix
     hand_rest = arm.matrix_world @ pb.bone.matrix_local
     arm.animation_data.action = None
@@ -1806,18 +1840,23 @@ def attach_weapon(ctx, w):
     bpy.ops.object.join()
     weapon = bpy.context.view_layer.objects.active
     weapon.name = "weapon"
-    grip = fist_grip(ctx, w.get("grip_clip", "idle"), w.get("grip_frame", 0.3))
+    side = w.get("hand", "r")
+    grip = fist_grip(ctx, w.get("grip_clip", "idle"), w.get("grip_frame", 0.3), side)
     # Slide the weapon so the middle of its grip, not the guard, is in the fist.
     grip = grip @ Matrix.Translation((0, 0, w.get("hold", HOLD[w["type"]])))
     if w.get("spin"):
         grip = grip @ Matrix.Rotation(math.radians(w["spin"]), 4, "Z")
     if w.get("slide"):
         grip = grip @ Matrix.Translation((0, 0, w["slide"]))
+    if w.get("turn"):
+        # Turned in the fist (degrees about the fist's X and Y): a bow held upright rather than pointing ahead.
+        tx, ty = w["turn"]
+        grip = grip @ Matrix.Rotation(math.radians(tx), 4, "X") @ Matrix.Rotation(math.radians(ty), 4, "Y")
     weapon.matrix_world = grip
     mw = weapon.matrix_world.copy()
     weapon.parent = arm
     weapon.parent_type = "BONE"
-    weapon.parent_bone = "hand_r"
+    weapon.parent_bone = f"hand_{side}"
     weapon.matrix_world = mw
     return weapon
 
@@ -2211,7 +2250,12 @@ def scale_image(colour, size=256):
 def g_circlet(ctx, g):
     """A metal band round the brow, a gem at the front; `horns` adds two horns curving up and out (Delekhan)."""
     metal = own(material("circlet", g.get("color", (0.8, 0.62, 0.22)), 0.3, 0.95))
-    c = Vector(g.get("centre", (0, 0.012, 1.775)))
+    # On the head wherever it is (a taller or longer-legged body raises it): `drop` below the crown's top.
+    head = next(o for o in ctx["objs"] if o.name.startswith("Head"))
+    hs = [head.matrix_world @ v.co for v in head.data.vertices if (head.matrix_world @ v.co).z > 1.58]
+    top = max(h.z for h in hs)
+    mid_y = (min(h.y for h in hs) + max(h.y for h in hs)) / 2
+    c = Vector(g["centre"]) if g.get("centre") else Vector((0, mid_y + 0.016, top - g.get("drop", 0.035)))
     rx, ry = g.get("radius", (0.102, 0.116))
     tilt = g.get("tilt", 0.2)
     r = g.get("thickness", 0.006)
@@ -2367,7 +2411,7 @@ def bow_mesh(g):
     for i in range(steps + 1):
         z = -half + 2 * half * i / steps
         t = abs(z) / half
-        x = 0.12 * t * t
+        x = -0.12 * t * t
         rad = 0.018 * (1 - 0.6 * t)
         rows.append([bm.verts.new((x + math.cos(2 * math.pi * j / seg) * rad, math.sin(2 * math.pi * j / seg) * rad, z)) for j in range(seg)])
     for ra, rb in zip(rows, rows[1:]):
@@ -2377,13 +2421,94 @@ def bow_mesh(g):
     smooth_shading(limb)
     bm = bmesh.new()
     geom = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.002, radius2=0.002, depth=2 * half)
-    bmesh.ops.translate(bm, verts=geom["verts"], vec=(0.12, 0, 0))
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=(-0.12, 0, 0))
     string = link("bow_string", bm, own(material("bow_string", (0.8, 0.76, 0.66), 0.8)))
     return [limb, string]
 
 
-WEAPONS.update({"book": book_mesh, "bow": bow_mesh})
-HOLD.update({"book": 0.0, "bow": 0.0})
+def knife_mesh(g):
+    """A hunting knife: a broad single-edged blade with a clipped point, a small finger guard and a wooden handle."""
+    steel = material("blade", g.get("blade", (0.72, 0.74, 0.78)), 0.3, 0.9)
+    wood = material("grip", g.get("grip", (0.3, 0.18, 0.08)), 0.6)
+    L = g.get("length", 0.24)
+    bm = bmesh.new()
+    # Profile in X (spine at -x, edge at +x), extruded thin in Y: straight spine, a belly curving up to the point.
+    prof = [(-0.012, 0.0), (0.024, 0.0), (0.026, L * 0.55), (0.018, L * 0.82), (0.004, L), (-0.012, L * 0.86)]
+    front = [bm.verts.new((x, -0.003, z)) for x, z in prof]
+    back = [bm.verts.new((x, 0.003, z)) for x, z in prof]
+    bm.faces.new(front)
+    bm.faces.new(back[::-1])
+    n = len(prof)
+    for i in range(n):
+        bm.faces.new((front[i], front[(i + 1) % n], back[(i + 1) % n], back[i]))
+    blade = link("blade", bm, steel)
+    bm = bmesh.new()
+    geom = bmesh.ops.create_cube(bm, size=1)
+    bmesh.ops.scale(bm, verts=geom["verts"], vec=(0.06, 0.018, 0.012))
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=(0.006, 0, -0.006))
+    guard = link("guard", bm, steel)
+    bm = bmesh.new()
+    geom = bmesh.ops.create_cone(bm, cap_ends=True, segments=10, radius1=0.016, radius2=0.014, depth=0.11)
+    bmesh.ops.scale(bm, verts=geom["verts"], vec=(1, 0.8, 1))
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=(0, 0, -0.067))
+    grip = link("grip", bm, wood)
+    for o in (blade, guard, grip):
+        smooth_shading(o, 35)
+    return [blade, guard, grip]
+
+
+def g_quiver(ctx, g):
+    """A quiver on the back, slung from the right shoulder to the left hip, with the arrows' fletching showing
+    over the right shoulder."""
+    leather = material("quiver", g.get("color", (0.3, 0.17, 0.08)), 0.7)
+    targets = torso_parts(ctx) + ctx["layers"]
+    caster = Caster(targets)
+    hit = caster.tree.ray_cast(Vector((0, 1.0, 1.25)), Vector((0, -1, 0)), 2.0)
+    back = hit[0].y if hit[0] is not None else 0.15
+    base = Vector((0.08, back + 0.07, 0.98))
+    top = Vector((-0.12, back + 0.07, 1.5))
+    axis = (top - base).normalized()
+    length = (top - base).length
+    rot = axis.to_track_quat("Z", "Y").to_matrix()
+    bm = bmesh.new()
+    geom = bmesh.ops.create_cone(bm, cap_ends=True, segments=16, radius1=0.04, radius2=0.048, depth=length)
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=(0, 0, length / 2))
+    bmesh.ops.rotate(bm, verts=geom["verts"], cent=(0, 0, 0), matrix=rot)
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=base)
+    quiver = link("quiver", bm, leather)
+    bmesh_uv_cylinder(quiver, base.y)
+    shaft_m = material("arrow_shaft", (0.5, 0.36, 0.2), 0.6)
+    feather_m = material("arrow_fletch", g.get("fletch", (0.75, 0.72, 0.65)), 0.8)
+    bm, fb = bmesh.new(), bmesh.new()
+    for k in range(7):
+        a = 2 * math.pi * k / 7
+        off = rot @ Vector((math.cos(a) * 0.022, math.sin(a) * 0.022, 0))
+        start = base + axis * (length - 0.05) + off
+        end = start + axis * (0.1 + 0.02 * (k % 3))
+        geom = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.004, radius2=0.004, depth=(end - start).length)
+        bmesh.ops.translate(bm, verts=geom["verts"], vec=(0, 0, (end - start).length / 2))
+        bmesh.ops.rotate(bm, verts=geom["verts"], cent=(0, 0, 0), matrix=rot)
+        bmesh.ops.translate(bm, verts=geom["verts"], vec=start)
+        # Three vanes near the nock.
+        for v in range(3):
+            b = 2 * math.pi * v / 3 + a
+            vd = rot @ Vector((math.cos(b), math.sin(b), 0))
+            p0 = end - axis * 0.075
+            p1 = end - axis * 0.01
+            fb.faces.new([fb.verts.new(q) for q in (p0, p1, p1 + vd * 0.014, p0 + vd * 0.02)])
+    arrows = link("quiver_arrows", bm, shaft_m)
+    fletch = link("quiver_fletch", fb, feather_m)
+    solidify(fletch, 0.002, 0.0)
+    for o in (quiver, arrows, fletch):
+        smooth_shading(o, 40)
+        set_weights(o, ctx["arm"], lambda co: {"spine_03": 0.6, "spine_02": 0.4})
+    # The strap: the baldric across the chest is the quiver's sling.
+    return [quiver, arrows, fletch]
+
+
+GARMENTS.update({"quiver": g_quiver})
+WEAPONS.update({"book": book_mesh, "bow": bow_mesh, "knife": knife_mesh})
+HOLD.update({"book": 0.0, "bow": 0.0, "knife": 0.04})
 
 
 
@@ -2432,7 +2557,8 @@ def sculpt(obj, ops):
     """Reshape a face for a creature. Each op moves vertices in a region with a soft falloff:
     brow (a heavy ridge over the eyes), slope (forehead swept back), nose (bigger, broader), jaw (jutting),
     snout (the lower face drawn forward and narrowed, for a snake-man), chin (long, pointed), lumps (rocky
-    noise over the whole head), cheeks (hollow), crown (higher, pointed skull)."""
+    noise over the whole head), cheeks (hollow), crown (higher, pointed skull), eyes (narrower: the lids drawn
+    towards the eye line)."""
     import random
     m = face_marks(obj)
     mw = obj.matrix_world
@@ -2474,6 +2600,10 @@ def sculpt(obj, ops):
             elif op == "cheeks":
                 k = front * smoothstep(0.02, 0.0, abs(p.z - (ez - 0.035))) * smoothstep(0.03, 0.06, abs(p.x))
                 d += n * (-amt * k)
+            elif op == "eyes":
+                # Narrower eyes: the lids drawn towards the eye line, closing over the eyeballs.
+                k = front * smoothstep(0.018, 0.0, abs(p.z - ez)) * smoothstep(0.066, 0.045, abs(p.x)) * smoothstep(0.008, 0.02, abs(p.x))
+                d.z += (ez - p.z) * amt * k
             elif op == "crown":
                 k = smoothstep(ez + 0.06, m["top"], p.z)
                 d.z += amt * k

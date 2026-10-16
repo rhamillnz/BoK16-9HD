@@ -388,3 +388,28 @@ A headless browser run on the GOG data. Each stage starts at a real chapter 1 pl
 - **Camp (R):** the menu shows rations and wounds; resting an hour moves the clock 08:00 to 09:00.
 - **Zone change:** walking south through the exit in tile 10,11 loads zone 2. The exit in tile 10,13 is behind a cliff from the side I tried.
 - Not covered: long-distance travel. A blind driver holding W off the road walks into hills, because Follow Road only engages in the middle of a road. A full chapter route needs a pathfinding driver.
+
+## Named characters round 2 (Opus, 2026-10-16)
+
+Reuben's round-1 notes, all worked in (`art/jobs/talkers.json`). New builder options:
+- `tonsure` on hair: radius of a shaved circle round the crown.
+- `streaks` on hair: grey strands throughout, not only at the temples.
+- `eyes` sculpt: narrower eyes.
+- Weapon `hand` (`"l"`) and `turn`: a bow held upright in the left hand. Four turns were tried; [0, 90] puts the string towards the archer.
+- Belt `knife`: a hunting knife on the right hip.
+- `quiver` garment.
+- `knife` weapon: a broad, single-edged hunting knife.
+- The circlet is placed relative to the head (`drop` below its top).
+- Ponytail `tail` length.
+
+Characters:
+- **Aglaranna:** fairer skin, slimmer and taller.
+- **Delekhan:** grey streaks and temples, hollower cheeks.
+- **Dubal:** darker green.
+- **Katala:** the neck is closed (the robe's V showed a hole); her hair now covers the nape and is gathered into a longer tail.
+- **Marc:** a tonsure inside a short ring of hair.
+- **Martin:** beard, grey, the bow upright in his left hand, a quiver and a belt knife.
+- **Sumani:** a hunting knife, narrower eyes, and a black robe and sleeves over the white clothes.
+- **Tomas:** cropped hair, a bigger jaw and broader shoulders, 1.93 m.
+
+Review page round 2: collection `talkers2`.
