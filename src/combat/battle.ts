@@ -33,7 +33,15 @@ import {
   rangedDamage,
   rollToHitRanged,
 } from './rules';
-import { beginCombat, finishTurn, flee as fleeTurn, newCombatant, type CombatOutcome, type TurnState } from './turns';
+import {
+  beginCombat,
+  canFlee,
+  finishTurn,
+  newCombatant,
+  type CombatOutcome,
+  type Initiative,
+  type TurnState,
+} from './turns';
 
 export interface Fighter extends MeleeStats {
   id: string;
@@ -68,7 +76,26 @@ export interface Fighter extends MeleeStats {
   items?: number[];
   /** Brought into the fight by a spell (River Song, Dannon's Delusions); not a party member. */
   summoned?: boolean;
+  /** Assessment skill: how much the Assess action reveals (manual p. 28). */
+  assessment?: number;
+  /** Casting Accuracy: the chance a line-of-sight spell lands (manual p. 28); absent means it always lands. */
+  casting?: number;
+  /** An enemy's readiness to run when hurt (the save's retreat factor, 0 to 9); absent or 0: it holds. */
+  retreat?: number;
+  /** Ran from the fight: gone, alive and not searchable. */
+  fled?: boolean;
+  /** Id of the attacker whose blow this fighter parried: its next attack on it gets a riposte bonus. */
+  riposte?: string;
 }
+
+/** Out of the fight: slain, banished or run away. */
+export const gone = (f: Fighter): boolean => isDead(f) || f.fled === true;
+
+/** Hit-roll points and damage share of a riposte (manual p. 50: "slightly greater than normal"). */
+export const RIPOSTE_BONUS = 10;
+export const RIPOSTE_DAMAGE = 1.25;
+/** Chance (percent) a missed bolt strikes someone next to its target instead (manual p. 50). */
+export const STRAY_CHANCE = 35;
 
 /** A free cell next to `p`: on the grid, not blocked terrain, no living fighter on it. */
 function freeCellNear(s: BattleState, p: GridPos): GridPos | undefined {
@@ -86,7 +113,7 @@ function freeCellNear(s: BattleState, p: GridPos): GridPos | undefined {
     const c = { x: p.x + dx, y: p.y + dy };
     if (c.x < 0 || c.y < 0 || c.x >= grid.cols || c.y >= grid.rows) continue;
     if (grid.cells[c.y * grid.cols + c.x]!.disabled) continue;
-    if (s.fighters.some((f) => !isDead(f) && samePos(f.pos, c))) continue;
+    if (s.fighters.some((f) => !gone(f) && samePos(f.pos, c))) continue;
     return c;
   }
   return undefined;
@@ -150,7 +177,17 @@ export type BattleEvent =
       damage: number;
       killed: boolean;
     }
-  | { type: 'shoot'; attacker: string; target: string; hit: boolean; damage: number; killed: boolean; distance: number }
+  | {
+      type: 'shoot';
+      attacker: string;
+      target: string;
+      hit: boolean;
+      damage: number;
+      killed: boolean;
+      distance: number;
+      /** A missed bolt that struck someone else next to the target. */
+      stray?: { target: string; damage: number; killed: boolean };
+    }
   | {
       type: 'cast';
       caster: string;
@@ -166,11 +203,15 @@ export type BattleEvent =
       reflected?: string;
       /** Id of the fighter a summoning spell brought in. */
       summoned?: string;
+      /** A line-of-sight spell that missed (Casting Accuracy). */
+      missed?: boolean;
     }
   | { type: 'defend'; id: string }
-  | { type: 'rest'; id: string }
+  | { type: 'rest'; id: string; healed: number }
+  | { type: 'assess'; id: string; target: string; facts: string[] }
+  | { type: 'retreat'; id: string }
   | { type: 'held'; id: string }
-  | { type: 'flee'; success: boolean }
+  | { type: 'flee'; success: boolean; refused?: boolean }
   | { type: 'round'; round: number }
   | { type: 'end'; outcome: CombatOutcome };
 
@@ -185,10 +226,20 @@ export interface BattleState {
   history: BattleEvent[];
 }
 
-/** Starts a fight: the fastest party member goes first. */
-export function startBattle(fighters: readonly Fighter[], disabled: readonly GridPos[] = []): BattleState {
+/**
+ * Starts a fight. `initiative` says who caught whom off guard (see Initiative); without one the party's fastest
+ * member goes first, then everyone in Speed order.
+ */
+export function startBattle(
+  fighters: readonly Fighter[],
+  disabled: readonly GridPos[] = [],
+  initiative?: Initiative,
+): BattleState {
   const list = fighters.map((f) => ({ ...f }));
-  const turn = beginCombat(list.map((f) => ({ ...newCombatant(f.id, f.side, f.speed, f.health), dead: isDead(f) })));
+  const turn = beginCombat(
+    list.map((f) => ({ ...newCombatant(f.id, f.side, f.speed, f.health), dead: isDead(f) })),
+    initiative,
+  );
   return { fighters: list, turn, disabled: [...disabled], events: [], history: [] };
 }
 
@@ -196,7 +247,31 @@ export const currentFighter = (s: BattleState): Fighter => s.fighters[s.turn.cur
 export const isOver = (s: BattleState): boolean => s.turn.outcome !== undefined;
 
 export function fighterAt(s: BattleState, p: GridPos): Fighter | undefined {
-  return s.fighters.find((f) => !isDead(f) && samePos(f.pos, p));
+  return s.fighters.find((f) => !gone(f) && samePos(f.pos, p));
+}
+
+/** A living enemy stands on a neighbouring cell (including diagonals). */
+export function nextToEnemy(s: BattleState, index = s.turn.current): boolean {
+  const me = s.fighters[index]!;
+  return s.fighters.some((f) => f.side !== me.side && !gone(f) && chebyshevDistance(me.pos, f.pos) <= 1);
+}
+
+/** The cells a straight line from `a` to `b` passes through, excluding both ends. */
+export function cellsBetween(a: GridPos, b: GridPos): GridPos[] {
+  const out: GridPos[] = [];
+  const n = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+  for (let i = 1; i < n; i++) {
+    const p = { x: Math.round(a.x + ((b.x - a.x) * i) / n), y: Math.round(a.y + ((b.y - a.y) * i) / n) };
+    if (!out.some((q) => samePos(q, p))) out.push(p);
+  }
+  return out;
+}
+
+/** Nobody and nothing stands between `a` and `b` (manual p. 45: a character or object blocks a shot). */
+export function lineOfSight(s: BattleState, a: GridPos, b: GridPos): boolean {
+  return cellsBetween(a, b).every(
+    (c) => !s.disabled.some((d) => samePos(d, c)) && !s.fighters.some((f) => !gone(f) && samePos(f.pos, c)),
+  );
 }
 
 /** Cell flags for the current fighter's turn. */
@@ -204,7 +279,7 @@ export function gridFor(s: BattleState, index = s.turn.current): CombatGrid {
   const me = s.fighters[index]!;
   return buildGrid({
     disabled: s.disabled,
-    occupants: s.fighters.map((f) => ({ id: f.id, pos: f.pos, side: f.side, dead: isDead(f) })),
+    occupants: s.fighters.map((f) => ({ id: f.id, pos: f.pos, side: f.side, dead: gone(f) })),
     mover: { id: me.id, side: me.side, speed: me.speed },
   });
 }
@@ -228,6 +303,8 @@ function endTurn(s: BattleState, fighters: Fighter[], events: BattleEvent[], tur
   const i = s.turn.current;
   if ((fighters[i]?.silenced ?? 0) > 0)
     fighters = fighters.map((f, k) => (k === i ? { ...f, silenced: f.silenced! - 1 } : f));
+  // A riposte lasts until the fighter's own next action is over.
+  fighters = fighters.map((f, k) => (k === i && f.riposte ? { ...f, riposte: undefined } : f));
   const synced = sync(s, fighters, turn, events);
   const before = synced.turn.round;
   let next = finishTurn(synced.turn);
@@ -244,6 +321,9 @@ function endTurn(s: BattleState, fighters: Fighter[], events: BattleEvent[], tur
     if (next.round !== round && !next.outcome) out.push({ type: 'round', round: next.round });
   }
   if (next.outcome) out.push({ type: 'end', outcome: next.outcome });
+  // Resting lasts until the fighter's next turn comes round.
+  if (!next.outcome && list[next.current]!.resting)
+    list = list.map((f, k) => (k === next.current ? { ...f, resting: false } : f));
   return sync(s, list, next, out);
 }
 
@@ -298,7 +378,7 @@ export function attack(s: BattleState, target: GridPos, roll: Roll, opts: Attack
   const grid = gridFor(s);
   const plan = planAttack(grid, me.pos, target, { slash: kind === 'slash', maxSteps: me.speed });
   if (!plan) return undefined;
-  const victimIndex = s.fighters.findIndex((f) => !isDead(f) && samePos(f.pos, target));
+  const victimIndex = s.fighters.findIndex((f) => !gone(f) && samePos(f.pos, target));
   if (victimIndex < 0) return undefined;
 
   const events: BattleEvent[] = [];
@@ -315,22 +395,35 @@ export function attack(s: BattleState, target: GridPos, roll: Roll, opts: Attack
   if (kind === 'slash') {
     Object.assign(attacker, applyDamage(attacker, 1));
   }
-  const hit = rollToHit(attacker, victim, kind, roll);
+  // A riposte: this attacker parried the victim's last blow and strikes back into the opening.
+  const riposte = attacker.riposte === victim.id;
+  const hit = rollToHit(attacker, victim, kind, roll, riposte ? RIPOSTE_BONUS : 0);
   let damage = 0;
   if (hit) {
-    damage = warded(victim, reduceDamage(meleeDamage(attacker, kind, victim), victim, roll));
+    const base = meleeDamage(attacker, kind, victim);
+    damage = warded(victim, reduceDamage(riposte ? Math.round(base * RIPOSTE_DAMAGE) : base, victim, roll));
     Object.assign(victim, applyDamage(victim, damage));
-  }
+  } else if (victim.defending) victim.riposte = attacker.id;
+  if (riposte) attacker.riposte = undefined;
   const killed = isDead(victim);
   events.push({ type: 'attack', attacker: attacker.id, target: victim.id, kind, hit, damage, killed });
   return endTurn(s, fighters, events);
 }
 
-/** Fighters a ranged shooter could hit from where it stands: living enemies within range. */
+/**
+ * Fighters a ranged shooter could hit from where it stands: living enemies within range and in plain view. Nobody
+ * shoots with an enemy next to them (manual p. 44: at least one step from the nearest opponent).
+ */
 export function shootTargets(s: BattleState, index = s.turn.current): Fighter[] {
   const me = s.fighters[index]!;
-  if (!me.ranged || me.ranged.weapon.condition <= 0) return [];
-  return s.fighters.filter((f) => f.side !== me.side && !isDead(f) && chebyshevDistance(me.pos, f.pos) <= RANGED_RANGE);
+  if (!me.ranged || me.ranged.weapon.condition <= 0 || nextToEnemy(s, index)) return [];
+  return s.fighters.filter(
+    (f) =>
+      f.side !== me.side &&
+      !gone(f) &&
+      chebyshevDistance(me.pos, f.pos) <= RANGED_RANGE &&
+      lineOfSight(s, me.pos, f.pos),
+  );
 }
 
 /** Fire the crossbow at the enemy on `target` without moving; the shot uses the turn. */
@@ -338,7 +431,7 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
   if (isOver(s)) return undefined;
   const me = currentFighter(s);
   if (!shootTargets(s).some((f) => samePos(f.pos, target))) return undefined;
-  const victimIndex = s.fighters.findIndex((f) => !isDead(f) && samePos(f.pos, target));
+  const victimIndex = s.fighters.findIndex((f) => !gone(f) && samePos(f.pos, target));
   const fighters = s.fighters.map((f) => ({ ...f }));
   const shooter = fighters[s.turn.current]!;
   const victim = fighters[victimIndex]!;
@@ -346,12 +439,26 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
   const distance = chebyshevDistance(shooter.pos, victim.pos);
   const hit = rollToHitRanged(me.ranged!, victim, distance, roll);
   let damage = 0;
+  let stray: { target: string; damage: number; killed: boolean } | undefined;
   if (hit) {
     damage = warded(victim, reduceDamage(rangedDamage(me.ranged!), victim, roll));
     Object.assign(victim, applyDamage(victim, damage));
+  } else {
+    // An errant bolt can strike whoever stands next to the target, friend or foe (manual p. 50).
+    const near = fighters.filter(
+      (f) => f !== victim && f !== shooter && !gone(f) && chebyshevDistance(f.pos, victim.pos) === 1,
+    );
+    if (near.length > 0 && roll(0, 99) < STRAY_CHANCE) {
+      const other = near[roll(0, near.length - 1)]!;
+      const d = warded(other, reduceDamage(rangedDamage(me.ranged!), other, roll));
+      Object.assign(other, applyDamage(other, d));
+      stray = { target: other.id, damage: d, killed: isDead(other) };
+    }
   }
   const killed = isDead(victim);
-  return endTurn(s, fighters, [{ type: 'shoot', attacker: me.id, target: victim.id, hit, damage, killed, distance }]);
+  return endTurn(s, fighters, [
+    { type: 'shoot', attacker: me.id, target: victim.id, hit, damage, killed, distance, ...(stray && { stray }) },
+  ]);
 }
 
 /** Spell kinds castable in a fight. */
@@ -402,7 +509,12 @@ function slide(s: BattleState, caster: Fighter, subject: Fighter, steps: number,
 function splashVictims(fighters: readonly Fighter[], caster: Fighter, subject: Fighter, spell: number): Fighter[] {
   const reach = SPELL_SPLASH[spell];
   if (!reach) return [];
-  const others = fighters.filter((f) => f !== subject && f.side === subject.side && !isDead(f));
+  if (reach === 'within2')
+    // Flamecast's fire spreads to anyone within two steps of the target: friend or foe, but not the caster.
+    return fighters.filter(
+      (f) => f !== subject && f !== caster && !gone(f) && chebyshevDistance(subject.pos, f.pos) <= 2,
+    );
+  const others = fighters.filter((f) => f !== subject && f.side === subject.side && !gone(f));
   if (reach === 'all') return others.filter((f) => chebyshevDistance(caster.pos, f.pos) <= RANGED_RANGE);
   if (reach === 'adjacent') return others.filter((f) => chebyshevDistance(subject.pos, f.pos) === 1);
   return others
@@ -411,10 +523,13 @@ function splashVictims(fighters: readonly Fighter[], caster: Fighter, subject: F
     .slice(0, 2);
 }
 
-/** Combat spells the current fighter could cast right now (it knows them and can pay the minimum). */
+/**
+ * Combat spells the current fighter could cast right now (it knows them and can pay the minimum). Nobody casts
+ * with an enemy next to them (manual p. 45).
+ */
 export function castableSpells(s: BattleState, index = s.turn.current): SpellDef[] {
   const me = s.fighters[index]!;
-  if (isDead(me) || (me.silenced ?? 0) > 0) return [];
+  if (gone(me) || (me.silenced ?? 0) > 0 || nextToEnemy(s, index)) return [];
   return (me.spells ?? []).filter((d) => {
     const kind = spellKind(d);
     return COMBAT_KINDS.includes(kind) && me.health + me.stamina >= d.minCost && carriesFor(me.items, d);
@@ -437,11 +552,22 @@ export function castPower(f: Fighter, def: SpellDef): number {
  * spell damage. The cost comes off Stamina, then Health (never below 1); `maxSpend` caps the power
  * (the enemy AI uses it to cast from Stamina only).
  */
+/** Spells that need a clear line to the target (bolts that travel): damage spells other than Skyfire's lightning. */
+export function needsLineOfSight(def: SpellDef): boolean {
+  return spellKind(def) === 'damage' && def.index !== SKYFIRE;
+}
+
+/** Chance (percent) a line-of-sight spell lands: Casting Accuracy, less 3 per step beyond the first, 5..98. */
+export function castHitChance(casting: number, distance: number): number {
+  return Math.max(5, Math.min(98, casting - 3 * Math.max(0, distance - 1)));
+}
+
 export function castSpell(
   s: BattleState,
   spellIndex: number,
   target: GridPos,
   maxSpend = Infinity,
+  roll?: Roll,
 ): BattleState | undefined {
   if (isOver(s)) return undefined;
   const me = currentFighter(s);
@@ -449,10 +575,11 @@ export function castSpell(
   if (!def) return undefined;
   const kind = spellKind(def) as CastKind;
   const hostile = HOSTILE_KINDS.includes(kind);
-  const victimIndex = s.fighters.findIndex((f) => !isDead(f) && samePos(f.pos, target));
+  const victimIndex = s.fighters.findIndex((f) => !gone(f) && samePos(f.pos, target));
   const victim = s.fighters[victimIndex];
   if (!victim || chebyshevDistance(me.pos, victim.pos) > RANGED_RANGE) return undefined;
   if (hostile !== (victim.side !== me.side)) return undefined;
+  if (needsLineOfSight(def) && !lineOfSight(s, me.pos, victim.pos)) return undefined;
 
   const power = Math.min(castPower(me, def), maxSpend);
   if (power < def.minCost) return undefined;
@@ -472,7 +599,14 @@ export function castSpell(
   let turn = s.turn;
   let summoned: string | undefined;
   let effect = amount;
-  if (kind === 'damage') {
+  // A bolt can miss: Casting Accuracy against the distance (the cost is paid either way).
+  const missed =
+    !!roll &&
+    needsLineOfSight(def) &&
+    me.casting !== undefined &&
+    roll(0, 99) >= castHitChance(me.casting, chebyshevDistance(me.pos, victim.pos));
+  if (missed) effect = 0;
+  else if (kind === 'damage') {
     // Skyfire only strikes a fighter carrying metal (a weapon or armour).
     if (def.index === SKYFIRE && !subject.weapon && !subject.armor) effect = 0;
     Object.assign(subject, applyDamage(subject, warded(subject, effect)));
@@ -540,6 +674,7 @@ export function castSpell(
         ...(also && { also }),
         ...(reflected && { reflected }),
         ...(summoned && { summoned }),
+        ...(missed && { missed }),
       },
     ],
     turn,
@@ -556,20 +691,96 @@ export function defend(s: BattleState): BattleState | undefined {
   return endTurn(s, s.fighters, [{ type: 'defend', id: currentFighter(s).id }], marked);
 }
 
-/** Skip the turn. */
+/** Share of Health plus Stamina a turn of rest restores (Health first, then Stamina). */
+export const REST_SHARE = 0.1;
+
+/**
+ * Rest (manual p. 46): regain some Health and Stamina, but stand easier to hit until your next turn.
+ * Restores Health first, then Stamina, as healing does.
+ */
 export function rest(s: BattleState): BattleState | undefined {
   if (isOver(s)) return undefined;
-  return endTurn(s, s.fighters, [{ type: 'rest', id: currentFighter(s).id }]);
+  const i = s.turn.current;
+  const me = s.fighters[i]!;
+  let gain = Math.max(1, Math.round((me.maxHealth + me.maxStamina) * REST_SHARE));
+  const health = Math.min(me.maxHealth, me.health + gain);
+  gain -= health - me.health;
+  const stamina = Math.min(me.maxStamina, me.stamina + Math.max(0, gain));
+  const healed = health - me.health + (stamina - me.stamina);
+  const fighters = s.fighters.map((f, k) => (k === i ? { ...f, health, stamina, resting: true } : f));
+  return endTurn(s, fighters, [{ type: 'rest', id: me.id, healed }]);
 }
 
-/** The party retreats unless more than one of its members is dead (BaKGL always succeeds otherwise). */
-export function flee(s: BattleState): BattleState | undefined {
+/**
+ * Size up an enemy (manual pp. 28, 46): uses the turn; the higher the Assessment skill, the more it reveals,
+ * starting with how hurt it is.
+ */
+export function assess(s: BattleState, target: GridPos): BattleState | undefined {
+  if (isOver(s)) return undefined;
+  const me = currentFighter(s);
+  const foe = s.fighters.find((f) => !gone(f) && f.side !== me.side && samePos(f.pos, target));
+  if (!foe) return undefined;
+  const facts = assessFacts(foe, me.assessment ?? 30);
+  return endTurn(s, s.fighters, [{ type: 'assess', id: me.id, target: foe.id, facts }]);
+}
+
+/** What an Assessment skill of `skill` reveals about `f`: one fact per 20 points, at least one, at most six. */
+export function assessFacts(f: Fighter, skill: number): string[] {
+  const all = [
+    `Health ${f.health} of ${f.maxHealth}`,
+    `Stamina ${f.stamina} of ${f.maxStamina}`,
+    f.speed >= 6 ? `very quick (Speed ${f.speed})` : f.speed <= 3 ? `slow (Speed ${f.speed})` : `Speed ${f.speed}`,
+    `Strength ${f.strength}`,
+    `Defense ${f.defense}%, Melee ${f.melee}%`,
+    f.spells && f.spells.length > 0
+      ? `a spellcaster`
+      : f.ranged
+        ? `carries a crossbow`
+        : f.armor
+          ? `wears armour`
+          : `no armour, no spells`,
+  ];
+  return all.slice(0, Math.max(1, Math.min(all.length, Math.floor(skill / 20))));
+}
+
+/** Percent chance a retreat works: 70, less 10 for each enemy standing next to a party member, at least 25. */
+export function retreatChance(s: BattleState): number {
+  const party = s.fighters.filter((f) => f.side === 'party' && !gone(f));
+  const pressing = s.fighters.filter(
+    (f) => f.side === 'enemy' && !gone(f) && party.some((p) => chebyshevDistance(p.pos, f.pos) <= 1),
+  ).length;
+  return Math.max(25, 70 - 10 * pressing);
+}
+
+/**
+ * The party tries to retreat (manual p. 46). It refuses while any member is down; otherwise it gets away on a
+ * `retreatChance` roll. Success or not, the attempt uses the turn. Without a `roll` it always works (tests).
+ */
+export function flee(s: BattleState, roll?: Roll): BattleState | undefined {
   if (isOver(s) || currentFighter(s).side !== 'party') return undefined;
-  const turn = fleeTurn(s.turn);
-  const success = turn.outcome === 'fled';
-  const events: BattleEvent[] = [{ type: 'flee', success }];
-  if (success) events.push({ type: 'end', outcome: 'fled' });
+  if (!canFlee(s.turn.combatants)) return endTurn(s, s.fighters, [{ type: 'flee', success: false, refused: true }]);
+  const success = !roll || roll(0, 99) < retreatChance(s);
+  if (!success) return endTurn(s, s.fighters, [{ type: 'flee', success: false }]);
+  const turn: TurnState = { ...s.turn, outcome: 'fled' };
+  const events: BattleEvent[] = [
+    { type: 'flee', success },
+    { type: 'end', outcome: 'fled' },
+  ];
   return { ...s, turn, events, history: [...s.history, ...events] };
+}
+
+/** An enemy runs from the fight (morale, see ai.ts): it leaves the field alive, taking its gear with it. */
+export function enemyRetreat(s: BattleState): BattleState | undefined {
+  if (isOver(s)) return undefined;
+  const i = s.turn.current;
+  const me = s.fighters[i]!;
+  if (me.side !== 'enemy') return undefined;
+  const fighters = s.fighters.map((f, k) => (k === i ? { ...f, fled: true } : f));
+  const turn: TurnState = {
+    ...s.turn,
+    combatants: s.turn.combatants.map((c, k) => (k === i ? { ...c, fled: true } : c)),
+  };
+  return endTurn(s, fighters, [{ type: 'retreat', id: me.id }], turn);
 }
 
 /** Plain-text line for the combat log. */
@@ -584,9 +795,12 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
       return `${name(e.attacker)} ${verb} ${name(e.target)} for ${e.damage}${e.killed ? ' and fells them' : ''}.`;
     }
     case 'shoot':
+      if (!e.hit && e.stray)
+        return `${name(e.attacker)} fires at ${name(e.target)} and misses; the bolt strikes ${name(e.stray.target)} for ${e.stray.damage}${e.stray.killed ? ' and fells them' : ''}.`;
       if (!e.hit) return `${name(e.attacker)} fires at ${name(e.target)} and misses.`;
       return `${name(e.attacker)} shoots ${name(e.target)} for ${e.damage}${e.killed ? ' and fells them' : ''}.`;
     case 'cast':
+      if (e.missed) return `${name(e.caster)} casts ${e.spell} at ${name(e.target)}, but it goes wide.`;
       if (e.reflected) {
         const hurt =
           e.kind === 'damage' || e.kind === 'drain' ? ` for ${e.amount}${e.killed ? ', felling them' : ''}` : '';
@@ -632,11 +846,19 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
     case 'defend':
       return `${name(e.id)} defends.`;
     case 'rest':
-      return `${name(e.id)} waits.`;
+      return e.healed > 0 ? `${name(e.id)} rests and recovers ${e.healed}.` : `${name(e.id)} rests.`;
+    case 'assess':
+      return `${name(e.id)} sizes up ${name(e.target)}: ${e.facts.join('; ')}.`;
+    case 'retreat':
+      return `${name(e.id)} breaks and runs.`;
     case 'held':
       return `${name(e.id)} cannot act.`;
     case 'flee':
-      return e.success ? 'The party retreats.' : 'The party cannot retreat.';
+      return e.success
+        ? 'The party retreats.'
+        : e.refused
+          ? 'The party will not leave a fallen companion behind.'
+          : 'The party tries to retreat but cannot break away.';
     case 'round':
       return `Round ${e.round}.`;
     case 'end':

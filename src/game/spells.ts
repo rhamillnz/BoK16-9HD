@@ -33,10 +33,11 @@ export const DRAIN_SPELLS: readonly number[] = [42];
  * in range), Evil Seek "more than one target" (the two enemies nearest the target), Flamecast "area fire damage"
  * (enemies next to the target). The reach of each is our reading (**unverified**).
  */
-export const SPELL_SPLASH: Record<number, 'all' | 'nearest2' | 'adjacent'> = {
+export const SPELL_SPLASH: Record<number, 'all' | 'nearest2' | 'adjacent' | 'within2'> = {
   28: 'all',
   44: 'nearest2',
-  4: 'adjacent',
+  // Manual p. 54: Flamecast "causes damage to anyone within two steps of the target".
+  4: 'within2',
 };
 
 /**

@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { enemyTurn } from '../combat/ai';
 import {
   advanceOn,
+  assess,
   attack,
   castableSpells,
   castSpell,
@@ -9,6 +10,7 @@ import {
   defend,
   fighterAt,
   flee,
+  gone,
   gridFor,
   HOSTILE_KINDS,
   isOver,
@@ -31,9 +33,9 @@ import {
 import { COMBAT_GRID_COLS, COMBAT_GRID_ROWS, chebyshevDistance, planAttack, type GridPos } from '../combat/grid';
 import { parseMonsterNames, parseMonsterSprites, type MonsterSprites } from '../combat/monsters';
 import { battleRewards, type Rewards } from '../combat/rewards';
-import { isDead, rollFrom, type Roll } from '../combat/rules';
+import { rollFrom, type Roll } from '../combat/rules';
 import { combatSprite, spriteSheetName, type CombatSprite } from '../combat/sprites';
-import type { CombatOutcome } from '../combat/turns';
+import type { CombatOutcome, Initiative } from '../combat/turns';
 import { parseBMX, type IndexedImage } from '../formats/bmx';
 import type { ResourceArchive } from '../formats/archive';
 import { parseCombatInventories, type ContainerItem } from '../formats/containers';
@@ -139,6 +141,8 @@ export interface CombatLaunch {
   disabled?: readonly GridPos[];
   spriteFor: (monster: number) => CombatSprite | undefined;
   palette: Uint8Array;
+  /** Who caught whom off guard (see startBattle); the party by default. */
+  initiative?: Initiative;
 }
 
 /** What the fight produced beyond the outcome: its event history and, after a win, the rewards. */
@@ -161,6 +165,9 @@ export class CombatController {
   private hover: GridPos | undefined;
   private slash = false;
   private shooting = false;
+  private assessing = false;
+  /** Auto-combat (manual p. 47): the party's turns are played for it until switched off. */
+  private auto = false;
   /** Index into the current fighter's castable spells, or -1 when not casting. */
   private casting = -1;
   private rewards: Rewards | undefined;
@@ -180,9 +187,11 @@ export class CombatController {
     this.onEnd = onEnd;
     this.slash = false;
     this.shooting = false;
+    this.assessing = false;
+    this.auto = false;
     this.casting = -1;
     this.rewards = undefined;
-    this.state = startBattle(launch.fighters, launch.disabled);
+    this.state = startBattle(launch.fighters, launch.disabled, launch.initiative);
     this.view = new CombatView(
       {
         party: launch.party,
@@ -199,17 +208,32 @@ export class CombatController {
     this.panel = new CombatPanel(document.body, {
       defend: () => this.partyAction(defend),
       wait: () => this.partyAction(rest),
-      flee: () => this.partyAction(flee),
+      flee: () => this.partyAction((s) => flee(s, this.roll)),
       toggleSlash: () => {
         this.slash = !this.slash;
         this.shooting = false;
+        this.assessing = false;
         this.casting = -1;
         this.refresh();
       },
       toggleShoot: () => {
         this.shooting = !this.shooting;
         this.slash = false;
+        this.assessing = false;
         this.casting = -1;
+        this.refresh();
+      },
+      toggleAssess: () => {
+        this.assessing = !this.assessing;
+        this.slash = false;
+        this.shooting = false;
+        this.casting = -1;
+        this.refresh();
+      },
+      toggleAuto: () => {
+        this.auto = !this.auto;
+        this.panel?.note(this.auto ? 'Auto-combat on: the party fights on its own (A to stop).' : 'Auto-combat off.');
+        this.delay = ENEMY_DELAY;
         this.refresh();
       },
       cycleCast: () => this.cycleCast(),
@@ -232,10 +256,11 @@ export class CombatController {
   update(dt: number): void {
     this.view?.tick(dt);
     const s = this.state;
-    if (!s || isOver(s) || currentFighter(s).side === 'party') return;
+    if (!s || isOver(s) || (currentFighter(s).side === 'party' && !this.auto)) return;
     this.delay -= dt;
     if (this.delay > 0) return;
     this.delay = ENEMY_DELAY;
+    // Enemies, and the party under auto-combat, are played by the same tactics.
     this.state = enemyTurn(s, this.roll);
     this.refresh();
   }
@@ -246,7 +271,7 @@ export class CombatController {
 
   private yourTurn(): boolean {
     const s = this.state;
-    return !!s && !isOver(s) && currentFighter(s).side === 'party';
+    return !!s && !isOver(s) && currentFighter(s).side === 'party' && !this.auto;
   }
 
   private cellAt(e: MouseEvent): GridPos | undefined {
@@ -267,6 +292,8 @@ export class CombatController {
       this.panel.render(s, {
         slash: this.slash,
         shoot: this.shooting,
+        assess: this.assessing,
+        auto: this.auto,
         canShoot: this.canShoot(),
         cast: this.castName(),
         canCast: this.canCast(),
@@ -291,10 +318,11 @@ export class CombatController {
     if (spell) {
       const wanted = HOSTILE_KINDS.includes(spellKind(spell)) ? 'enemy' : 'party';
       return s.fighters
-        .filter((f) => !isDead(f) && f.side === wanted)
+        .filter((f) => !gone(f) && f.side === wanted)
         .map((f) => ({ label: `Cast ${spell.name} on ${f.name}`, act: () => this.click(f.pos, false) }));
     }
-    const enemies = s.fighters.filter((f) => !isDead(f) && f.side === 'enemy');
+    const enemies = s.fighters.filter((f) => !gone(f) && f.side === 'enemy');
+    if (this.assessing) return enemies.map((f) => ({ label: `Assess ${f.name}`, act: () => this.click(f.pos, false) }));
     if (this.shooting)
       return shootTargets(s).map((f) => ({ label: `Shoot ${f.name}`, act: () => this.click(f.pos, false) }));
     const grid = gridFor(s);
@@ -351,6 +379,7 @@ export class CombatController {
     if (!next) return;
     this.state = next;
     this.casting = -1;
+    this.assessing = false;
     this.delay = ENEMY_DELAY;
     this.refresh();
   }
@@ -361,18 +390,24 @@ export class CombatController {
     const target = fighterAt(s, cell);
     const spell = this.spellsNow()[this.casting];
     if (spell && target) {
-      const next = castSpell(s, spell.index, cell);
+      const next = castSpell(s, spell.index, cell, Infinity, this.roll);
       if (next) {
         this.casting = -1;
         this.partyAction(() => next);
       } else
         this.panel?.note(
-          `${spell.name} needs ${HOSTILE_KINDS.includes(spellKind(spell)) ? 'an enemy' : 'a living ally'} within range.`,
+          `${spell.name} needs ${HOSTILE_KINDS.includes(spellKind(spell)) ? 'an enemy' : 'a living ally'} within range and in plain view.`,
         );
+    } else if (target && target.side === 'enemy' && this.assessing) {
+      const next = assess(s, cell);
+      if (next) this.partyAction(() => next);
     } else if (target && target.side === 'enemy' && this.shooting) {
       const next = shoot(s, cell, this.roll);
       if (next) this.partyAction(() => next);
-      else this.panel?.note('You cannot shoot that: it needs an equipped crossbow and a target within range.');
+      else
+        this.panel?.note(
+          'You cannot shoot that: it needs an equipped crossbow, no enemy beside you, and a clear line to a target in range.',
+        );
     } else if (target && target.side === 'enemy') {
       const next = attack(s, cell, this.roll, { kind: this.slash || shift ? 'slash' : 'thrust' });
       if (next) this.partyAction(() => next);

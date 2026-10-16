@@ -146,11 +146,10 @@ describe('combat flow', () => {
 });
 
 describe('fleeing', () => {
-  it('succeeds unless more than one party member is dead', () => {
+  it('is not allowed while any party member is down (manual p. 46)', () => {
     const base = [party('a', 1), party('b', 1), party('c', 1), enemy('x', 1)];
     expect(canFlee(base)).toBe(true);
-    expect(canFlee([{ ...base[0]!, dead: true }, ...base.slice(1)])).toBe(true);
-    expect(canFlee([{ ...base[0]!, dead: true }, { ...base[1]!, dead: true }, ...base.slice(2)])).toBe(false);
+    expect(canFlee([{ ...base[0]!, dead: true }, ...base.slice(1)])).toBe(false);
   });
 
   it('ends the combat as fled when allowed', () => {

@@ -172,16 +172,16 @@ describe('flee', () => {
     expect(flee(enemyTurnState)).toBeUndefined();
   });
 
-  it('fails when more than one party member is dead', () => {
+  it('is refused while any party member is down, and the attempt uses the turn (manual p. 46)', () => {
     const s = startBattle([
       fighter('a', 'party', 3, 1, { speed: 9 }),
       fighter('b', 'party', 4, 1, { health: 0 }),
-      fighter('c', 'party', 5, 1, { health: 0 }),
       fighter('x', 'enemy', 3, 9, { speed: 1 }),
     ]);
     const out = flee(s)!;
     expect(out.turn.outcome).toBeUndefined();
-    expect(out.events[0]).toEqual({ type: 'flee', success: false });
+    expect(out.events[0]).toEqual({ type: 'flee', success: false, refused: true });
+    expect(currentFighter(out).id).toBe('x');
   });
 });
 

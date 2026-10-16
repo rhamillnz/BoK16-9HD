@@ -86,6 +86,8 @@ export interface MeleeStats {
   /** Banished, charmed or otherwise unable to parry. */
   incapacitated?: boolean;
   defending?: boolean;
+  /** Resting this round: easier to hit (manual p. 46). */
+  resting?: boolean;
   /** Monster index; used for Guarda Revanche's bonus against moredhel. */
   monster?: number;
 }
@@ -127,9 +129,21 @@ export function hitScore(attacker: MeleeStats, defender: MeleeStats, kind: Attac
   return Math.max(2, Math.min(98, skill - parryValue(defender)));
 }
 
-/** A hit when a 0-99 roll (+20 against a defender who is defending) is below the score. */
-export function rollToHit(attacker: MeleeStats, defender: MeleeStats, kind: AttackKind, roll: Roll): boolean {
-  const r = roll(0, 99) + (defender.defending ? 20 : 0);
+/** Roll points against a defender who is resting (it is not guarding itself). */
+export const RESTING_PENALTY = 15;
+
+/**
+ * A hit when a 0-99 roll is below the score. Defending adds 20 to the roll (harder to hit), resting takes 15
+ * off it (easier), and `bonus` (a riposte after a parry) takes that much off.
+ */
+export function rollToHit(
+  attacker: MeleeStats,
+  defender: MeleeStats,
+  kind: AttackKind,
+  roll: Roll,
+  bonus = 0,
+): boolean {
+  const r = roll(0, 99) + (defender.defending ? 20 : 0) - (defender.resting ? RESTING_PENALTY : 0) - bonus;
   return r < hitScore(attacker, defender, kind);
 }
 
@@ -268,7 +282,7 @@ export function rangedHitScore(shooter: RangedStats, defender: MeleeStats, dista
 }
 
 export function rollToHitRanged(shooter: RangedStats, defender: MeleeStats, distance: number, roll: Roll): boolean {
-  const r = roll(0, 99) + (defender.defending ? 20 : 0);
+  const r = roll(0, 99) + (defender.defending ? 20 : 0) - (defender.resting ? RESTING_PENALTY : 0);
   return r < rangedHitScore(shooter, defender, distance);
 }
 

@@ -121,9 +121,10 @@ describe('rewards', () => {
   const won = () => {
     let s = startBattle([
       fighter('party0', 'party', 3, 1, { speed: 9, ranged: { crossbow: 90, weapon: bolt() } }),
-      fighter('enemy1', 'enemy', 3, 2, { speed: 1, maxHealth: 20, health: 8, stamina: 0 }),
+      // Two steps away: nobody shoots with an enemy right beside them (manual p. 44).
+      fighter('enemy1', 'enemy', 3, 3, { speed: 1, maxHealth: 20, health: 8, stamina: 0 }),
     ]);
-    s = shoot(s, { x: 3, y: 2 }, low)!;
+    s = shoot(s, { x: 3, y: 3 }, low)!;
     return s;
   };
 

@@ -248,6 +248,12 @@ export class CombatView {
           a?.act('attack', a.walking ? 0.4 : 0);
           if (e.hit) struck(e.target, e.killed, 0.45);
           else actorOf(e.target)?.act('block', 0.25);
+          if (e.type === 'shoot' && e.stray) struck(e.stray.target, e.stray.killed, 0.5);
+          break;
+        }
+        case 'assess': {
+          const target = at(e.target);
+          if (target) actorOf(e.id)?.face(target);
           break;
         }
         case 'cast': {
@@ -294,7 +300,8 @@ export class CombatView {
         // Models stay where their walk takes them; anything else that moved them (a spell) places them.
         if (!node.actor.walking && node.actor.object.position.distanceTo(this.cellCentre(f.pos)) > 0.05)
           node.actor.place(this.cellCentre(f.pos));
-        // The fallen stay on the field, lying where they fell.
+        // Those who ran leave the field; the fallen stay on it, lying where they fell.
+        node.actor.object.visible = !f.fled;
         if (isDead(f)) node.actor.die();
         else this.faceFoes(node);
         continue;
@@ -304,8 +311,8 @@ export class CombatView {
       for (const m of [node.mesh, node.ghost]) {
         m.setMatrixAt(0, new THREE.Matrix4().makeTranslation(at.x, at.y, at.z));
         m.instanceMatrix.needsUpdate = true;
-        // No corpse sprite yet: the fallen simply leave the field.
-        m.visible = !isDead(f);
+        // No corpse sprite yet: the fallen simply leave the field (as do those who ran).
+        m.visible = !isDead(f) && !f.fled;
       }
     }
     const { cols, rows } = this.o;

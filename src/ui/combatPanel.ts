@@ -45,12 +45,19 @@ export interface CombatPanelHandlers {
   flee(): void;
   toggleSlash(): void;
   toggleShoot(): void;
+  /** Pick an enemy to size up (uses the turn). */
+  toggleAssess(): void;
+  /** Auto-combat on or off. */
+  toggleAuto(): void;
   /** Cycle through the caster's spells, then off. */
   cycleCast(): void;
   finish(): void;
 }
 
-/** DOM overlay for a fight: fighter list, buttons and a short log. Keyboard: D defend, W wait, Q retreat, S slash, F shoot, C cast, Enter continue. */
+/**
+ * DOM overlay for a fight: fighter list, buttons and a short log. Keyboard: D defend, R rest, Q retreat, S slash,
+ * F shoot, C cast, E assess, A auto-combat, Enter continue.
+ */
 export class CombatPanel {
   private readonly root = document.createElement('div');
   private readonly list = document.createElement('div');
@@ -62,6 +69,8 @@ export class CombatPanel {
   private readonly slashButton: HTMLButtonElement;
   private readonly shootButton: HTMLButtonElement;
   private readonly castButton: HTMLButtonElement;
+  private readonly assessButton: HTMLButtonElement;
+  private readonly autoButton: HTMLButtonElement;
   private readonly lines: string[] = [];
   private readonly onKey: (e: KeyboardEvent) => void;
 
@@ -84,11 +93,13 @@ export class CombatPanel {
       return b;
     };
     button('Defend (D)', h.defend);
-    button('Wait (W)', h.wait);
+    button('Rest (R)', h.wait);
     button('Retreat (Q)', h.flee);
     this.slashButton = button('Slash: off (S)', h.toggleSlash);
     this.shootButton = button('Shoot: off (F)', h.toggleShoot);
     this.castButton = button('Cast: off (C)', h.cycleCast);
+    this.assessButton = button('Assess (E)', h.toggleAssess);
+    this.autoButton = button('Auto: off (A)', h.toggleAuto);
     const hint = document.createElement('div');
     hint.style.cssText = 'font-size:12px;opacity:.7;margin-bottom:6px';
     hint.textContent =
@@ -100,7 +111,9 @@ export class CombatPanel {
       if (e.repeat) return;
       const k = e.code;
       if (k === 'KeyD') h.defend();
-      else if (k === 'KeyW') h.wait();
+      else if (k === 'KeyR' || k === 'KeyW') h.wait();
+      else if (k === 'KeyE') h.toggleAssess();
+      else if (k === 'KeyA') h.toggleAuto();
       else if (k === 'KeyQ') h.flee();
       else if (k === 'KeyS') h.toggleSlash();
       else if (k === 'KeyF') h.toggleShoot();
@@ -116,7 +129,16 @@ export class CombatPanel {
 
   render(
     state: BattleState,
-    opts: { slash: boolean; shoot?: boolean; canShoot?: boolean; cast?: string; canCast?: boolean; yourTurn: boolean },
+    opts: {
+      slash: boolean;
+      shoot?: boolean;
+      canShoot?: boolean;
+      cast?: string;
+      canCast?: boolean;
+      assess?: boolean;
+      auto?: boolean;
+      yourTurn: boolean;
+    },
   ): void {
     this.lines.push(...logLines(state));
     while (this.lines.length > 9) this.lines.shift();
@@ -140,13 +162,17 @@ export class CombatPanel {
       ? OUTCOME_TEXT[outcome]
       : opts.yourTurn
         ? `${currentFighter(state).name}: your move`
-        : 'Enemy turn…';
+        : opts.auto && currentFighter(state).side === 'party'
+          ? `${currentFighter(state).name}: auto-combat`
+          : 'Enemy turn…';
     this.slashButton.textContent = `Slash: ${opts.slash ? 'on' : 'off'} (S)`;
     this.shootButton.textContent = `Shoot: ${opts.shoot ? 'on' : 'off'} (F)`;
     this.castButton.textContent = `Cast: ${opts.cast ?? 'off'} (C)`;
+    this.assessButton.textContent = opts.assess ? 'Assess: pick (E)' : 'Assess (E)';
+    this.autoButton.textContent = `Auto: ${opts.auto ? 'on' : 'off'} (A)`;
     this.castButton.style.opacity = opts.canCast ? '1' : '0.4';
     this.shootButton.style.opacity = opts.canShoot ? '1' : '0.4';
-    this.buttons.style.opacity = opts.yourTurn && !outcome ? '1' : '0.5';
+    this.buttons.style.opacity = (opts.yourTurn || opts.auto) && !outcome ? '1' : '0.5';
   }
 
   /**

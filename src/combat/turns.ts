@@ -32,6 +32,13 @@ export interface TurnCombatant {
   summoned?: boolean;
 }
 
+/**
+ * Who acts first (manual p. 42): the side that caught the other off guard ('party' after creeping up, 'enemy'
+ * in an ambush) takes all its turns of the first round before the other side; with 'none' everyone goes in
+ * Speed order from the start.
+ */
+export type Initiative = Side | 'none';
+
 export function newCombatant(id: string, side: Side, speed: number, health = 1): TurnCombatant {
   return {
     id,
@@ -61,12 +68,13 @@ export function isActive(c: TurnCombatant): boolean {
  * The next combatant to act: the fastest of those still pending. Ties go to the one later in the
  * list. `onlyParty` restricts the choice to the player's side (used for the first turn of a combat).
  */
-export function selectNextCombatant(combatants: readonly TurnCombatant[], onlyParty = false): number {
+export function selectNextCombatant(combatants: readonly TurnCombatant[], onlyParty: boolean | Side = false): number {
+  const only: Side | undefined = onlyParty === true ? 'party' : onlyParty === false ? undefined : onlyParty;
   let best = -1;
   let bestSpeed = -1;
   combatants.forEach((c, i) => {
     if (!isActive(c)) return;
-    if (onlyParty && c.side !== 'party') return;
+    if (only && c.side !== only) return;
     const speed = effectiveSpeed(c);
     if (speed >= bestSpeed) {
       bestSpeed = speed;
@@ -105,14 +113,27 @@ export interface TurnState {
   /** 1-based round counter. */
   round: number;
   outcome?: CombatOutcome;
+  /** The side with the first round's initiative, if any. */
+  initiative?: Side;
 }
 
-/** Starts a combat: the fastest party member acts first. */
-export function beginCombat(combatants: readonly TurnCombatant[]): TurnState {
+/**
+ * Starts a combat. Without an `initiative` (BaKGL's rule) the fastest party member acts first, then everyone in
+ * Speed order. With one, the side that has it takes all its first-round turns first; 'none' is Speed order
+ * from the start.
+ */
+export function beginCombat(combatants: readonly TurnCombatant[], initiative?: Initiative): TurnState {
   const list = combatants.map((c) => ({ ...c }));
-  const current = selectNextCombatant(list, true);
-  if (current < 0) throw new Error('combat needs at least one active party member');
-  return { combatants: list, current, round: 1 };
+  if (initiative === undefined) {
+    const current = selectNextCombatant(list, true);
+    if (current < 0) throw new Error('combat needs at least one active party member');
+    return { combatants: list, current, round: 1 };
+  }
+  const side = initiative === 'none' ? undefined : initiative;
+  let current = selectNextCombatant(list, side ?? false);
+  if (current < 0) current = selectNextCombatant(list);
+  if (current < 0) throw new Error('combat needs at least one active fighter');
+  return { combatants: list, current, round: 1, ...(side ? { initiative: side } : {}) };
 }
 
 export interface FinishTurnOptions {
@@ -137,13 +158,15 @@ export function finishTurn(state: TurnState, opts: FinishTurnOptions = {}): Turn
   if (outcome) return { ...state, combatants, outcome };
 
   let round = state.round;
-  let next = selectNextCombatant(combatants);
+  // In the first round the side with the initiative finishes its turns before the other side starts.
+  let next = round === 1 && state.initiative ? selectNextCombatant(combatants, state.initiative) : -1;
+  if (next < 0) next = selectNextCombatant(combatants);
   if (next < 0) {
     combatants = startNextRound(combatants);
     round += 1;
     next = selectNextCombatant(combatants);
   }
-  return { combatants, current: next < 0 ? state.current : next, round };
+  return { ...state, combatants, current: next < 0 ? state.current : next, round };
 }
 
 /** Marks a combatant dead, e.g. after taking lethal damage. Does not end the turn. */
@@ -167,9 +190,9 @@ export function rest(state: TurnState): TurnState {
   return finishTurn(state);
 }
 
-/** The party escapes: BaKGL always succeeds unless more than one party member is dead. */
+/** The party will not leave a fallen companion behind (manual p. 46): no retreat while any member is down. */
 export function canFlee(combatants: readonly TurnCombatant[]): boolean {
-  return combatants.filter((c) => c.side === 'party' && c.dead).length <= 1;
+  return !combatants.some((c) => c.side === 'party' && c.dead && !c.summoned);
 }
 
 /** Ends the combat as a retreat when allowed; otherwise returns the state unchanged. */

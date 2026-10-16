@@ -711,20 +711,20 @@ DIFF = implemented differently; NO = missing.
 | Barding | YES | `game/bard.ts` |
 | Haggling, angry shopkeeper | YES | `game/shops.ts` |
 | Scout warns; worst Stealth sneaks past | YES | `game/combatApproach.ts` |
-| Initiative by click; enemy ambush | NO | the party's fastest always acts first |
+| Initiative; enemy ambush | YES | `initiativeFor` (combatEncounter.ts): creeping up = party, an unscouted ambush = enemy, else Speed order |
 | Grid / G / R keys | PARTIAL | grid always shown; G and R mean other things |
 | Thrust in reach, swing adjacent | YES | `combat/grid.ts`, `battle.ts` |
 | Swing costs Stamina | YES | 1 Stamina |
-| Crossbow: one step away, line of sight, quarrels, wild shots | PARTIAL | none of these four; range penalty is our own guess |
-| Spells: one step away, gem power, casting accuracy | PARTIAL | power always maxed; no distance roll |
-| Retreat refused if anyone is down | DIFF | allowed while at most one is dead |
-| Defend, parry and riposte | PARTIAL | +20 defence; no riposte |
-| Assess | NO | |
-| Rest in combat heals | DIFF | just waits |
-| Auto-combat | NO | |
+| Crossbow: one step away, line of sight, quarrels, wild shots | PARTIAL | one step, line of sight and wild shots done (battle.ts); quarrels still not modelled |
+| Spells: one step away, gem power, casting accuracy | PARTIAL | one step and Casting Accuracy for bolts done; power still always maxed |
+| Retreat refused if anyone is down | YES | refused while anyone is down; otherwise a chance that falls with enemies pressing; the attempt uses the turn |
+| Defend, parry and riposte | YES | a parried blow gives the defender +10 to hit and 25% more damage on that attacker |
+| Assess | YES | `assess` (E): one fact per 20 Assessment points |
+| Rest in combat heals | YES | 10% of Health+Stamina, Health first; 15 easier to hit until the next turn |
+| Auto-combat | YES | A key: the party's turns use the enemy tactics |
 | Inventory in combat costs the turn | NO | no inventory in combat |
 | Revive the fallen; all down = game over | DIFF | auto-revive at 1 Health and retreat |
-| Enemy AI (reckless, cautious, morale) | PARTIAL | defend at low Health, heal allies; no morale |
+| Enemy AI (reckless, cautious, morale) | YES | morale from the save's retreat factor (0-9, x7%), +30% once the leader is down; cautious rest when spent |
 | Enhancements and resistances | PARTIAL | maths done; no hit visuals |
 | Racial weapon penalty | PARTIAL | party treated as race-less |
 | Keys, picks, best picker, disarm | YES | `game/locks.ts`, `containerControls.ts` |

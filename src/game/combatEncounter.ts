@@ -13,7 +13,8 @@ import type { PlacedEncounter } from '../world/encounters';
 import type { ContainerItem } from '../formats/containers';
 import { lootOf } from '../combat/loot';
 import { activeCharacters, updateCharacter, type PartyState } from './party';
-import { approachCombat } from './combatApproach';
+import { APPROACH_CONTEXT, approachCombat } from './combatApproach';
+import type { Initiative } from '../combat/turns';
 import { NEVER_ENDING_COMBATS } from './postCombat';
 import {
   CombatController,
@@ -132,6 +133,7 @@ export class CombatEncounters {
     }
     if (this.active || this.approaching) return;
     this.approaching = true;
+    let initiative: Initiative = 'none';
     try {
       const key = `${e.tileX},${e.tileY}:${e.record.tableIndex}`;
       const now = this.d.now?.() ?? 0;
@@ -155,11 +157,15 @@ export class CombatEncounters {
         return;
       }
       if (def.entryDialog !== 0) await this.d.playDialog?.(def.entryDialog, { context: a.context, monster });
+      initiative = initiativeFor(def.ambush, a.context);
     } finally {
       this.approaching = false;
     }
-    await this.launch(def, false, (outcome, fighters, at, result) =>
-      this.finished(e, def, outcome, fighters, at, result),
+    await this.launch(
+      def,
+      false,
+      (outcome, fighters, at, result) => this.finished(e, def, outcome, fighters, at, result),
+      initiative,
     );
   }
 
@@ -172,21 +178,27 @@ export class CombatEncounters {
     const def = this.d.support.defs[defIndex];
     if (!def || this.active) return Promise.resolve(undefined);
     return new Promise((resolve) => {
-      void this.launch(def, true, (outcome, fighters, at, result) => {
-        let party = this.settle(outcome, fighters, result);
-        if (outcome === 'won') {
+      // A chest ambush: the monsters spring it, so they have the first round.
+      void this.launch(
+        def,
+        true,
+        (outcome, fighters, at, result) => {
+          let party = this.settle(outcome, fighters, result);
+          if (outcome === 'won') {
+            this.d.setParty(party);
+            const loot = lootOf(this.d.support.inventories, def.combatIndex, fighters);
+            void (this.d.searchBodies?.(loot) ?? Promise.resolve()).then(() => resolve(outcome));
+            return;
+          }
+          if (outcome === 'dead') party = revive(party);
+          const back = ((this.d.position().heading + 128) & 255) * ((Math.PI * 2) / 256);
+          // Heading 0 is north (+y), counter-clockwise: a step of 1200 units back along the way the party came.
+          this.d.placeParty(at.x - Math.sin(back) * 1200, at.y + Math.cos(back) * 1200, this.d.position().heading);
           this.d.setParty(party);
-          const loot = lootOf(this.d.support.inventories, def.combatIndex, fighters);
-          void (this.d.searchBodies?.(loot) ?? Promise.resolve()).then(() => resolve(outcome));
-          return;
-        }
-        if (outcome === 'dead') party = revive(party);
-        const back = ((this.d.position().heading + 128) & 255) * ((Math.PI * 2) / 256);
-        // Heading 0 is north (+y), counter-clockwise: a step of 1200 units back along the way the party came.
-        this.d.placeParty(at.x - Math.sin(back) * 1200, at.y + Math.cos(back) * 1200, this.d.position().heading);
-        this.d.setParty(party);
-        resolve(outcome);
-      }).then((started) => {
+          resolve(outcome);
+        },
+        'enemy',
+      ).then((started) => {
         if (!started) resolve(undefined);
       });
     });
@@ -202,6 +214,7 @@ export class CombatEncounters {
       at: { x: number; y: number },
       result: CombatResult,
     ) => void,
+    initiative: Initiative = 'none',
   ): Promise<boolean> {
     if (this.active) return false;
     const { support: s, items } = this.d;
@@ -241,6 +254,7 @@ export class CombatEncounters {
           heading: fit.heading,
           spriteFor: spriteLookup(s, sheets),
           palette: s.palette ?? new Uint8Array(1024).fill(255),
+          initiative,
         },
         (outcome, after, result) => {
           show?.();
@@ -303,4 +317,14 @@ function debugMonsters<T extends { monster: number }>(enemies: T[]): T[] {
     .map(Number)
     .filter((n) => Number.isInteger(n) && n > 0);
   return list.length ? enemies.map((e, i) => ({ ...e, monster: list[i % list.length]! })) : enemies;
+}
+
+/**
+ * Who has the first round (manual p. 42): the party when it crept up on the enemy unseen; the enemy when its
+ * ambush caught a party that had not scouted it; otherwise nobody, and everyone goes in Speed order.
+ */
+export function initiativeFor(ambush: boolean, context: number): Initiative {
+  if (context === APPROACH_CONTEXT.snuck) return 'party';
+  if (ambush && context === APPROACH_CONTEXT.unscouted) return 'enemy';
+  return 'none';
 }
