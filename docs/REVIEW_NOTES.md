@@ -356,3 +356,10 @@ All 7 party models are approved, and 23 of the 27 creatures. The last four:
 Everything is approved except the wyvern.
 - **Eyes.** The old eyes sat inside the head's metaball surface and never showed. They are now yellow, on the surface, with a vertical slit pupil (`slit`).
 - **Tail.** The spade blob at the tip is replaced by a forked tip of two tapering prongs.
+
+## Named characters round 1 (Opus, 2026-10-16)
+
+Eight characters who talk to the party, built with `build_party.py` from `art/jobs/talkers.json` into `public/models/named/`: Delekhan, Tomas, Aglaranna, Katala, Sumani, Duke Martin, Dubal An Loch and Brother Marc. The references were the dialogue portraits (ACT014, 021, 025, 030A, 040, 050, 052). Aglaranna has no dialogue actor or portrait, so she follows the books: auburn hair, a green gown and a circlet.
+- New builder parts: `circlet` (band, optional gem, optional horns for Delekhan), `tabard` (straight-cut, with a raised dragon emblem for Tomas), `scales` on the breastplate (scale mail), and `book` and `bow` as held items. Marc's book is left out because it did not sit in the hand.
+- In the game, a dialogue NPC with a named model (`namedModelName`, by actor) stands as that rigged model playing its idle animation at true size, instead of a generic figure. Only Brother Marc appears as a world NPC (zone 2 garden, chapters 1-3 and 6); the others talk in town scenes and cutscenes, which have no 3D figures. Checked in game by giving Rowe Marc's model for one run (it stands on the road and turns to the party). In the garden Marc stands among corn as tall as he is.
+- Review page: https://claude.ai/artifact/TSvduKtHYgtLmj1wMxfSw7 (collection `talkers1`).

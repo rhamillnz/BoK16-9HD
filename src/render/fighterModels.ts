@@ -73,6 +73,25 @@ const CREATURE_MODELS: Readonly<Record<number, string>> = {
   63: 'mor_caster',
 };
 
+/**
+ * Models of the named characters who talk to the party (public/models/named/<name>.glb, built from
+ * art/jobs/talkers.json), by dialogue actor number. Aglaranna has no dialogue actor.
+ */
+const NAMED_MODELS: Readonly<Record<number, string>> = {
+  14: 'marc',
+  21: 'martin',
+  25: 'sumani',
+  30: 'katala',
+  40: 'dubal',
+  50: 'delekhan',
+  52: 'tomas',
+};
+
+/** The named-character model for a dialogue actor, or undefined for everyone else. */
+export function namedModelName(actor: number): string | undefined {
+  return NAMED_MODELS[actor];
+}
+
 /** The creature model file name for a monster index, or undefined when it has none yet. */
 export function creatureModelName(monster: number): string | undefined {
   return CREATURE_MODELS[monster];

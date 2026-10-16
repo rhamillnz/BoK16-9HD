@@ -1,0 +1,1160 @@
+[
+ {
+  "name": "marc",
+  "out": "public/models/named/marc.glb",
+  "preview": "shots/talkers/marc",
+  "tex": 256,
+  "outfit": "Male_Peasant",
+  "drop": [
+   "Legs"
+  ],
+  "brow_color": [
+   0.06,
+   0.04,
+   0.03
+  ],
+  "clips": {
+   "idle": "Idle_Loop"
+  },
+  "tints": {
+   "Body": {
+    "color": [
+     0.06,
+     0.045,
+     0.04
+    ]
+   },
+   "Arms": {
+    "color": [
+     0.06,
+     0.045,
+     0.04
+    ]
+   },
+   "Feet": {
+    "color": [
+     0.12,
+     0.08,
+     0.05
+    ]
+   }
+  },
+  "garments": [
+   {
+    "type": "hair",
+    "color": [
+     0.06,
+     0.04,
+     0.03
+    ],
+    "tip": [
+     0.1,
+     0.07,
+     0.05
+    ],
+    "length": 1.6,
+    "volume": 0.018,
+    "flare": 0.03,
+    "hairline": [
+     [
+      0,
+      6
+     ],
+     [
+      40,
+      4
+     ],
+     [
+      62,
+      -6
+     ],
+     [
+      72,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
+    "type": "robe",
+    "color": [
+     0.06,
+     0.045,
+     0.04
+    ],
+    "hem": 0.13,
+    "flare": [
+     0.3,
+     0.27
+    ],
+    "follow": 1.0
+   },
+   {
+    "type": "tabard",
+    "color": [
+     0.78,
+     0.77,
+     0.74
+    ],
+    "half_width": 0.1,
+    "hem": 1.0,
+    "offset": 0.03
+   },
+   {
+    "type": "belt",
+    "color": [
+     0.1,
+     0.07,
+     0.05
+    ],
+    "buckle": [
+     0.4,
+     0.38,
+     0.34
+    ]
+   }
+  ]
+ },
+ {
+  "name": "martin",
+  "out": "public/models/named/martin.glb",
+  "preview": "shots/talkers/martin",
+  "tex": 256,
+  "outfit": "Male_Ranger",
+  "drop": [
+   "Head_Hood",
+   "Pauldron"
+  ],
+  "brow_color": [
+   0.12,
+   0.07,
+   0.04
+  ],
+  "clips": {
+   "idle": "Idle_Loop"
+  },
+  "tints": {
+   "Body": {
+    "color": [
+     0.17,
+     0.26,
+     0.15
+    ],
+    "target": 0.7
+   },
+   "Arms": {
+    "color": [
+     0.17,
+     0.26,
+     0.15
+    ],
+    "target": 0.7
+   },
+   "Legs": {
+    "color": [
+     0.2,
+     0.13,
+     0.07
+    ]
+   },
+   "Feet": {
+    "color": [
+     0.12,
+     0.07,
+     0.04
+    ]
+   }
+  },
+  "garments": [
+   {
+    "type": "hair",
+    "color": [
+     0.14,
+     0.08,
+     0.04
+    ],
+    "tip": [
+     0.2,
+     0.12,
+     0.06
+    ],
+    "length": 1.6,
+    "volume": 0.014,
+    "hairline": [
+     [
+      0,
+      30
+     ],
+     [
+      38,
+      22
+     ],
+     [
+      62,
+      -6
+     ],
+     [
+      72,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
+    "type": "tunic",
+    "color": [
+     0.36,
+     0.2,
+     0.09
+    ],
+    "hem": 0.95
+   },
+   {
+    "type": "baldric",
+    "color": [
+     0.2,
+     0.11,
+     0.05
+    ]
+   },
+   {
+    "type": "belt",
+    "color": [
+     0.14,
+     0.08,
+     0.04
+    ],
+    "pouch": true
+   }
+  ],
+  "weapon": {
+   "type": "bow"
+  }
+ },
+ {
+  "name": "sumani",
+  "out": "public/models/named/sumani.glb",
+  "preview": "shots/talkers/sumani",
+  "tex": 256,
+  "outfit": "Male_Peasant",
+  "drop": [
+   "Legs"
+  ],
+  "skin": [
+   0.82,
+   0.64,
+   0.5
+  ],
+  "brow_color": [
+   0.03,
+   0.025,
+   0.02
+  ],
+  "clips": {
+   "idle": "Idle_Loop"
+  },
+  "tints": {
+   "Body": {
+    "color": [
+     0.86,
+     0.85,
+     0.82
+    ]
+   },
+   "Arms": {
+    "color": [
+     0.86,
+     0.85,
+     0.82
+    ]
+   },
+   "Feet": {
+    "color": [
+     0.06,
+     0.05,
+     0.05
+    ]
+   }
+  },
+  "garments": [
+   {
+    "type": "hair",
+    "color": [
+     0.025,
+     0.02,
+     0.02
+    ],
+    "tip": [
+     0.05,
+     0.04,
+     0.04
+    ],
+    "length": 1.36,
+    "volume": 0.02,
+    "flare": 0.05,
+    "hairline": [
+     [
+      0,
+      34
+     ],
+     [
+      38,
+      24
+     ],
+     [
+      62,
+      -6
+     ],
+     [
+      72,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
+    "type": "robe",
+    "color": [
+     0.86,
+     0.85,
+     0.82
+    ],
+    "trim": [
+     0.5,
+     0.3,
+     0.12
+    ],
+    "hem": 0.2,
+    "flare": [
+     0.3,
+     0.27
+    ],
+    "follow": 1.0
+   },
+   {
+    "type": "cape",
+    "color": [
+     0.17,
+     0.17,
+     0.18
+    ],
+    "fur": true,
+    "hem": 0.5
+   },
+   {
+    "type": "collar",
+    "color": [
+     0.17,
+     0.17,
+     0.18
+    ],
+    "fur": true
+   },
+   {
+    "type": "belt",
+    "color": [
+     0.08,
+     0.06,
+     0.05
+    ],
+    "buckle": [
+     0.7,
+     0.7,
+     0.72
+    ]
+   }
+  ],
+  "weapon": {
+   "type": "dagger"
+  }
+ },
+ {
+  "name": "katala",
+  "out": "public/models/named/katala.glb",
+  "preview": "shots/talkers/katala",
+  "tex": 256,
+  "base": "Superhero_Female_FullBody",
+  "outfit": "Female_Peasant",
+  "drop": [
+   "Legs"
+  ],
+  "brow_color": [
+   0.2,
+   0.12,
+   0.06
+  ],
+  "clips": {
+   "idle": "Idle_Loop"
+  },
+  "tints": {
+   "Body": {
+    "color": [
+     0.78,
+     0.34,
+     0.27
+    ]
+   },
+   "Feet": {
+    "color": [
+     0.15,
+     0.08,
+     0.05
+    ]
+   }
+  },
+  "garments": [
+   {
+    "type": "hair",
+    "color": [
+     0.28,
+     0.16,
+     0.07
+    ],
+    "tip": [
+     0.36,
+     0.22,
+     0.1
+    ],
+    "length": 1.5,
+    "volume": 0.012,
+    "ponytail": true,
+    "smooth": true,
+    "hairline": [
+     [
+      0,
+      40
+     ],
+     [
+      40,
+      30
+     ],
+     [
+      50,
+      10
+     ],
+     [
+      56,
+      -40
+     ],
+     [
+      80,
+      -40
+     ],
+     [
+      96,
+      0
+     ],
+     [
+      180,
+      -20
+     ]
+    ]
+   },
+   {
+    "type": "robe",
+    "color": [
+     0.78,
+     0.34,
+     0.27
+    ],
+    "vneck": 0.05,
+    "hem": 0.12,
+    "flare": [
+     0.3,
+     0.26
+    ],
+    "follow": 1.0
+   },
+   {
+    "type": "belt",
+    "color": [
+     0.9,
+     0.42,
+     0.1
+    ],
+    "buckle": [
+     0.9,
+     0.42,
+     0.1
+    ],
+    "z": 1.02
+   }
+  ],
+  "gloves": [
+   0.42,
+   0.22,
+   0.15
+  ]
+ },
+ {
+  "name": "dubal",
+  "out": "public/models/named/dubal.glb",
+  "preview": "shots/talkers/dubal",
+  "tex": 256,
+  "outfit": "Male_Peasant",
+  "scale": 0.8,
+  "brow_color": [
+   0.8,
+   0.8,
+   0.78
+  ],
+  "brow_scale": 1.2,
+  "skin": [
+   1.0,
+   0.82,
+   0.76
+  ],
+  "sculpt": {
+   "nose": 0.01,
+   "cheeks": 0.006
+  },
+  "proportions": {
+   "spine_01": [
+    1.25,
+    1,
+    1.2
+   ],
+   "spine_02": [
+    1.22,
+    1,
+    1.18
+   ],
+   "spine_03": [
+    1.2,
+    1,
+    1.15
+   ],
+   "pelvis": [
+    1.2,
+    1,
+    1.15
+   ],
+   "upperarm_l": [
+    1.15,
+    0.95,
+    1.15
+   ],
+   "upperarm_r": [
+    1.15,
+    0.95,
+    1.15
+   ],
+   "thigh_l": [
+    1.2,
+    0.82,
+    1.2
+   ],
+   "thigh_r": [
+    1.2,
+    0.82,
+    1.2
+   ],
+   "calf_l": [
+    1.2,
+    0.85,
+    1.2
+   ],
+   "calf_r": [
+    1.2,
+    0.85,
+    1.2
+   ],
+   "Head": [
+    1.12,
+    1.12,
+    1.12
+   ]
+  },
+  "beard": "Hair_Beard",
+  "beard_color": [
+   0.86,
+   0.86,
+   0.84
+  ],
+  "beard_target": 1.4,
+  "beard_depth": 1.2,
+  "clips": {
+   "idle": "Idle_Loop"
+  },
+  "tints": {
+   "Body": {
+    "color": [
+     0.08,
+     0.2,
+     0.14
+    ]
+   },
+   "Arms": {
+    "color": [
+     0.08,
+     0.2,
+     0.14
+    ]
+   },
+   "Legs": {
+    "color": [
+     0.16,
+     0.1,
+     0.06
+    ]
+   },
+   "Feet": {
+    "color": [
+     0.05,
+     0.04,
+     0.035
+    ]
+   }
+  },
+  "garments": [
+   {
+    "type": "hair",
+    "color": [
+     0.8,
+     0.8,
+     0.78
+    ],
+    "tip": [
+     0.9,
+     0.9,
+     0.88
+    ],
+    "length": 1.6,
+    "volume": 0.02,
+    "wave": 0.006,
+    "hairline": [
+     [
+      0,
+      26
+     ],
+     [
+      38,
+      20
+     ],
+     [
+      62,
+      -6
+     ],
+     [
+      72,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
+    "type": "collar",
+    "color": [
+     0.42,
+     0.26,
+     0.12
+    ],
+    "fur": true
+   },
+   {
+    "type": "belt",
+    "color": [
+     0.04,
+     0.035,
+     0.03
+    ],
+    "buckle": [
+     0.72,
+     0.72,
+     0.74
+    ]
+   }
+  ],
+  "weapon": {
+   "type": "axe"
+  }
+ },
+ {
+  "name": "delekhan",
+  "out": "public/models/named/delekhan.glb",
+  "preview": "shots/talkers/delekhan",
+  "tex": 256,
+  "outfit": "Male_Ranger",
+  "drop": [
+   "Head_Hood",
+   "Pauldron"
+  ],
+  "scale": 1.05,
+  "elf_ears": 0.035,
+  "skin": [
+   0.78,
+   0.62,
+   0.6
+  ],
+  "brow_color": [
+   0.05,
+   0.04,
+   0.04
+  ],
+  "brow_scale": 0.6,
+  "clips": {
+   "idle": "Idle_Loop"
+  },
+  "tints": {
+   "Body": {
+    "color": [
+     0.12,
+     0.1,
+     0.1
+    ],
+    "target": 0.7
+   },
+   "Arms": {
+    "color": [
+     0.12,
+     0.1,
+     0.1
+    ],
+    "target": 0.7
+   },
+   "Legs": {
+    "color": [
+     0.06,
+     0.05,
+     0.05
+    ]
+   },
+   "Feet": {
+    "color": [
+     0.04,
+     0.035,
+     0.035
+    ]
+   }
+  },
+  "garments": [
+   {
+    "type": "hair",
+    "color": [
+     0.04,
+     0.035,
+     0.035
+    ],
+    "tip": [
+     0.08,
+     0.06,
+     0.05
+    ],
+    "length": 1.55,
+    "volume": 0.016,
+    "hairline": [
+     [
+      0,
+      30
+     ],
+     [
+      38,
+      22
+     ],
+     [
+      62,
+      -6
+     ],
+     [
+      72,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
+    "type": "breastplate",
+    "scales": true,
+    "color": [
+     0.7,
+     0.72,
+     0.76
+    ],
+    "trim": [
+     0.45,
+     0.46,
+     0.5
+    ],
+    "z": [
+     1.0,
+     1.47
+    ],
+    "belly": false
+   },
+   {
+    "type": "pauldrons",
+    "color": [
+     0.4,
+     0.41,
+     0.45
+    ],
+    "trim": [
+     0.6,
+     0.6,
+     0.64
+    ]
+   },
+   {
+    "type": "belt",
+    "color": [
+     0.06,
+     0.05,
+     0.05
+    ],
+    "buckle": [
+     0.7,
+     0.7,
+     0.74
+    ],
+    "scabbard": true
+   },
+   {
+    "type": "cape",
+    "color": [
+     0.55,
+     0.05,
+     0.04
+    ],
+    "hem": 0.3
+   },
+   {
+    "type": "collar",
+    "color": [
+     0.55,
+     0.05,
+     0.04
+    ]
+   },
+   {
+    "type": "circlet",
+    "color": [
+     0.72,
+     0.73,
+     0.77
+    ],
+    "horns": 0.13,
+    "horn_color": [
+     0.72,
+     0.73,
+     0.77
+    ],
+    "thickness": 0.008
+   }
+  ],
+  "weapon": {
+   "type": "sword",
+   "blade": [
+    0.6,
+    0.62,
+    0.66
+   ],
+   "guard": [
+    0.3,
+    0.3,
+    0.34
+   ]
+  }
+ },
+ {
+  "name": "tomas",
+  "out": "public/models/named/tomas.glb",
+  "preview": "shots/talkers/tomas",
+  "tex": 256,
+  "outfit": "Male_Ranger",
+  "drop": [
+   "Head_Hood",
+   "Pauldron"
+  ],
+  "scale": 1.06,
+  "elf_ears": 0.03,
+  "brow_color": [
+   0.2,
+   0.12,
+   0.06
+  ],
+  "clips": {
+   "idle": "Idle_Loop"
+  },
+  "tints": {
+   "Body": {
+    "color": [
+     0.07,
+     0.07,
+     0.08
+    ],
+    "target": 0.7
+   },
+   "Arms": {
+    "color": [
+     0.07,
+     0.07,
+     0.08
+    ],
+    "target": 0.7
+   },
+   "Legs": {
+    "color": [
+     0.06,
+     0.06,
+     0.07
+    ]
+   },
+   "Feet": {
+    "color": [
+     0.05,
+     0.04,
+     0.035
+    ]
+   }
+  },
+  "garments": [
+   {
+    "type": "hair",
+    "color": [
+     0.26,
+     0.15,
+     0.07
+    ],
+    "tip": [
+     0.36,
+     0.22,
+     0.1
+    ],
+    "length": 1.58,
+    "volume": 0.02,
+    "wave": 0.01,
+    "flare": 0.05,
+    "hairline": [
+     [
+      0,
+      26
+     ],
+     [
+      38,
+      20
+     ],
+     [
+      62,
+      -6
+     ],
+     [
+      72,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
+    "type": "tabard",
+    "color": [
+     0.88,
+     0.87,
+     0.82
+    ],
+    "emblem": [
+     0.85,
+     0.32,
+     0.08
+    ],
+    "half_width": 0.18,
+    "hem": 1.0,
+    "offset": 0.03
+   },
+   {
+    "type": "pauldrons",
+    "color": [
+     0.78,
+     0.6,
+     0.22
+    ],
+    "trim": [
+     0.9,
+     0.75,
+     0.35
+    ]
+   },
+   {
+    "type": "belt",
+    "color": [
+     0.1,
+     0.07,
+     0.05
+    ],
+    "buckle": [
+     0.78,
+     0.6,
+     0.22
+    ],
+    "scabbard": true
+   }
+  ],
+  "weapon": {
+   "type": "sword",
+   "blade": [
+    0.85,
+    0.82,
+    0.7
+   ],
+   "guard": [
+    0.78,
+    0.6,
+    0.22
+   ]
+  }
+ },
+ {
+  "name": "aglaranna",
+  "out": "public/models/named/aglaranna.glb",
+  "preview": "shots/talkers/aglaranna",
+  "tex": 256,
+  "base": "Superhero_Female_FullBody",
+  "outfit": "Female_Peasant",
+  "drop": [
+   "Legs"
+  ],
+  "elf_ears": 0.035,
+  "brow_color": [
+   0.4,
+   0.18,
+   0.08
+  ],
+  "clips": {
+   "idle": "Idle_Loop"
+  },
+  "tints": {
+   "Body": {
+    "color": [
+     0.16,
+     0.34,
+     0.2
+    ]
+   },
+   "Feet": {
+    "color": [
+     0.3,
+     0.24,
+     0.12
+    ]
+   }
+  },
+  "garments": [
+   {
+    "type": "hair",
+    "color": [
+     0.48,
+     0.2,
+     0.08
+    ],
+    "tip": [
+     0.62,
+     0.32,
+     0.12
+    ],
+    "length": 1.25,
+    "volume": 0.018,
+    "flare": 0.06,
+    "wave": 0.008,
+    "hairline": [
+     [
+      0,
+      34
+     ],
+     [
+      38,
+      24
+     ],
+     [
+      62,
+      -6
+     ],
+     [
+      72,
+      -999
+     ],
+     [
+      180,
+      -999
+     ]
+    ]
+   },
+   {
+    "type": "robe",
+    "color": [
+     0.16,
+     0.34,
+     0.2
+    ],
+    "trim": [
+     0.78,
+     0.62,
+     0.24
+    ],
+    "hem": 0.08,
+    "flare": [
+     0.34,
+     0.3
+    ],
+    "follow": 1.0
+   },
+   {
+    "type": "belt",
+    "color": [
+     0.78,
+     0.62,
+     0.24
+    ],
+    "buckle": [
+     0.78,
+     0.62,
+     0.24
+    ]
+   },
+   {
+    "type": "circlet",
+    "color": [
+     0.82,
+     0.66,
+     0.26
+    ],
+    "gem": [
+     0.1,
+     0.6,
+     0.25
+    ],
+    "thickness": 0.004,
+    "centre": [
+     0,
+     0.012,
+     1.715
+    ],
+    "radius": [
+     0.108,
+     0.122
+    ]
+   }
+  ],
+  "gloves": [
+   0.5,
+   0.3,
+   0.22
+  ]
+ }
+]

@@ -940,6 +940,8 @@ def g_breastplate(ctx, g):
     gold = g.get("trim", (0.42, 0.43, 0.46))
     if g.get("ornate"):
         steel = textured("plate", filigree_image(g.get("color", (0.16, 0.16, 0.2)), g.get("inlay", (0.55, 0.4, 0.13))), 0.35, 0.85)
+    elif g.get("scales"):
+        steel = textured("plate", scale_image(g.get("color", (0.62, 0.63, 0.66))), 0.4, 0.85)
     else:
         steel = own(material("plate", g.get("color", (0.62, 0.63, 0.66)), 0.3, 0.9))
     trim_mat = own(material("plate_trim", gold, 0.35, 0.9))
@@ -961,7 +963,7 @@ def g_breastplate(ctx, g):
     # The shirt bunches over the belt: smooth the belly harder so the plate reads as one hammered surface.
     if g.get("belly", True):
         soften(plate, 20, 0.5, below=zlo + 0.25)
-    if g.get("ornate"):
+    if g.get("ornate") or g.get("scales"):
         planar_uv(plate, 2.2)
     band = rim_tube(plate, "breastplate_trim", trim_mat, 0.0065)
     pts = boundary_points(plate, 0.05)
@@ -2184,6 +2186,204 @@ def g_wings(ctx, g):
 
 
 GARMENTS.update({"wings": g_wings, "mask": g_mask, "loincloth": g_loincloth, "seaweed": g_seaweed, "fangs": g_fangs, "warts": g_warts})
+
+
+# ---------------------------------------------------------------- named characters (Delekhan, Tomas, Katala ...)
+
+
+def scale_image(colour, size=256):
+    """Scale mail: overlapping rounded plates in staggered rows, dark in the gaps."""
+    import numpy as np
+
+    def fn(x, y):
+        X, Y = x * 14, y * 18
+        row = np.floor(Y)
+        fx = (X + 0.5 * (row % 2)) % 1 - 0.5
+        fy = Y % 1
+        d = np.hypot(fx * 1.1, fy - 0.15)
+        lum = np.where(d < 0.62, 0.55 + 0.6 * np.sqrt(np.clip(1 - d / 0.62, 0, 1)), 0.25)
+        return [np.clip(colour[k] * lum, 0, 1) for k in range(3)]
+
+    return pattern_image("scale_mail", fn, size)
+
+
+def g_circlet(ctx, g):
+    """A metal band round the brow, a gem at the front; `horns` adds two horns curving up and out (Delekhan)."""
+    metal = own(material("circlet", g.get("color", (0.8, 0.62, 0.22)), 0.3, 0.95))
+    c = Vector(g.get("centre", (0, 0.012, 1.775)))
+    rx, ry = g.get("radius", (0.102, 0.116))
+    tilt = g.get("tilt", 0.2)
+    r = g.get("thickness", 0.006)
+    band = g.get("band", 1.8)
+
+    def place(v):
+        v = v + c
+        v.z += (v.y - c.y) * tilt
+        return v
+
+    bm = bmesh.new()
+    segs, ring = 48, 8
+    rings = []
+    for k in range(segs):
+        a = 2 * math.pi * k / segs
+        n = Vector((math.cos(a), math.sin(a), 0))
+        p = Vector((math.cos(a) * rx, math.sin(a) * ry, 0))
+        rings.append([bm.verts.new(place(p + n * (r * math.cos(b)) + Vector((0, 0, r * band * math.sin(b)))))
+                      for b in (2 * math.pi * m / ring for m in range(ring))])
+    for k in range(segs):
+        a, b = rings[k], rings[(k + 1) % segs]
+        for m in range(ring):
+            bm.faces.new((a[m], a[(m + 1) % ring], b[(m + 1) % ring], b[m]))
+    parts = [link("circlet", bm, metal)]
+    gem = g.get("gem")
+    if gem:
+        bm = bmesh.new()
+        bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.012)
+        bmesh.ops.translate(bm, verts=bm.verts, vec=place(Vector((0, -ry - r * 1.2, 0))))
+        parts.append(link("circlet_gem", bm, own(material("gem", gem, 0.15, 0.2))))
+    horns = g.get("horns")
+    if horns:
+        hmat = own(material("horn", g.get("horn_color", (0.6, 0.6, 0.62)), 0.35, 0.8))
+        for side in (-1, 1):
+            a = math.atan2(-0.7, side * 0.72)
+            base = place(Vector((math.cos(a) * rx, math.sin(a) * ry, r)))
+            bm = bmesh.new()
+            steps, seg = 10, 10
+            rows = []
+            for i in range(steps + 1):
+                t = i / steps
+                q = base + Vector((side * (0.02 * t + horns * 0.35 * t * t), 0.02 * t, horns * t))
+                rad = 0.02 * (1 - t) + 0.002
+                rows.append([bm.verts.new(q + Vector((math.cos(2 * math.pi * j / seg) * rad, math.sin(2 * math.pi * j / seg) * rad, 0)))
+                             for j in range(seg)])
+            for ra, rb in zip(rows, rows[1:]):
+                for j in range(seg):
+                    bm.faces.new((ra[j], ra[(j + 1) % seg], rb[(j + 1) % seg], rb[j]))
+            centre = sum((v.co for v in rows[-1]), Vector()) / seg
+            tip = bm.verts.new(centre + Vector((0, 0, 0.01)))
+            for j in range(seg):
+                bm.faces.new((rows[-1][j], rows[-1][(j + 1) % seg], tip))
+            parts.append(link("horn", bm, hmat))
+    for o in parts:
+        smooth_shading(o)
+        set_weights(o, ctx["arm"], lambda co: {"Head": 1.0})
+    return parts
+
+
+def dragon_heightmap(n=160):
+    """A rampant dragon in profile facing left, as a height field: body, neck and head, a raised wing, legs and a
+    curled tail."""
+    import numpy as np
+    y, x = np.mgrid[0:n, 0:n] / (n - 1)
+    y = 1 - y
+
+    def ell(cx, cy, rx, ry, rot=0.0):
+        cs, sn = math.cos(rot), math.sin(rot)
+        u = (x - cx) * cs + (y - cy) * sn
+        v = -(x - cx) * sn + (y - cy) * cs
+        return (u / rx) ** 2 + (v / ry) ** 2 <= 1
+
+    def tri(a, b, c):
+        def side(p, q):
+            return (x - q[0]) * (p[1] - q[1]) - (p[0] - q[0]) * (y - q[1])
+        d1, d2, d3 = side(a, b), side(b, c), side(c, a)
+        return ~(((d1 < 0) | (d2 < 0) | (d3 < 0)) & ((d1 > 0) | (d2 > 0) | (d3 > 0)))
+
+    sil = ell(0.52, 0.45, 0.13, 0.2, 0.5)                 # body, leaning back
+    sil |= ell(0.38, 0.7, 0.05, 0.13, -0.5)               # neck
+    sil |= ell(0.28, 0.82, 0.09, 0.045, 0.25)             # head
+    sil |= tri((0.21, 0.83), (0.12, 0.76), (0.24, 0.79))  # jaw
+    sil |= tri((0.32, 0.86), (0.36, 0.97), (0.36, 0.84))  # horn
+    sil |= tri((0.55, 0.6), (0.92, 0.95), (0.86, 0.5))    # wing
+    sil |= tri((0.6, 0.62), (0.75, 0.98), (0.72, 0.62))
+    sil |= ell(0.36, 0.5, 0.1, 0.025, 0.6)                # fore legs, clawing
+    sil |= ell(0.33, 0.38, 0.09, 0.025, 0.2)
+    sil |= ell(0.5, 0.2, 0.03, 0.12, -0.2)                # hind leg
+    sil |= ell(0.43, 0.08, 0.08, 0.025)                   # foot
+    theta = np.arctan2(y - 0.2, x - 0.72)
+    rr = np.hypot(x - 0.72, y - 0.2)
+    sil |= (np.abs(rr - 0.13) < 0.025) & (theta > -2.2) & (theta < 1.6)  # tail curl
+    sil |= tri((0.84, 0.02), (0.9, 0.12), (0.78, 0.1))    # tail tip
+    h = np.where(sil, 0.8, 0.0)
+    for _ in range(2):
+        h = (h + np.roll(h, 1, 0) + np.roll(h, -1, 0) + np.roll(h, 1, 1) + np.roll(h, -1, 1)) / 5
+    return np.clip(h * 1.2, 0, 1)
+
+
+def g_tabard(ctx, g):
+    """A sleeveless tabard over the chest and back; `emblem` lays a dragon on its front (Tomas)."""
+    cloth = material("tabard", g.get("color", (0.85, 0.84, 0.8)), 0.9, 0.0, ctx["cloth"])
+    hw = g.get("half_width", 0.16)
+    zlo = g.get("hem", 0.96)
+
+    def keep(p):
+        return zlo < p.z < 1.56 and abs(p.x) < hw and off_neck(ctx, p, 0.1)
+
+    tab = torso_fit(ctx, "tabard", cloth, g.get("offset", 0.024), keep, targets=[ctx["shirt"]] + ctx["layers"], passes=12)
+    # Straight hem and sides.
+    cut(tab, [((0, 0, zlo + 0.03), (0, 0, -1)), ((hw - 0.01, 0, 0), (1, 0, 0)), ((-hw + 0.01, 0, 0), (-1, 0, 0))])
+    soften(tab, 12, 0.5)
+    solidify(tab, 0.006, -1.0)
+    smooth_shading(tab)
+    out = [tab]
+    if g.get("emblem"):
+        em = own(material("tabard_emblem", g["emblem"], 0.6, 0.0))
+        dragon = relief("tabard_dragon", tab, torso_centre(ctx), sphere_dir, (math.radians(-22), math.radians(62)),
+                        (math.radians(-48), math.radians(48)), dragon_heightmap(), 0.006, em)
+        smooth_shading(dragon, 60)
+        out.append(dragon)
+    for o in out:
+        skin_from(ctx, o, ("spine", "pelvis", "clavicle"))
+    ctx["layers"].append(tab)
+    return out
+
+
+GARMENTS.update({"circlet": g_circlet, "tabard": g_tabard})
+
+
+def book_mesh(g):
+    """A closed book held by its spine: cover and page block."""
+    bm = bmesh.new()
+    geom = bmesh.ops.create_cube(bm, size=1)
+    bmesh.ops.scale(bm, verts=geom["verts"], vec=(0.045, 0.16, 0.22))
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=(0, 0.06, 0.02))
+    cover = link("book_cover", bm, own(material("book_cover", g.get("color", (0.28, 0.1, 0.05)), 0.7)))
+    bm = bmesh.new()
+    geom = bmesh.ops.create_cube(bm, size=1)
+    bmesh.ops.scale(bm, verts=geom["verts"], vec=(0.038, 0.155, 0.21))
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=(0, 0.068, 0.02))
+    pages = link("book_pages", bm, own(material("book_pages", (0.85, 0.8, 0.66), 0.9)))
+    return [cover, pages]
+
+
+def bow_mesh(g):
+    """A longbow held at its grip: limbs curving back from the string, which runs straight tip to tip."""
+    half = g.get("length", 1.5) / 2
+    wood = own(material("bow", g.get("wood", (0.36, 0.22, 0.1)), 0.6))
+    bm = bmesh.new()
+    seg, steps = 8, 32
+    rows = []
+    for i in range(steps + 1):
+        z = -half + 2 * half * i / steps
+        t = abs(z) / half
+        x = 0.12 * t * t
+        rad = 0.018 * (1 - 0.6 * t)
+        rows.append([bm.verts.new((x + math.cos(2 * math.pi * j / seg) * rad, math.sin(2 * math.pi * j / seg) * rad, z)) for j in range(seg)])
+    for ra, rb in zip(rows, rows[1:]):
+        for j in range(seg):
+            bm.faces.new((ra[j], ra[(j + 1) % seg], rb[(j + 1) % seg], rb[j]))
+    limb = link("bow", bm, wood)
+    smooth_shading(limb)
+    bm = bmesh.new()
+    geom = bmesh.ops.create_cone(bm, cap_ends=True, segments=6, radius1=0.002, radius2=0.002, depth=2 * half)
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=(0.12, 0, 0))
+    string = link("bow_string", bm, own(material("bow_string", (0.8, 0.76, 0.66), 0.8)))
+    return [limb, string]
+
+
+WEAPONS.update({"book": book_mesh, "bow": bow_mesh})
+HOLD.update({"book": 0.0, "bow": 0.0})
+
 
 
 # ---------------------------------------------------------------- assembly

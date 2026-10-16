@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three/webgpu';
 import { existsSync } from 'node:fs';
-import { angleDelta, creatureModelName, headingTowards, modelHeight, partyModelName } from './fighterModels';
+import {
+  angleDelta,
+  creatureModelName,
+  headingTowards,
+  modelHeight,
+  namedModelName,
+  partyModelName,
+} from './fighterModels';
 
 describe('party combat models', () => {
   it('maps party members to their model files', () => {
@@ -46,5 +53,15 @@ describe('party combat models', () => {
     expect(headingTowards(o, new THREE.Vector3(0, 5, 2))).toBeCloseTo(0);
     expect(headingTowards(o, new THREE.Vector3(3, 0, 0))).toBeCloseTo(Math.PI / 2);
     expect(headingTowards(o, new THREE.Vector3(0, 1, 0))).toBeUndefined();
+  });
+});
+
+describe('named character models', () => {
+  it('maps the talking characters by dialogue actor, and every model file exists', () => {
+    expect(namedModelName(14)).toBe('marc');
+    expect(namedModelName(50)).toBe('delekhan');
+    expect(namedModelName(43)).toBeUndefined();
+    for (const actor of [14, 21, 25, 30, 40, 50, 52])
+      expect(existsSync(`public/models/named/${namedModelName(actor)}.glb`)).toBe(true);
   });
 });

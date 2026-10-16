@@ -1,6 +1,8 @@
 import * as THREE from 'three/webgpu';
 import { positionLocal, sin, smoothstep, time, vec3 } from 'three/tsl';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
+import { loadPartyModel, namedModelName, PARTY_SCALE } from './fighterModels';
 import { npcPlacement, npcVariant, type ClothingColors, type NpcVariant } from '../game/npcLook';
 import type { EncounterRunner } from '../game/encounterRunner';
 import type { PlacedEncounter } from '../world/encounters';
@@ -12,7 +14,8 @@ import { EYE_HEIGHT } from '../world/partyController';
  * A figure appears while its encounter can still fire and stays while the party is near after it
  * fired (the dialogue is open), then goes. Models: public/models/npc/npc_<variant>.glb, built by
  * tools/blender/build_bodies.py from art/jobs/npcs.json; the clothing parts are materials named
- * `tint_*` that are multiplied with colours taken from the actor's portrait.
+ * `tint_*` that are multiplied with colours taken from the actor's portrait. Named characters (Brother Marc ...)
+ * use their own rigged model instead (public/models/named/), playing its idle animation at their true size.
  */
 
 /** Figures further away than this (BaK units) are hidden. */
@@ -36,6 +39,8 @@ interface Figure {
   /** The encounter fired and the party is still near: keep the figure until it walks away. */
   lingering: boolean;
   gone: boolean;
+  /** Plays a named character's idle animation. */
+  mixer?: THREE.AnimationMixer;
 }
 
 /**
@@ -85,6 +90,7 @@ export class NpcFigures {
   private runner: EncounterRunner | undefined;
   private figures: Figure[] = [];
   private generation = 0;
+  private lastTime: number | undefined;
 
   constructor(
     scene: THREE.Scene,
@@ -118,10 +124,13 @@ export class NpcFigures {
   private clear(): void {
     this.generation++;
     for (const f of this.figures) {
-      f.object.traverse((o) => {
-        const mat = (o as THREE.Mesh).material;
-        for (const m of Array.isArray(mat) ? mat : mat ? [mat] : []) m.dispose();
-      });
+      // A named model's clone shares its materials with the cached model: keep them.
+      if (f.mixer) f.mixer.stopAllAction();
+      else
+        f.object.traverse((o) => {
+          const mat = (o as THREE.Mesh).material;
+          for (const m of Array.isArray(mat) ? mat : mat ? [mat] : []) m.dispose();
+        });
       this.group.remove(f.object);
     }
     this.figures = [];
@@ -135,6 +144,39 @@ export class NpcFigures {
     const gen = this.generation;
     const roadPoints = roads();
     for (const npc of runner.npcEncounters()) {
+      const named = namedModelName(npc.actor);
+      if (named) {
+        const gltf = await loadPartyModel(named, `${this.baseUrl}../named/`);
+        if (gen !== this.generation) return;
+        if (gltf) {
+          const object = cloneSkinned(gltf.scene);
+          object.traverse((o) => {
+            if ((o as THREE.Mesh).isMesh) {
+              o.castShadow = true;
+              o.frustumCulled = false;
+            }
+          });
+          const mixer = new THREE.AnimationMixer(object);
+          const idle = gltf.animations.find((c) => c.name === 'idle');
+          if (idle) mixer.clipAction(idle).play();
+          mixer.update(((npc.actor * 0.37) % 1) * (idle?.duration ?? 1));
+          const at = npcPlacement(npc.encounter, roadPoints);
+          object.position.set(at.x / WORLD_SCALE, getHeight(at.x, at.y) / WORLD_SCALE, -at.y / WORLD_SCALE);
+          object.scale.setScalar(PARTY_SCALE);
+          object.visible = false;
+          this.group.add(object);
+          this.figures.push({
+            encounter: npc.encounter,
+            x: at.x,
+            y: at.y,
+            object,
+            lingering: false,
+            gone: false,
+            mixer,
+          });
+          continue;
+        }
+      }
       const template = await this.model(npcVariant(npc.name));
       if (!template || gen !== this.generation) return;
       const object = template.clone(true);
@@ -177,6 +219,9 @@ export class NpcFigures {
       this.clear();
       void this.build(runner, getHeight, roads);
     }
+    const now = performance.now() / 1000;
+    const dt = this.lastTime === undefined ? 0 : Math.min(0.1, now - this.lastTime);
+    this.lastTime = now;
     for (const f of this.figures) {
       if (f.gone) continue;
       const dx = partyX - f.x;
@@ -191,7 +236,10 @@ export class NpcFigures {
       }
       f.object.visible = (pending || f.lingering) && dist < NPC_SHOW_DISTANCE;
       // The models face +Z (south); turn towards the party, in render space z = -y.
-      if (f.object.visible) f.object.rotation.y = Math.atan2(dx, -dy);
+      if (f.object.visible) {
+        f.object.rotation.y = Math.atan2(dx, -dy);
+        f.mixer?.update(dt);
+      }
     }
   }
 }
