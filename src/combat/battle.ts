@@ -50,6 +50,10 @@ import {
   RANGED_RANGE,
   rangedDamage,
   rollToHitRanged,
+  HitFlag,
+  monsterDamage,
+  resistsPoison,
+  weaponHitFlags,
 } from './rules';
 import {
   beginCombat,
@@ -477,8 +481,12 @@ export function attack(s: BattleState, target: GridPos, roll: Roll, opts: Attack
   let damage = 0;
   if (hit) {
     const base = meleeDamage(attacker, kind, victim);
+    const flags = weaponHitFlags(attacker.weapon, attacker.weapon?.conditionBased === false);
     damage = warded(victim, reduceDamage(riposte ? Math.round(base * RIPOSTE_DAMAGE) : base, victim, roll));
+    damage = monsterDamage(victim.monster, flags, damage);
     Object.assign(victim, applyDamage(victim, damage));
+    if (damage > 0 && flags & HitFlag.Poison && !resistsPoison(victim.monster) && !victim.armor?.poisoned)
+      victim.poisoned = true;
   } else if (victim.defending) victim.riposte = attacker.id;
   if (riposte) attacker.riposte = undefined;
   const killed = isDead(victim);
@@ -517,7 +525,11 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
   let damage = 0;
   let stray: { target: string; damage: number; killed: boolean } | undefined;
   if (hit) {
-    damage = warded(victim, reduceDamage(rangedDamage(me.ranged!), victim, roll));
+    damage = monsterDamage(
+      victim.monster,
+      weaponHitFlags(me.ranged!.weapon),
+      warded(victim, reduceDamage(rangedDamage(me.ranged!), victim, roll)),
+    );
     Object.assign(victim, applyDamage(victim, damage));
   } else {
     // An errant bolt can strike whoever stands next to the target, friend or foe (manual p. 50).
@@ -526,7 +538,11 @@ export function shoot(s: BattleState, target: GridPos, roll: Roll): BattleState 
     );
     if (near.length > 0 && roll(0, 99) < STRAY_CHANCE) {
       const other = near[roll(0, near.length - 1)]!;
-      const d = warded(other, reduceDamage(rangedDamage(me.ranged!), other, roll));
+      const d = monsterDamage(
+        other.monster,
+        weaponHitFlags(me.ranged!.weapon),
+        warded(other, reduceDamage(rangedDamage(me.ranged!), other, roll)),
+      );
       Object.assign(other, applyDamage(other, d));
       stray = { target: other.id, damage: d, killed: isDead(other) };
     }

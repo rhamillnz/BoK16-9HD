@@ -725,7 +725,7 @@ DIFF = implemented differently; NO = missing.
 | Inventory in combat costs the turn | NO | no inventory in combat |
 | Revive the fallen; all down = game over | DIFF | auto-revive at 1 Health and retreat |
 | Enemy AI (reckless, cautious, morale) | YES | morale from the save's retreat factor (0-9, x7%), +30% once the leader is down; cautious rest when spent |
-| Enhancements and resistances | PARTIAL | maths done; no hit visuals |
+| Enhancements and resistances | PARTIAL | maths done; monster resistances from the original table (docs/formats/combat-audit.md); poisoned blades poison; no hit visuals |
 | Racial weapon penalty | PARTIAL | party treated as race-less |
 | Keys, picks, best picker, disarm | YES | `game/locks.ts`, `containerControls.ts` |
 | Scent of Sarig detects traps | NO | |

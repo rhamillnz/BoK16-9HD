@@ -735,6 +735,8 @@ const chestAmbush = installChestAmbushes({
 });
 const containers = await installContainers({
   beforeOpen: chestAmbush,
+  // Only Scent of Sarig (timed slot 5) shows a chest is trapped.
+  sensesTraps: () => staticSpellActive(cast.lights, 5, clock.state.ticks),
   archive,
   items: objectItems,
   get chapter() {

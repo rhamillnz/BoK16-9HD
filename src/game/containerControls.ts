@@ -69,6 +69,11 @@ export interface ContainerHost {
   modelName?(model: number): string | undefined;
   /** Runs when the party goes for a container, before its lock (a chest ambush); false sends them away. */
   beforeOpen?(containerId: string): Promise<boolean>;
+  /**
+   * The party can tell a chest is trapped: Scent of Sarig is in force (manual). Without it an armed trap goes
+   * off as the chest is opened, with no warning. Default true.
+   */
+  sensesTraps?(): boolean;
 }
 
 const nameOf = (host: ContainerHost, itemIndex: number): string => host.items[itemIndex]?.name ?? `item ${itemIndex}`;
@@ -155,7 +160,11 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
     }
   }
 
-  if (isArmed(cur)) {
+  if (isArmed(cur) && host.sensesTraps?.() === false) {
+    host.setParty(springTrap(host.getParty(), cur.lock!.trapDamage));
+    await host.menu(`A trap goes off as the chest opens! Everyone takes ${cur.lock!.trapDamage} damage.`, []);
+    save({ ...cur, trapSpent: true });
+  } else if (isArmed(cur)) {
     const best = bestLockpicker(host.getParty());
     const chance = disarmChance(best?.skill ?? 0);
     const pick = await host.menu(
@@ -194,16 +203,17 @@ export async function openTownContainer(host: ContainerHost, gds: number, letter
 }
 
 /**
- * After a won fight: search the bodies. `items` is what the slain carried; whatever the party leaves is lost with
- * them. Resolves when the screen is closed.
+ * After a won fight: search the bodies. `items` is what the slain carried; whatever the party leaves stays with
+ * the bodies where they fell, to be searched again (E) later. Resolves when the screen is closed.
  */
 export async function searchBodies(host: ContainerHost, items: readonly ContainerItem[]): Promise<void> {
   if (items.length === 0) return;
+  const { x, y } = host.position();
   const bodies: WorldContainer = {
     id: 'bodies',
     zone: LOOT_CONTAINER,
-    x: 0,
-    y: 0,
+    x,
+    y,
     model: 0,
     fromChapter: 1,
     toChapter: 9,
@@ -212,13 +222,21 @@ export async function searchBodies(host: ContainerHost, items: readonly Containe
     unlocked: true,
     trapSpent: true,
   };
-  await open(host, bodies, 'Bodies');
+  const left = await open(host, bodies, 'Bodies');
+  if (left && left.items.length > 0)
+    host.store.addPile({
+      ...left,
+      id: `pile:${host.zone()}:${Math.round(x)}:${Math.round(y)}`,
+      zone: host.zone(),
+      x,
+      y,
+    });
 }
 
-/** Get past a container's lock and trap, then show its contents until closed. */
-async function open(host: ContainerHost, found: WorldContainer, title?: string): Promise<void> {
+/** Get past a container's lock and trap, then show its contents until closed. Resolves to it as left. */
+async function open(host: ContainerHost, found: WorldContainer, title?: string): Promise<WorldContainer | undefined> {
   const opened = await getPast(host, found);
-  if (!opened) return;
+  if (!opened) return undefined;
 
   let cur = opened;
   let message = '';
@@ -263,6 +281,7 @@ async function open(host: ContainerHost, found: WorldContainer, title?: string):
   host.setWorld(openedFlagUpdate(cur, host.getWorld()));
   await host.showContainer(view);
   if (cur.dialogKey !== undefined && host.playDialog) await host.playDialog(cur.dialogKey);
+  return cur;
 }
 
 /** Build the container source: the save image's live blocks first, `OBJFIXED.DAT` for zones the save has none for. */
@@ -301,6 +320,8 @@ export interface ContainerSetup {
   playDialog?(key: number): Promise<void>;
   modelName?(model: number): string | undefined;
   beforeOpen?(containerId: string): Promise<boolean>;
+  /** Scent of Sarig is in force: trapped chests are known before opening. */
+  sensesTraps?(): boolean;
 }
 
 export interface Containers {
@@ -318,6 +339,10 @@ export async function installContainers(setup: ContainerSetup): Promise<Containe
   registerSaveExtra('containers', {
     capture: () => store.snapshot(),
     restore: (data) => store.restore(data as ContainerSnapshot | undefined),
+  });
+  registerSaveExtra('piles', {
+    capture: () => store.pileList(),
+    restore: (data) => store.restorePiles(Array.isArray(data) ? (data as WorldContainer[]) : undefined),
   });
   const hud = setup.hud;
   const host: ContainerHost = {

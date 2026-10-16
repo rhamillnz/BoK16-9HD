@@ -131,8 +131,28 @@ export class ContainerStore {
   private zones = new Map<number, WorldContainer[]>();
   private pristine = new Map<string, ContainerState>();
   private pending: ContainerSnapshot = {};
+  /** Containers made in play (bodies left after a fight, dropped items), by id; not in the game data. */
+  private piles = new Map<string, WorldContainer>();
 
   constructor(private readonly source: (zone: number) => WorldContainer[]) {}
+
+  /** Leave a pile in the world; it lasts until emptied. */
+  addPile(pile: WorldContainer): void {
+    if (pile.items.length === 0) return;
+    this.piles.set(pile.id, pile);
+    const list = this.zones.get(pile.zone);
+    if (list) list.push(pile);
+  }
+
+  /** The piles in the world (saved with the game). */
+  pileList(): WorldContainer[] {
+    return [...this.piles.values()].filter((p) => p.items.length > 0).map((p) => structuredClone(p));
+  }
+
+  restorePiles(piles: readonly WorldContainer[] | undefined): void {
+    this.piles = new Map((piles ?? []).map((p) => [p.id, structuredClone(p)]));
+    this.zones.clear();
+  }
 
   zone(zone: number): WorldContainer[] {
     let list = this.zones.get(zone);
@@ -143,6 +163,7 @@ export class ContainerStore {
         const saved = this.pending[c.id];
         if (saved) Object.assign(c, structuredClone(saved));
       }
+      for (const p of this.piles.values()) if (p.zone === zone) list.push(p);
       this.zones.set(zone, list);
     }
     return list;
@@ -151,6 +172,15 @@ export class ContainerStore {
   replace(updated: WorldContainer): void {
     const list = this.zone(updated.zone);
     const i = list.findIndex((c) => c.id === updated.id);
+    if (this.piles.has(updated.id)) {
+      // An emptied pile is gone.
+      if (updated.items.length === 0) {
+        this.piles.delete(updated.id);
+        if (i >= 0) list.splice(i, 1);
+        return;
+      }
+      this.piles.set(updated.id, updated);
+    }
     if (i >= 0) list[i] = updated;
   }
 

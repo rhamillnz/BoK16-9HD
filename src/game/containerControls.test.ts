@@ -3,7 +3,7 @@ import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import type { ContainerView, WordLockView } from '../ui/containerScreen';
 import { ContainerStore, type WorldContainer } from './containers';
-import { containerSource, containerTitle, interact, type ContainerHost } from './containerControls';
+import { containerSource, containerTitle, interact, searchBodies, type ContainerHost } from './containerControls';
 import type { PartyState } from './party';
 import { getFlag, type WorldState } from './state';
 import { ITEM_PICKLOCK } from './locks';
@@ -93,6 +93,7 @@ function rig(
     solve?: boolean;
     use?: (v: ContainerView) => void;
     at?: { x: number; y: number };
+    senses?: boolean;
   } = {},
 ): Rig {
   let party: PartyState = {
@@ -141,6 +142,7 @@ function rig(
     },
     riddleText: () => opts.riddle,
     roll: () => rolls.shift() ?? 99,
+    sensesTraps: () => opts.senses ?? true,
   };
   return { host, menus, party: () => party, world: () => world, store, shown };
 }
@@ -261,6 +263,39 @@ describe('interact', () => {
     await interact(r.host);
     expect(r.menus[1]).toContain('disarmed');
     expect(r.party().characters[0]!.skills.stamina.trueSkill).toBe(10);
+  });
+
+  it('without Scent of Sarig the trap goes off unannounced as the chest opens', async () => {
+    const c = chest({ lock: { flag: 1, rating: 0, fairyChestIndex: 0, trapDamage: 12 } });
+    const r = rig(c, [0], { lockpick: 80, roll: [10], senses: false });
+    await interact(r.host);
+    expect(r.menus.some((m) => m.includes('is trapped'))).toBe(false);
+    expect(r.menus.some((m) => m.includes('goes off'))).toBe(true);
+    expect(r.party().characters[0]!.skills.stamina.trueSkill).toBe(0);
+    expect(r.store.snapshot()['1:0']!.trapSpent).toBe(true);
+    expect(r.shown.view).toBeDefined();
+  });
+
+  it('what is left on the bodies stays where they fell, to be searched again', async () => {
+    const r = rig(chest(), [], { at: { x: 9000, y: 9000 } });
+    await searchBodies(r.host, [item(10), item(10)]);
+    const pile = r.store.zone(1).find((c) => c.id.startsWith('pile:'));
+    expect(pile).toMatchObject({ x: 9000, y: 9000, zone: 1 });
+    expect(r.store.pileList()).toHaveLength(1);
+    // Searching again and taking everything clears the pile away.
+    r.shown.view = undefined;
+    const take = rig(chest(), [], { at: { x: 9000, y: 9000 }, use: (v) => v.onTakeAll() });
+    take.store.restorePiles(r.store.pileList());
+    expect(await interact(take.host)).toBe(true);
+    expect(take.shown.view?.title).toBeDefined();
+    expect(take.store.pileList()).toHaveLength(0);
+    expect(take.store.zone(1).some((c) => c.id.startsWith('pile:'))).toBe(false);
+  });
+
+  it('bodies emptied in one go leave nothing behind', async () => {
+    const r = rig(chest(), [], { at: { x: 9000, y: 9000 }, use: (v) => v.onTakeAll() });
+    await searchBodies(r.host, [item(10)]);
+    expect(r.store.pileList()).toHaveLength(0);
   });
 
   it('leaving a trapped chest leaves the trap armed', async () => {

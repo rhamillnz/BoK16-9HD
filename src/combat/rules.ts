@@ -202,6 +202,72 @@ export function armorReduction(defender: MeleeStats): number {
   return Math.min(98, reduction);
 }
 
+// --- Monster resistances and weaknesses ------------------------------------------------------
+
+/** What a blow carries (BaKGL's names): poison, frost, fire, enhancement, blessing; every weapon hit also sets 0x580. */
+export const HitFlag = {
+  Poison: 0x1,
+  Frost: 0x2,
+  Fire: 0x4,
+  Enhance1: 0x10,
+  Enhance2: 0x20,
+  Bless: 0x800,
+  /** Always set on a weapon blow (BaKGL); spirits, trolls and the Dread resist part of it. */
+  Weapon: 0x580,
+} as const;
+
+/**
+ * Per monster index, the hit flags it resists (half damage when any is set on the blow). Read from the original
+ * program's table (KRONDOR.EXE, the 64 words just before the `spellwea.dat` string); BaKGL's copy is off by one
+ * or two in its first rows. Scorpions and spiders resist poison, the Rime Giant frost, the Servitor and the
+ * Bulldrake fire, spirits and undead plain weapons.
+ */
+export const MONSTER_RESISTANCE: readonly number[] = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1, 0x200, 0, 0x1, 0, 0, 0x1, 0xc0, 0x1, 0, 0, 0xc0, 0x200, 0xc, 0, 0,
+  0, 0, 0x2, 0, 0, 0, 0, 0, 0x1, 0, 0xc, 0x2, 0, 0x1, 0x200, 0, 0x200, 0x100, 0x300, 0x1, 0x1, 0, 0, 0, 0, 0xc0, 0xc0,
+  0, 0, 0, 0x300, 0, 0,
+];
+
+/** Weaknesses (BaKGL; not checked against the original): monster index -> the hit flags that do half again. */
+export const MONSTER_WEAKNESS: ReadonlyMap<number, number> = new Map([
+  [19, HitFlag.Poison], // Brak Nurr
+  [25, HitFlag.Enhance1], // Pantathian
+  [26, 0x200], // Panth Tiandn
+  [28, HitFlag.Frost], // Servitor of Lims-Kragma
+  [30, 0x100], // Rogue Mage
+  [41, HitFlag.Frost], // Bulldrake Wyvern
+  [42, 0xc], // Grandsire Wyvern
+  [43, HitFlag.Enhance1], // Hatchling Wyvern
+  [48, 0x200], // troll
+  [58, 0x40], // Nethermander
+]);
+
+/** The flags a weapon blow carries: 0x580, plus poison and the weapon's enchantments. Staves carry only 0x580. */
+export function weaponHitFlags(weapon: WeaponStats | undefined, staff = false): number {
+  let flags = HitFlag.Weapon;
+  if (!weapon || staff) return flags;
+  const mods = weapon.modifiers ?? 0;
+  if (weapon.poisoned) flags |= HitFlag.Poison;
+  if (mods & (ItemMod.Flaming | ItemMod.SteelFire)) flags |= HitFlag.Fire;
+  if (mods & ItemMod.Frost) flags |= HitFlag.Frost;
+  if (mods & (ItemMod.Enhancement1 | ItemMod.Blessing1)) flags |= HitFlag.Enhance1;
+  if (mods & ItemMod.Enhancement2) flags |= HitFlag.Enhance2;
+  if (mods & (ItemMod.Blessing2 | ItemMod.Blessing3)) flags |= HitFlag.Bless;
+  return flags;
+}
+
+/** Damage to a monster after its weakness (+50%) and then its resistance (half). Party members are unaffected. */
+export function monsterDamage(monster: number | undefined, flags: number, damage: number): number {
+  if (monster === undefined) return damage;
+  let d = damage;
+  if ((MONSTER_WEAKNESS.get(monster) ?? 0) & flags) d += trunc(d / 2);
+  if ((MONSTER_RESISTANCE[monster] ?? 0) & flags) d = trunc(d / 2);
+  return d;
+}
+
+export const resistsPoison = (monster: number | undefined): boolean =>
+  monster !== undefined && ((MONSTER_RESISTANCE[monster] ?? 0) & HitFlag.Poison) !== 0;
+
 /** Damage after armour. A hit that armour would cancel still does 1 or 2. */
 export function reduceDamage(damage: number, defender: MeleeStats, roll: Roll): number {
   const reduced = trunc((damage * (100 - armorReduction(defender))) / 100);
