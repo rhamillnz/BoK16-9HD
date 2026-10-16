@@ -32,6 +32,7 @@ import { parseWeatherParam, WEATHER_KINDS, type WeatherKind } from '../render/we
 import { TICKS_PER_DAY, hourOfDay } from './state';
 import { isUndergroundZone } from '../world/underground';
 import { NpcFigures } from '../render/npcFigures';
+import { EnemyFigures } from '../render/enemyFigures';
 import { loadChapterStart } from '../world/zone';
 import { warnIfOffMap } from './chapterStartCheck';
 import { CELL_SIZE, TILE_SIZE } from '../formats/world';
@@ -457,6 +458,7 @@ const loadStore = (): Promise<DialogStore> =>
   ).then(loadDialogStore));
 /** Text variables for a combat's scouting or entry dialogue (the monster's name). */
 let combatText: { monsterName?: string } = {};
+const combatSupport = await loadCombatSupport(archive, save.bytes);
 const combat = new CombatEncounters({
   scene,
   camera,
@@ -468,7 +470,7 @@ const combat = new CombatEncounters({
     ),
   surface: zoneHost.surfaceHeight,
   hideProps: (area) => hideInstancesWhere(zoneHost.current.scene.group, area),
-  support: await loadCombatSupport(archive, save.bytes),
+  support: combatSupport,
   items: objectItems,
   spells: spellDefs,
   position: () => ({ x: party.x, y: party.y, heading: party.heading8 }),
@@ -598,6 +600,9 @@ const npcFigures = new NpcFigures(scene, (actor) => {
   if (!c || !ctx) return undefined;
   return clothingColors(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
 });
+
+// The enemies of combat encounters, standing and pacing in the world before the fight.
+const enemyFigures = new EnemyFigures(scene, (e) => combatSupport.defs[e.record.tableIndex]);
 
 // Save and load: F5 quick-save, F9 quick-load, F6 slot screen, and the autosave.
 let cutsceneActive = () => false; // the cutscene player is installed further down
@@ -943,6 +948,15 @@ renderer.setAnimationLoop(() => {
       clock.state = encounters.runner.world;
     }
     npcFigures.update(encounters.runner, zoneHost.getHeight, npcRoadPoints, party.x, party.y);
+    enemyFigures.update(
+      encounters.runner,
+      () => encounters.runner.combatEncounters(),
+      (e) => encounters.runner.isPending(e),
+      zoneHost.getHeight,
+      party.x,
+      party.y,
+      combat.active || encounters.busy,
+    );
   }
   weather.schedule(
     zoneHost.current.zone,

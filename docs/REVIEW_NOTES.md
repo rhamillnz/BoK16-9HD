@@ -369,3 +369,11 @@ Eight characters who talk to the party, built with `build_party.py` from `art/jo
 - **Staff moves.** Neither animation library has staff moves, so staff wielders swung like swordsmen. The builder now gives every staff wielder (Owyn, Pug, Patrus, the Moredhel spellcaster, the rogue mage, the Spellweaver, the Pantathian and Makala) the two-handed overhead chop from TreeChopping_Loop as its attack (`STAFF_ATTACK`). I rendered three trials (TreeChopping_Loop, Farm_Harvest, Melee_Hook): the chop reads best, harvest bends double, and the hook is a lunge with a raised fist.
 - **Spell light** (`src/render/spellFx.ts`). A cast gathers light at the caster's hands. A hostile spell sends a glowing orb on a low arc to the target and flares there; the target flinches when it lands, and a miss fades in flight. A friendly spell raises a ring of light round its target, and area spells flare on everyone they hit. Colours follow the spell kind, with fire spells orange. Checked in game with Owyn's Despair Thy Eyes, using a temporarily enlarged orb.
 - Monster casting is unchanged: real Moredhel spellcasters (Casting 70-99) do cast. The `?monsters=` debug swap keeps the original enemies' stats, so swapped-in casters have Casting 0 and fight hand to hand.
+
+## Enemies in the world before a fight (Opus, 2026-10-16)
+
+`src/render/enemyFigures.ts`: before a fight starts, a combat encounter's monsters stand in the world as their creature models, where DEF_COMB.DAT places them. Positions are tile-relative (tile corner plus the record's x, y), with the record's heading.
+- Sentries (movement type 0) idle in place. The others (types 1-4: walking a line, following the road) pace back and forth over ±1600 along their heading; road following is not traced yet.
+- When the party comes within 6000 they turn and walk towards it, stopping 900 short. The fight still starts when the party enters the encounter's area.
+- Ambushes stay hidden until they spring. Every figure hides while a fight or dialogue is on, and an encounter's figures go once it can no longer fire.
+- Checked in game at combat 1 in zone 1: the Moredhel warrior walks up to the party from 5600 away. The walk clip runs at a matched speed (`WALK_CLIP_SPEED`), so the feet don't slide.

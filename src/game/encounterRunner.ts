@@ -627,6 +627,11 @@ export class EncounterRunner {
     return undefined;
   }
 
+  /** Every combat encounter of the zone (whether or not it can still fire; see isPending). */
+  combatEncounters(): PlacedEncounter[] {
+    return [...this.o.map.all()].filter((e) => e.record.typeId === EncounterType.Combat);
+  }
+
   /**
    * A combat encounter that can still fire lies within `reach` world units of (x, y) (its trigger rectangle,
    * grown by `reach`): the enemy is close by.
