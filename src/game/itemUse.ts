@@ -23,8 +23,6 @@ export interface ItemUseResult {
 
 /** Health restored by a potion or restorative whose power field is 0. */
 export const DEFAULT_RESTORE = 10;
-/** Condition points a repair adds to a damaged item. */
-export const REPAIR_AMOUNT = 25;
 /** Condition a tool loses with each repair; the tool is discarded at 0. */
 export const TOOL_WEAR = 10;
 
@@ -252,18 +250,17 @@ export function giveToCharacter(
   return { party: moved, message: `${def.name} given to ${to.name}.`, ok: true };
 }
 
+/** OBJINFO tools: the armourer's hammer mends armour, the whetstone blades (manual pp. 28, 29). */
+export const ARMORERS_HAMMER = 75;
+export const WHETSTONE = 85;
+
 /**
- * Repair the damaged item in `slot` with the first Tool anyone in the party carries. The crafts
- * skill of the owner (armorcraft for armour, weaponcraft otherwise) is the percent chance of
- * success; a failed attempt still wears the tool. `random` is a uniform integer in [0, n).
+ * Repair the damaged item in `slot` (manual pp. 28-29). Armour needs an armourer's hammer, blades a whetstone
+ * (anyone in the party may carry it); a crossbow takes either. The repairer's craft (Armorcraft or Weaponcraft)
+ * is the share of the lost condition restored. An item repaired since it was last used cannot be repaired
+ * again (the save's "repairable" bit, which wear in a fight sets). Each repair wears the tool.
  */
-export function repairItem(
-  p: PartyState,
-  charIndex: number,
-  slot: number,
-  defs: readonly ItemDef[],
-  random: (n: number) => number = (n) => Math.floor(Math.random() * n),
-): ItemUseResult {
+export function repairItem(p: PartyState, charIndex: number, slot: number, defs: readonly ItemDef[]): ItemUseResult {
   const c = characterOf(p, charIndex);
   const it = c?.inventory.items[slot];
   const def = it && defs[it.itemIndex];
@@ -271,36 +268,34 @@ export function repairItem(
   if (!hasCondition(def)) return fail(p, `${def.name} cannot be repaired.`);
   if (!it.broken && it.conditionOrQuantity >= 100) return fail(p, `${def.name} is in perfect condition.`);
   if (it.broken && !it.repairable) return fail(p, `${def.name} is beyond repair.`);
+  if (!it.repairable) return fail(p, `${def.name} has been repaired since it was last used.`);
 
+  const group = equipGroup(def);
+  const wanted = group === 'armor' ? [ARMORERS_HAMMER] : group === 'melee' ? [WHETSTONE] : [WHETSTONE, ARMORERS_HAMMER];
   let toolOwner: Character | undefined;
   let toolSlot = -1;
   for (const owner of [c, ...p.characters.filter((x) => x.index !== c.index && p.activeCharacters.includes(x.index))]) {
-    const s = owner.inventory.items.findIndex((x) => defs[x.itemIndex]?.type === ItemType.Tool && !x.broken);
+    const s = owner.inventory.items.findIndex((x) => wanted.includes(x.itemIndex) && !x.broken);
     if (s >= 0) {
       toolOwner = owner;
       toolSlot = s;
       break;
     }
   }
-  if (!toolOwner) return fail(p, 'You need a tool to repair things.');
-
-  const craft = equipGroup(def) === 'armor' ? c.skills.armorcraft : c.skills.weaponcraft;
-  const success = random(100) < Math.min(95, Math.max(5, craft.current));
-
-  let party = p;
-  if (success) {
-    const items = c.inventory.items.map((x, i) =>
-      i === slot
-        ? {
-            ...x,
-            broken: false,
-            repairable: false,
-            conditionOrQuantity: Math.min(100, x.conditionOrQuantity + REPAIR_AMOUNT),
-          }
-        : x,
+  if (!toolOwner)
+    return fail(
+      p,
+      group === 'armor' ? "You need an armorer's hammer to repair armour." : 'You need a whetstone to repair a blade.',
     );
-    party = setItems(party, c, items);
-  }
+
+  const craft = group === 'armor' ? c.skills.armorcraft : c.skills.weaponcraft;
+  const lost = it.broken ? 100 : 100 - it.conditionOrQuantity;
+  const from = it.broken ? 0 : it.conditionOrQuantity;
+  const restored = Math.max(1, Math.round((lost * Math.min(100, Math.max(0, craft.current))) / 100));
+  const items = c.inventory.items.map((x, i) =>
+    i === slot ? { ...x, broken: false, repairable: false, conditionOrQuantity: Math.min(100, from + restored) } : x,
+  );
+  let party = setItems(p, c, items);
   const owner = characterOf(party, toolOwner.index)!;
   const tool = owner.inventory.items[toolSlot]!;
   const worn = tool.conditionOrQuantity - TOOL_WEAR;
@@ -309,6 +304,6 @@ export function repairItem(
       ? owner.inventory.items.filter((_, i) => i !== toolSlot)
       : owner.inventory.items.map((x, i) => (i === toolSlot ? { ...x, conditionOrQuantity: worn } : x));
   party = setItems(party, owner, toolItems);
-  party = practiceCharacter(party, c.index, equipGroup(def) === 'armor' ? 'armorcraft' : 'weaponcraft'); // every attempt exercises the craft
-  return { party, ok: success, message: success ? `${def.name} repaired.` : `The repair of ${def.name} failed.` };
+  party = practiceCharacter(party, c.index, group === 'armor' ? 'armorcraft' : 'weaponcraft');
+  return { party, ok: true, message: `${def.name} repaired to ${Math.min(100, from + restored)}%.` };
 }

@@ -706,8 +706,8 @@ DIFF = implemented differently; NO = missing.
 | Strength grows on hits; Speed fixed | YES | `combat/rewards.ts` |
 | Conditions; long rest cures sickness | YES | `game/rest.ts`, `game/temple.ts` |
 | Poison worse in combat | YES | a poisoned fighter loses 2 at the end of each of its turns |
-| Weaponcraft repair, sword wear | DIFF | flat +25 with a chance to fail; no "recently repaired" lock |
-| Armorcraft repairs a share of the loss | DIFF | same flat +25 |
+| Weaponcraft repair, sword wear | YES | whetstone; restores Weaponcraft% of the lost condition; not again until used (the save's repairable bit) |
+| Armorcraft repairs a share of the loss | YES | armourer's hammer; restores Armorcraft% of the lost condition |
 | Barding | YES | `game/bard.ts` |
 | Haggling, angry shopkeeper | YES | `game/shops.ts` |
 | Scout warns; worst Stealth sneaks past | YES | `game/combatApproach.ts` |

@@ -197,28 +197,42 @@ describe('giveToCharacter', () => {
   });
 });
 
-describe('repairItem', () => {
-  const dmg = (o: Partial<InventoryItem> = {}) => item(0, { conditionOrQuantity: 40, ...o });
-  it('needs a tool, which may belong to another character', () => {
-    expect(repairItem(party([dmg()]), 0, 0, DEFS, () => 0).message).toMatch(/need a tool/);
-    const r = repairItem(party([dmg()], [item(6)]), 0, 0, DEFS, () => 0);
+describe('repairItem (manual pp. 28, 29)', () => {
+  // A blade worn in a fight (the "repairable" bit wear sets), and armour.
+  const dmg = (o: Partial<InventoryItem> = {}) => item(0, { conditionOrQuantity: 40, repairable: true, ...o });
+  const plate = (o: Partial<InventoryItem> = {}) => item(2, { conditionOrQuantity: 60, repairable: true, ...o });
+  const withCraft = (p: PartyState, n: number) => ({
+    ...p,
+    characters: p.characters.map((c) =>
+      c.index === 0 ? { ...c, skills: { ...c.skills, weaponcraft: skill(n, n, n), armorcraft: skill(n, n, n) } } : c,
+    ),
+  });
+
+  it('needs the right tool, which may belong to another character', () => {
+    expect(repairItem(party([dmg()]), 0, 0, DEFS).message).toMatch(/whetstone/);
+    expect(repairItem(party([plate()], [item(85)]), 0, 0, DEFS).message).toMatch(/hammer/);
+    const r = repairItem(party([dmg()], [item(85, { conditionOrQuantity: 100 })]), 0, 0, DEFS);
     expect(r.ok).toBe(true);
-    expect(c0(r.party).inventory.items[0]!.conditionOrQuantity).toBe(65);
+    expect(c0(r.party).inventory.items[0]!.conditionOrQuantity).toBe(100);
     expect(r.party.characters[1]!.inventory.items[0]!.conditionOrQuantity).toBe(90);
   });
-  it('a failed roll wears the tool and leaves the item', () => {
-    const r = repairItem(party([dmg()], [item(6, { conditionOrQuantity: 10 })]), 0, 0, DEFS, () => 99);
-    expect(r.ok).toBe(false);
-    expect(c0(r.party).inventory.items[0]!.conditionOrQuantity).toBe(40);
-    expect(r.party.characters[1]!.inventory.items).toHaveLength(0);
+
+  it('restores a share of the lost condition equal to the craft skill', () => {
+    const r = repairItem(withCraft(party([plate()], [item(75, { conditionOrQuantity: 100 })]), 50), 0, 0, DEFS);
+    expect(c0(r.party).inventory.items[0]!.conditionOrQuantity).toBe(80);
   });
-  it('repairs broken repairable items, not unrepairable or pristine ones', () => {
-    const tool = [item(6)];
-    const fixed = repairItem(party([dmg({ broken: true, repairable: true })], tool), 0, 0, DEFS, () => 0);
+
+  it('cannot repair again until the item has been used; repairs broken repairable items', () => {
+    const tool = [item(85, { conditionOrQuantity: 100 })];
+    expect(repairItem(party([dmg({ repairable: false })], tool), 0, 0, DEFS).message).toMatch(/since it was last used/);
+    const fixed = repairItem(party([dmg({ broken: true, repairable: true })], tool), 0, 0, DEFS);
     expect(c0(fixed.party).inventory.items[0]!.broken).toBe(false);
-    expect(repairItem(party([dmg({ broken: true })], tool), 0, 0, DEFS, () => 0).message).toMatch(/beyond repair/);
-    expect(repairItem(party([item(0)], tool), 0, 0, DEFS, () => 0).message).toMatch(/perfect/);
-    expect(repairItem(party([item(3)], tool), 0, 0, DEFS, () => 0).message).toMatch(/cannot be repaired/);
+    expect(c0(fixed.party).inventory.items[0]!.repairable).toBe(false);
+    expect(repairItem(party([dmg({ broken: true, repairable: false })], tool), 0, 0, DEFS).message).toMatch(
+      /beyond repair/,
+    );
+    expect(repairItem(party([item(0)], tool), 0, 0, DEFS).message).toMatch(/perfect/);
+    expect(repairItem(party([item(3)], tool), 0, 0, DEFS).message).toMatch(/cannot be repaired/);
   });
 });
 
