@@ -40,6 +40,7 @@ from mathutils import Matrix, Vector, kdtree
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_bodies import SKIN_MATERIAL, bypass_vertex_colour, import_gltf, reset, tint_object, upstream  # noqa: E402
 
+STAFF_ATTACK = "TreeChopping_Loop"
 DEFAULT_CLIPS = {
     "idle": "Sword_Idle",
     "walk": "Walk_Loop",
@@ -3044,7 +3045,9 @@ def build(job, roots):
     scene = reset()
     scene.render.film_transparent = False
     actions = load_actions([ual1, ual2])
-    clips = {**DEFAULT_CLIPS, **job.get("clips", {})}
+    # A staff is swung two-handed, overhead and down (no kit has staff moves; the wood-chopping swing reads as one).
+    staff = (job.get("weapon") or {}).get("type") == "staff"
+    clips = {**DEFAULT_CLIPS, **({"attack": STAFF_ATTACK} if staff else {}), **job.get("clips", {})}
     hair_dir = os.path.join(base_root, "Hairstyles", "Rigged to Head Bone", "glTF (Godot -Unreal)")
     # With an outfit, its armature is the rig and the base character supplies only the head; without one
     # ("outfit": null, for bare-bodied creatures) the base character's own armature and whole body are used.

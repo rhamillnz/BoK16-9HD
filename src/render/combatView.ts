@@ -1,12 +1,13 @@
 import * as THREE from 'three/webgpu';
 import { toRGBA } from '../formats/bmx';
 import { isDead } from '../combat/rules';
-import { gridFor, currentFighter, isOver, type BattleState, type Fighter } from '../combat/battle';
+import { gridFor, currentFighter, isOver, HOSTILE_KINDS, type BattleState, type Fighter } from '../combat/battle';
 import type { GridPos } from '../combat/grid';
 import { cameraPlan, gridPointToWorld, worldToGridCell, type Point } from '../combat/layout';
 import type { CombatSprite } from '../combat/sprites';
 import { createBillboards } from './zoneScene';
 import { creatureModelName, FighterActor, loadPartyModel, partyModelName } from './fighterModels';
+import { FLIGHT, RELEASE, SpellFx, spellColor } from './spellFx';
 
 const WORLD_SCALE = 100;
 /** Lift of the grid overlay above the ground, in BaK units. */
@@ -110,6 +111,8 @@ export class CombatView {
   /** Battle events already turned into animation. */
   private readonly seen = new WeakSet<object>();
   private disposed = false;
+  /** Spell light: orbs, flares and rings. */
+  private readonly fx = new SpellFx();
 
   constructor(
     private readonly o: CombatViewOptions,
@@ -154,6 +157,7 @@ export class CombatView {
     overlay.renderOrder = 2;
     this.group.add(overlay);
 
+    this.group.add(this.fx.group);
     for (const f of fighters) this.addFighter(f);
     this.plan = cameraPlan(o.party, o.heading, cols, rows);
   }
@@ -261,9 +265,22 @@ export class CombatView {
           const target = at(e.target);
           if (a && target && e.target !== e.caster) a.face(target);
           a?.act('cast');
+          const color = spellColor(e.kind, e.spell);
+          const from = a?.object.position ?? at(e.caster);
+          const to = (e.target === e.caster ? undefined : actorOf(e.target)?.object.position) ?? at(e.target);
+          if (from) {
+            this.fx.gather(from, color);
+            if (HOSTILE_KINDS.includes(e.kind) && to && e.target !== e.caster) this.fx.bolt(from, to, color, !e.missed);
+            else if (HOSTILE_KINDS.includes(e.kind)) this.fx.burst(from, color);
+            else this.fx.aura(to ?? from, color);
+            for (const o of e.also ?? []) {
+              const p = actorOf(o.target)?.object.position ?? at(o.target);
+              if (p) this.fx.burst(p, color);
+            }
+          }
           const hostile =
             state.fighters.find((x) => x.id === e.caster)?.side !== state.fighters.find((x) => x.id === e.target)?.side;
-          if (hostile && (e.amount > 0 || e.killed)) struck(e.target, e.killed, 0.6);
+          if (hostile && (e.amount > 0 || e.killed)) struck(e.target, e.killed, RELEASE + FLIGHT);
           for (const o of e.also ?? []) if (o.amount > 0 || o.killed) struck(o.target, o.killed, 0.7);
           break;
         }
@@ -278,6 +295,7 @@ export class CombatView {
 
   /** Per frame: advance the models' animation and walking. */
   tick(dt: number): void {
+    this.fx.tick(dt);
     for (const node of this.nodes.values()) node.actor?.tick(dt);
   }
 
@@ -363,6 +381,7 @@ export class CombatView {
 
   dispose(): void {
     this.disposed = true;
+    this.fx.dispose();
     for (const node of this.nodes.values()) node.actor?.dispose();
     this.group.removeFromParent();
     this.geometry.dispose();
