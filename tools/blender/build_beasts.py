@@ -672,7 +672,8 @@ def wyvern():
     horn = own(material("wyvern_horn", (0.75, 0.7, 0.58), 0.4))
     dark = own(material("wyvern_dark", (0.06, 0.08, 0.05), 0.35, 0.1))
     tooth = own(material("wyvern_tooth", (0.88, 0.85, 0.75), 0.35))
-    eye = own(material("wyvern_eye", (0.01, 0.01, 0.01), 0.05, 0.3))
+    eye = emissive(own(material("wyvern_eye", (0.9, 0.55, 0.02), 0.1)), (1.0, 0.55, 0.0), 0.6)
+    pupil = own(material("wyvern_pupil", (0.0, 0.0, 0.0), 0.1))
     b.bone("pivot", None, v(0, 0, 0), v(0, 0, 0.15))
     b.bone("hips", "pivot", v(0, 0.2, 1.0), v(0, -0.1, 1.05))
     b.bone("chest", "hips", v(0, -0.1, 1.05), v(0, -0.45, 1.22))
@@ -699,7 +700,9 @@ def wyvern():
     teeth_arc(b, "teeth_top", tooth, v(0, -1.06, 0), 0.06, 0.12, 1.705, 10, 0.03, "head")
     teeth_arc(b, "teeth_low", tooth, v(0, -1.0, 0), 0.05, 0.1, 1.675, 9, 0.025, "jaw", up=True)
     for sx in (-1, 1):
-        b.rigid(f"eye{sx}", eye, lambda bm, sx=sx: sphere_at(bm, v(sx * 0.075, -0.97, 1.83), 0.024, 1), "head")
+        # On the head's surface (the old ones sat inside the skull), with a lizard's vertical slit pupil.
+        b.rigid(f"eye{sx}", eye, lambda bm, sx=sx: sphere_at(bm, v(sx * 0.106, -0.975, 1.83), 0.023, 2), "head")
+        b.rigid(f"pupil{sx}", pupil, lambda bm, sx=sx: slit(bm, v(sx * 0.126, -0.983, 1.83), sx), "head")
         b.rigid(f"horn{sx}", horn, lambda bm, sx=sx: tube(bm, [v(sx * 0.06, -0.86, 1.85), v(sx * 0.09, -0.78, 1.94), v(sx * 0.115, -0.68, 1.99),
                                                                v(sx * 0.13, -0.57, 1.99), v(sx * 0.135, -0.5, 1.96)], [0.035, 0.027, 0.019, 0.011, 0.002], 10), "head")
         b.rigid(f"cheek{sx}", horn, lambda bm, sx=sx: [cone_to(bm, v(sx * 0.1, -0.88, 1.74 - 0.03 * i), v(sx * 0.17, -0.8, 1.74 - 0.04 * i), 0.012)
@@ -709,7 +712,9 @@ def wyvern():
     spikes(b, "spines_back", dark, [v(0, y, 1.37 - 0.25 * (y + 0.3)) for y in (-0.25, -0.05, 0.15)], "chest", 0.1, 0.03)
     limb(b, "tail", scales, tail_pts, [0.18, 0.14, 0.11, 0.08, 0.055, 0.03], ["hips"] + tail, per=4)
     spikes(b, "spines_tail", dark, [tail_pts[k].lerp(tail_pts[k + 1], 0.5) + v(0, 0, 0.13 - 0.025 * k) for k in range(4)], tail[2], 0.08, 0.022)
-    b.balls("spade", dark, [(v(0, 1.92, 0.4), 0.09, (1.8, 1.3, 0.25))], [tail[-1]])
+    # A forked tip: two barbed prongs spreading from the end of the tail.
+    b.rigid("fork", dark, lambda bm: [tube(bm, [v(0, 1.78, 0.43), v(sx * 0.05, 1.9, 0.42), v(sx * 0.13, 2.02, 0.4), v(sx * 0.17, 2.08, 0.39)],
+                                           [0.035, 0.028, 0.014, 0.002], 8) for sx in (-1, 1)], tail[-1])
     for s, t in ((1, "l"), (-1, "r")):
         hip, knee, ank, foot = v(s * 0.2, 0.05, 0.95), v(s * 0.27, -0.12, 0.6), v(s * 0.26, 0.12, 0.28), v(s * 0.25, -0.1, 0.07)
         l1 = b.bone(f"thigh_{t}", "hips", hip, knee)
@@ -744,6 +749,13 @@ def wyvern():
         b.sheet(f"wing_{t}", membrane, rows, ["chest", w1, w2] + fingers)
     _wyvern_anims(b, tail)
     return b
+
+
+def slit(bm, c, sx):
+    """A vertical slit pupil: a thin black lens standing on the eye, facing outwards."""
+    geom = bmesh.ops.create_icosphere(bm, subdivisions=2, radius=1.0)
+    bmesh.ops.scale(bm, verts=geom["verts"], vec=(0.004, 0.006, 0.022))
+    bmesh.ops.translate(bm, verts=geom["verts"], vec=c)
 
 
 def wyvern_belly_image():

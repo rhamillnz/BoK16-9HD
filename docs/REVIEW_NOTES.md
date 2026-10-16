@@ -350,3 +350,9 @@ All 7 party models are approved, and 23 of the 27 creatures. The last four:
 - **Wyvern.**
   - Black eyes; the nostrils are set into the snout; each horn is a single curved tapered tube.
   - The feet are raised to the ground, with the toes in the leg's metaball group (`limb(extra=...)`).
+
+## Creatures round 8 (Opus, 2026-10-16)
+
+Everything is approved except the wyvern.
+- **Eyes.** The old eyes sat inside the head's metaball surface and never showed. They are now yellow, on the surface, with a vertical slit pupil (`slit`).
+- **Tail.** The spade blob at the tip is replaced by a forked tip of two tapering prongs.
