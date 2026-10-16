@@ -5,6 +5,8 @@ import { formatTime } from './state';
 import {
   canCast,
   castHeal,
+  GIFT_OF_SUNG,
+  STARDUSK,
   currentLight,
   isSpellcaster,
   knownSpells,
@@ -30,6 +32,8 @@ export interface CastHost {
   sense?(spell: number): string;
   /** The light in force changed (undefined: dark). Lets the renderer brighten the party's surroundings. */
   onLight?(light: ActiveLight | undefined): void;
+  /** The party is indoors (a dungeon, mine or sewer): Stardusk does not work there. */
+  indoors?(): boolean;
 }
 
 /** What a timed spell does, for the cast message (SPELLDOC). */
@@ -80,6 +84,10 @@ export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<st
   );
   const spell = options[si];
   if (!spell) return undefined;
+  if (spell.index === STARDUSK && host.indoors?.()) {
+    await host.menu(`${spell.name} can only be cast outside.`, []);
+    return undefined;
+  }
 
   const top = maxPower(caster, spell);
   const powers = powerChoices(spell.minCost, top);
@@ -92,7 +100,12 @@ export async function runCast(host: CastHost, lights: ActiveLight[]): Promise<st
 
   let message: string;
   if (spellKind(spell) === 'heal') {
-    const members = activeCharacters(party);
+    // Gift of Sung gives the caster's own health away: anyone but the caster.
+    const members = activeCharacters(party).filter((m) => spell.index !== GIFT_OF_SUNG || m.index !== caster.index);
+    if (members.length === 0) {
+      await host.menu(`${spell.name} can only be cast on another party member.`, []);
+      return undefined;
+    }
     const ti = await host.menu(`Heal whom?`, [
       ...members.map((m) => `${m.name} (${m.skills.health.trueSkill}/${m.skills.health.max})`),
       'Cancel',

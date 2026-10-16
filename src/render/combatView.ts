@@ -303,6 +303,7 @@ export class CombatView {
         // Those who ran leave the field; the fallen stay on it, lying where they fell.
         node.actor.object.visible = !f.fled;
         if (isDead(f)) node.actor.die();
+        else if (node.actor.dead) node.actor.revive();
         else this.faceFoes(node);
         continue;
       }

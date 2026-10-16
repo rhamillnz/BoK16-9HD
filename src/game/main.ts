@@ -632,6 +632,7 @@ if (openScreen) setTimeout(() => screens.open(openScreen), 4000);
 // Spells: V casts healing and light spells outside combat (combat casting lives in the fight panel, C).
 const cast = installCast({
   spells: spellDefs,
+  indoors: () => isUndergroundZone(zoneHost.current.zone),
   getParty: () => partyState,
   setParty: (p) => {
     partyState = p;

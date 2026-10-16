@@ -736,6 +736,6 @@ DIFF = implemented differently; NO = missing.
 | Map: N, dark dungeons, town colours | PARTIAL | |
 | Bookmark quick save | YES | F5 |
 | Shades from graves | NO | |
-| Spell details (table above) | PARTIAL | Skyfire, Haven, Invitation, River Song, Nightfingers: YES. Flamecast hits only adjacent enemies. The rest: NO |
+| Spell details (table above) | YES | Flamecast burns all within two steps; Gift of Sung (not the caster, one-for-one); Grief only on minds (`MINDLESS_MONSTERS`); Stardusk outdoors only; Lightning Staff casts Skyfire free; Infinity Pool x1.5; Black Slayers and Nighthawks rise again without Final Rest |
 | 10 royals = 1 sovereign | YES | `game/party.ts` |
 | Damaged items sell for less | YES | `game/shops.ts` |

@@ -63,6 +63,31 @@ export const MIRROR_WALL = 14;
 export const SKYFIRE = 5;
 
 /**
+ * Gift of Sung (manual p. 54): on any party member but the caster, a one-for-one transfer of health from the
+ * caster; the recipient cannot go above full Health.
+ */
+export const GIFT_OF_SUNG = 7;
+/** Grief of 1000 Nights (manual p. 55): "effective only on sentient creatures". */
+export const GRIEF = 13;
+/** Stardusk (manual p. 55): night vision, "can only be used outside". */
+export const STARDUSK = 26;
+/** Final Rest (manual p. 55). */
+export const FINAL_REST = 32;
+
+/** Monsters with no mind for Grief to work on: beasts, vermin, elementals, spirits and the undead. */
+export const MINDLESS_MONSTERS: ReadonlySet<number> = new Set([19, 22, 28, 39, 41, 42, 43, 44, 46, 49, 54, 57, 58]);
+
+/** Items with combat magic (OBJINFO): the Lightning Staff casts Skyfire freely; the Infinity Pool magnifies spells. */
+export const LIGHTNING_STAFF = 2;
+export const INFINITY_POOL = 13;
+/** Share by which the Infinity Pool magnifies its bearer's combat spells. */
+export const INFINITY_POOL_BONUS = 1.5;
+
+/** Nighthawks (23 and its variant 62) and Black Slayers (22): the dead that rise again without Final Rest. */
+export const NIGHTHAWKS: readonly number[] = [23, 62];
+export const BLACK_SLAYER = 22;
+
+/**
  * Spells that only touch one kind of monster (SPELLDOC): Final Rest "Affects Black Slayers & Nighthawks" (they
  * are laid to rest: killed), Thy Master's Will "Forces Wyverns to retreat" (they leave the fight).
  */
@@ -225,8 +250,11 @@ export function castHeal(
   if (!caster || !target) return { party: p, message: 'Nobody there.', ok: false };
   if (spellKind(spell) !== 'heal') return { party: p, message: `${spell.name} does not heal.`, ok: false };
   if (!canCast(caster, spell)) return { party: p, message: `${caster.name} cannot cast ${spell.name} now.`, ok: false };
+  if (spell.index === GIFT_OF_SUNG && casterIndex === targetIndex)
+    return { party: p, message: `${spell.name} cannot be cast on the caster.`, ok: false };
   const p2 = Math.min(power, maxPower(caster, spell));
-  const amount = spellAmount(spell, p2);
+  // Gift of Sung is a one-for-one transfer of the power spent.
+  const amount = spell.index === GIFT_OF_SUNG ? p2 : spellAmount(spell, p2);
   let next = updateCharacter(p, casterIndex, (c) => payCost(c, p2));
   next = updateCharacter(next, targetIndex, (c) => {
     const h = c.skills.health;

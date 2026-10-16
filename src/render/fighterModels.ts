@@ -241,6 +241,15 @@ export class FighterActor {
     });
   }
 
+  /** Get back up (a Black Slayer rising again): stand and idle. */
+  revive(): void {
+    if (!this.dead) return;
+    this.dead = false;
+    this.timers = [];
+    this.busy = false;
+    this.play('idle', false, 0.4);
+  }
+
   /** Walk through `points` (render space), one cell per SECONDS_PER_CELL. */
   walk(points: readonly THREE.Vector3[]): void {
     if (this.dead || points.length === 0) return;

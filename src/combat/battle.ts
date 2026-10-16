@@ -5,7 +5,25 @@
  */
 
 import type { SpellDef } from '../formats/spells';
-import { BANISHES, carriesFor, maxPower, SKYFIRE, SPELL_SPLASH, spellAmount, spellKind, SUMMONS } from '../game/spells';
+import {
+  BANISHES,
+  BLACK_SLAYER,
+  carriesFor,
+  FINAL_REST,
+  GIFT_OF_SUNG,
+  GRIEF,
+  INFINITY_POOL,
+  INFINITY_POOL_BONUS,
+  LIGHTNING_STAFF,
+  maxPower,
+  MINDLESS_MONSTERS,
+  NIGHTHAWKS,
+  SKYFIRE,
+  SPELL_SPLASH,
+  spellAmount,
+  spellKind,
+  SUMMONS,
+} from '../game/spells';
 import {
   buildGrid,
   chebyshevDistance,
@@ -86,6 +104,20 @@ export interface Fighter extends MeleeStats {
   fled?: boolean;
   /** Id of the attacker whose blow this fighter parried: its next attack on it gets a riposte bonus. */
   riposte?: string;
+  /** A slain Nighthawk or Black Slayer that will rise again at the next round unless given Final Rest. */
+  rising?: boolean;
+  /** Given Final Rest: it stays dead (and its body can be searched). */
+  laidToRest?: boolean;
+}
+
+/** A fallen Black Slayer rises again; a fallen Nighthawk rises as one while any Black Slayer fights on its side. */
+function willRise(fighters: readonly Fighter[], f: Fighter): boolean {
+  if (!isDead(f) || f.banished || f.fled || f.laidToRest) return false;
+  if (f.monster === BLACK_SLAYER) return true;
+  return (
+    NIGHTHAWKS.includes(f.monster) &&
+    fighters.some((o) => o.side === f.side && o.monster === BLACK_SLAYER && !isDead(o))
+  );
 }
 
 /** Out of the fight: slain, banished or run away. */
@@ -210,6 +242,7 @@ export type BattleEvent =
   | { type: 'rest'; id: string; healed: number }
   | { type: 'assess'; id: string; target: string; facts: string[] }
   | { type: 'retreat'; id: string }
+  | { type: 'rise'; id: string }
   | { type: 'held'; id: string }
   | { type: 'flee'; success: boolean; refused?: boolean }
   | { type: 'round'; round: number }
@@ -240,7 +273,8 @@ export function startBattle(
     list.map((f) => ({ ...newCombatant(f.id, f.side, f.speed, f.health), dead: isDead(f) })),
     initiative,
   );
-  return { fighters: list, turn, disabled: [...disabled], events: [], history: [] };
+  // Normalised once, so anyone who starts the fight already fallen is treated like one slain in it.
+  return sync({ fighters: list, turn, disabled: [...disabled], events: [], history: [] }, list, turn, []);
 }
 
 export const currentFighter = (s: BattleState): Fighter => s.fighters[s.turn.current]!;
@@ -286,9 +320,13 @@ export function gridFor(s: BattleState, index = s.turn.current): CombatGrid {
 
 /** Copies fighter vitals into the turn state and the turn state's defending flag back to the fighters. */
 function sync(s: BattleState, fighters: Fighter[], turn: TurnState, events: BattleEvent[]): BattleState {
+  // The undead that will rise are down, not dead: the fight goes on while they lie there.
+  fighters = fighters.map((f) => (!f.rising && willRise(fighters, f) ? { ...f, rising: true } : f));
   const combatants = turn.combatants.map((c, i) => ({
     ...c,
-    dead: isDead(fighters[i]!) && !fighters[i]!.banished,
+    dead: isDead(fighters[i]!) && !fighters[i]!.banished && !fighters[i]!.rising,
+    // Nothing else sets it: lying down waiting to rise is the only way to be out of the turn order but not dead.
+    incapacitated: fighters[i]!.rising === true,
     exorcised: c.exorcised || fighters[i]!.banished === true,
     health: fighters[i]!.health,
   }));
@@ -309,9 +347,29 @@ function endTurn(s: BattleState, fighters: Fighter[], events: BattleEvent[], tur
   const before = synced.turn.round;
   let next = finishTurn(synced.turn);
   const out = [...events];
-  if (next.round !== before && !next.outcome) out.push({ type: 'round', round: next.round });
-  // A held fighter loses its turn; each lost turn wears the hold down by one.
   let list = synced.fighters;
+  if (next.round !== before && !next.outcome) {
+    out.push({ type: 'round', round: next.round });
+    // A new round: the risen undead get up (Nighthawks as Black Slayers) at half Health.
+    const risen = synced.fighters.map((f) =>
+      f.rising
+        ? {
+            ...f,
+            rising: false,
+            health: Math.ceil(f.maxHealth / 2),
+            monster: BLACK_SLAYER,
+            name: f.monster === BLACK_SLAYER ? f.name : `${f.name} (risen)`,
+          }
+        : f,
+    );
+    for (const f of risen) if (synced.fighters.find((o) => o.id === f.id)!.rising) out.push({ type: 'rise', id: f.id });
+    if (risen.some((f, k) => f !== synced.fighters[k])) {
+      const again = sync(s, risen, next, []);
+      list = again.fighters;
+      next = again.turn;
+    }
+  }
+  // A held fighter loses its turn; each lost turn wears the hold down by one.
   while (!next.outcome && (list[next.current]!.held ?? 0) > 0) {
     const i = next.current;
     list = list.map((f, k) => (k === i ? { ...f, held: f.held! - 1 } : f));
@@ -320,7 +378,12 @@ function endTurn(s: BattleState, fighters: Fighter[], events: BattleEvent[], tur
     next = finishTurn(next);
     if (next.round !== round && !next.outcome) out.push({ type: 'round', round: next.round });
   }
-  if (next.outcome) out.push({ type: 'end', outcome: next.outcome });
+  return endTurnTail(s, list, next, out);
+}
+
+/** The rest of endTurn once the next combatant is chosen: end-of-fight event, resting cleared, state synced. */
+function endTurnTail(s: BattleState, list: Fighter[], next: TurnState, out: BattleEvent[]): BattleState {
+  if (next.outcome && !out.some((e) => e.type === 'end')) out.push({ type: 'end', outcome: next.outcome });
   // Resting lasts until the fighter's next turn comes round.
   if (!next.outcome && list[next.current]!.resting)
     list = list.map((f, k) => (k === next.current ? { ...f, resting: false } : f));
@@ -532,8 +595,15 @@ export function castableSpells(s: BattleState, index = s.turn.current): SpellDef
   if (gone(me) || (me.silenced ?? 0) > 0 || nextToEnemy(s, index)) return [];
   return (me.spells ?? []).filter((d) => {
     const kind = spellKind(d);
-    return COMBAT_KINDS.includes(kind) && me.health + me.stamina >= d.minCost && carriesFor(me.items, d);
+    return (
+      COMBAT_KINDS.includes(kind) && (freeCast(me, d) || me.health + me.stamina >= d.minCost) && carriesFor(me.items, d)
+    );
   });
+}
+
+/** The Lightning Staff calls lightning (Skyfire) without costing its wielder anything (manual p. 40). */
+export function freeCast(f: Fighter, def: SpellDef): boolean {
+  return def.index === SKYFIRE && f.weapon?.index === LIGHTNING_STAFF;
 }
 
 /** Power a fighter casts `def` at: as much as affordable up to its maximum, keeping 1 point. */
@@ -575,15 +645,27 @@ export function castSpell(
   if (!def) return undefined;
   const kind = spellKind(def) as CastKind;
   const hostile = HOSTILE_KINDS.includes(kind);
-  const victimIndex = s.fighters.findIndex((f) => !gone(f) && samePos(f.pos, target));
+  // Final Rest may also be laid on a fallen Nighthawk or Black Slayer waiting to rise.
+  const victimIndex = s.fighters.findIndex(
+    (f) => (!gone(f) || (def.index === FINAL_REST && f.rising === true)) && samePos(f.pos, target),
+  );
   const victim = s.fighters[victimIndex];
   if (!victim || chebyshevDistance(me.pos, victim.pos) > RANGED_RANGE) return undefined;
   if (hostile !== (victim.side !== me.side)) return undefined;
   if (needsLineOfSight(def) && !lineOfSight(s, me.pos, victim.pos)) return undefined;
+  const gift = def.index === GIFT_OF_SUNG && kind === 'heal';
+  if (gift && victim.id === me.id) return undefined;
 
-  const power = Math.min(castPower(me, def), maxSpend);
+  const free = freeCast(me, def);
+  const power = free ? def.maxCost : Math.min(castPower(me, def), maxSpend);
   if (power < def.minCost) return undefined;
-  const amount = spellAmount(def, power);
+  // Gift of Sung transfers the power spent one for one; the Infinity Pool magnifies its bearer's spells.
+  const pooled = (me.items ?? []).includes(INFINITY_POOL);
+  const base = gift ? power : spellAmount(def, power);
+  const amount =
+    pooled && kind !== 'summon' && kind !== 'banish' && kind !== 'mirror'
+      ? Math.round(base * INFINITY_POOL_BONUS)
+      : base;
   const fighters = s.fighters.map((f) => ({ ...f }));
   const caster = fighters[s.turn.current]!;
   const aimed = fighters[victimIndex]!;
@@ -591,9 +673,11 @@ export function castSpell(
   const reflected = hostile && aimed.mirror ? aimed.id : undefined;
   const subject = reflected ? caster : aimed;
   caster.facing = directionBetween(caster.pos, aimed.pos);
-  const paid = applyDamage(caster, power);
-  caster.stamina = paid.stamina;
-  caster.health = Math.max(1, paid.health);
+  if (!free) {
+    const paid = applyDamage(caster, power);
+    caster.stamina = paid.stamina;
+    caster.health = Math.max(1, paid.health);
+  }
   let also: { target: string; amount: number; killed: boolean }[] | undefined;
   let moved = 0;
   let turn = s.turn;
@@ -648,9 +732,17 @@ export function castSpell(
     if (effect) {
       subject.health = 0;
       if (rule.effect === 'drive off') subject.banished = true;
+      // Laid to rest for good: Lims-Kragma takes it, and it will not rise again.
+      if (def.index === FINAL_REST) {
+        subject.rising = false;
+        subject.laidToRest = true;
+      }
     }
-  } else if (kind === 'hold') subject.held = Math.max(subject.held ?? 0, amount);
-  else if (kind === 'ward') subject.ward = Math.max(subject.ward ?? 0, amount);
+  } else if (kind === 'hold') {
+    // Grief works only on a mind that can grieve.
+    if (def.index === GRIEF && MINDLESS_MONSTERS.has(subject.monster) && subject.side === 'enemy') effect = 0;
+    else subject.held = Math.max(subject.held ?? 0, amount);
+  } else if (kind === 'ward') subject.ward = Math.max(subject.ward ?? 0, amount);
   else subject.health = Math.min(subject.maxHealth, subject.health + amount);
   const killed = (kind === 'damage' || kind === 'drain' || (kind === 'banish' && !subject.banished)) && isDead(subject);
   return endTurn(
@@ -667,7 +759,7 @@ export function castSpell(
         amount:
           kind === 'push' || kind === 'pull'
             ? moved
-            : kind === 'damage' || kind === 'banish' || kind === 'summon'
+            : kind === 'damage' || kind === 'banish' || kind === 'summon' || kind === 'hold'
               ? effect
               : amount,
         killed,
@@ -823,6 +915,8 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
         case 'heal':
           return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} regains ${e.amount}.`;
         case 'hold':
+          if (e.amount === 0)
+            return `${name(e.caster)} casts ${e.spell}, but ${name(e.target)} has no mind for it to touch.`;
           return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is held for ${e.amount} ${e.amount === 1 ? 'turn' : 'turns'}.`;
         case 'ward':
           return `${name(e.caster)} casts ${e.spell}; ${name(e.target)} is shielded (${e.amount}).`;
@@ -851,6 +945,8 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
       return `${name(e.id)} sizes up ${name(e.target)}: ${e.facts.join('; ')}.`;
     case 'retreat':
       return `${name(e.id)} breaks and runs.`;
+    case 'rise':
+      return `${name(e.id)} rises again as a Black Slayer!`;
     case 'held':
       return `${name(e.id)} cannot act.`;
     case 'flee':

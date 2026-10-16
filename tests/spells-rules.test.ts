@@ -423,3 +423,104 @@ describe('timed spells', () => {
     expect(currentLight([{ spell: 35, endTicks: 100 }], 0)).toBeUndefined();
   });
 });
+
+describe('spell details from the manual (pp. 40, 54, 55)', () => {
+  const GIFT = spell({
+    index: 7,
+    name: 'Gift of Sung',
+    targeting: 2,
+    calc: SpellCalc.FixedAmount,
+    damage: 1,
+    minCost: 1,
+    maxCost: 20,
+  });
+  const SKY = spell({ index: 5, name: 'Skyfire', minCost: 12, maxCost: 12, damage: 2 });
+  const GRIEF13 = spell({
+    index: 13,
+    name: 'Grief',
+    targeting: 1,
+    calc: SpellCalc.FixedAmount,
+    damage: 2,
+    minCost: 4,
+    maxCost: 4,
+  });
+  const REST32 = spell({ index: 32, name: 'Final Rest', targeting: 7, damage: 0, minCost: 5, maxCost: 5 });
+  const BOLT = spell({ index: 4, name: 'Flamecast', minCost: 1, maxCost: 5, damage: 2 });
+
+  it('Gift of Sung: not on the caster, a one-for-one transfer capped at full Health', () => {
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [GIFT], stamina: 10, speed: 9 }),
+      fighter('b', 'party', 4, 1, { health: 15 }),
+      fighter('x', 'enemy', 3, 8, { speed: 1 }),
+    ]);
+    expect(castSpell(s, 7, { x: 3, y: 1 })).toBeUndefined();
+    const next = castSpell(s, 7, { x: 4, y: 1 }, 4)!;
+    expect(next.fighters[1]!.health).toBe(19);
+    expect(castSpell(s, 7, { x: 4, y: 1 })!.fighters[1]!.health).toBe(20);
+  });
+
+  it('Grief of 1000 Nights works only on a mind that can grieve', () => {
+    const fight = (monster: number) =>
+      startBattle([
+        fighter('a', 'party', 3, 1, { spells: [GRIEF13], speed: 9 }),
+        fighter('x', 'enemy', 3, 8, { speed: 1, monster }),
+      ]);
+    const moredhel = castSpell(fight(18), 13, { x: 3, y: 8 })!;
+    expect(moredhel.events[0]).toMatchObject({ kind: 'hold' });
+    expect((moredhel.events[0] as { amount: number }).amount).toBeGreaterThan(0);
+    const beast = castSpell(fight(39), 13, { x: 3, y: 8 })!;
+    expect(beast.events[0]).toMatchObject({ kind: 'hold', amount: 0 });
+    expect(describeEvent(beast, beast.events[0]!)).toContain('no mind');
+  });
+
+  it('the Lightning Staff casts Skyfire for nothing; the Infinity Pool magnifies spells', () => {
+    const staff = {
+      strengthSwing: 0,
+      strengthThrust: 0,
+      accuracySwing: 0,
+      accuracyThrust: 0,
+      condition: 100,
+      race: RaceKind.None,
+      index: 2,
+    };
+    const s = startBattle([
+      fighter('a', 'party', 3, 1, { spells: [SKY], stamina: 0, health: 3, speed: 9, weapon: staff }),
+      fighter('x', 'enemy', 3, 8, { speed: 1, weapon: staff }),
+    ]);
+    const next = castSpell(s, 5, { x: 3, y: 8 })!;
+    expect(next.fighters[0]!.health).toBe(3);
+    const plain = (items?: number[]) =>
+      castSpell(
+        startBattle([
+          fighter('a', 'party', 3, 1, { spells: [BOLT], stamina: 20, speed: 9, ...(items && { items }) }),
+          fighter('x', 'enemy', 3, 8, { speed: 1, stamina: 0, health: 40, maxHealth: 40 }),
+        ]),
+        4,
+        { x: 3, y: 8 },
+      )!.events[0] as { amount: number };
+    expect(plain([13]).amount).toBe(Math.round(plain().amount * 1.5));
+  });
+
+  it('a slain Black Slayer rises next round unless given Final Rest; a Nighthawk rises as one beside it', () => {
+    const fight = () =>
+      startBattle([
+        fighter('a', 'party', 3, 1, { spells: [REST32], stamina: 20, speed: 9 }),
+        fighter('s', 'enemy', 3, 8, { speed: 1, monster: 22, health: 0 }),
+        fighter('n', 'enemy', 5, 8, { speed: 1, monster: 23, health: 0 }),
+        fighter('k', 'enemy', 7, 8, { speed: 1, monster: 22 }),
+      ]);
+    // Both fallen will rise: the fight is not over while they lie there.
+    let s = rest(fight())!;
+    expect(s.turn.outcome).toBeUndefined();
+    while (s.turn.round === 1) s = rest(s)!;
+    expect(s.fighters.find((f) => f.id === 's')!.health).toBe(10);
+    const n = s.fighters.find((f) => f.id === 'n')!;
+    expect(n.monster).toBe(22);
+    expect(s.history.some((e) => e.type === 'rise')).toBe(true);
+    // Final Rest on a fallen one before the round turns: it stays down.
+    let laid = castSpell(fight(), 32, { x: 3, y: 8 })!;
+    expect(laid.events[0]).toMatchObject({ kind: 'banish', killed: true });
+    while (laid.turn.round === 1) laid = rest(laid)!;
+    expect(laid.fighters.find((f) => f.id === 's')!.health).toBe(0);
+  });
+});
