@@ -251,9 +251,21 @@ export type SheetEvent =
 export interface SheetState {
   /** Selected tab (index into the active party). */
   tab: number;
+  /** Keyboard cursor on the learned skills (index into `layout.skills`), once Up/Down has been used. */
+  row?: number;
 }
 
-export type SheetResult = { kind: 'none' } | { kind: 'select'; tab: number } | { kind: 'close' };
+export type SheetResult =
+  | { kind: 'none' }
+  | { kind: 'select'; tab: number }
+  | { kind: 'close' }
+  /** Practice focus (manual): select or drop a learned skill. */
+  | { kind: 'toggle'; skill: SkillName };
+
+/** The learned skill row under a point, if any. */
+export function skillAt(layout: SheetLayout, x: number, y: number): RowSlot | undefined {
+  return layout.skills.find(({ rect: r }) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height);
+}
 
 export function tabAt(layout: SheetLayout, x: number, y: number): number {
   const hit = layout.tabs.find(({ rect: r }) => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height);
@@ -262,7 +274,8 @@ export function tabAt(layout: SheetLayout, x: number, y: number): number {
 
 /**
  * Pure input reducer. Left/Right (or A/D) and Tab cycle characters, digits 1-6 pick one directly,
- * clicks on a tab select it, Escape/C closes the sheet. Hover does nothing (no selectable rows).
+ * clicks on a tab select it, Escape/C closes the sheet. Clicking a learned skill (or Up/Down then Enter or Space)
+ * toggles it as a practice focus. Hover does nothing.
  */
 export function stepSheet(
   layout: SheetLayout,
@@ -272,13 +285,15 @@ export function stepSheet(
   const n = layout.tabs.length;
   const none: SheetResult = { kind: 'none' };
   const go = (tab: number) => ({
-    state: { tab },
+    state: { ...state, tab },
     result: tab === state.tab ? none : ({ kind: 'select', tab } as SheetResult),
   });
   if (ev.type === 'hover') return { state, result: none };
   if (ev.type === 'click') {
     const i = tabAt(layout, ev.x, ev.y);
-    return i >= 0 ? go(i) : { state, result: none };
+    if (i >= 0) return go(i);
+    const row = skillAt(layout, ev.x, ev.y);
+    return row ? { state, result: { kind: 'toggle', skill: row.row.skill } } : { state, result: none };
   }
   if (n === 0) return { state, result: ev.key === 'Escape' ? { kind: 'close' } : none };
   const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
@@ -286,6 +301,13 @@ export function stepSheet(
   if (key === 'ArrowLeft' || key === 'a') return go((state.tab + n - 1) % n);
   if (key === 'ArrowRight' || key === 'd' || key === 'Tab') return go((state.tab + 1) % n);
   if (/^[1-9]$/.test(key) && Number(key) <= n) return go(Number(key) - 1);
+  const m = layout.skills.length;
+  if (m > 0 && (key === 'ArrowDown' || key === 'ArrowUp')) {
+    const at = state.row ?? (key === 'ArrowDown' ? -1 : 0);
+    return { state: { ...state, row: (at + (key === 'ArrowDown' ? 1 : m - 1)) % m }, result: none };
+  }
+  if ((key === 'Enter' || key === ' ') && state.row !== undefined && layout.skills[state.row])
+    return { state, result: { kind: 'toggle', skill: layout.skills[state.row]!.row.skill } };
   return { state, result: none };
 }
 
@@ -398,8 +420,16 @@ export function drawCharacterSheet(
   }
 
   drawText(ctx, font, model.name, layout.title.x, layout.title.y, scale, c.text, spacing);
+  // The layout was made from one character; draw this tab's own values in its slots.
+  const rows = new Map([...model.vitals, ...model.attributes, ...model.skills].map((r) => [r.skill, r]));
   for (const slot of [...layout.vitals, ...layout.attributes, ...layout.skills])
-    drawRow(ctx, font, slot, layout, c, spacing);
+    drawRow(ctx, font, { ...slot, row: rows.get(slot.row.skill) ?? slot.row }, layout, c, spacing);
+  const cursor = state.row === undefined ? undefined : layout.skills[state.row];
+  if (cursor) {
+    ctx.strokeStyle = c.text;
+    ctx.lineWidth = scale;
+    ctx.strokeRect(cursor.rect.x, cursor.rect.y, cursor.rect.width, cursor.rect.height);
+  }
 
   drawText(ctx, font, 'Conditions', layout.conditionsHeader.x, layout.conditionsHeader.y, scale, c.dim, spacing);
   if (layout.conditions.length === 0) {

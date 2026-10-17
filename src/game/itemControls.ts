@@ -4,7 +4,7 @@ import type { ItemDef } from '../formats/objinfo';
 import type { ItemHandler } from '../ui/hudRegistry';
 import type { SpellDef } from '../formats/spells';
 import { giveToCharacter, repairItem, toggleEquip, useItem, type ItemUseResult } from './itemUse';
-import type { PartyState } from './party';
+import { updateCharacter, type PartyState } from './party';
 
 export interface ItemControlsHost {
   items: readonly ItemDef[];
@@ -57,6 +57,16 @@ export function installItemControls(host: ItemControlsHost): void {
         else if (action === 'equip') playSfx(Snd.drag);
       }
       return r.message;
+    },
+    toggleSkill(character, skill) {
+      const p = host.getParty();
+      host.setParty(
+        updateCharacter(p, character, (c) => ({
+          ...c,
+          skills: { ...c.skills, [skill]: { ...c.skills[skill], selected: !c.skills[skill].selected } },
+        })),
+      );
+      playSfx(Snd.drag);
     },
   });
 }

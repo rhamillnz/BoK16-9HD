@@ -1,6 +1,6 @@
 import type { ItemIconSet } from '../data/itemIcons';
 import type { Font } from '../formats/fnt';
-import type { Character, InventoryItem } from '../formats/gam';
+import type { Character, InventoryItem, SkillName } from '../formats/gam';
 import type { ItemDef } from '../formats/objinfo';
 import type { SlotInfo } from '../game/saveGame';
 import type { ZoneMap } from '../formats/zoneMap';
@@ -22,6 +22,8 @@ export interface SaveHandler {
 export interface ItemHandler {
   /** `target` is the recipient's character index; `give` needs it (there is no default recipient). */
   act(action: 'use' | 'equip' | 'give' | 'repair' | 'drop', character: number, slot: number, target?: number): string;
+  /** Practice focus: select or drop one of a character's learned skills. */
+  toggleSkill?(character: number, skill: SkillName): void;
 }
 
 export type HudEvent = { type: 'key'; key: string } | { type: 'click' | 'hover' | 'rightClick'; x: number; y: number };

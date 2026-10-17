@@ -103,6 +103,13 @@ class SheetScreen implements HudScreenHandler {
     const r = stepSheet(this.s.layout, this.s.state, ev);
     this.s.state = r.state;
     if (r.result.kind === 'close') this.host.close();
+    else if (r.result.kind === 'toggle') {
+      const c = this.host.party[r.state.tab];
+      if (c) this.host.itemHandler?.toggleSkill?.(c.index, r.result.skill);
+      // The party was rebuilt: show the new selection.
+      this.s.models = this.host.party.map(buildSheetModel);
+      this.host.invalidate();
+    } else if (ev.type === 'key') this.host.invalidate();
   }
   draw(ctx: CanvasRenderingContext2D): void {
     if (!this.s) return;

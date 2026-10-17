@@ -440,3 +440,9 @@ The manual's table of effects shown on the target. A landed melee blow from an e
 - Clerical 2/3: a blue glow
 
 Staves carry none. Unit-tested only: the dev server was stopped by the memory reaper, so this has not been looked at in the game yet.
+
+## Practice focus toggle (Opus, 2026-10-17)
+
+The character sheet (C) now toggles practice focus (manual). Clicking a learned skill's row selects or drops it; Up/Down move a cursor (outlined) over the skills, and Enter or Space toggles. Selected skills show the existing '+' marker. The practice maths (`selectedSkillPool`: the fewer selected, the bigger the boost) already used the flag, and saves keep it, since the whole party state is saved.
+
+Also fixed: every tab of the sheet drew the first character's values, because the layout's rows came from the first model. Rows now take the shown character's values.

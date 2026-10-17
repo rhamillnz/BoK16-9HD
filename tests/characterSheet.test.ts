@@ -176,3 +176,33 @@ describe('input', () => {
     expect(stepSheet(empty, { tab: 0 }, key('ArrowRight')).result).toEqual({ kind: 'none' });
   });
 });
+
+describe('practice focus (manual: click a skill to select it)', () => {
+  const model = buildSheetModel(character(0, 'Owyn'));
+  const layout = layoutCharacterSheet(font, model, ['A', 'B'], opts);
+  const key = (k: string) => ({ type: 'key', key: k }) as const;
+
+  it('a click on a learned skill toggles it; vitals and attributes are not selectable', () => {
+    const slot = layout.skills[2]!;
+    expect(stepSheet(layout, { tab: 0 }, { type: 'click', x: slot.rect.x + 2, y: slot.rect.y + 2 }).result).toEqual({
+      kind: 'toggle',
+      skill: slot.row.skill,
+    });
+    const vital = layout.vitals[0]!;
+    expect(stepSheet(layout, { tab: 0 }, { type: 'click', x: vital.rect.x + 2, y: vital.rect.y + 2 }).result).toEqual({
+      kind: 'none',
+    });
+  });
+
+  it('Up/Down move a cursor over the skills and Enter toggles the one under it', () => {
+    const down = stepSheet(layout, { tab: 0 }, key('ArrowDown'));
+    expect(down.state.row).toBe(0);
+    const up = stepSheet(layout, down.state, key('ArrowUp'));
+    expect(up.state.row).toBe(layout.skills.length - 1);
+    expect(stepSheet(layout, down.state, key('Enter')).result).toEqual({
+      kind: 'toggle',
+      skill: layout.skills[0]!.row.skill,
+    });
+    expect(stepSheet(layout, { tab: 0 }, key('Enter')).result).toEqual({ kind: 'none' });
+  });
+});

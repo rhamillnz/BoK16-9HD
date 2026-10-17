@@ -702,7 +702,7 @@ DIFF = implemented differently; NO = missing.
 | Camping heals to 80%, inns 100% | YES | `game/rest.ts`, `game/state.ts` |
 | No camping with enemies near | YES | refused within two cells of a combat encounter that can still fire |
 | Daily ration, hunger | YES | eaten at the day boundary while walking too; rations handed to a starving character are eaten at once |
-| Practice focus (selected skills) | PARTIAL | maths in `game/practice.ts`; no UI to toggle the selection |
+| Practice focus (selected skills) | YES | maths in `game/practice.ts`; click a skill on the character sheet (or Up/Down + Enter) to toggle |
 | Strength grows on hits; Speed fixed | YES | `combat/rewards.ts` |
 | Conditions; long rest cures sickness | YES | `game/rest.ts`, `game/temple.ts` |
 | Poison worse in combat | YES | a poisoned fighter loses 2 at the end of each of its turns |
