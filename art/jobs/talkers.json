@@ -252,8 +252,8 @@
    "type": "bow",
    "hand": "l",
    "turn": [
-    0,
-    -90
+    20,
+    0
    ]
   },
   "beard": "Hair_Beard",
