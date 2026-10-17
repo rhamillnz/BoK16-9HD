@@ -722,7 +722,7 @@ DIFF = implemented differently; NO = missing.
 | Assess | YES | `assess` (E): one fact per 20 Assessment points |
 | Rest in combat heals | YES | 10% of Health+Stamina, Health first; 15 easier to hit until the next turn |
 | Auto-combat | YES | A key: the party's turns use the enemy tactics |
-| Inventory in combat costs the turn | NO | no inventory in combat |
+| Inventory in combat costs the turn | YES | I opens on the fighter whose turn it is (refused otherwise); closing it spends the turn; item effects carry into the fight |
 | Revive the fallen; all down = game over | DIFF | auto-revive at 1 Health and retreat |
 | Enemy AI (reckless, cautious, morale) | YES | morale from the save's retreat factor (0-9, x7%), +30% once the leader is down; cautious rest when spent |
 | Enhancements and resistances | YES | maths done; monster resistances from the original table (docs/formats/combat-audit.md); poisoned blades poison; hit effects (green flash, red sparks, blue sparkle, white/blue glow) |

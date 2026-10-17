@@ -446,3 +446,7 @@ Staves carry none. Unit-tested only: the dev server was stopped by the memory re
 The character sheet (C) now toggles practice focus (manual). Clicking a learned skill's row selects or drops it; Up/Down move a cursor (outlined) over the skills, and Enter or Space toggles. Selected skills show the existing '+' marker. The practice maths (`selectedSkillPool`: the fewer selected, the bigger the boost) already used the flag, and saves keep it, since the whole party state is saved.
 
 Also fixed: every tab of the sheet drew the first character's values, because the layout's rows came from the first model. Rows now take the shown character's values.
+
+## Inventory in combat (Opus, 2026-10-17)
+
+In a fight, I opens the pack only on a party member's own turn, and on that character. On an enemy's turn it is refused with a note. Closing it spends the turn (`inventoryTurn` in battle.ts; the log reads "... spends the turn in the pack"), even if nothing was used. Health, Stamina and poison changed by items used there (a potion, a cure) carry into the fight. Before this, the inventory opened freely in a fight and nothing used in it reached the battle. Unit-tested; not yet tried in the game, as the dev server was stopped by the memory reaper.

@@ -138,10 +138,13 @@ export class InventoryView {
     return this.root !== undefined;
   }
 
-  open(): void {
+  /** `character`: show this character index's pack (in a fight, whoever's turn it is). */
+  open(character?: number): void {
     this.close();
     // The HUD logic is tested without a DOM: there the view stays empty.
     if (typeof document === 'undefined') return;
+    const at = character === undefined ? -1 : this.host.party.findIndex((c) => c.index === character);
+    if (at >= 0) this.character = at;
     this.character = Math.min(this.character, Math.max(0, this.host.party.length - 1));
     this.giveMode = false;
     this.status = '';

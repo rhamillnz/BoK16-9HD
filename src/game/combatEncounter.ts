@@ -112,6 +112,16 @@ export class CombatEncounters {
     return this.starting || this.approaching || this.controller.active;
   }
 
+  /** In a fight: the character whose own turn it is (the inventory may open only then, and uses the turn). */
+  inventoryCharacter(): number | undefined {
+    return this.controller.active ? this.controller.inventoryCharacter() : undefined;
+  }
+
+  /** The inventory opened on a fighter's turn has closed: the turn is spent. */
+  inventoryClosed(changes: Parameters<CombatController['inventoryClosed']>[0]): void {
+    if (this.controller.active) this.controller.inventoryClosed(changes);
+  }
+
   update(dt: number): void {
     this.controller.update(dt);
   }

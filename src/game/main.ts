@@ -602,6 +602,36 @@ const npcFigures = new NpcFigures(scene, (actor) => {
   return clothingColors(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
 });
 
+// In a fight, the inventory opens only on a party member's own turn, on that character, and closing it spends
+// the turn (manual): Health, Stamina and poison changed by items carry into the battle.
+let combatInventoryOf: number | undefined;
+window.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.code !== 'KeyI' || e.repeat || !combat.active || screens.openScreen === 'inventory') return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const who = combat.inventoryCharacter();
+    if (who === undefined) {
+      notify('The pack can be opened only on your own turn.');
+      return;
+    }
+    combatInventoryOf = who;
+    screens.open('inventory', who);
+  },
+  { capture: true },
+);
+const afterCombatInventory = () => {
+  if (combatInventoryOf === undefined || screens.openScreen === 'inventory') return;
+  const c = partyState.characters.find((x) => x.index === combatInventoryOf);
+  combatInventoryOf = undefined;
+  combat.inventoryClosed(
+    c
+      ? { health: c.skills.health.trueSkill, stamina: c.skills.stamina.trueSkill, poisoned: c.conditions.poisoned > 0 }
+      : {},
+  );
+};
+
 // The enemies of combat encounters, standing and pacing in the world before the fight.
 const enemyFigures = new EnemyFigures(scene, (e) => combatSupport.defs[e.record.tableIndex]);
 // Bags the party dropped (drawn as sacks; containers are installed further down).
@@ -965,6 +995,7 @@ renderer.setAnimationLoop(() => {
       party.y,
       combat.active || encounters.busy,
     );
+    afterCombatInventory();
     bagFigures.update(
       containers.store.zone(zoneHost.current.zone).filter((c) => c.id.startsWith('bag:')),
       zoneHost.getHeight,

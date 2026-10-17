@@ -8,6 +8,7 @@ import {
   castSpell,
   currentFighter,
   defend,
+  inventoryTurn,
   fighterAt,
   flee,
   gone,
@@ -267,6 +268,22 @@ export class CombatController {
 
   applyCamera(): void {
     this.view?.applyCamera(this.host.camera);
+  }
+
+  /**
+   * The inventory may open in a fight only on a party member's own turn (manual: it uses that turn). Returns the
+   * character index whose turn it is, or undefined (not the party's turn, or no fight).
+   */
+  inventoryCharacter(): number | undefined {
+    if (!this.state || !this.yourTurn()) return undefined;
+    const id = currentFighter(this.state).id;
+    return id.startsWith('party') ? Number(id.slice(5)) : undefined;
+  }
+
+  /** The inventory closed: the turn is spent; what items did to the character carries into the fight. */
+  inventoryClosed(changes: Parameters<typeof inventoryTurn>[1]): void {
+    this.partyAction((s) => inventoryTurn(s, changes));
+    this.panel?.note('Opening the pack took the turn.');
   }
 
   private yourTurn(): boolean {

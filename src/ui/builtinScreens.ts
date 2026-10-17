@@ -68,8 +68,8 @@ class InventoryScreen implements HudScreenHandler {
   constructor(host: HudHost) {
     this.view = new InventoryView(host);
   }
-  open(): void {
-    this.view.open();
+  open(arg?: unknown): void {
+    this.view.open(typeof arg === 'number' ? arg : undefined);
   }
   close(): void {
     this.view.close();

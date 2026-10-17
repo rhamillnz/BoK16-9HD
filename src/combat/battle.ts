@@ -252,6 +252,7 @@ export type BattleEvent =
       missed?: boolean;
     }
   | { type: 'defend'; id: string }
+  | { type: 'inventory'; id: string }
   | { type: 'rest'; id: string; healed: number }
   | { type: 'assess'; id: string; target: string; facts: string[] }
   | { type: 'retreat'; id: string }
@@ -826,6 +827,29 @@ export function defend(s: BattleState): BattleState | undefined {
   return endTurn(s, s.fighters, [{ type: 'defend', id: currentFighter(s).id }], marked);
 }
 
+/**
+ * The current fighter opened the inventory (manual: that uses the turn, even if nothing is used). `changes` carries
+ * what using items did to the character (a potion's Health and Stamina, a cure) into the fight.
+ */
+export function inventoryTurn(
+  s: BattleState,
+  changes: Partial<Pick<Fighter, 'health' | 'stamina' | 'poisoned'>> = {},
+): BattleState | undefined {
+  if (isOver(s)) return undefined;
+  const i = s.turn.current;
+  const fighters = s.fighters.map((f, k) =>
+    k === i
+      ? {
+          ...f,
+          ...(changes.health !== undefined && { health: Math.min(f.maxHealth, Math.max(0, changes.health)) }),
+          ...(changes.stamina !== undefined && { stamina: Math.min(f.maxStamina, Math.max(0, changes.stamina)) }),
+          ...(changes.poisoned !== undefined && { poisoned: changes.poisoned }),
+        }
+      : f,
+  );
+  return endTurn(s, fighters, [{ type: 'inventory', id: fighters[i]!.id }]);
+}
+
 /** Share of Health plus Stamina a turn of rest restores (Health first, then Stamina). */
 export const REST_SHARE = 0.1;
 
@@ -982,6 +1006,8 @@ export function describeEvent(s: BattleState, e: BattleEvent): string {
       }
     case 'defend':
       return `${name(e.id)} defends.`;
+    case 'inventory':
+      return `${name(e.id)} spends the turn in the pack.`;
     case 'rest':
       return e.healed > 0 ? `${name(e.id)} rests and recovers ${e.healed}.` : `${name(e.id)} rests.`;
     case 'assess':

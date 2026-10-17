@@ -11,6 +11,7 @@ import {
   defend,
   enemyRetreat,
   flee,
+  inventoryTurn,
   lineOfSight,
   rest,
   retreatChance,
@@ -244,5 +245,25 @@ describe('poison in a fight (manual p. 51)', () => {
     const next = defend(s)!;
     expect(next.fighters[0]!.health).toBe(18);
     expect(next.events.some((e) => e.type === 'poison')).toBe(true);
+  });
+});
+
+describe('the inventory in a fight (manual: opening it uses the turn)', () => {
+  it('spends the turn, carrying what items did to the character into the fight', () => {
+    const s = startBattle(
+      [fighter('party0', 'party', 2, 1, { health: 5, poisoned: true }), fighter('m', 'enemy', 5, 5)],
+      [],
+      'party',
+    );
+    expect(currentFighter(s).id).toBe('party0');
+    const next = inventoryTurn(s, { health: 50, stamina: 7, poisoned: false })!;
+    const me = next.fighters.find((f) => f.id === 'party0')!;
+    expect(me.health).toBe(20); // capped at max
+    expect(me.stamina).toBe(7);
+    expect(me.poisoned).toBe(false);
+    expect(currentFighter(next).id).toBe('m');
+    expect(next.events.some((e) => e.type === 'inventory')).toBe(true);
+    // Nothing used: the turn still goes.
+    expect(currentFighter(inventoryTurn(s)!).id).toBe('m');
   });
 });
