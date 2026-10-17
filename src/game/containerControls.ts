@@ -38,7 +38,7 @@ import { removeItem, type PartyState } from './party';
 import type { ResourceArchive } from '../formats/archive';
 import { loadContainerData } from './containerData';
 import { registerSaveExtra } from './saveExtras';
-import type { WorldState } from './state';
+import { TICKS_PER_HOUR, type WorldState } from './state';
 import { isWordLockSolved, parseWordLock, startWordLock, turnTumbler, type WordLockState } from './wordLock';
 
 /** What the container flow needs from the running game. */
@@ -69,6 +69,8 @@ export interface ContainerHost {
   modelName?(model: number): string | undefined;
   /** Runs when the party goes for a container, before its lock (a chest ambush); false sends them away. */
   beforeOpen?(containerId: string): Promise<boolean>;
+  /** The party is underground (a dropped bag is safe there). */
+  underground?(): boolean;
   /**
    * The party can tell a chest is trapped: Scent of Sarig is in force (manual). Without it an armed trap goes
    * off as the chest is opened, with no warning. Default true.
@@ -104,12 +106,16 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
       console.warn(`word lock ${cur.lock!.fairyChestIndex}: riddle text missing or unreadable, opening the chest`);
       save({ ...cur, unlocked: true });
     } else {
-      const pick = await host.menu('A riddle is cut into the lid. Turn the tumblers to spell the answer.', [
-        'Try the riddle',
-        'Leave it',
-      ]);
+      // The clue plate is in Moredhel: only someone who reads it (Gorath) can make out the riddle.
+      const readable = readsMoredhel(host.getParty());
+      const pick = await host.menu(
+        readable
+          ? 'A riddle is cut into the lid. Turn the tumblers to spell the answer.'
+          : 'A clue plate is set into the lid, but it is written in Moredhel and nobody here can read it. The tumblers still turn.',
+        ['Try the lock', 'Leave it'],
+      );
       if (pick !== 0) return undefined;
-      let state: WordLockState = startWordLock(puzzle);
+      let state: WordLockState = startWordLock(readable ? puzzle : { ...puzzle, hint: UNREADABLE_PLATE });
       const view: WordLockView = {
         state: () => state,
         onTurn: (i) => (state = turnTumbler(state, i)),
@@ -184,12 +190,99 @@ async function getPast(host: ContainerHost, c: WorldContainer): Promise<WorldCon
   return cur;
 }
 
+/** Character index of Gorath, the one party member who reads Moredhel (manual: clue plates need such a reader). */
+export const MOREDHEL_READER = 1;
+export const UNREADABLE_PLATE = 'The plate is written in the Moredhel script. Nobody here can read it.';
+
+/** Someone in the active party reads Moredhel. */
+export const readsMoredhel = (p: PartyState): boolean => p.activeCharacters.includes(MOREDHEL_READER);
+
+// ---- Bags (manual: drop an item in a bag on the ground and come back for it) -----------------
+
+/** Items a dropped bag holds. */
+export const BAG_CAPACITY = 20;
+/** A drop this close (BaK units) to a bag already on the ground goes into that bag. */
+export const BAG_REACH = 600;
+/** Away this long (ticks), a bag in the open is probably emptied by passers-by (BAG_LOOT_CHANCE percent). */
+export const BAG_LOOT_AFTER = TICKS_PER_HOUR;
+export const BAG_LOOT_CHANCE = 75;
+
+export const isBag = (c: WorldContainer): boolean => c.id.startsWith('bag:');
+
+export interface BagHost {
+  items: readonly ItemDef[];
+  store: ContainerStore;
+  zone(): number;
+  position(): { x: number; y: number };
+  getParty(): PartyState;
+  setParty(p: PartyState): void;
+  now(): number;
+}
+
+/** Drop a pack item in a bag at the party's feet (the nearest bag within reach, or a new one). Returns a status line. */
+export function dropInBag(host: BagHost, character: number, slot: number): string {
+  const { x, y } = host.position();
+  const zone = host.zone();
+  const near = host.store
+    .zone(zone)
+    .filter((c) => isBag(c) && Math.hypot(c.x - x, c.y - y) <= BAG_REACH)
+    .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+  const bag: WorldContainer = near ?? {
+    id: `bag:${zone}:${Math.round(x)}:${Math.round(y)}:${host.now()}`,
+    zone,
+    x,
+    y,
+    model: 0,
+    fromChapter: 1,
+    toChapter: 9,
+    capacity: BAG_CAPACITY,
+    items: [],
+    unlocked: true,
+    trapSpent: true,
+  };
+  const party = host.getParty();
+  const name =
+    host.items[party.characters.find((c) => c.index === character)?.inventory.items[slot]?.itemIndex ?? -1]?.name;
+  const r = putItem(party, character, slot, bag, host.items);
+  if (!r.ok)
+    return r.reason === 'equipped'
+      ? 'Unequip it first.'
+      : r.reason === 'full'
+        ? 'The bag is full.'
+        : 'Nothing to drop.';
+  host.setParty(r.party);
+  const next = { ...r.container, seenAt: host.now() };
+  if (near) host.store.replace(next);
+  else host.store.addPile(next);
+  return `${name ?? 'It'} is left in a bag on the ground.`;
+}
+
+/**
+ * Coming back to a bag: away for an hour or more in the open (not underground), it has probably been emptied.
+ * Resolves true when it was (the bag is gone).
+ */
+export function bagLooted(bag: WorldContainer, now: number, underground: boolean, roll: number): boolean {
+  if (!isBag(bag) || underground || bag.seenAt === undefined) return false;
+  return now - bag.seenAt >= BAG_LOOT_AFTER && roll < BAG_LOOT_CHANCE;
+}
+
 /** One use of the E key: find a container in reach, get past its lock and trap, then show its contents. Resolves true when something was there. */
 export async function interact(host: ContainerHost): Promise<boolean> {
   const { x, y } = host.position();
   const found = nearestContainer(host.store.zone(host.zone()), x, y, host.chapter, host.getWorld());
   if (!found) return false;
   if (host.beforeOpen && !(await host.beforeOpen(found.id))) return true;
+  if (isBag(found)) {
+    const now = host.getWorld().ticks;
+    if (bagLooted(found, now, host.underground?.() ?? false, (host.roll ?? defaultRoll)())) {
+      host.store.replace({ ...found, items: [] });
+      await host.menu('Someone has been here: the bag is gone.', []);
+      return true;
+    }
+    const left = await open(host, found, 'Bag');
+    if (left && left.items.length > 0) host.store.replace({ ...left, seenAt: now });
+    return true;
+  }
   await open(host, found);
   return true;
 }
@@ -319,6 +412,7 @@ export interface ContainerSetup {
   canInteract(): boolean;
   playDialog?(key: number): Promise<void>;
   modelName?(model: number): string | undefined;
+  underground?(): boolean;
   beforeOpen?(containerId: string): Promise<boolean>;
   /** Scent of Sarig is in force: trapped chests are known before opening. */
   sensesTraps?(): boolean;
@@ -330,6 +424,8 @@ export interface Containers {
   openTown(gds: number, letter: string): Promise<boolean>;
   /** After a won fight: what the slain carried, to take what the party wants. */
   searchBodies(items: readonly ContainerItem[]): Promise<void>;
+  /** Drop a pack item in a bag at the party's feet; returns a status line. */
+  drop(character: number, slot: number): string;
 }
 
 /** E opens the container the party stands next to; town scenes open theirs with `openTown`. */
@@ -401,5 +497,6 @@ export async function installContainers(setup: ContainerSetup): Promise<Containe
     store,
     openTown: (gds, letter) => openTownContainer(host, gds, letter),
     searchBodies: (items) => searchBodies(host, items),
+    drop: (character, slot) => dropInBag({ ...host, now: () => host.getWorld().ticks }, character, slot),
   };
 }

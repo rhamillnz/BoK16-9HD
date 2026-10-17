@@ -3,7 +3,18 @@ import { SKILL_NAMES, type Character, type Skill } from '../formats/gam';
 import { ItemType, type ItemDef } from '../formats/objinfo';
 import type { ContainerView, WordLockView } from '../ui/containerScreen';
 import { ContainerStore, type WorldContainer } from './containers';
-import { containerSource, containerTitle, interact, searchBodies, type ContainerHost } from './containerControls';
+import {
+  containerSource,
+  containerTitle,
+  interact,
+  BAG_LOOT_AFTER,
+  BAG_LOOT_CHANCE,
+  bagLooted,
+  dropInBag,
+  searchBodies,
+  UNREADABLE_PLATE,
+  type ContainerHost,
+} from './containerControls';
 import type { PartyState } from './party';
 import { getFlag, type WorldState } from './state';
 import { ITEM_PICKLOCK } from './locks';
@@ -315,6 +326,27 @@ describe('interact', () => {
     expect(r.store.snapshot()['1:0']!.unlocked).toBe(true);
   });
 
+  it('only a reader of Moredhel (Gorath) can read the clue plate', async () => {
+    const c = chest({ lock: { flag: 0, rating: 0, fairyChestIndex: 3, trapDamage: 0 } });
+    const hints: string[] = [];
+    for (const active of [[0], [0, 1]]) {
+      const r = rig(c, [0], { riddle: 'OAK\n#\nASH\nELM\nOAK\n#a tree', solve: false });
+      const party = r.host.getParty();
+      r.host.setParty({
+        ...party,
+        characters: [party.characters[0]!, { ...party.characters[0]!, index: 1 }],
+        activeCharacters: active,
+      });
+      r.host.showWordLock = async (v) => {
+        hints.push(v.state().puzzle.hint);
+        return false;
+      };
+      await interact(r.host);
+      expect(r.menus[0]).toContain(active.length === 1 ? 'nobody here can read' : 'riddle is cut');
+    }
+    expect(hints).toEqual([UNREADABLE_PLATE, 'a tree']);
+  });
+
   it('giving up on the riddle keeps the chest shut', async () => {
     const c = chest({ lock: { flag: 0, rating: 0, fairyChestIndex: 3, trapDamage: 0 } });
     const r = rig(c, [0], { riddle: 'OAK\n#\nASH\nELM\nOAK\n#hint', solve: false });
@@ -372,5 +404,55 @@ describe('containerTitle', () => {
     ).toBe('Chest');
     expect(containerTitle(plain, 'rftshack')).toBe('Container');
     expect(containerTitle(plain)).toBe('Container');
+  });
+});
+
+describe('bags (manual: drop an item and come back for it)', () => {
+  const sword = { ...key(10), conditionOrQuantity: 100 };
+  const setup = (items = [sword, { ...sword }]) => {
+    const r = rig(chest({ x: 50000, y: 50000 }), [], { at: { x: 1000, y: 1000 } });
+    const party = r.host.getParty();
+    r.host.setParty({
+      ...party,
+      characters: [{ ...party.characters[0]!, inventory: { capacity: 6, items } }],
+    });
+    let now = 0;
+    const bagHost = { ...r.host, now: () => now };
+    return { r, bagHost, setNow: (t: number) => (now = t) };
+  };
+
+  it('leaves the item in a bag at the party’s feet, and the next drop goes in the same bag', () => {
+    const { r, bagHost } = setup();
+    expect(dropInBag(bagHost, 0, 0)).toContain('left in a bag');
+    expect(dropInBag(bagHost, 0, 0)).toContain('left in a bag');
+    const bags = r.store.zone(1).filter((c) => c.id.startsWith('bag:'));
+    expect(bags).toHaveLength(1);
+    expect(bags[0]!.items).toHaveLength(2);
+    expect(r.party().characters[0]!.inventory.items).toHaveLength(0);
+    expect(r.store.pileList()).toHaveLength(1);
+  });
+
+  it('will not drop what is worn', () => {
+    const { bagHost } = setup([{ ...sword, equipped: true }]);
+    expect(dropInBag(bagHost, 0, 0)).toBe('Unequip it first.');
+  });
+
+  it('a bag left in the open for an hour is probably emptied; underground it is safe', () => {
+    const bag = { ...chest(), id: 'bag:1:0:0:0', seenAt: 0 };
+    expect(bagLooted(bag, BAG_LOOT_AFTER - 1, false, 0)).toBe(false);
+    expect(bagLooted(bag, BAG_LOOT_AFTER, false, BAG_LOOT_CHANCE - 1)).toBe(true);
+    expect(bagLooted(bag, BAG_LOOT_AFTER, false, BAG_LOOT_CHANCE)).toBe(false);
+    expect(bagLooted(bag, BAG_LOOT_AFTER, true, 0)).toBe(false);
+    expect(bagLooted(chest(), BAG_LOOT_AFTER, false, 0)).toBe(false);
+  });
+
+  it('coming back to a looted bag finds it gone', async () => {
+    const { r, bagHost } = setup();
+    dropInBag(bagHost, 0, 0);
+    r.world().ticks = BAG_LOOT_AFTER * 2;
+    r.host.roll = () => 0;
+    expect(await interact(r.host)).toBe(true);
+    expect(r.menus.at(-1)).toContain('the bag is gone');
+    expect(r.store.pileList()).toHaveLength(0);
   });
 });

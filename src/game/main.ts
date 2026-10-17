@@ -33,6 +33,7 @@ import { TICKS_PER_DAY, hourOfDay } from './state';
 import { isUndergroundZone } from '../world/underground';
 import { NpcFigures } from '../render/npcFigures';
 import { EnemyFigures } from '../render/enemyFigures';
+import { BagFigures } from '../render/bagFigures';
 import { loadChapterStart } from '../world/zone';
 import { warnIfOffMap } from './chapterStartCheck';
 import { CELL_SIZE, TILE_SIZE } from '../formats/world';
@@ -603,6 +604,8 @@ const npcFigures = new NpcFigures(scene, (actor) => {
 
 // The enemies of combat encounters, standing and pacing in the world before the fight.
 const enemyFigures = new EnemyFigures(scene, (e) => combatSupport.defs[e.record.tableIndex]);
+// Bags the party dropped (drawn as sacks; containers are installed further down).
+const bagFigures = new BagFigures(scene);
 
 // Save and load: F5 quick-save, F9 quick-load, F6 slot screen, and the autosave.
 let cutsceneActive = () => false; // the cutscene player is installed further down
@@ -665,6 +668,9 @@ installItemControls({
   setItemHandler: (h) => {
     screens.itemHandler = h;
   },
+  // Dropped items go in a bag on the ground (the containers are installed further down).
+  drop: (character, slot) =>
+    town.active || combat.active ? 'There is nowhere to leave it here.' : containers.drop(character, slot),
 });
 
 // ?screen=inventory (or sheet, map...) opens a HUD screen once the game is up; used by screenshot scripts.
@@ -742,6 +748,7 @@ const containers = await installContainers({
   beforeOpen: chestAmbush,
   // Only Scent of Sarig (timed slot 5) shows a chest is trapped.
   sensesTraps: () => staticSpellActive(cast.lights, 5, clock.state.ticks),
+  underground: () => isUndergroundZone(zoneHost.current.zone),
   archive,
   items: objectItems,
   get chapter() {
@@ -956,6 +963,10 @@ renderer.setAnimationLoop(() => {
       party.x,
       party.y,
       combat.active || encounters.busy,
+    );
+    bagFigures.update(
+      containers.store.zone(zoneHost.current.zone).filter((c) => c.id.startsWith('bag:')),
+      zoneHost.getHeight,
     );
   }
   weather.schedule(

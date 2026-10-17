@@ -21,7 +21,7 @@ export interface SaveHandler {
 /** What the inventory screen asks of the game when the player acts on an item. Returns a status line. */
 export interface ItemHandler {
   /** `target` is the recipient's character index; `give` needs it (there is no default recipient). */
-  act(action: 'use' | 'equip' | 'give' | 'repair', character: number, slot: number, target?: number): string;
+  act(action: 'use' | 'equip' | 'give' | 'repair' | 'drop', character: number, slot: number, target?: number): string;
 }
 
 export type HudEvent = { type: 'key'; key: string } | { type: 'click' | 'hover' | 'rightClick'; x: number; y: number };

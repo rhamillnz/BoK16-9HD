@@ -13,6 +13,8 @@ export interface ItemControlsHost {
   getParty(): PartyState;
   setParty(p: PartyState): void;
   setItemHandler(h: ItemHandler): void;
+  /** Leave the item in a bag on the ground; returns a status line. */
+  drop?(character: number, slot: number): string;
 }
 
 /** Wire the inventory screen's use/equip/give/repair keys to the party state. */
@@ -39,6 +41,8 @@ export function installItemControls(host: ItemControlsHost): void {
         case 'repair':
           r = repairItem(p, character, slot, host.items);
           break;
+        case 'drop':
+          return host.drop?.(character, slot) ?? 'Items cannot be dropped here.';
         case 'give':
           r =
             target === undefined

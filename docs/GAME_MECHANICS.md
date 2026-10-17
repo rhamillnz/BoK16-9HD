@@ -728,9 +728,9 @@ DIFF = implemented differently; NO = missing.
 | Enhancements and resistances | PARTIAL | maths done; monster resistances from the original table (docs/formats/combat-audit.md); poisoned blades poison; no hit visuals |
 | Racial weapon penalty | PARTIAL | party treated as race-less |
 | Keys, picks, best picker, disarm | YES | `game/locks.ts`, `containerControls.ts` |
-| Scent of Sarig detects traps | NO | |
-| Drop items in bags | NO | |
-| Wordlocks | YES/PARTIAL | the clue plate shows without the Moredhel-reading check |
+| Scent of Sarig detects traps | YES | only Scent of Sarig warns of a trapped chest |
+| Drop items in bags | YES | inventory D drops into a bag on the ground (a sack in the world, saved); bags in the open are probably emptied after an hour away |
+| Wordlocks | YES | the clue plate reads only with Gorath in the party |
 | Temples: teleport, bless, cure | YES | `game/temple.ts` |
 | Follow Road | YES | H: from the middle of a road; steers along it, stops at forks and road ends, keeps the party on it (src/world/followRoad.ts) |
 | Map: N, dark dungeons, town colours | YES | Tab: local map centred on the party, +/- zoom, N north-up, roads drawn, dungeons dark until explored (saved); F: the full kingdom map (FULLMAP.SCX) with cities white, towns brown, names on hover, the party flashing. The city/town split is ours. Walking with the map open works |

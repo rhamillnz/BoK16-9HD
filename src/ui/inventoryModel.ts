@@ -252,7 +252,7 @@ export function compareWithEquipped(row: InvRow, packRows: readonly InvRow[], de
   return { against, stats };
 }
 
-export type InvActionId = 'use' | 'equip' | 'repair' | 'give';
+export type InvActionId = 'use' | 'equip' | 'repair' | 'give' | 'drop';
 
 export interface InvAction {
   id: InvActionId;
@@ -346,6 +346,14 @@ export function actionsFor(row: InvRow, ctx: ActionContext): InvAction[] {
     else if (!partyHasTool(ctx.party, ctx.defs)) reason = 'Nobody in the party carries a tool to repair with.';
     out.push({ id: 'repair', label: 'Repair', enabled: reason === undefined, reason });
   }
+
+  // Drop in a bag on the ground (manual: come back for it later)
+  out.push({
+    id: 'drop',
+    label: 'Drop',
+    enabled: !row.equipped,
+    reason: row.equipped ? `Unequip ${row.name} first.` : undefined,
+  });
 
   // Give to each other member
   for (const c of ctx.party) {

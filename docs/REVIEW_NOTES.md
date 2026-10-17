@@ -413,3 +413,11 @@ Characters:
 - **Tomas:** cropped hair, a bigger jaw and broader shoulders, 1.93 m.
 
 Review page round 2: collection `talkers2`.
+
+## Clue plates and bags (Opus, 2026-10-17)
+
+- **Wordlock clue plates** (manual: the plate is in Moredhel). Only Gorath (character index 1, `MOREDHEL_READER`) reads Moredhel. With him in the active party the riddle shows as before. Without him the prompt says the plate can't be read, and the word-lock screen shows `UNREADABLE_PLATE` instead of the hint; the tumblers still turn.
+- **Bags** (manual):
+  - Inventory D (or the Drop button) leaves the item in a bag at the party's feet. A drop within 600 units of a bag goes into that bag, which holds 20 items; worn items must be unequipped first. Dropping isn't possible in towns or in fights.
+  - Bags are saved piles (as the bodies are) and stand in the world as small tied sacks (`render/bagFigures.ts`). E opens one.
+  - Coming back after an hour or more away, a bag in the open has a 75% chance (`BAG_LOOT_CHANCE`) to have been emptied by passers-by. Underground it is safe. The manual says a locked chest is the safe stash; putting items in containers already worked.

@@ -96,10 +96,10 @@ const CSS = `
 .inv-menu div.off:hover{background:none}
 `;
 
-const KEYS_HINT = '↑↓ choose   Enter use   X equip   G give   R repair   1-6 / Tab character   Esc close';
+const KEYS_HINT = '↑↓ choose   Enter use   X equip   G give   R repair   D drop   1-6 / Tab character   Esc close';
 
 /** Which keyboard shortcuts ask for which action. */
-export function actionForKey(key: string): 'use' | 'equip' | 'give' | 'repair' | undefined {
+export function actionForKey(key: string): 'use' | 'equip' | 'give' | 'repair' | 'drop' | undefined {
   switch (key.length === 1 ? key.toLowerCase() : key) {
     case 'Enter':
     case 'u':
@@ -110,6 +110,8 @@ export function actionForKey(key: string): 'use' | 'equip' | 'give' | 'repair' |
       return 'give';
     case 'r':
       return 'repair';
+    case 'd':
+      return 'drop';
     default:
       return undefined;
   }

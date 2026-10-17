@@ -45,6 +45,8 @@ export interface WorldContainer {
   requireFlag?: number;
   /** Event flag set when the container is opened. */
   setFlag?: number;
+  /** A dropped bag: when the party last left it (ticks); passers-by may empty it after a while. */
+  seenAt?: number;
 }
 
 /** What changes while playing: everything else is rebuilt from the data. */
