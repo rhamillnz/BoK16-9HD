@@ -429,3 +429,14 @@ Gravestones (containers whose model is `tstone1`–`tstone5` or `tmbstone`; 24 i
 - Digging has a 50% chance (`SHADE_CHANCE`, ours; the manual says only that it can happen) of raising shades. The fight is one of DEF_COMB 389–393, two shades each, an entry that no zone places; each grave always gets the same one.
 - Lose and the grave stays undug. Win, or meet no shades, and the grave is dug for good (kept in the save as the container's `unlocked`) and its contents show.
 - Before this, gravestones simply opened like boxes.
+
+## Enchanted hit effects (Opus, 2026-10-17)
+
+The manual's table of effects shown on the target. A landed melee blow from an enchanted or poisoned weapon now carries `effect` on its attack event (`hitEffect` in rules.ts). The combat view draws it as the hit lands (`SpellFx.hit`):
+- poison: a green flash
+- Flaming or SteelFire: red embers that fly out and fall
+- Frost: pale blue sparkles that hang and twinkle
+- Clerical 1 (Blessing1): a white glow
+- Clerical 2/3: a blue glow
+
+Staves carry none. Unit-tested only: the dev server was stopped by the memory reaper, so this has not been looked at in the game yet.

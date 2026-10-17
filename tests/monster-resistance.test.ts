@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   HitFlag,
+  hitEffect,
   ItemMod,
   MONSTER_RESISTANCE,
   RaceKind,
@@ -48,5 +49,18 @@ describe('monster resistances (the original table)', () => {
 
   it('a staff blow carries no enchantment or poison', () => {
     expect(weaponHitFlags(sword({ poisoned: true, modifiers: ItemMod.Frost }), true)).toBe(HitFlag.Weapon);
+  });
+});
+
+describe('enchanted blows show on the target (manual)', () => {
+  it('maps each enchantment to its effect', () => {
+    expect(hitEffect(sword({ poisoned: true }))).toBe('poison');
+    expect(hitEffect(sword({ modifiers: ItemMod.Flaming }))).toBe('flame');
+    expect(hitEffect(sword({ modifiers: ItemMod.SteelFire }))).toBe('flame');
+    expect(hitEffect(sword({ modifiers: ItemMod.Frost }))).toBe('frost');
+    expect(hitEffect(sword({ modifiers: ItemMod.Blessing1 }))).toBe('blessed');
+    expect(hitEffect(sword({ modifiers: ItemMod.Blessing2 }))).toBe('holy');
+    expect(hitEffect(sword())).toBeUndefined();
+    expect(hitEffect(sword({ modifiers: ItemMod.Frost }), true)).toBeUndefined();
   });
 });

@@ -27,3 +27,18 @@ describe('spell effects', () => {
     fx.dispose();
   });
 });
+
+describe('hit effects', () => {
+  it('each enchantment throws its light and then clears', () => {
+    const fx = new SpellFx();
+    const at = new THREE.Vector3();
+    fx.hit('poison', at, 0);
+    fx.hit('flame', at, 0);
+    fx.hit('frost', at, 0);
+    fx.hit('holy', at, 0);
+    expect(fx.active).toBeGreaterThan(20);
+    for (let i = 0; i < 20; i++) fx.tick(0.1);
+    expect(fx.active).toBe(0);
+    fx.dispose();
+  });
+});

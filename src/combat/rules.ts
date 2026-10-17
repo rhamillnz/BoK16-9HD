@@ -256,6 +256,21 @@ export function weaponHitFlags(weapon: WeaponStats | undefined, staff = false): 
   return flags;
 }
 
+/** What an enchanted or poisoned blow shows on its target (manual): a green flash, red sparks, a blue sparkle, a glow. */
+export type HitEffect = 'poison' | 'flame' | 'frost' | 'blessed' | 'holy';
+
+/** The effect of a weapon's blow, if it carries one. A staff carries none. */
+export function hitEffect(weapon: WeaponStats | undefined, staff = false): HitEffect | undefined {
+  if (!weapon || staff) return undefined;
+  const mods = weapon.modifiers ?? 0;
+  if (mods & (ItemMod.Flaming | ItemMod.SteelFire)) return 'flame';
+  if (mods & ItemMod.Frost) return 'frost';
+  if (mods & (ItemMod.Blessing2 | ItemMod.Blessing3)) return 'holy';
+  if (mods & ItemMod.Blessing1) return 'blessed';
+  if (weapon.poisoned) return 'poison';
+  return undefined;
+}
+
 /** Damage to a monster after its weakness (+50%) and then its resistance (half). Party members are unaffected. */
 export function monsterDamage(monster: number | undefined, flags: number, damage: number): number {
   if (monster === undefined) return damage;

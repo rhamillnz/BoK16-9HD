@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import type { CastKind } from '../combat/battle';
+import type { HitEffect } from '../combat/rules';
 
 /**
  * What a spell looks like in a fight: a glowing orb that leaves the caster's hands and flies to a hostile
@@ -105,6 +106,47 @@ export class SpellFx {
       e.object.scale.setScalar(1 + 4 * k);
       mat.opacity = 1 - k;
     });
+  }
+
+  /**
+   * Sparks thrown off a struck fighter: `fall` pulls them down (embers); without it they hang and twinkle (frost).
+   */
+  sparks(at: THREE.Vector3, color: number, delay: number, fall: boolean, count = 14): void {
+    const p = at.clone().add(new THREE.Vector3(0, CHEST_HEIGHT, 0));
+    for (let i = 0; i < count; i++) {
+      const mat = glowMaterial(color);
+      const spark = new THREE.Mesh(this.sphere, mat);
+      const a = (i / count) * Math.PI * 2 + i * 0.7;
+      const v = new THREE.Vector3(Math.cos(a), 0.6 + (0.8 * ((i * 37) % 10)) / 10, Math.sin(a)).multiplyScalar(
+        fall ? 1.6 : 0.7,
+      );
+      this.add(spark, mat, delay, fall ? 0.5 : 0.8, (e, k) => {
+        const t = k * (fall ? 0.5 : 0.8);
+        e.object.position.set(p.x + v.x * t, p.y + v.y * t - (fall ? 4.5 * t * t : 0), p.z + v.z * t);
+        e.object.scale.setScalar(fall ? 0.25 * (1 - k) : 0.2 * (0.5 + 0.5 * Math.sin(k * 30 + i)));
+        mat.opacity = 1 - k;
+      });
+    }
+  }
+
+  /** A soft glow swelling round a struck fighter (a blessed blade). */
+  glow(at: THREE.Vector3, color: number, delay: number): void {
+    const p = at.clone().add(new THREE.Vector3(0, CHEST_HEIGHT, 0));
+    const mat = glowMaterial(color);
+    const g = new THREE.Mesh(this.sphere, mat);
+    g.position.copy(p);
+    this.add(g, mat, delay, 0.6, (e, k) => {
+      e.object.scale.setScalar(2 + 4 * Math.sin(k * Math.PI));
+      mat.opacity = 0.45 * Math.sin(k * Math.PI);
+    });
+  }
+
+  /** What a landed enchanted or poisoned blow shows (manual): a green flash, red sparks, a blue sparkle, a glow. */
+  hit(effect: HitEffect, at: THREE.Vector3, delay: number): void {
+    if (effect === 'poison') this.burst(at, 0x3dff4a, delay);
+    else if (effect === 'flame') this.sparks(at, 0xff4a1a, delay, true);
+    else if (effect === 'frost') this.sparks(at, 0x8fd0ff, delay, false);
+    else this.glow(at, effect === 'holy' ? 0x6fa8ff : 0xffffff, delay);
   }
 
   /** A ring of light rising round a fighter (a friendly spell). */

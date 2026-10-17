@@ -51,6 +51,8 @@ import {
   rangedDamage,
   rollToHitRanged,
   HitFlag,
+  hitEffect,
+  type HitEffect,
   monsterDamage,
   resistsPoison,
   weaponHitFlags,
@@ -217,6 +219,8 @@ export type BattleEvent =
       hit: boolean;
       damage: number;
       killed: boolean;
+      /** An enchanted or poisoned blow that landed. */
+      effect?: HitEffect;
     }
   | {
       type: 'shoot';
@@ -490,7 +494,17 @@ export function attack(s: BattleState, target: GridPos, roll: Roll, opts: Attack
   } else if (victim.defending) victim.riposte = attacker.id;
   if (riposte) attacker.riposte = undefined;
   const killed = isDead(victim);
-  events.push({ type: 'attack', attacker: attacker.id, target: victim.id, kind, hit, damage, killed });
+  const effect = hit ? hitEffect(attacker.weapon, attacker.weapon?.conditionBased === false) : undefined;
+  events.push({
+    type: 'attack',
+    attacker: attacker.id,
+    target: victim.id,
+    kind,
+    hit,
+    damage,
+    killed,
+    ...(effect && { effect }),
+  });
   return endTurn(s, fighters, events);
 }
 

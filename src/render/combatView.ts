@@ -251,7 +251,10 @@ export class CombatView {
           // No crossbow clip in the animation kit (its "shoot" is a pistol): a shot plays the attack.
           a?.act('attack', a.walking ? 0.4 : 0);
           if (e.hit) struck(e.target, e.killed, 0.45);
-          else actorOf(e.target)?.act('block', 0.25);
+          if (e.type === 'attack' && e.effect) {
+            const p = actorOf(e.target)?.object.position ?? target;
+            if (p) this.fx.hit(e.effect, p, 0.45);
+          } else actorOf(e.target)?.act('block', 0.25);
           if (e.type === 'shoot' && e.stray) struck(e.stray.target, e.stray.killed, 0.5);
           break;
         }
