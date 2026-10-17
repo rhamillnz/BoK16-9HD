@@ -749,6 +749,7 @@ const containers = await installContainers({
   // Only Scent of Sarig (timed slot 5) shows a chest is trapped.
   sensesTraps: () => staticSpellActive(cast.lights, 5, clock.state.ticks),
   underground: () => isUndergroundZone(zoneHost.current.zone),
+  fight: (n) => combat.ambush(n),
   archive,
   items: objectItems,
   get chapter() {

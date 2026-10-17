@@ -39,6 +39,7 @@ import type { ResourceArchive } from '../formats/archive';
 import { loadContainerData } from './containerData';
 import { registerSaveExtra } from './saveExtras';
 import { TICKS_PER_HOUR, type WorldState } from './state';
+import type { CombatOutcome } from '../combat/turns';
 import { isWordLockSolved, parseWordLock, startWordLock, turnTumbler, type WordLockState } from './wordLock';
 
 /** What the container flow needs from the running game. */
@@ -71,6 +72,8 @@ export interface ContainerHost {
   beforeOpen?(containerId: string): Promise<boolean>;
   /** The party is underground (a dropped bag is safe there). */
   underground?(): boolean;
+  /** Fight a DEF_COMB entry here (shades from a dug grave); undefined when fights are unavailable. */
+  fight?(combat: number): Promise<CombatOutcome | undefined>;
   /**
    * The party can tell a chest is trapped: Scent of Sarig is in force (manual). Without it an armed trap goes
    * off as the chest is opened, with no warning. Default true.
@@ -197,6 +200,52 @@ export const UNREADABLE_PLATE = 'The plate is written in the Moredhel script. No
 /** Someone in the active party reads Moredhel. */
 export const readsMoredhel = (p: PartyState): boolean => p.activeCharacters.includes(MOREDHEL_READER);
 
+// ---- Graves (manual: digging one up can start a fight with shades) ---------------------------
+
+/** OBJINFO index of the Shovel: digging needs one. */
+export const ITEM_SHOVEL = 83;
+/** DEF_COMB entries of two shades each that no zone places: the graves' guardians (one picked per grave). */
+export const GRAVE_SHADE_COMBATS: readonly number[] = [389, 390, 391, 392, 393];
+/** Chance (percent) that digging disturbs the dead. The manual says only that it can. */
+export const SHADE_CHANCE = 50;
+
+/** Gravestones are containers whose model is a tombstone; what lies buried is their contents. */
+export const isGrave = (modelName: string | undefined): boolean => /^(tstone\d|tmbstone)/i.test(modelName ?? '');
+
+/** Somebody in the active party carries a shovel. */
+export function hasShovel(p: PartyState): boolean {
+  return p.characters.some(
+    (c) => p.activeCharacters.includes(c.index) && c.inventory.items.some((i) => i.itemIndex === ITEM_SHOVEL),
+  );
+}
+
+/** The shade fight a grave holds: one of the five, the same one every time for that grave. */
+export const graveShades = (id: string): number =>
+  GRAVE_SHADE_COMBATS[[...id].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 0) % GRAVE_SHADE_COMBATS.length]!;
+
+/**
+ * A grave: its epitaph, then the choice to dig (with a shovel). Digging may raise shades; beaten, the grave stays
+ * shut. Dug (the `unlocked` flag, as a grave has no lock), its contents show from then on. Resolves true when the
+ * grave can be opened.
+ */
+async function digGrave(host: ContainerHost, grave: WorldContainer): Promise<boolean> {
+  if (grave.unlocked) return true;
+  if (grave.dialogKey !== undefined && host.playDialog) await host.playDialog(grave.dialogKey);
+  if (!hasShovel(host.getParty())) {
+    await host.menu('Something may lie buried here, but you would need a shovel to dig.', []);
+    return false;
+  }
+  const pick = await host.menu('Dig up the grave?', ['Dig', 'Leave it be']);
+  if (pick !== 0) return false;
+  if ((host.roll ?? defaultRoll)() < SHADE_CHANCE && host.fight) {
+    await host.menu('The earth stirs and grey shapes rise from it. Shades!', ['Fight!']);
+    const outcome = await host.fight(graveShades(grave.id));
+    if (outcome !== undefined && outcome !== 'won') return false;
+  }
+  host.store.replace({ ...grave, unlocked: true });
+  return true;
+}
+
 // ---- Bags (manual: drop an item in a bag on the ground and come back for it) -----------------
 
 /** Items a dropped bag holds. */
@@ -272,6 +321,13 @@ export async function interact(host: ContainerHost): Promise<boolean> {
   const found = nearestContainer(host.store.zone(host.zone()), x, y, host.chapter, host.getWorld());
   if (!found) return false;
   if (host.beforeOpen && !(await host.beforeOpen(found.id))) return true;
+  if (isGrave(host.modelName?.(found.model))) {
+    if (!(await digGrave(host, found))) return true;
+    const dug = host.store.zone(found.zone).find((c) => c.id === found.id) ?? found;
+    // The epitaph played before the dig; do not play it again on closing.
+    await open(host, { ...dug, dialogKey: undefined }, 'Grave');
+    return true;
+  }
   if (isBag(found)) {
     const now = host.getWorld().ticks;
     if (bagLooted(found, now, host.underground?.() ?? false, (host.roll ?? defaultRoll)())) {
@@ -412,6 +468,7 @@ export interface ContainerSetup {
   canInteract(): boolean;
   playDialog?(key: number): Promise<void>;
   modelName?(model: number): string | undefined;
+  fight?(combat: number): Promise<CombatOutcome | undefined>;
   underground?(): boolean;
   beforeOpen?(containerId: string): Promise<boolean>;
   /** Scent of Sarig is in force: trapped chests are known before opening. */

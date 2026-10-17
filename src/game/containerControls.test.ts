@@ -11,6 +11,11 @@ import {
   BAG_LOOT_CHANCE,
   bagLooted,
   dropInBag,
+  GRAVE_SHADE_COMBATS,
+  graveShades,
+  isGrave,
+  ITEM_SHOVEL,
+  SHADE_CHANCE,
   searchBodies,
   UNREADABLE_PLATE,
   type ContainerHost,
@@ -454,5 +459,63 @@ describe('bags (manual: drop an item and come back for it)', () => {
     expect(await interact(r.host)).toBe(true);
     expect(r.menus.at(-1)).toContain('the bag is gone');
     expect(r.store.pileList()).toHaveLength(0);
+  });
+});
+
+describe('graves (manual: digging one up can start a fight with shades)', () => {
+  const grave = () => chest({ id: '1:0', model: 3, lock: undefined, dialogKey: 100031 });
+  const setup = (shovel: boolean, roll: number[], outcome?: 'won' | 'dead') => {
+    const r = rig(grave(), [0, 0], { roll });
+    const party = r.host.getParty();
+    r.host.setParty({
+      ...party,
+      characters: [{ ...party.characters[0]!, inventory: { capacity: 6, items: shovel ? [key(ITEM_SHOVEL)] : [] } }],
+    });
+    const epitaphs: number[] = [];
+    const fights: number[] = [];
+    r.host.modelName = () => 'tstone1';
+    r.host.playDialog = async (k) => {
+      epitaphs.push(k);
+    };
+    r.host.fight = async (n) => {
+      fights.push(n);
+      return outcome;
+    };
+    return { r, epitaphs, fights };
+  };
+
+  it('shows the epitaph and needs a shovel to dig', async () => {
+    const { r, epitaphs } = setup(false, []);
+    await interact(r.host);
+    expect(epitaphs).toEqual([100031]);
+    expect(r.menus[0]).toContain('need a shovel');
+    expect(r.shown.view).toBeUndefined();
+  });
+
+  it('digging may raise shades; beaten, the grave stays shut', async () => {
+    const { r, fights } = setup(true, [0], 'dead');
+    await interact(r.host);
+    expect(r.menus.some((m) => m.includes('Shades!'))).toBe(true);
+    expect(fights).toHaveLength(1);
+    expect(GRAVE_SHADE_COMBATS).toContain(fights[0]);
+    expect(r.shown.view).toBeUndefined();
+  });
+
+  it('won (or left in peace), the grave opens and stays dug', async () => {
+    const won = setup(true, [0], 'won');
+    await interact(won.r.host);
+    expect(won.r.shown.view?.title).toBe('Grave');
+    const quiet = setup(true, [SHADE_CHANCE]);
+    await interact(quiet.r.host);
+    expect(quiet.fights).toHaveLength(0);
+    expect(quiet.r.shown.view).toBeDefined();
+    expect(quiet.r.store.zone(1)[0]!.unlocked).toBe(true);
+  });
+
+  it('knows its graves and gives each the same shades every time', () => {
+    expect(isGrave('tstone3')).toBe(true);
+    expect(isGrave('tmbstone')).toBe(true);
+    expect(isGrave('chest')).toBe(false);
+    expect(graveShades('1:0')).toBe(graveShades('1:0'));
   });
 });

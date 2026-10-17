@@ -421,3 +421,11 @@ Review page round 2: collection `talkers2`.
   - Inventory D (or the Drop button) leaves the item in a bag at the party's feet. A drop within 600 units of a bag goes into that bag, which holds 20 items; worn items must be unequipped first. Dropping isn't possible in towns or in fights.
   - Bags are saved piles (as the bodies are) and stand in the world as small tied sacks (`render/bagFigures.ts`). E opens one.
   - Coming back after an hour or more away, a bag in the open has a 75% chance (`BAG_LOOT_CHANCE`) to have been emptied by passers-by. Underground it is safe. The manual says a locked chest is the safe stash; putting items in containers already worked.
+
+## Graves and shades (Opus, 2026-10-17)
+
+Gravestones (containers whose model is `tstone1`–`tstone5` or `tmbstone`; 24 in the game) now behave as graves:
+- E plays the epitaph, then offers to dig. Digging needs a Shovel (item 83) in the active party.
+- Digging has a 50% chance (`SHADE_CHANCE`, ours; the manual says only that it can happen) of raising shades. The fight is one of DEF_COMB 389–393, two shades each, an entry that no zone places; each grave always gets the same one.
+- Lose and the grave stays undug. Win, or meet no shades, and the grave is dug for good (kept in the save as the container's `unlocked`) and its contents show.
+- Before this, gravestones simply opened like boxes.
